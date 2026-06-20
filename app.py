@@ -335,7 +335,7 @@ def award_links(origin: str, dest: str, dep: str, ret: str | None, cabin: str) -
         {"name": "AwardFares", "url": f"https://awardfares.com/search?origin={origin}&destination={dest}"},
         {"name": "Seats.aero", "url": f"https://seats.aero/search?origin={origin}&destination={dest}"},
         {"name": "Singapore KrisFlyer", "url": "https://www.singaporeair.com/"},
-        {"name": "Google Search" if cabin else "Google Search", "url": f"https://www.google.com/search?q={q}"},
+        {"name": "Google Search", "url": f"https://www.google.com/search?q={q}"},
     ]
 
 
@@ -514,3 +514,4 @@ def health():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=PORT, debug=os.environ.get("FLASK_DEBUG", "0") == "1")
+
