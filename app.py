@@ -497,7 +497,7 @@ def cheap():
                 if mm_only and airline and airline not in MM_AIRLINES:
                     continue
                 offers.append(offer_from_tp(row, currency))
-        if SERPAPI_KEY:
+    if SERPAPI_KEY:
         for origin in origins[:2]:
             for dest in dests[:2]:
                 if origin == dest:
@@ -507,7 +507,7 @@ def cheap():
                 except Exception as exc:
                     warnings.append(f"Google Flights {origin}→{dest}: {exc}")
 
-offers.sort(key=lambda x: x.get("price") or 10**9)
+    offers.sort(key=lambda x: x.get("price") or 10**9)
     fallback = [{"route": f"{o} → {d}", "links": links_for(o, d, dep.isoformat(), ret.isoformat() if ret else None)} for o in origins[:2] for d in dests[:3] if o != d]
     return jsonify({
         "ok": True,
