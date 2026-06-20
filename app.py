@@ -25,13 +25,23 @@ from urllib3.util.retry import Retry
 APP_NAME = "AwardRadar"
 TAGLINE = "Find miles. Fly better."
 TP_TOKEN = os.environ.get("TRAVELPAYOUTS_TOKEN", "")
-SERPAPI_KEY = os.environ.get("SERPAPI_KEY", "")
 APP_TOKEN = os.environ.get("APP_TOKEN", "")
 TP_BASE = "https://api.travelpayouts.com"
 AUTOCOMPLETE_BASE = "https://autocomplete.travelpayouts.com/places2"
 PORT = int(os.environ.get("PORT", "5000"))
 SKIPLAG_MAX_WORKERS = int(os.environ.get("SKIPLAG_MAX_WORKERS", "8"))
 SKIPLAG_MAX_CANDIDATES = int(os.environ.get("SKIPLAG_MAX_CANDIDATES", "16"))
+
+# --- Echtzeitpreise via SerpApi (Google Flights) ---------------------------
+# PRICE_SOURCE steuert die Quelle für /api/cheap:
+#   "serpapi"       -> echte Google-Flights-Preise (Standard, wenn SERPAPI_TOKEN gesetzt)
+#   "travelpayouts" -> alter Cache als Fallback
+SERPAPI_TOKEN = os.environ.get("SERPAPI_TOKEN", "")
+SERPAPI_BASE = "https://serpapi.com/search"
+PRICE_SOURCE = (os.environ.get("PRICE_SOURCE") or ("serpapi" if SERPAPI_TOKEN else "travelpayouts")).lower()
+SERPAPI_TTL = int(os.environ.get("SERPAPI_TTL", "600"))        # Cache-Lebensdauer in Sekunden (spart Calls/Geld)
+SERPAPI_MAX_PAIRS = int(os.environ.get("SERPAPI_MAX_PAIRS", "2"))  # max. Origin/Dest-Paare pro Klick (= Anzahl bezahlter Suchen)
+SERPAPI_DEEP = (os.environ.get("SERPAPI_DEEP", "0") == "1")    # exakt wie im Browser, aber langsamer
 
 app = Flask(__name__)
 
@@ -69,6 +79,7 @@ TEXT = {
     "missing_hidden": {"de": "Bitte Start und eigentliches Ziel eingeben.", "en": "Please enter origin and intended destination."},
     "api_guard": {"de": "API geschützt. Öffne die App einmal mit ?key=DEIN_APP_TOKEN.", "en": "API protected. Open the app once with ?key=YOUR_APP_TOKEN."},
     "cheap_note": {"de": "Travelpayouts ist cache-basiert. Wenn keine Preise kommen, nutze die Live-Links; v6 zeigt echte Cachepreise, wenn verfügbar, und kennzeichnet Hidden-City nur als prüfpflichtige Kandidaten.", "en": "Travelpayouts is cache-based. If no prices appear, use the live links; v6 displays cached fares when available and labels hidden-city results as candidates that must be verified."},
+    "cheap_note_live": {"de": "Echtzeitpreise via Google Flights (SerpApi). Preise sind live und können sich beim Buchen ändern; zum Vergleich vor der Buchung bestätigen.", "en": "Live prices via Google Flights (SerpApi). Prices are live and may change at booking; confirm before booking."},
     "skiplag_note": {"de": "Hidden-City bleibt Kandidatenlogik: Travelpayouts bestätigt keine tatsächliche Umstiegsroute über dein Ziel. Routing vor Buchung prüfen; nur One-way und ohne Aufgabegepäck.", "en": "Hidden-city remains candidate logic: Travelpayouts does not confirm that the itinerary actually connects via your intended destination. Verify routing before booking; one-way only and no checked baggage."},
     "awards_note": {"de": "Live-Award-Verfügbarkeiten brauchen später eine echte Award-Datenquelle; MileHunter erzeugt Suchstarts für Eco bis First.", "en": "Live award availability will require a real award data source later; MileHunter creates search starts from Economy to First."},
     "normal_price": {"de": "Normalpreis", "en": "Normal fare"},
@@ -304,9 +315,24 @@ def links_for(origin: str, dest: str, dep: str, ret: str | None = None, cabin: s
     }
 
 
-def deal_score(price: float, stops: int, airline: str = "") -> int:
+def deal_score(price: float, stops: int, airline: str = "", typical_range: list | None = None) -> int:
     score = 50
-    if price and price < 300:
+
+    # Wenn Google einen typischen Preisbereich liefert, bewerten wir relativ dazu
+    # (objektiver als feste Schwellen). Sonst greifen die festen Staffeln.
+    if typical_range and len(typical_range) == 2 and price:
+        low, high = float(typical_range[0] or 0), float(typical_range[1] or 0)
+        if low and price <= low:
+            score += 30
+        elif high and price >= high:
+            score += 2
+        elif high > low:
+            # lineare Einordnung innerhalb des typischen Bereichs (30 .. 8 Punkte)
+            frac = (price - low) / (high - low)
+            score += int(round(30 - frac * 22))
+        else:
+            score += 14
+    elif price and price < 300:
         score += 30
     elif price and price < 500:
         score += 22
@@ -356,70 +382,105 @@ def offer_from_tp(row: dict, currency: str) -> dict:
     }
 
 
-
-def serpapi_travel_class(cabins) -> int:
-    cabins = cabins or ["Economy"]
-    if "First" in cabins:
-        return 4
-    if "Business" in cabins:
-        return 3
-    if "Premium Eco" in cabins:
-        return 2
-    return 1
+# --- SerpApi / Google Flights -----------------------------------------------
+_SERP_CACHE: dict[tuple, tuple[float, dict]] = {}
+CABIN_TO_CLASS = {"economy": 1, "premium eco": 2, "premium economy": 2, "business": 3, "first": 4}
 
 
-def serpapi_google_flights(origin: str, dest: str, dep: dt.date, ret: dt.date | None, direct: bool, currency: str, cabins: list[str]) -> list[dict]:
-    if not SERPAPI_KEY:
-        return []
+def iata_from_flight_number(flight_number: str) -> str:
+    # "LH 401" -> "LH" ; nutzbar für mmOnly-Filter und M&M-Bonus
+    m = re.match(r"\s*([A-Z0-9]{2})\s*\d", (flight_number or "").upper())
+    return m.group(1) if m else ""
 
+
+def serpapi_search(origin: str, dest: str, dep: dt.date, ret: dt.date | None, cabin: str, currency: str, lang: str = "de") -> dict:
+    """Eine Google-Flights-Suche über SerpApi. Mit TTL-Cache gegen Doppelabrechnung."""
+    if not SERPAPI_TOKEN:
+        raise RuntimeError("SERPAPI_TOKEN fehlt.")
+    travel_class = CABIN_TO_CLASS.get((cabin or "economy").lower(), 1)
+    trip_type = "1" if ret else "2"  # 1=Round trip (Preis = Gesamtpreis), 2=One way
+    key = (origin, dest, dep.isoformat(), ret.isoformat() if ret else "", travel_class, currency, lang, trip_type)
+    now = time.time()
+    cached = _SERP_CACHE.get(key)
+    if cached and now - cached[0] < SERPAPI_TTL:
+        return cached[1]
     params = {
         "engine": "google_flights",
-        "api_key": SERPAPI_KEY,
+        "api_key": SERPAPI_TOKEN,
         "departure_id": origin,
         "arrival_id": dest,
         "outbound_date": dep.isoformat(),
+        "type": trip_type,
+        "travel_class": str(travel_class),
         "currency": currency.upper(),
-        "hl": "de",
+        "hl": "en" if lang == "en" else "de",
         "gl": "de",
-        "travel_class": serpapi_travel_class(cabins),
-        "type": "2" if not ret else "1",
+        "adults": "1",
     }
-
     if ret:
         params["return_date"] = ret.isoformat()
-    if direct:
-        params["stops"] = "0"
-
-    r = HTTP.get("https://serpapi.com/search.json", params=params, timeout=30)
+    if SERPAPI_DEEP:
+        params["deep_search"] = "true"
+    r = HTTP.get(SERPAPI_BASE, params=params, timeout=30)
     r.raise_for_status()
-    payload = r.json() or {}
+    data = r.json() or {}
+    if data.get("error"):
+        raise RuntimeError(str(data["error"]))
+    _SERP_CACHE[key] = (now, data)
+    return data
 
-    out = []
-    for section in ("best_flights", "other_flights"):
-        for item in payload.get(section) or []:
-            flights = item.get("flights") or []
-            first = flights[0] if flights else {}
-            price = float(item.get("price") or 0)
-            if not price:
-                continue
-            airline = first.get("airline") or ""
-            stops = max(0, len(flights) - 1)
-            out.append({
-                "source": "Google Flights",
-                "price": price,
-                "currency": currency.upper(),
-                "origin": origin,
-                "dest": dest,
-                "date": dep.isoformat(),
-                "returnDate": ret.isoformat() if ret else None,
-                "airline": airline,
-                "stops": stops,
-                "durationMinutes": item.get("total_duration"),
-                "dealScore": deal_score(price, stops, airline),
-                "bookUrl": links_for(origin, dest, dep.isoformat(), ret.isoformat() if ret else None).get("Google Flights"),
-                "links": links_for(origin, dest, dep.isoformat(), ret.isoformat() if ret else None),
-            })
-    return out
+
+def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, mm_only: bool) -> dict | None:
+    segs = item.get("flights") or []
+    if not segs:
+        return None
+    first, last = segs[0], segs[-1]
+    origin = (first.get("departure_airport") or {}).get("id", "")
+    dest = (last.get("arrival_airport") or {}).get("id", "")
+    airline_code = iata_from_flight_number(first.get("flight_number", ""))
+    if mm_only and airline_code and airline_code not in MM_AIRLINES:
+        return None
+    airline_name = first.get("airline") or airline_code
+    dep_date = ((first.get("departure_airport") or {}).get("time") or "")[:10]
+    stops = max(0, len(segs) - 1)
+    price = float(item.get("price") or 0)
+    return {
+        "source": "Google Flights (SerpApi)",
+        "price": price,
+        "currency": currency.upper(),
+        "origin": origin,
+        "dest": dest,
+        "date": dep_date,
+        "returnDate": None,
+        "airline": airline_name,
+        "stops": stops,
+        "bookUrl": links_for(origin, dest, dep_date).get("Google Flights"),
+        "dealScore": deal_score(price, stops, airline_code, typical_range),
+        "links": links_for(origin, dest, dep_date),
+    }
+
+
+def serpapi_offers(origin: str, dest: str, dep: dt.date, ret: dt.date | None, currency: str, mm_only: bool, lang: str = "de") -> tuple[list[dict], str | None]:
+    """Liefert Offers im Karten-Schema (oder Fehlermeldung)."""
+    try:
+        data = serpapi_search(origin, dest, dep, ret, "economy", currency, lang)
+    except Exception as exc:
+        return [], str(exc)
+    insights = data.get("price_insights") or {}
+    typical_range = insights.get("typical_price_range")
+    items = (data.get("best_flights") or []) + (data.get("other_flights") or [])
+    offers = []
+    for item in items:
+        offer = _serp_item_to_offer(item, currency, typical_range, mm_only)
+        if offer:
+            offers.append(offer)
+    return offers, None
+
+
+def serpapi_task(args: tuple[str, str, dt.date, "dt.date | None", str, bool, str]) -> tuple[str, str, list[dict], str | None]:
+    origin, dest, dep, ret, currency, mm_only, lang = args
+    offers, err = serpapi_offers(origin, dest, dep, ret, currency, mm_only, lang)
+    return origin, dest, offers, err
 
 
 def award_links(origin: str, dest: str, dep: str, ret: str | None, cabin: str) -> list[dict]:
@@ -479,43 +540,50 @@ def cheap():
     direct = bool(data.get("direct", False))
     mm_only = bool(data.get("mmOnly", False))
     currency = (data.get("currency") or "eur").lower()
-    cabins = data.get("cabins") or ["Economy"]
     if not origins or not dests:
         return jsonify({"ok": False, "error": tx("missing_origin_dest", lang)}), 400
 
+    use_serpapi = PRICE_SOURCE == "serpapi" and bool(SERPAPI_TOKEN)
     started = time.time()
     offers, warnings = [], []
-    tasks = [(origin, dest, dep, ret, direct, currency, 20) for origin in origins[:3] for dest in dests[:4] if origin != dest]
-    # Parallelisierung hilft besonders beim Hosting: mehrere Cache-/API-Abfragen blockieren nicht seriell.
-    with cf.ThreadPoolExecutor(max_workers=min(8, max(1, len(tasks)))) as pool:
-        for origin, dest, rows, err in pool.map(tp_price_task, tasks):
-            if err:
-                warnings.append(f"{origin}→{dest}: {err}")
-                continue
-            for row in rows or []:
-                airline = row.get("airline", "")
-                if mm_only and airline and airline not in MM_AIRLINES:
-                    continue
-                offers.append(offer_from_tp(row, currency))
-    if SERPAPI_KEY:
-        for origin in origins[:2]:
-            for dest in dests[:2]:
-                if origin == dest:
-                    continue
-                try:
-                    offers.extend(serpapi_google_flights(origin, dest, dep, ret, direct, currency, cabins))
-                except Exception as exc:
-                    warnings.append(f"Google Flights {origin}→{dest}: {exc}")
 
-    offers.sort(key=lambda x: x.get("price") or 10**9)
+    if use_serpapi:
+        # Eine SerpApi-Suche liefert schon eine ganze Ranking-Liste -> kein breites Fan-out nötig.
+        # Wir begrenzen die Anzahl Paare (= Anzahl bezahlter Google-Flights-Suchen) hart.
+        pairs = [(o, d) for o in origins[:2] for d in dests[:2] if o != d][:SERPAPI_MAX_PAIRS]
+        tasks = [(o, d, dep, ret, currency, mm_only, lang) for o, d in pairs]
+        with cf.ThreadPoolExecutor(max_workers=min(SERPAPI_MAX_PAIRS, max(1, len(tasks)))) as pool:
+            for origin, dest, found, err in pool.map(serpapi_task, tasks):
+                if err:
+                    warnings.append(f"{origin}→{dest}: {err}")
+                    continue
+                offers.extend(found)
+        note_key = "cheap_note_live"
+    else:
+        tasks = [(origin, dest, dep, ret, direct, currency, 20) for origin in origins[:3] for dest in dests[:4] if origin != dest]
+        # Parallelisierung hilft besonders beim Hosting: mehrere Cache-/API-Abfragen blockieren nicht seriell.
+        with cf.ThreadPoolExecutor(max_workers=min(8, max(1, len(tasks)))) as pool:
+            for origin, dest, rows, err in pool.map(tp_price_task, tasks):
+                if err:
+                    warnings.append(f"{origin}→{dest}: {err}")
+                    continue
+                for row in rows or []:
+                    airline = row.get("airline", "")
+                    if mm_only and airline and airline not in MM_AIRLINES:
+                        continue
+                    offers.append(offer_from_tp(row, currency))
+        note_key = "cheap_note"
+
+    # Beste zuerst: nach Deal-Score absteigend, bei Gleichstand günstigster Preis.
+    offers.sort(key=lambda x: (-(x.get("dealScore") or 0), x.get("price") or 10**9))
     fallback = [{"route": f"{o} → {d}", "links": links_for(o, d, dep.isoformat(), ret.isoformat() if ret else None)} for o in origins[:2] for d in dests[:3] if o != d]
     return jsonify({
         "ok": True,
         "offers": offers[:30],
         "fallback": fallback,
         "warnings": warnings[:8],
-        "debug": {"origins": origins, "dests": dests, "seconds": round(time.time() - started, 2)},
-        "note": tx("cheap_note", lang),
+        "debug": {"origins": origins, "dests": dests, "seconds": round(time.time() - started, 2), "source": PRICE_SOURCE if use_serpapi else "travelpayouts"},
+        "note": tx(note_key, lang),
     })
 
 
@@ -527,7 +595,6 @@ def skiplag():
     true_dests = resolve_codes(data.get("dest", ""))
     dep = parse_date(data.get("date", ""), 60)
     currency = (data.get("currency") or "eur").lower()
-    cabins = data.get("cabins") or ["Economy"]
     if not origins or not true_dests:
         return jsonify({"ok": False, "error": tx("missing_hidden", lang)}), 400
     started = time.time()
@@ -618,7 +685,7 @@ def score_award(origin: str, dest: str, cabin: str, lang: str = "de") -> dict:
 
 @app.route("/health")
 def health():
-    return jsonify({"ok": True, "app": APP_NAME, "version": "6.0", "tp_token": bool(TP_TOKEN), "api_guard": bool(APP_TOKEN)})
+    return jsonify({"ok": True, "app": APP_NAME, "version": "6.0", "price_source": PRICE_SOURCE, "serpapi_token": bool(SERPAPI_TOKEN), "tp_token": bool(TP_TOKEN), "api_guard": bool(APP_TOKEN)})
 
 
 if __name__ == "__main__":

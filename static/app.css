@@ -5,3 +5,5 @@
 .status-row{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
 .lang{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.06);color:#eaf3ff;border-radius:999px;padding:7px 10px;font-weight:800;cursor:pointer}
 .lang.active{background:linear-gradient(135deg,#f7d06e,#72dcff);color:#06111f;border-color:transparent}
+
+.score{font-size:14px;font-weight:800;color:#06101f;background:linear-gradient(135deg,var(--gold),var(--cyan));border-radius:999px;padding:3px 10px;vertical-align:middle;margin-left:8px}
