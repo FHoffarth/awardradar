@@ -25,6 +25,7 @@ from urllib3.util.retry import Retry
 APP_NAME = "AwardRadar"
 TAGLINE = "Find miles. Fly better."
 TP_TOKEN = os.environ.get("TRAVELPAYOUTS_TOKEN", "")
+SERPAPI_KEY = os.environ.get("SERPAPI_KEY", "")
 APP_TOKEN = os.environ.get("APP_TOKEN", "")
 TP_BASE = "https://api.travelpayouts.com"
 AUTOCOMPLETE_BASE = "https://autocomplete.travelpayouts.com/places2"
@@ -355,6 +356,72 @@ def offer_from_tp(row: dict, currency: str) -> dict:
     }
 
 
+
+def serpapi_travel_class(cabins) -> int:
+    cabins = cabins or ["Economy"]
+    if "First" in cabins:
+        return 4
+    if "Business" in cabins:
+        return 3
+    if "Premium Eco" in cabins:
+        return 2
+    return 1
+
+
+def serpapi_google_flights(origin: str, dest: str, dep: dt.date, ret: dt.date | None, direct: bool, currency: str, cabins: list[str]) -> list[dict]:
+    if not SERPAPI_KEY:
+        return []
+
+    params = {
+        "engine": "google_flights",
+        "api_key": SERPAPI_KEY,
+        "departure_id": origin,
+        "arrival_id": dest,
+        "outbound_date": dep.isoformat(),
+        "currency": currency.upper(),
+        "hl": "de",
+        "gl": "de",
+        "travel_class": serpapi_travel_class(cabins),
+        "type": "2" if not ret else "1",
+    }
+
+    if ret:
+        params["return_date"] = ret.isoformat()
+    if direct:
+        params["stops"] = "0"
+
+    r = HTTP.get("https://serpapi.com/search.json", params=params, timeout=30)
+    r.raise_for_status()
+    payload = r.json() or {}
+
+    out = []
+    for section in ("best_flights", "other_flights"):
+        for item in payload.get(section) or []:
+            flights = item.get("flights") or []
+            first = flights[0] if flights else {}
+            price = float(item.get("price") or 0)
+            if not price:
+                continue
+            airline = first.get("airline") or ""
+            stops = max(0, len(flights) - 1)
+            out.append({
+                "source": "Google Flights",
+                "price": price,
+                "currency": currency.upper(),
+                "origin": origin,
+                "dest": dest,
+                "date": dep.isoformat(),
+                "returnDate": ret.isoformat() if ret else None,
+                "airline": airline,
+                "stops": stops,
+                "durationMinutes": item.get("total_duration"),
+                "dealScore": deal_score(price, stops, airline),
+                "bookUrl": links_for(origin, dest, dep.isoformat(), ret.isoformat() if ret else None).get("Google Flights"),
+                "links": links_for(origin, dest, dep.isoformat(), ret.isoformat() if ret else None),
+            })
+    return out
+
+
 def award_links(origin: str, dest: str, dep: str, ret: str | None, cabin: str) -> list[dict]:
     q = quote_plus(f"award flight {origin} {dest} {dep} {cabin}")
     return [
@@ -412,6 +479,7 @@ def cheap():
     direct = bool(data.get("direct", False))
     mm_only = bool(data.get("mmOnly", False))
     currency = (data.get("currency") or "eur").lower()
+    cabins = data.get("cabins") or ["Economy"]
     if not origins or not dests:
         return jsonify({"ok": False, "error": tx("missing_origin_dest", lang)}), 400
 
@@ -429,7 +497,17 @@ def cheap():
                 if mm_only and airline and airline not in MM_AIRLINES:
                     continue
                 offers.append(offer_from_tp(row, currency))
-    offers.sort(key=lambda x: x.get("price") or 10**9)
+        if SERPAPI_KEY:
+        for origin in origins[:2]:
+            for dest in dests[:2]:
+                if origin == dest:
+                    continue
+                try:
+                    offers.extend(serpapi_google_flights(origin, dest, dep, ret, direct, currency, cabins))
+                except Exception as exc:
+                    warnings.append(f"Google Flights {origin}→{dest}: {exc}")
+
+offers.sort(key=lambda x: x.get("price") or 10**9)
     fallback = [{"route": f"{o} → {d}", "links": links_for(o, d, dep.isoformat(), ret.isoformat() if ret else None)} for o in origins[:2] for d in dests[:3] if o != d]
     return jsonify({
         "ok": True,
@@ -449,6 +527,7 @@ def skiplag():
     true_dests = resolve_codes(data.get("dest", ""))
     dep = parse_date(data.get("date", ""), 60)
     currency = (data.get("currency") or "eur").lower()
+    cabins = data.get("cabins") or ["Economy"]
     if not origins or not true_dests:
         return jsonify({"ok": False, "error": tx("missing_hidden", lang)}), 400
     started = time.time()
