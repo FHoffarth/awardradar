@@ -303,6 +303,35 @@ def links_for(origin: str, dest: str, dep: str, ret: str | None = None, cabin: s
     }
 
 
+def deal_score(price: float, stops: int, airline: str = "") -> int:
+    score = 50
+    if price and price < 300:
+        score += 30
+    elif price and price < 500:
+        score += 22
+    elif price and price < 700:
+        score += 14
+    elif price and price < 1000:
+        score += 6
+
+    try:
+        stops = int(stops or 0)
+    except Exception:
+        stops = 0
+
+    if stops == 0:
+        score += 15
+    elif stops == 1:
+        score += 7
+    else:
+        score -= 5
+
+    if airline in MM_AIRLINES:
+        score += 5
+
+    return max(0, min(100, score))
+
+
 def offer_from_tp(row: dict, currency: str) -> dict:
     origin = row.get("origin", "")
     dest = row.get("destination", "")
@@ -321,7 +350,7 @@ def offer_from_tp(row: dict, currency: str) -> dict:
         "airline": airline,
         "stops": row.get("transfers", 0),
         "bookUrl": "https://www.aviasales.com" + link if link else links_for(origin, dest, dep, ret).get("Aviasales"),
-        "links": links_for(origin, dest, dep, ret),
+        "dealScore": deal_score(float(row.get("price") or 0), row.get("transfers", 0), airline),`n        "links": links_for(origin, dest, dep, ret),
     }
 
 
@@ -514,4 +543,5 @@ def health():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=PORT, debug=os.environ.get("FLASK_DEBUG", "0") == "1")
+
 
