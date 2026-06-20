@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="de" data-lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ app_name }} – {{ tagline }}</title>
+  <link rel="stylesheet" href="/static/app.css?v=52">
+</head>
+<body>
+  <canvas id="radar"></canvas>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">✈️ AwardRadar {{ version }}</div>
+        <h1>{{ app_name }}</h1>
+        <p>{{ tagline }}</p>
+      </div>
+      <div class="status-row"><button class="lang active" data-lang="de">DE</button><button class="lang" data-lang="en">EN</button><div class="status" id="status">ready</div></div>
+    </header>
+
+    <section class="panel">
+      <div class="tabs">
+        <button class="tab active" data-tab="cheap">💸 <span data-i18n="tab_cheap">Cheap Flights</span></button>
+        <button class="tab" data-tab="skiplag">🕳️ <span data-i18n="tab_skiplag">Skiplag Finder</span></button>
+        <button class="tab" data-tab="awards">🎯 <span data-i18n="tab_awards">Awards</span></button>
+      </div>
+
+      <div class="grid">
+        <label><span data-i18n="from">Von</span>
+          <input id="origin" list="airport-list" placeholder="Frankfurt, FRA oder FRA,MUC" data-ph-de="Frankfurt, FRA oder FRA,MUC" data-ph-en="Frankfurt, FRA or FRA,MUC" value="Frankfurt">
+        </label>
+        <label><span data-i18n="to">Nach</span>
+          <input id="dest" list="airport-list" placeholder="Tokio, New York, SIN ..." data-ph-de="Tokio, New York, SIN ..." data-ph-en="Tokyo, New York, SIN ..." value="Tokio">
+        </label>
+        <datalist id="airport-list"></datalist>
+        <label><span data-i18n="departure">Hinflug</span>
+          <input id="date" type="date">
+        </label>
+        <label class="return-field"><span data-i18n="return">Rückflug</span>
+          <input id="returnDate" type="date">
+        </label>
+      </div>
+
+      <div class="quickbar">
+        <button data-fill-origin="Frankfurt">FRA</button>
+        <button data-fill-origin="München">MUC</button>
+        <button data-fill-dest="London">London</button>
+        <button data-fill-dest="New York">NYC</button>
+        <button data-fill-dest="Tokio">Tokio</button>
+        <button data-fill-dest="Singapur">SIN</button>
+        <button data-fill-dest="Bangkok">BKK</button>
+        <button data-fill-dest="Hongkong">HKG</button>
+      </div>
+
+      <div class="options">
+        <label><input id="oneWay" type="checkbox" checked> <span data-i18n="oneway">nur Hinflug</span></label>
+        <label><input id="direct" type="checkbox"> <span data-i18n="nonstop">nur Nonstop</span></label>
+        <label><input id="mmOnly" type="checkbox"> <span data-i18n="mmstar">M&M/Star bevorzugt</span></label>
+        <label><input class="cabin" value="Economy" type="checkbox" checked> Economy</label>
+        <label><input class="cabin" value="Premium Eco" type="checkbox" checked> Premium Eco</label>
+        <label><input class="cabin" value="Business" type="checkbox" checked> Business</label>
+        <label><input class="cabin" value="First" type="checkbox"> First</label>
+      </div>
+
+      <button class="go" id="go"><span data-i18n="start">Radar starten</span></button>
+    </section>
+
+    <section id="results" class="results"></section>
+  </main>
+  <script src="/static/app.js?v=52"></script>
+</body>
+</html>
