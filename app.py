@@ -350,7 +350,8 @@ def offer_from_tp(row: dict, currency: str) -> dict:
         "airline": airline,
         "stops": row.get("transfers", 0),
         "bookUrl": "https://www.aviasales.com" + link if link else links_for(origin, dest, dep, ret).get("Aviasales"),
-        "dealScore": deal_score(float(row.get("price") or 0), row.get("transfers", 0), airline),`n        "links": links_for(origin, dest, dep, ret),
+        "dealScore": deal_score(float(row.get("price") or 0), row.get("transfers", 0), airline),
+        "links": links_for(origin, dest, dep, ret),
     }
 
 
