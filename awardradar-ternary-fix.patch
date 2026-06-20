@@ -1,0 +1,13 @@
+diff --git a/app.py b/app.py
+index b124537..e0b18fe 100644
+--- a/app.py
++++ b/app.py
+@@ -335,7 +335,7 @@ def award_links(origin: str, dest: str, dep: str, ret: str | None, cabin: str) -
+         {"name": "AwardFares", "url": f"https://awardfares.com/search?origin={origin}&destination={dest}"},
+         {"name": "Seats.aero", "url": f"https://seats.aero/search?origin={origin}&destination={dest}"},
+         {"name": "Singapore KrisFlyer", "url": "https://www.singaporeair.com/"},
+-        {"name": "Google Search" if cabin else "Google Search", "url": f"https://www.google.com/search?q={q}"},
++        {"name": "Google Search", "url": f"https://www.google.com/search?q={q}"},
+     ]
+ 
+ 
