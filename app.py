@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AwardRadar v5.3 – Find miles. Fly better.
+"""AwardRadar v6.0 – Find miles. Fly better.
 
 Produktionsnäherer Flask-Build:
 - Gunicorn-ready
@@ -48,7 +48,7 @@ def make_session() -> requests.Session:
     adapter = HTTPAdapter(max_retries=retry)
     session.mount("https://", adapter)
     session.mount("http://", adapter)
-    session.headers.update({"User-Agent": "AwardRadar/5.3"})
+    session.headers.update({"User-Agent": "AwardRadar/6.0"})
     return session
 
 
@@ -67,11 +67,14 @@ TEXT = {
     "missing_origin_dest": {"de": "Bitte Start und Ziel eingeben, z. B. Frankfurt und Tokio.", "en": "Please enter origin and destination, e.g. Frankfurt and Tokyo."},
     "missing_hidden": {"de": "Bitte Start und eigentliches Ziel eingeben.", "en": "Please enter origin and intended destination."},
     "api_guard": {"de": "API geschützt. Öffne die App einmal mit ?key=DEIN_APP_TOKEN.", "en": "API protected. Open the app once with ?key=YOUR_APP_TOKEN."},
-    "cheap_note": {"de": "Travelpayouts ist cache-basiert. Wenn keine Preise kommen, nutze die Live-Links; v5.3 löst unbekannte Orte dynamisch auf und parallelisiert Skiplag-Kandidaten.", "en": "Travelpayouts is cache-based. If no prices appear, use the live links; v5.3 resolves unknown places dynamically and parallelizes skiplag candidates."},
-    "skiplag_note": {"de": "Hidden-City bleibt Kandidatenlogik, bis eine echte Segment-/Itinerary-API angebunden ist. Nur One-way und ohne Aufgabegepäck prüfen.", "en": "Hidden-city remains candidate logic until a real segment/itinerary API is connected. Check one-way only and without checked baggage."},
+    "cheap_note": {"de": "Travelpayouts ist cache-basiert. Wenn keine Preise kommen, nutze die Live-Links; v6 zeigt echte Cachepreise, wenn verfügbar, und kennzeichnet Hidden-City nur als prüfpflichtige Kandidaten.", "en": "Travelpayouts is cache-based. If no prices appear, use the live links; v6 displays cached fares when available and labels hidden-city results as candidates that must be verified."},
+    "skiplag_note": {"de": "Hidden-City bleibt Kandidatenlogik: Travelpayouts bestätigt keine tatsächliche Umstiegsroute über dein Ziel. Routing vor Buchung prüfen; nur One-way und ohne Aufgabegepäck.", "en": "Hidden-city remains candidate logic: Travelpayouts does not confirm that the itinerary actually connects via your intended destination. Verify routing before booking; one-way only and no checked baggage."},
     "awards_note": {"de": "Live-Award-Verfügbarkeiten brauchen später eine echte Award-Datenquelle; MileHunter erzeugt Suchstarts für Eco bis First.", "en": "Live award availability will require a real award data source later; MileHunter creates search starts from Economy to First."},
     "normal_price": {"de": "Normalpreis", "en": "Normal fare"},
-    "high": {"de": "hoch", "en": "high"},
+    "candidate_label": {"de": "Hidden-City-Kandidat", "en": "Hidden-city candidate"},
+    "verify_routing": {"de": "Routing vor Buchung prüfen", "en": "Verify routing before booking"},
+    "unverified": {"de": "nicht segmentbestätigt", "en": "not segment-verified"},
+    "high": {"de": "prüfenswert", "en": "worth checking"},
     "check": {"de": "prüfen", "en": "check"},
     "link_check": {"de": "Link-Check", "en": "link check"},
     "google_search": {"de": "Google Suche", "en": "Google Search"},
@@ -332,13 +335,13 @@ def award_links(origin: str, dest: str, dep: str, ret: str | None, cabin: str) -
         {"name": "AwardFares", "url": f"https://awardfares.com/search?origin={origin}&destination={dest}"},
         {"name": "Seats.aero", "url": f"https://seats.aero/search?origin={origin}&destination={dest}"},
         {"name": "Singapore KrisFlyer", "url": "https://www.singaporeair.com/"},
-        {"name": "Google Search", "url": f"https://www.google.com/search?q={q}"},
+        {"name": "Google Search" if cabin else "Google Search", "url": f"https://www.google.com/search?q={q}"},
     ]
 
 
 @app.route("/")
 def index():
-    return render_template("index.html", app_name=APP_NAME, tagline=TAGLINE, version="v5.3")
+    return render_template("index.html", app_name=APP_NAME, tagline=TAGLINE, version="v6.0")
 
 
 @app.route("/api/airports")
@@ -446,8 +449,11 @@ def skiplag():
                             "candidatePrice": price or None,
                             "savings": savings,
                             "confidence": tx("high", lang) if savings and savings > 50 else (tx("check", lang) if price else tx("link_check", lang)),
+                            "candidateLabel": tx("candidate_label", lang),
+                            "verifyRouting": tx("verify_routing", lang),
+                            "verified": False,
                             "links": {
-                                "Skiplagged Hidden-City": f"https://skiplagged.com/flights/{origin}/{true_dest}/{dep.isoformat()}",
+                                "Skiplagged candidate search": f"https://skiplagged.com/flights/{origin}/{true_dest}/{dep.isoformat()}",
                                 tx("google_via", lang): f"https://www.google.com/travel/flights?q={quote_plus(f'{origin} to {final_dest} via {true_dest} {dep.isoformat()}')}",
                                 tx("ticket_check", lang): links_for(origin, final_dest, dep.isoformat())["Google Flights"],
                             },
@@ -503,7 +509,7 @@ def score_award(origin: str, dest: str, cabin: str, lang: str = "de") -> dict:
 
 @app.route("/health")
 def health():
-    return jsonify({"ok": True, "app": APP_NAME, "version": "5.3", "tp_token": bool(TP_TOKEN), "api_guard": bool(APP_TOKEN)})
+    return jsonify({"ok": True, "app": APP_NAME, "version": "6.0", "tp_token": bool(TP_TOKEN), "api_guard": bool(APP_TOKEN)})
 
 
 if __name__ == "__main__":
