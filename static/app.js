@@ -1,4 +1,12 @@
 const $ = id => document.getElementById(id);
+
+// Consent state — Phase 1: necessary only. Extend when analytics/affiliate added.
+const consent = {
+  necessary: true,   // always true — theme, lang, ar_key session cookie
+  analytics: false,  // set true only after explicit user consent
+  marketing: false,  // set true only after explicit user consent
+};
+
 let mode = 'cheap';
 let lang = localStorage.getItem('awardradar_lang') || 'en';
 let currentOffers = [];
