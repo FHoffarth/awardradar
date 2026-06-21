@@ -916,7 +916,7 @@ def skiplag():
                 normal_rows = tp_prices(origin, true_dest, dep, None, False, currency=currency, limit=5, timeout=12)
                 normal_price = cheapest_price(normal_rows)
             except Exception as exc:
-                warnings.append(f"Normal price {origin}→{true_dest}: {exc}")
+                app.logger.debug("skiplag normal price %s→%s: %s", origin, true_dest, exc)
 
             if use_serpapi:
                 candidates = [e for e in SKIPLAG_ENDINGS if e not in (origin, true_dest)][:SKIPLAG_MAX_SEARCHES]
@@ -983,7 +983,7 @@ def skiplag():
     return jsonify({
         "ok": True,
         "results": results[:10],
-        "warnings": warnings[:6],
+        "provider_available": use_serpapi or bool(results),
         "debug": {"origins": origins, "dests": true_dests, "seconds": round(time.time() - started, 2), "source": source_label},
         "note": note,
     })

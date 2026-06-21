@@ -208,7 +208,11 @@ async function run() {
     $('results').focus({ preventScroll: false });
   } catch (e) {
     stopProgress(false);
-    $('results').innerHTML = `<div class="card warn">${esc(e.message)}</div>`;
+    console.error('[AwardRadar]', e.message);
+    const userMsg = mode === 'skiplag'
+      ? `<div class="card skiplag-empty"><div class="skiplag-empty-title">Analysis unavailable.</div><p class="skiplag-empty-reason">The hidden-city analysis could not be completed for this search.</p><button class="cross-btn" onclick="switchTabAndRun('cheap')">Show Cash Fares</button></div>`
+      : `<div class="card note">Search unavailable. Please try again.</div>`;
+    $('results').innerHTML = userMsg;
     setStatus(tr('error'));
   }
 }
@@ -347,7 +351,8 @@ function render(data) {
   let html = '';
   if (data.note) html += `<div class="card note">${esc(data.note)}</div>`;
   if (data.debug) html += `<div class="card tiny">${tr('resolved')}: ${(data.debug.origins || []).join(', ')} → ${(data.debug.dests || []).join(', ')}${data.debug.seconds ? ' · ' + data.debug.seconds + 's' : ''}${data.debug.source ? ' · ' + esc(data.debug.source) : ''}</div>`;
-  if (data.warnings?.length) html += `<div class="card warn">${data.warnings.slice(0, 4).map(esc).join('<br>')}</div>`;
+  // Warnings: log internally only — never expose raw provider errors to users
+  if (data.warnings?.length) console.debug('[AwardRadar warnings]', data.warnings);
 
   if (mode === 'cheap') {
     currentOffers = data.offers || [];
@@ -412,10 +417,20 @@ function render(data) {
       }).join('');
       html += relatedAnalysesHtml('skiplag');
     } else {
-      html += `<div class="card cross-nudge">
-        <div class="cross-nudge-msg">No relevant hidden-city opportunities were identified for this route.</div>
-        <div class="cross-nudge-sub">View available cash fares instead.</div>
+      const origin = ($('origin').value || '').trim().toUpperCase().slice(0,3);
+      const dest   = ($('dest').value   || '').trim().toUpperCase().slice(0,3);
+      const routeLabel = (origin && dest) ? `${origin} → ${dest}` : 'this route';
+      const providerNote = data.provider_available === false
+        ? `<p class="tiny muted-note">Hidden-city verification was unavailable for this search.</p>`
+        : `<p class="tiny muted-note">Hidden-city candidates are only shown when route structure and fare difference meet validation criteria.</p>`;
+      html += `<div class="card skiplag-empty">
+        <div class="skiplag-empty-header">Hidden City Analysis</div>
+        <div class="skiplag-empty-route">${esc(routeLabel)}</div>
+        <div class="skiplag-empty-title">No viable hidden-city candidates found.</div>
+        <p class="skiplag-empty-reason">No cheaper through-ticket was identified for the selected route and date.</p>
+        <p class="skiplag-empty-rec">Recommendation: compare standard cash fares instead.</p>
         <button class="cross-btn" onclick="switchTabAndRun('cheap')">Show Cash Fares</button>
+        ${providerNote}
       </div>`;
     }
   }

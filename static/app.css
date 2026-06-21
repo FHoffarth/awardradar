@@ -302,6 +302,14 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .cross-nudge{text-align:center;padding:28px 20px 24px}
 .cross-nudge-msg{font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px}
 .cross-nudge-sub{font-size:13px;color:var(--muted);margin-bottom:16px}
+/* Skiplag empty / analytical state */
+.skiplag-empty{padding:28px 24px 24px}
+.skiplag-empty-header{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.skiplag-empty-route{font-size:18px;font-weight:700;color:var(--text);margin-bottom:16px;letter-spacing:.02em}
+.skiplag-empty-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px}
+.skiplag-empty-reason{font-size:13px;color:var(--muted);margin-bottom:4px;line-height:1.5}
+.skiplag-empty-rec{font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.5}
+.muted-note{color:var(--muted);font-size:11px;margin-top:14px;opacity:.7;line-height:1.5}
 .cross-btn{border:1px solid rgba(106,215,255,.35);background:rgba(106,215,255,.07);color:var(--cyan);border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}
 .cross-btn:hover{background:rgba(106,215,255,.14);border-color:rgba(106,215,255,.55)}
 
