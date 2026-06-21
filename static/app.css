@@ -215,10 +215,17 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .seg-ctrl{display:flex;background:rgba(0,0,0,.35);border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px;flex-shrink:0}
 .seg{border:none;background:transparent;color:var(--muted);border-radius:7px;padding:7px 11px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
 .seg.active{background:linear-gradient(135deg,rgba(245,199,107,.22),rgba(106,215,255,.14));color:var(--text);border:1px solid rgba(245,199,107,.3)}
-.go{border:none;border-radius:13px;padding:15px 24px;font-size:15px;font-weight:800;cursor:pointer;color:#06101f;background:linear-gradient(135deg,var(--gold),var(--cyan));display:flex;align-items:center;justify-content:center;gap:10px;width:100%;box-shadow:0 8px 28px rgba(106,215,255,.18);transition:transform .1s,box-shadow .1s;font-family:inherit}
+.go{border:none;border-radius:13px;padding:14px 22px;cursor:pointer;color:#06101f;background:linear-gradient(135deg,var(--gold),var(--cyan));display:flex;align-items:center;justify-content:flex-start;gap:14px;width:100%;box-shadow:0 8px 28px rgba(106,215,255,.18);transition:transform .1s,box-shadow .1s;font-family:inherit}
 .go:hover{transform:translateY(-2px);box-shadow:0 14px 36px rgba(106,215,255,.26)}
 .go:active{transform:translateY(0)}
-.go-icon-wrap{width:30px;height:30px;background:rgba(6,16,31,.22);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.go-icon-wrap{width:46px;height:46px;background:rgba(6,16,31,.18);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.go-radar-svg{animation:go-radar-spin 3s linear infinite}
+@keyframes go-radar-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.go-label{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+.go-main{font-size:16px;font-weight:800;letter-spacing:.02em;line-height:1.2}
+.go-sub{font-size:10px;font-weight:600;opacity:.65;letter-spacing:.08em;text-transform:uppercase;line-height:1}
+.go.loading .go-icon-wrap{animation:none}
+.go.loading .go-radar-svg{animation:spin .8s linear infinite}
 
 
 .results{margin-top:14px;display:grid;gap:10px}

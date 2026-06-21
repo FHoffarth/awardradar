@@ -15,7 +15,7 @@
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="AwardRadar – Find miles. Fly better.">
   <meta name="twitter:description" content="Compare cash vs. miles for Miles &amp; More. Find sweet spots and hidden-city tickets.">
-  <link rel="stylesheet" href="/static/app.css?v=83">
+  <link rel="stylesheet" href="/static/app.css?v=84">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.min.css">
 </head>
 <body>
@@ -199,14 +199,20 @@
           </div>
           <button class="go" id="go">
             <span class="go-icon-wrap">
-              <svg width="20" height="20" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="17" cy="17" r="13" stroke="currentColor" stroke-width="1.8" fill="none" opacity=".6"/>
-                <circle cx="17" cy="17" r="7" stroke="currentColor" stroke-width="1.4" fill="none" opacity=".4"/>
-                <path d="M17 6 l1.5 4.5L17 12l-1.5-1.5z" fill="currentColor"/>
-                <path d="M13 13.5l7 0-3.5 7z" fill="currentColor" opacity=".8"/>
+              <svg class="go-radar-svg" width="28" height="28" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="17" cy="17" r="15" stroke="currentColor" stroke-width="1.2" fill="none" opacity=".5"/>
+                <circle cx="17" cy="17" r="9.5" stroke="currentColor" stroke-width="1" fill="none" opacity=".35"/>
+                <circle cx="17" cy="17" r="4" stroke="currentColor" stroke-width=".8" fill="none" opacity=".25"/>
+                <line x1="17" y1="2" x2="17" y2="32" stroke="currentColor" stroke-width=".6" opacity=".2"/>
+                <line x1="2" y1="17" x2="32" y2="17" stroke="currentColor" stroke-width=".6" opacity=".2"/>
+                <path d="M17 17 L17 2 A15 15 0 0 1 29.5 9.5 Z" fill="currentColor" opacity=".18"/>
+                <circle cx="17" cy="2" r="2.2" fill="currentColor" opacity=".9"/>
               </svg>
             </span>
-            <span data-i18n="start">Find Sweet Spots</span>
+            <span class="go-label">
+              <span class="go-main" data-i18n="start">Run Radar</span>
+              <span class="go-sub">Sweet spots · Hidden city · Awards</span>
+            </span>
           </button>
         </div>
       </div>
@@ -254,6 +260,6 @@
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="/static/app.js?v=83"></script>
+  <script src="/static/app.js?v=84"></script>
 </body>
 </html>
