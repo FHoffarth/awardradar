@@ -358,9 +358,11 @@ function initDatepickers() {
 
   fpDep = flatpickr('#date', { ...baseConfig, onDayCreate: dayCreateHook });
   fpDep.altInput.placeholder = 'Departure date';
+  fpDep.altInput.setAttribute('aria-label', 'Departure date');
 
   fpRet = flatpickr('#returnDate', { ...baseConfig });
   fpRet.altInput.placeholder = 'Return date';
+  fpRet.altInput.setAttribute('aria-label', 'Return date');
 }
 
 // Segmented cabin control
@@ -377,11 +379,8 @@ document.querySelectorAll('.usp-card').forEach(card => {
     const target = card.dataset.usp;
     document.querySelectorAll('.usp-card').forEach(c => c.classList.remove('usp-active'));
     card.classList.add('usp-active');
-    document.querySelectorAll('.tab').forEach(t => {
-      const on = t.dataset.tab === target;
-      t.classList.toggle('active', on);
-      if (on) mode = target;
-    });
+    const targetTab = document.querySelector(`.tab[data-tab="${target}"]`);
+    if (targetTab) activateTab(targetTab);
   };
 });
 
@@ -393,15 +392,37 @@ function syncPills() {
   });
 }
 
+// Tab activation — manages ARIA + keyboard
+function activateTab(tabEl) {
+  document.querySelectorAll('.tab').forEach(x => {
+    x.classList.remove('active');
+    x.setAttribute('aria-selected', 'false');
+    x.setAttribute('tabindex', '-1');
+  });
+  tabEl.classList.add('active');
+  tabEl.setAttribute('aria-selected', 'true');
+  tabEl.setAttribute('tabindex', '0');
+  mode = tabEl.dataset.tab;
+}
+
 // Event bindings
-document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
-  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-  b.classList.add('active');
-  mode = b.dataset.tab;
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => activateTab(b));
+
+// Arrow key navigation within tablist
+document.querySelector('[role="tablist"]').addEventListener('keydown', e => {
+  const tabs = [...document.querySelectorAll('.tab')];
+  const idx = tabs.indexOf(document.activeElement);
+  if (idx === -1) return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); const n = tabs[(idx + 1) % tabs.length]; n.focus(); activateTab(n); }
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); const n = tabs[(idx - 1 + tabs.length) % tabs.length]; n.focus(); activateTab(n); }
+  if (e.key === 'Home') { e.preventDefault(); tabs[0].focus(); activateTab(tabs[0]); }
+  if (e.key === 'End')  { e.preventDefault(); tabs[tabs.length-1].focus(); activateTab(tabs[tabs.length-1]); }
 });
+
 document.querySelectorAll('.lang').forEach(b => b.onclick = () => {
   lang = b.dataset.lang;
   localStorage.setItem('awardradar_lang', lang);
+  document.querySelectorAll('.lang').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.lang === lang)));
   applyLang();
 });
 document.querySelectorAll('[data-fill-origin]').forEach(b => b.onclick = () => $('origin').value = b.dataset.fillOrigin);
@@ -663,4 +684,4 @@ function globeAnimation() {
 initDates();
 syncPills();
 applyLang();
-globeAnimation();
+if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) globeAnimation();
