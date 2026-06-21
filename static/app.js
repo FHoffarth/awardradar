@@ -97,6 +97,33 @@ function payload() {
 
 function setStatus(t) { $('status').textContent = t; }
 
+let _progressTimer = null;
+function startProgress() {
+  const bar = $('progress-bar'), fill = $('progress-fill'), go = $('go');
+  bar.classList.add('active');
+  fill.style.width = '0%';
+  go.classList.add('loading');
+  go.disabled = true;
+  // Ramp to 85% over ~8s, then hold until stopProgress
+  let pct = 0;
+  const steps = [
+    [300, 35], [600, 55], [1200, 70], [2000, 80], [3500, 85]
+  ];
+  let i = 0;
+  _progressTimer = setInterval(() => {
+    if (i < steps.length) { pct = steps[i][1]; i++; }
+    fill.style.width = pct + '%';
+  }, steps[i]?.[0] || 1000);
+}
+function stopProgress(ok) {
+  clearInterval(_progressTimer);
+  const bar = $('progress-bar'), fill = $('progress-fill'), go = $('go');
+  fill.style.width = ok ? '100%' : '0%';
+  go.classList.remove('loading');
+  go.disabled = false;
+  setTimeout(() => { bar.classList.remove('active'); fill.style.width = '0%'; }, 400);
+}
+
 function esc(s) {
   return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
@@ -110,7 +137,8 @@ function linksHtml(obj) {
 
 async function run() {
   setStatus(tr('searching'));
-  $('results').innerHTML = `<div class="card note">${tr('running')}</div>`;
+  $('results').innerHTML = '';
+  startProgress();
   const endpoint = mode === 'cheap' ? '/api/cheap' : mode === 'skiplag' ? '/api/skiplag' : '/api/awards';
   try {
     const headers = { 'Content-Type': 'application/json' };
@@ -119,9 +147,12 @@ async function run() {
     let data;
     try { data = await res.json(); } catch (_) { throw new Error(res.status + ' ' + res.statusText); }
     if (!res.ok || !data.ok) throw new Error((data && data.error) || res.statusText || 'Error');
+    stopProgress(true);
     render(data);
     setStatus(tr('ready'));
+    $('results').focus({ preventScroll: false });
   } catch (e) {
+    stopProgress(false);
     $('results').innerHTML = `<div class="card warn">${esc(e.message)}</div>`;
     setStatus(tr('error'));
   }
