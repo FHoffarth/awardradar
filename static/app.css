@@ -113,8 +113,8 @@ a:focus-visible{outline:2px solid var(--cyan);outline-offset:3px;border-radius:3
 [data-theme="light"] .tab.active{background:#ffffff;border-color:transparent;box-shadow:0 4px 16px rgba(154,110,16,.18),0 0 0 1.5px rgba(154,110,16,.3)}
 [data-theme="light"] .tab.active .tab-icon{background:rgba(154,110,16,.09)}
 /* CTA */
-[data-theme="light"] .go{background:linear-gradient(100deg,#b8820e 0%,#0d8eb0 100%);color:#ffffff;box-shadow:0 24px 48px rgba(56,167,200,.25),0 10px 20px rgba(181,140,45,.18),inset 0 1px 0 rgba(255,255,255,.25)}
-[data-theme="light"] .go:hover{box-shadow:0 30px 56px rgba(56,167,200,.30),0 14px 24px rgba(181,140,45,.22),inset 0 1px 0 rgba(255,255,255,.25);transform:translateY(-2px)}
+[data-theme="light"] .go{background:linear-gradient(100deg,#b8820e 0%,#4e9ab8 100%);color:#ffffff;box-shadow:0 6px 20px rgba(13,110,138,.16),inset 0 1px 0 rgba(255,255,255,.2)}
+[data-theme="light"] .go:hover{box-shadow:0 10px 28px rgba(13,110,138,.22),inset 0 1px 0 rgba(255,255,255,.2);transform:translateY(-1px)}
 [data-theme="light"] .go-icon-wrap{background:rgba(255,255,255,.18)}
 /* Cards — pure white on cream, shadow defines edge */
 [data-theme="light"] .card{background:#ffffff;border-color:transparent;box-shadow:var(--card-shadow)}
@@ -221,9 +221,12 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .pa-col{min-width:0}
 .pa-label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:6px}
 .pa-target-wrap{display:flex;gap:3px;flex-shrink:0}
-.pa-target{border:1px solid var(--border);background:var(--chip-bg);color:var(--muted);border-radius:5px;padding:2px 7px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.06em;transition:all .15s}
-.pa-target.active{background:var(--gold);color:#06101f;border-color:transparent}
-.pa-grid{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.pa-target{border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:5px;padding:2px 7px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.06em;transition:all .15s}
+.pa-target.active{background:rgba(106,215,255,.1);color:var(--cyan);border-color:rgba(106,215,255,.3)}
+[data-theme="light"] .pa-target.active{background:rgba(13,110,138,.09);color:var(--cyan);border-color:rgba(13,110,138,.28)}
+.pa-groups{display:flex;flex-direction:column;gap:10px}
+.pa-group-label{font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);opacity:.55;margin-bottom:4px;text-transform:uppercase}
+.pa-grid{display:flex;flex-wrap:wrap;gap:4px}
 .pa-code{font-size:11px;font-weight:700;padding:5px 7px;border:1px solid var(--border);border-radius:6px;background:var(--chip-bg);color:var(--muted);cursor:pointer;font-family:inherit}
 .pa-code:hover{border-color:rgba(106,215,255,.3);color:var(--cyan);background:rgba(106,215,255,.06)}
 .pa-code.pa-active{border-color:rgba(245,199,107,.45);color:var(--gold);background:rgba(245,199,107,.07)}
@@ -236,10 +239,10 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .seg-ctrl{display:flex;background:rgba(0,0,0,.35);border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px;flex-shrink:0}
 .seg{border:none;background:transparent;color:var(--muted);border-radius:7px;padding:7px 11px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
 .seg.active{background:linear-gradient(135deg,rgba(245,199,107,.22),rgba(106,215,255,.14));color:var(--text);border:1px solid rgba(245,199,107,.3)}
-.go{border:none;border-radius:13px;padding:14px 22px;cursor:pointer;color:#06101f;background:linear-gradient(135deg,var(--gold),var(--cyan));display:flex;align-items:center;justify-content:flex-start;gap:14px;width:100%;box-shadow:0 8px 28px rgba(106,215,255,.18);transition:transform .1s,box-shadow .1s;font-family:inherit}
-.go:hover{transform:translateY(-2px);box-shadow:0 14px 36px rgba(106,215,255,.26)}
+.go{border:none;border-radius:12px;padding:11px 20px;cursor:pointer;color:#06101f;background:linear-gradient(135deg,#c8a040,#5faac5);display:flex;align-items:center;justify-content:flex-start;gap:12px;width:100%;box-shadow:0 4px 16px rgba(106,215,255,.12);transition:transform .1s,box-shadow .1s;font-family:inherit}
+.go:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(106,215,255,.18)}
 .go:active{transform:translateY(0)}
-.go-icon-wrap{width:46px;height:46px;background:rgba(6,16,31,.18);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.go-icon-wrap{width:38px;height:38px;background:rgba(6,16,31,.16);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .go-radar-svg{animation:go-radar-spin 3s linear infinite}
 @keyframes go-radar-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .go-label{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
@@ -503,18 +506,12 @@ footer p{margin-bottom:8px}
   /* Panel bottom: slightly less gap */
   .panel-bottom{gap:12px;margin-top:10px}
 
-  /* Airport chips: single scrollable row, chips don't wrap */
-  .pa-grid{
-    flex-wrap:nowrap;
-    overflow-x:auto;
-    -webkit-overflow-scrolling:touch;
-    padding-bottom:4px;
-    scrollbar-width:none;
-    -webkit-mask-image:linear-gradient(to right,transparent 0,black 10px,black calc(100% - 10px),transparent 100%);
-    mask-image:linear-gradient(to right,transparent 0,black 10px,black calc(100% - 10px),transparent 100%)
-  }
+  /* Airport groups: compact on mobile */
+  .pa-groups{gap:8px}
+  .pa-group-label{font-size:8px}
+  .pa-grid{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;scrollbar-width:none}
   .pa-grid::-webkit-scrollbar{display:none}
-  .pa-code{flex-shrink:0;min-height:36px;padding:6px 10px;display:flex;align-items:center}
+  .pa-code{flex-shrink:0;min-height:34px;padding:5px 9px;display:flex;align-items:center}
 
   /* Touch targets — min 36–44px */
   .pa-target{min-height:32px;padding:5px 11px;font-size:11px}
