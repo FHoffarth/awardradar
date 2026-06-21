@@ -663,11 +663,12 @@ document.querySelectorAll('.pa-code').forEach(b => {
   };
 });
 
-// Flex segmented control — mutually exclusive
+// Flex segmented control — mutually exclusive; re-runs search if results already shown
 document.querySelectorAll('.flex-opt').forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll('.flex-opt').forEach(b => b.classList.remove('on'));
     btn.classList.add('on');
+    if ($('results').children.length && $('origin').value && $('dest').value) run();
   };
 });
 
