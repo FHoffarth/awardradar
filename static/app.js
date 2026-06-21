@@ -159,23 +159,24 @@ async function run() {
 }
 
 function scoreInfo(s) {
-  if (s >= 90) return { tier: 's-gold', emoji: '🔥', label: 'Sweet Spot', desc: 'Exceptional price + direct or Star Alliance' };
-  if (s >= 75) return { tier: 's-green', emoji: '⭐', label: 'Great Deal', desc: 'Well below average, good routing' };
-  if (s >= 60) return { tier: 's-cyan', emoji: '✓', label: 'Good Deal', desc: 'Solid value for this route' };
-  return { tier: 's-muted', emoji: '', label: 'Fair', desc: 'Average or above-average price' };
+  if (s >= 90) return { tier: 's-gold', grade: 'A+', label: 'Exceptional', desc: 'Top-tier price, often nonstop or Star Alliance' };
+  if (s >= 75) return { tier: 's-green', grade: 'A', label: 'Great Value', desc: 'Well below average, good routing' };
+  if (s >= 60) return { tier: 's-cyan', grade: 'B', label: 'Good Value', desc: 'Solid value for this route' };
+  if (s >= 40) return { tier: 's-muted', grade: 'C', label: 'Fair', desc: 'Average price for this route' };
+  return { tier: 's-muted', grade: 'D', label: 'Weak', desc: 'Above-average price' };
 }
 function scoreHtml(s, reason) {
   if (s == null) return '';
-  const { tier, emoji, label, desc } = scoreInfo(s);
+  const { tier, grade, label, desc } = scoreInfo(s);
   const tooltip = reason ? esc(reason) : esc(desc);
   return `<div class="score-block ${tier}" title="${tooltip}" aria-label="Deal score ${s} out of 100: ${label}">
     <span class="score-num">${s}</span><span class="score-denom">/100</span>
-    <div class="score-lbl">${emoji} ${label}</div>
+    <div class="score-lbl"><span class="score-grade">${grade}</span> ${label}</div>
   </div>`;
 }
 function bestBadgeHtml(s) {
-  if (s >= 90) return '<div class="best-badge">🔥 Sweet Spot</div>';
-  if (s >= 75) return '<div class="best-badge">⭐ Best Value</div>';
+  if (s >= 90) return '<div class="best-badge">A+ · Exceptional</div>';
+  if (s >= 75) return '<div class="best-badge">A · Great Value</div>';
   return '<div class="best-badge">Best Match</div>';
 }
 
@@ -183,10 +184,11 @@ function scoreLegendHtml() {
   return `<details class="score-legend">
     <summary>What is the Deal Score? <span class="legend-hint">tap to expand</span></summary>
     <div class="legend-grid">
-      <span class="s-gold score-num" style="font-size:15px">90+</span><span>🔥 <strong>Sweet Spot</strong> — exceptional price, often nonstop or Star Alliance</span>
-      <span class="s-green score-num" style="font-size:15px">75+</span><span>⭐ <strong>Great Deal</strong> — well below average, good routing</span>
-      <span class="s-cyan score-num" style="font-size:15px">60+</span><span>✓ <strong>Good Deal</strong> — solid value for this route</span>
-      <span class="s-muted score-num" style="font-size:15px">&lt;60</span><span><strong>Fair</strong> — average or above-average price</span>
+      <span class="s-gold score-num" style="font-size:15px">A+</span><span><strong>Exceptional</strong> — top-tier price, often nonstop or Star Alliance (90+)</span>
+      <span class="s-green score-num" style="font-size:15px">A</span><span><strong>Great Value</strong> — well below average, good routing (75+)</span>
+      <span class="s-cyan score-num" style="font-size:15px">B</span><span><strong>Good Value</strong> — solid value for this route (60+)</span>
+      <span class="s-muted score-num" style="font-size:15px">C</span><span><strong>Fair</strong> — average price (40+)</span>
+      <span class="s-muted score-num" style="font-size:15px">D</span><span><strong>Weak</strong> — above-average price</span>
     </div>
     <p class="legend-note">Score factors: price vs. typical range (up to 30 pts), stops (up to 30 pts), Star Alliance airline (15 pts), price insight signals (25 pts).</p>
   </details>`;
@@ -215,7 +217,7 @@ function calendarStripHtml(calendar) {
     return `<button class="date-cell${cls}" onclick="jumpToDate('${c.date}')">
       <div class="dc-date">${label}</div>
       <div class="dc-price">${priceStr}</div>
-      ${c.isBest ? '<div class="dc-badge">BEST</div>' : ''}
+      ${c.isBest ? '<div class="dc-badge dc-badge-best">BEST</div>' : (tier === 'cheap' && !c.isSelected ? '<div class="dc-badge dc-badge-low">LOW</div>' : tier === 'exp' && !c.isSelected ? '<div class="dc-badge dc-badge-high">HIGH</div>' : '')}
     </button>`;
   }).join('');
   return `<div class="date-strip">${cells}</div>`;
@@ -338,13 +340,13 @@ function render(data) {
     html += (data.results || []).map(r => {
       const cashStr = r.cash_eur ? `${Math.round(r.cash_eur)} EUR cash` : 'no live price';
       const bestBadge = r.best_program
-        ? `<div class="best-badge">⭐ Sweet Spot: ${esc(r.best_program)}</div>` : '';
+        ? `<div class="best-badge">A+ · ${esc(r.best_program)}</div>` : '';
       const rows = (r.programs || []).map(p => {
         const g = p.grade || {};
         const tierClass = { exceptional: 'a-tier', great: 'a-tier', good: 'b-tier', fair: 'c-tier', poor: 'd-tier' }[g.tier] || '';
         const cpmStr = p.cpm ? `${p.cpm.toFixed(2)} ct/Mile` : '—';
         const gradeStr = g.grade ? `<span class="award-grade ${tierClass}">${esc(g.grade)}</span>` : '';
-        const labelStr = g.label ? `<span class="award-label ${tierClass}">${g.emoji ? esc(g.emoji) + ' ' : ''}${esc(g.label)}</span>` : '';
+        const labelStr = g.label ? `<span class="award-label ${tierClass}">${esc(g.label)}</span>` : '';
         return `<tr>
           <td class="aw-prog"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.program)}</a></td>
           <td class="aw-miles">${p.miles.toLocaleString()} mi</td>

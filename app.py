@@ -643,14 +643,14 @@ def calc_cpm(cash_eur: float, miles: int, surcharge_eur: float) -> float:
 
 def sweet_spot_grade(cpm: float) -> dict:
     if cpm >= 2.5:
-        return {"grade": "A+", "tier": "exceptional", "label": "Exceptional", "emoji": "🔥"}
+        return {"grade": "A+", "tier": "exceptional", "label": "Exceptional Redemption"}
     if cpm >= 1.8:
-        return {"grade": "A",  "tier": "great",       "label": "Great Value", "emoji": "⭐"}
+        return {"grade": "A",  "tier": "great",       "label": "Great Redemption"}
     if cpm >= 1.2:
-        return {"grade": "B",  "tier": "good",        "label": "Good",        "emoji": "✓"}
+        return {"grade": "B",  "tier": "good",        "label": "Good Redemption"}
     if cpm >= 0.7:
-        return {"grade": "C",  "tier": "fair",        "label": "Fair",        "emoji": ""}
-    return         {"grade": "D",  "tier": "poor",        "label": "Poor Value",  "emoji": ""}
+        return {"grade": "C",  "tier": "fair",        "label": "Fair Redemption"}
+    return         {"grade": "D",  "tier": "poor",        "label": "Weak Redemption"}
 
 
 def build_program_comparison(origin: str, dest: str, cabin: str, cash_eur: float | None) -> list[dict]:
