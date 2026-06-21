@@ -97,26 +97,78 @@ function payload() {
 
 function setStatus(t) { $('status').textContent = t; }
 
+const RADAR_STAGES = [
+  'Resolving airports',
+  'Checking live fares',
+  'Scanning flexible dates',
+  'Calculating value',
+  'Ranking results',
+];
+
 let _progressTimer = null;
-function startProgress() {
+let _elapsedTimer = null;
+let _radarStage = 0;
+let _searchStart = 0;
+
+function radarHtml(origin, dest) {
+  const route = (origin && dest) ? `${origin} → ${dest}` : '';
+  const dots = [
+    [48, 2], [95, 48], [48, 95], [2, 48],
+    [82, 14], [82, 82], [14, 82], [14, 14],
+  ].map(([x, y]) => `<div class="radar-ring-dot" style="left:${x}%;top:${y}%"></div>`).join('');
+  const stages = RADAR_STAGES.map((s, i) =>
+    `<div class="radar-stage" id="rs${i}"><span class="radar-stage-dot"></span>${s}</div>`
+  ).join('');
+  return `<div class="radar-state" role="status" aria-live="polite" aria-label="Searching for flights">
+    ${route ? `<div class="radar-route"><strong>${esc(route)}</strong></div>` : ''}
+    <div class="radar-ring-wrap" aria-hidden="true">
+      <div class="radar-ring radar-ring-outer"></div>
+      <div class="radar-ring radar-ring-mid"></div>
+      <div class="radar-ring radar-ring-inner"></div>
+      ${dots}
+      <div class="radar-ring-sweep"></div>
+      <div class="radar-center"></div>
+    </div>
+    <div class="radar-stages">${stages}</div>
+    <div class="radar-elapsed" id="radarElapsed">Scanning…</div>
+  </div>`;
+}
+
+function startProgress(origin, dest) {
   const bar = $('progress-bar'), fill = $('progress-fill'), go = $('go');
   bar.classList.add('active');
   fill.style.width = '0%';
   go.classList.add('loading');
   go.disabled = true;
-  // Ramp to 85% over ~8s, then hold until stopProgress
-  let pct = 0;
-  const steps = [
-    [300, 35], [600, 55], [1200, 70], [2000, 80], [3500, 85]
-  ];
-  let i = 0;
-  _progressTimer = setInterval(() => {
-    if (i < steps.length) { pct = steps[i][1]; i++; }
-    fill.style.width = pct + '%';
-  }, steps[i]?.[0] || 1000);
+  _radarStage = 0;
+  _searchStart = Date.now();
+
+  $('results').innerHTML = radarHtml(origin, dest);
+
+  const stageTiming = [0, 1200, 2800, 4800, 7000];
+  const barSteps = [[300, 18], [1200, 38], [2800, 58], [4800, 74], [7000, 85]];
+
+  stageTiming.forEach((delay, i) => {
+    setTimeout(() => {
+      const el = $('rs' + i);
+      if (!el) return;
+      if (i > 0) { const prev = $('rs' + (i - 1)); if (prev) { prev.classList.remove('active'); prev.classList.add('done'); } }
+      el.classList.add('active');
+    }, delay);
+  });
+
+  barSteps.forEach(([delay, pct]) => {
+    setTimeout(() => { fill.style.width = pct + '%'; }, delay);
+  });
+
+  _elapsedTimer = setInterval(() => {
+    const el = $('radarElapsed');
+    if (el) el.textContent = ((Date.now() - _searchStart) / 1000).toFixed(1) + ' s';
+  }, 100);
 }
+
 function stopProgress(ok) {
-  clearInterval(_progressTimer);
+  clearInterval(_elapsedTimer);
   const bar = $('progress-bar'), fill = $('progress-fill'), go = $('go');
   fill.style.width = ok ? '100%' : '0%';
   go.classList.remove('loading');
@@ -138,7 +190,9 @@ function linksHtml(obj) {
 async function run() {
   setStatus(tr('searching'));
   $('results').innerHTML = '';
-  startProgress();
+  const _origin = ($('origin').value || '').trim().toUpperCase().slice(0, 3);
+  const _dest = ($('dest').value || '').trim().toUpperCase().slice(0, 3);
+  startProgress(_origin, _dest);
   const endpoint = mode === 'cheap' ? '/api/cheap' : mode === 'skiplag' ? '/api/skiplag' : '/api/awards';
   try {
     const headers = { 'Content-Type': 'application/json' };
