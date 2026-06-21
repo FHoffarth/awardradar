@@ -18,6 +18,10 @@ from functools import lru_cache
 from urllib.parse import quote_plus
 
 import requests
+
+
+class QuotaError(RuntimeError):
+    """SerpApi search quota exhausted."""
 from flask import Flask, jsonify, make_response, render_template, request
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -40,7 +44,7 @@ SKIPLAG_MAX_SEARCHES = int(os.environ.get("SKIPLAG_MAX_SEARCHES", "6"))
 SERPAPI_TOKEN = os.environ.get("SERPAPI_TOKEN", "")
 SERPAPI_BASE = "https://serpapi.com/search"
 PRICE_SOURCE = (os.environ.get("PRICE_SOURCE") or ("serpapi" if SERPAPI_TOKEN else "travelpayouts")).lower()
-SERPAPI_TTL = int(os.environ.get("SERPAPI_TTL", "600"))        # Cache-Lebensdauer in Sekunden (spart Calls/Geld)
+SERPAPI_TTL = int(os.environ.get("SERPAPI_TTL", "21600"))      # Cache-Lebensdauer in Sekunden (default 6h)
 SERPAPI_MAX_PAIRS = int(os.environ.get("SERPAPI_MAX_PAIRS", "2"))  # max. Origin/Dest-Paare pro Klick (= Anzahl bezahlter Suchen)
 SERPAPI_DEEP = (os.environ.get("SERPAPI_DEEP", "0") == "1")    # exakt wie im Browser, aber langsamer
 FLEX_MAX_DAYS = int(os.environ.get("FLEX_MAX_DAYS", "3"))       # max. Flex-Tage (±N) für Datums-Kalender
@@ -479,10 +483,15 @@ def serpapi_search(origin: str, dest: str, dep: dt.date, ret: dt.date | None, ca
     if SERPAPI_DEEP:
         params["deep_search"] = "true"
     r = HTTP.get(SERPAPI_BASE, params=params, timeout=30)
+    if r.status_code in (402, 429):
+        raise QuotaError("Search quota exhausted.")
     r.raise_for_status()
     data = r.json() or {}
-    if data.get("error"):
-        raise RuntimeError(str(data["error"]))
+    err = data.get("error", "")
+    if err:
+        if "run out of searches" in err.lower() or "quota" in err.lower():
+            raise QuotaError(err)
+        raise RuntimeError(err)
     _SERP_CACHE[key] = (now, data)
     return data
 
@@ -525,7 +534,10 @@ def serpapi_offers(origin: str, dest: str, dep: dt.date, ret: dt.date | None, cu
     """Liefert Offers im Karten-Schema (oder Fehlermeldung)."""
     try:
         data = serpapi_search(origin, dest, dep, ret, cabin, currency, lang)
+    except QuotaError:
+        raise
     except Exception as exc:
+        app.logger.warning("serpapi_offers %s→%s: %s", origin, dest, exc)
         return [], str(exc)
     insights = data.get("price_insights") or {}
     typical_range = insights.get("typical_price_range")
@@ -685,6 +697,8 @@ def fetch_cash_price(origin: str, dest: str, dep: dt.date, cabin: str, currency:
         items = (data.get("best_flights") or []) + (data.get("other_flights") or [])
         prices = [float(it["price"]) for it in items if it.get("price")]
         return min(prices) if prices else None
+    except QuotaError:
+        raise
     except Exception:
         return None
 
@@ -787,12 +801,15 @@ def cheap():
     if use_serpapi:
         pairs = [(o, d) for o in origins[:2] for d in dests[:2] if o != d][:SERPAPI_MAX_PAIRS]
         tasks = [(o, d, dep, ret, currency, mm_only, lang, cabin) for o, d in pairs]
-        with cf.ThreadPoolExecutor(max_workers=min(SERPAPI_MAX_PAIRS, max(1, len(tasks)))) as pool:
-            for origin, dest, found, err in pool.map(serpapi_task, tasks):
-                if err:
-                    warnings.append(f"{origin}→{dest}: {err}")
-                    continue
-                offers.extend(found)
+        try:
+            with cf.ThreadPoolExecutor(max_workers=min(SERPAPI_MAX_PAIRS, max(1, len(tasks)))) as pool:
+                for origin, dest, found, err in pool.map(serpapi_task, tasks):
+                    if err:
+                        app.logger.warning("cheap %s→%s: %s", origin, dest, err)
+                    else:
+                        offers.extend(found)
+        except QuotaError:
+            return jsonify({"ok": False, "error": "quota_exhausted"}), 503
 
         if flex_days > 0 and origins and dests:
             flex_origin, flex_dest = origins[0], dests[0]
@@ -844,7 +861,7 @@ def cheap():
         "offers": offers[:8],
         "calendar": calendar,
         "fallback": fallback,
-        "warnings": warnings[:8],
+        "warnings": [],
         "debug": {"origins": origins, "dests": dests, "seconds": round(time.time() - started, 2), "source": PRICE_SOURCE if use_serpapi else "travelpayouts"},
         "note": tx(note_key, lang),
     })
@@ -854,6 +871,8 @@ def verify_skiplag_serpapi(origin: str, true_dest: str, final_dest: str, dep: dt
     """Search origin→final_dest via SerpApi; return verification data if true_dest appears as layover."""
     try:
         data = serpapi_search(origin, final_dest, dep, None, "economy", currency, lang)
+    except QuotaError:
+        raise
     except Exception:
         return None
     insights = data.get("price_insights") or {}
@@ -924,31 +943,34 @@ def skiplag():
                 def _verify(final_dest: str) -> tuple[str, dict | None]:
                     return final_dest, verify_skiplag_serpapi(origin, true_dest, final_dest, dep, currency, lang)
 
-                with cf.ThreadPoolExecutor(max_workers=min(SKIPLAG_MAX_SEARCHES, max(1, len(candidates)))) as pool:
-                    for final_dest, v in pool.map(_verify, candidates):
-                        if not v:
-                            continue
-                        savings = (normal_price - v["candidatePrice"]) if normal_price and v["candidatePrice"] else None
-                        results.append({
-                            "origin": origin,
-                            "hiddenCity": true_dest,
-                            "ticketDestination": final_dest,
-                            "date": dep.isoformat(),
-                            "normalPrice": normal_price or None,
-                            "candidatePrice": v["candidatePrice"],
-                            "currency": v["currency"],
-                            "savings": savings,
-                            "airline": v.get("airline"),
-                            "airlineCode": v.get("airlineCode"),
-                            "stops": v.get("stops"),
-                            "layoverDuration": v.get("layoverDuration"),
-                            "segmentChain": v.get("segmentChain"),
-                            "verified": True,
-                            "confidence": "verified" if lang == "en" else "verifiziert",
-                            "candidateLabel": "Verified Hidden-City" if lang == "en" else "Verifizierter Hidden-City",
-                            "verifyRouting": tx("verify_routing", lang),
-                            "links": v.get("links", {}),
-                        })
+                try:
+                    with cf.ThreadPoolExecutor(max_workers=min(SKIPLAG_MAX_SEARCHES, max(1, len(candidates)))) as pool:
+                        for final_dest, v in pool.map(_verify, candidates):
+                            if not v:
+                                continue
+                            savings = (normal_price - v["candidatePrice"]) if normal_price and v["candidatePrice"] else None
+                            results.append({
+                                "origin": origin,
+                                "hiddenCity": true_dest,
+                                "ticketDestination": final_dest,
+                                "date": dep.isoformat(),
+                                "normalPrice": normal_price or None,
+                                "candidatePrice": v["candidatePrice"],
+                                "currency": v["currency"],
+                                "savings": savings,
+                                "airline": v.get("airline"),
+                                "airlineCode": v.get("airlineCode"),
+                                "stops": v.get("stops"),
+                                "layoverDuration": v.get("layoverDuration"),
+                                "segmentChain": v.get("segmentChain"),
+                                "verified": True,
+                                "confidence": "verified" if lang == "en" else "verifiziert",
+                                "candidateLabel": "Verified Hidden-City" if lang == "en" else "Verifizierter Hidden-City",
+                                "verifyRouting": tx("verify_routing", lang),
+                                "links": v.get("links", {}),
+                            })
+                except QuotaError:
+                    return jsonify({"ok": False, "error": "quota_exhausted"}), 503
             else:
                 # Fallback: TP candidate logic
                 candidate_endings = SKIPLAG_ENDINGS[:SKIPLAG_MAX_CANDIDATES]
@@ -1003,25 +1025,28 @@ def awards():
         return jsonify({"ok": False, "error": tx("missing_origin_dest", lang)}), 400
 
     results = []
-    for origin in origins[:2]:
-        for dest in dests[:3]:
-            if origin == dest:
-                continue
-            cash_eur = fetch_cash_price(origin, dest, dep, cabin)
-            programs = build_program_comparison(origin, dest, cabin, cash_eur)
-            best = next((p for p in programs if p["grade"] and p["grade"]["tier"] in ("exceptional", "great")), None)
-            results.append({
-                "route":       f"{origin} → {dest}",
-                "origin":      origin,
-                "dest":        dest,
-                "date":        dep.isoformat(),
-                "returnDate":  ret.isoformat() if ret else None,
-                "cabin":       cabin,
-                "cash_eur":    round(cash_eur, 0) if cash_eur else None,
-                "programs":    programs,
-                "best_program": best["program"] if best else None,
-                "links":       award_links(origin, dest, dep.isoformat(), ret.isoformat() if ret else None, cabin),
-            })
+    try:
+        for origin in origins[:2]:
+            for dest in dests[:3]:
+                if origin == dest:
+                    continue
+                cash_eur = fetch_cash_price(origin, dest, dep, cabin)
+                programs = build_program_comparison(origin, dest, cabin, cash_eur)
+                best = next((p for p in programs if p["grade"] and p["grade"]["tier"] in ("exceptional", "great")), None)
+                results.append({
+                    "route":        f"{origin} → {dest}",
+                    "origin":       origin,
+                    "dest":         dest,
+                    "date":         dep.isoformat(),
+                    "returnDate":   ret.isoformat() if ret else None,
+                    "cabin":        cabin,
+                    "cash_eur":     round(cash_eur, 0) if cash_eur else None,
+                    "programs":     programs,
+                    "best_program": best["program"] if best else None,
+                    "links":        award_links(origin, dest, dep.isoformat(), ret.isoformat() if ret else None, cabin),
+                })
+    except QuotaError:
+        return jsonify({"ok": False, "error": "quota_exhausted"}), 503
 
     note = ("Live-Preise via Google Flights für CPM-Berechnung. Meilen-Schätzwerte — echte Chart-Zahlen auf Programmseiten prüfen."
             if SERPAPI_TOKEN else

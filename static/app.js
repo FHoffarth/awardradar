@@ -200,7 +200,10 @@ async function run() {
     const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(payload()) });
     let data;
     try { data = await res.json(); } catch (_) { throw new Error(res.status + ' ' + res.statusText); }
-    if (!res.ok || !data.ok) throw new Error((data && data.error) || res.statusText || 'Error');
+    if (!res.ok || !data.ok) {
+      if (data && data.error === 'quota_exhausted') throw Object.assign(new Error('quota_exhausted'), { isQuota: true });
+      throw new Error((data && data.error) || res.statusText || 'Error');
+    }
     stopProgress(true);
     if (typeof globePulseRoute === 'function') globePulseRoute(_origin, _dest);
     render(data);
@@ -209,9 +212,19 @@ async function run() {
   } catch (e) {
     stopProgress(false);
     console.error('[AwardRadar]', e.message);
-    const userMsg = mode === 'skiplag'
-      ? `<div class="card skiplag-empty"><div class="skiplag-empty-title">Analysis unavailable.</div><p class="skiplag-empty-reason">The hidden-city analysis could not be completed for this search.</p><button class="cross-btn" onclick="switchTabAndRun('cheap')">Show Cash Fares</button></div>`
-      : `<div class="card note">Search unavailable. Please try again.</div>`;
+    let userMsg;
+    if (e.isQuota) {
+      userMsg = `<div class="card skiplag-empty">
+        <div class="skiplag-empty-header">Live Data</div>
+        <div class="skiplag-empty-title">Live fare data is temporarily unavailable.</div>
+        <p class="skiplag-empty-reason">Search capacity is refreshed periodically. Please try again in a few minutes.</p>
+        <p class="muted-note" style="margin-top:10px">Using cached data where available.</p>
+      </div>`;
+    } else if (mode === 'skiplag') {
+      userMsg = `<div class="card skiplag-empty"><div class="skiplag-empty-title">Analysis unavailable.</div><p class="skiplag-empty-reason">The hidden-city analysis could not be completed for this search.</p><button class="cross-btn" onclick="switchTabAndRun('cheap')">Show Cash Fares</button></div>`;
+    } else {
+      userMsg = `<div class="card note">Search unavailable. Please try again.</div>`;
+    }
     $('results').innerHTML = userMsg;
     setStatus(tr('error'));
   }
