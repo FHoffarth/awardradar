@@ -184,6 +184,28 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .unverified-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;margin-bottom:8px;background:rgba(255,157,157,.07);border:1px solid rgba(255,157,157,.2);color:var(--bad)}
 .seg-chain{font-size:13px;font-weight:600;color:var(--muted);margin:4px 0 6px;letter-spacing:.02em}
 .savings-line{font-size:13px;color:var(--green);font-weight:600;margin-top:4px}
+
+/* Award comparison table */
+.award-table-wrap{overflow-x:auto;margin:0 -4px}
+.award-table{width:100%;border-collapse:collapse;font-size:12px}
+.award-table th{text-align:left;padding:5px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border)}
+.award-table td{padding:8px 8px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+.award-table tr:last-child td{border-bottom:none}
+.award-table tr:hover td{background:rgba(255,255,255,.02)}
+.aw-prog a{color:var(--cyan);text-decoration:none;font-weight:600}
+.aw-prog a:hover{text-decoration:underline}
+.aw-miles{font-weight:700;color:var(--text);white-space:nowrap}
+.aw-surcharge{color:var(--muted);white-space:nowrap}
+.aw-cpm{font-weight:700;white-space:nowrap}
+.aw-grade{white-space:nowrap}
+.award-grade{font-size:15px;font-weight:800;margin-right:4px}
+.award-label{font-size:11px;font-weight:600}
+.a-tier{color:var(--green)}
+.b-tier{color:var(--gold)}
+.c-tier{color:var(--muted)}
+.d-tier{color:var(--bad)}
+[data-theme="light"] .award-table td{border-bottom-color:rgba(16,32,51,.06)}
+[data-theme="light"] .award-table tr:hover td{background:rgba(16,32,51,.02)}
 .links{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .links a{color:var(--muted);text-decoration:none;border:1px solid var(--border);background:rgba(255,255,255,.04);border-radius:7px;padding:5px 10px;font-size:11px;transition:all .15s}
 .links a:hover{color:var(--text);border-color:rgba(255,255,255,.2)}

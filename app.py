@@ -550,6 +550,145 @@ def flex_date_task(args: tuple) -> tuple[str, list[dict], str | None]:
     return check_date.isoformat(), offers, err
 
 
+# ── Sweet-Spot-Engine V1 ────────────────────────────────────────────────────
+# Schätzwerte — Flo prüft echte Chart-Zahlen auf den Programmseiten.
+
+AIRPORT_ZONES: dict[str, str] = {
+    **{k: "europe"        for k in ["FRA","MUC","DUS","BER","HAM","CGN","STR","ZRH","VIE",
+                                     "LHR","LGW","LCY","STN","CDG","ORY","AMS","MAD","BCN",
+                                     "FCO","MXP","ATH","IST","BRU","CPH","ARN","OSL","WAW",
+                                     "LIS","HEL","GVA","DUB","PRG","BUD","OTP","TXL"]},
+    **{k: "north_america" for k in ["JFK","EWR","LGA","BOS","IAD","ORD","MIA","LAX","SFO",
+                                     "SEA","YYZ","YUL","DEN","ATL","DFW","IAH","MSP","DTW"]},
+    **{k: "asia"          for k in ["SIN","HKG","BKK","HND","NRT","ICN","TPE","PEK","PVG",
+                                     "CAN","KUL","CGK","MNL","SGN","HAN","DEL","BOM","CMB"]},
+    **{k: "middle_east"   for k in ["DXB","DOH","AUH","CAI","AMM","BEY","TLV","MCT"]},
+    **{k: "pacific"       for k in ["SYD","MEL","BNE","AKL","PER","CHC"]},
+    **{k: "south_america" for k in ["GRU","EZE","BOG","LIM","SCL","GIG","MVD"]},
+    **{k: "africa"        for k in ["JNB","CPT","NBO","ADD","LOS","CMN","ACC"]},
+}
+
+def airport_zone(iata: str) -> str:
+    return AIRPORT_ZONES.get((iata or "").upper(), "other")
+
+# one-way Saver miles — Schätzwerte Stand 2024
+MM_CHART: dict[tuple, dict[str, int]] = {
+    ("europe",        "europe"):        {"Economy": 12500, "Premium Eco": 20000, "Business": 37500, "First": 60000},
+    ("europe",        "north_america"): {"Economy": 30000, "Premium Eco": 50000, "Business": 55000, "First": 87500},
+    ("europe",        "asia"):          {"Economy": 35000, "Premium Eco": 60000, "Business": 65000, "First": 105000},
+    ("europe",        "middle_east"):   {"Economy": 22500, "Premium Eco": 40000, "Business": 45000, "First": 75000},
+    ("europe",        "pacific"):       {"Economy": 50000, "Premium Eco": 85000, "Business": 90000, "First": 130000},
+    ("europe",        "south_america"): {"Economy": 37500, "Premium Eco": 65000, "Business": 70000, "First": 110000},
+    ("europe",        "africa"):        {"Economy": 27500, "Premium Eco": 47500, "Business": 52500, "First": 85000},
+    ("north_america", "asia"):          {"Economy": 30000, "Premium Eco": 50000, "Business": 57500, "First": 87500},
+    ("north_america", "pacific"):       {"Economy": 40000, "Premium Eco": 70000, "Business": 75000, "First": 115000},
+    ("asia",          "pacific"):       {"Economy": 22500, "Premium Eco": 40000, "Business": 45000, "First": 70000},
+    ("asia",          "middle_east"):   {"Economy": 17500, "Premium Eco": 30000, "Business": 37500, "First": 55000},
+}
+
+AEROPLAN_CHART: dict[tuple, dict[str, int]] = {
+    ("europe",        "europe"):        {"Economy": 10000, "Premium Eco": 15000, "Business": 25000, "First": 35000},
+    ("europe",        "north_america"): {"Economy": 35000, "Premium Eco": 55000, "Business": 60000, "First": 85000},
+    ("europe",        "asia"):          {"Economy": 40000, "Premium Eco": 65000, "Business": 75000, "First": 100000},
+    ("europe",        "middle_east"):   {"Economy": 27500, "Premium Eco": 45000, "Business": 55000, "First": 75000},
+    ("europe",        "pacific"):       {"Economy": 45000, "Premium Eco": 75000, "Business": 90000, "First": 115000},
+    ("europe",        "south_america"): {"Economy": 40000, "Premium Eco": 65000, "Business": 75000, "First": 100000},
+    ("europe",        "africa"):        {"Economy": 30000, "Premium Eco": 50000, "Business": 60000, "First": 85000},
+    ("north_america", "asia"):          {"Economy": 35000, "Premium Eco": 55000, "Business": 65000, "First": 90000},
+    ("north_america", "pacific"):       {"Economy": 40000, "Premium Eco": 65000, "Business": 75000, "First": 100000},
+}
+
+UNITED_CHART: dict[tuple, dict[str, int]] = {
+    ("europe",        "europe"):        {"Economy": 10000, "Premium Eco": 15000, "Business": 22500, "First": 40000},
+    ("europe",        "north_america"): {"Economy": 30000, "Premium Eco": 45000, "Business": 57500, "First": 80000},
+    ("europe",        "asia"):          {"Economy": 35000, "Premium Eco": 55000, "Business": 70000, "First": 105000},
+    ("europe",        "middle_east"):   {"Economy": 25000, "Premium Eco": 42500, "Business": 50000, "First": 70000},
+    ("europe",        "pacific"):       {"Economy": 40000, "Premium Eco": 70000, "Business": 80000, "First": 110000},
+    ("europe",        "south_america"): {"Economy": 35000, "Premium Eco": 60000, "Business": 65000, "First": 95000},
+    ("north_america", "asia"):          {"Economy": 35000, "Premium Eco": 55000, "Business": 70000, "First": 100000},
+    ("north_america", "pacific"):       {"Economy": 40000, "Premium Eco": 65000, "Business": 80000, "First": 105000},
+}
+
+# Typical YQ/YR fuel surcharges in EUR per program per dest zone (estimate)
+SURCHARGES_EUR: dict[str, dict[str, int]] = {
+    "Miles & More": {"europe": 35, "north_america": 280, "asia": 320, "middle_east": 200,
+                     "pacific": 380, "south_america": 300, "africa": 250, "other": 200},
+    "Aeroplan":     {"europe": 30, "north_america": 55,  "asia": 55,  "middle_east": 55,
+                     "pacific": 55,  "south_america": 55,  "africa": 55,  "other": 55},
+    "United":       {"europe": 20, "north_america": 20,  "asia": 20,  "middle_east": 20,
+                     "pacific": 20,  "south_america": 20,  "africa": 20,  "other": 20},
+}
+
+AWARD_PROGRAMS = [
+    ("Miles & More", MM_CHART, "https://www.miles-and-more.com/"),
+    ("Aeroplan",     AEROPLAN_CHART, "https://www.aircanada.com/aeroplan/redeem/"),
+    ("United",       UNITED_CHART, "https://www.united.com/en/us/fsr/choose-flights"),
+]
+
+
+def get_miles(chart: dict, oz: str, dz: str, cabin: str) -> int | None:
+    for key in [(oz, dz), (dz, oz)]:
+        row = chart.get(key)
+        if row:
+            return row.get(cabin) or row.get("Economy")
+    return None
+
+
+def calc_cpm(cash_eur: float, miles: int, surcharge_eur: float) -> float:
+    net = cash_eur - surcharge_eur
+    if miles <= 0 or net <= 0:
+        return 0.0
+    return round(net / miles * 100, 2)
+
+
+def sweet_spot_grade(cpm: float) -> dict:
+    if cpm >= 2.5:
+        return {"grade": "A+", "tier": "exceptional", "label": "Exceptional", "emoji": "🔥"}
+    if cpm >= 1.8:
+        return {"grade": "A",  "tier": "great",       "label": "Great Value", "emoji": "⭐"}
+    if cpm >= 1.2:
+        return {"grade": "B",  "tier": "good",        "label": "Good",        "emoji": "✓"}
+    if cpm >= 0.7:
+        return {"grade": "C",  "tier": "fair",        "label": "Fair",        "emoji": ""}
+    return         {"grade": "D",  "tier": "poor",        "label": "Poor Value",  "emoji": ""}
+
+
+def build_program_comparison(origin: str, dest: str, cabin: str, cash_eur: float | None) -> list[dict]:
+    oz, dz = airport_zone(origin), airport_zone(dest)
+    results = []
+    for name, chart, url in AWARD_PROGRAMS:
+        miles = get_miles(chart, oz, dz, cabin)
+        if not miles:
+            continue
+        surcharge = SURCHARGES_EUR.get(name, {}).get(dz, 100)
+        cpm = calc_cpm(cash_eur, miles, surcharge) if cash_eur else None
+        grade = sweet_spot_grade(cpm) if cpm else None
+        results.append({
+            "program":    name,
+            "miles":      miles,
+            "surcharge":  surcharge,
+            "cpm":        cpm,
+            "grade":      grade,
+            "url":        url,
+        })
+    # Sort by CPM descending (best value first), unknowns at end
+    results.sort(key=lambda x: -(x["cpm"] or 0))
+    return results
+
+
+def fetch_cash_price(origin: str, dest: str, dep: dt.date, cabin: str, currency: str = "EUR") -> float | None:
+    """Quick SerpApi lookup for cash price — returns cheapest price found or None."""
+    if not SERPAPI_TOKEN:
+        return None
+    try:
+        data = serpapi_search(origin, dest, dep, None, cabin, currency)
+        items = (data.get("best_flights") or []) + (data.get("other_flights") or [])
+        prices = [float(it["price"]) for it in items if it.get("price")]
+        return min(prices) if prices else None
+    except Exception:
+        return None
+
+
 def award_links(origin: str, dest: str, dep: str, ret: str | None, cabin: str) -> list[dict]:
     q = quote_plus(f"award flight {origin} {dest} {dep} {cabin}")
     return [
@@ -855,21 +994,39 @@ def awards():
     data = request.get_json(force=True) or {}
     lang = lang_from_payload(data)
     origins = resolve_codes(data.get("origin", ""))
-    dests = resolve_codes(data.get("dest", ""))
-    dep = parse_date(data.get("date", ""), 60)
+    dests   = resolve_codes(data.get("dest",   ""))
+    dep     = parse_date(data.get("date", ""), 60)
     one_way = bool(data.get("oneWay", True))
-    ret = None if one_way else parse_date(data.get("returnDate", ""), 67)
-    cabins = data.get("cabins") or ["Economy", "Premium Eco", "Business"]
+    ret     = None if one_way else parse_date(data.get("returnDate", ""), 67)
+    cabin   = data.get("cabin") or "Economy"
     if not origins or not dests:
         return jsonify({"ok": False, "error": tx("missing_origin_dest", lang)}), 400
-    cards = []
-    for origin in origins[:3]:
-        for dest in dests[:4]:
+
+    results = []
+    for origin in origins[:2]:
+        for dest in dests[:3]:
             if origin == dest:
                 continue
-            for cabin in cabins:
-                cards.append({"route": f"{origin} → {dest}", "date": dep.isoformat(), "returnDate": ret.isoformat() if ret else None, "cabin": cabin, "score": score_award(origin, dest, cabin, lang), "links": award_links(origin, dest, dep.isoformat(), ret.isoformat() if ret else None, cabin)})
-    return jsonify({"ok": True, "cards": cards, "debug": {"origins": origins, "dests": dests}, "note": tx("awards_note", lang)})
+            cash_eur = fetch_cash_price(origin, dest, dep, cabin)
+            programs = build_program_comparison(origin, dest, cabin, cash_eur)
+            best = next((p for p in programs if p["grade"] and p["grade"]["tier"] in ("exceptional", "great")), None)
+            results.append({
+                "route":       f"{origin} → {dest}",
+                "origin":      origin,
+                "dest":        dest,
+                "date":        dep.isoformat(),
+                "returnDate":  ret.isoformat() if ret else None,
+                "cabin":       cabin,
+                "cash_eur":    round(cash_eur, 0) if cash_eur else None,
+                "programs":    programs,
+                "best_program": best["program"] if best else None,
+                "links":       award_links(origin, dest, dep.isoformat(), ret.isoformat() if ret else None, cabin),
+            })
+
+    note = ("Live-Preise via Google Flights für CPM-Berechnung. Meilen-Schätzwerte — echte Chart-Zahlen auf Programmseiten prüfen."
+            if SERPAPI_TOKEN else
+            "Kein SerpApi-Token — CPM-Berechnung ohne Live-Cashpreis. Meilen-Schätzwerte.")
+    return jsonify({"ok": True, "results": results, "debug": {"origins": origins, "dests": dests}, "note": note})
 
 
 def score_award(origin: str, dest: str, cabin: str, lang: str = "de") -> dict:

@@ -335,20 +335,41 @@ function render(data) {
   }
 
   if (mode === 'awards') {
-    html += (data.cards || []).map(c => `
-      <div class="card">
-        <div class="card-row">
-          <div class="card-main">
-            <h3>${esc(c.route)} · ${esc(c.cabin)}</h3>
-            <div class="meta"><span>${esc(c.date)}${c.returnDate ? ' – ' + esc(c.returnDate) : ''}</span></div>
-            <p style="margin-top:7px;font-size:13px;color:var(--muted)">${esc(c.score.text)}</p>
-          </div>
-          <div class="card-price">
-            <div class="score score-ok" style="font-size:13px;padding:6px 12px">${esc(c.score.label)}</div>
-          </div>
+    html += (data.results || []).map(r => {
+      const cashStr = r.cash_eur ? `${Math.round(r.cash_eur)} EUR cash` : 'no live price';
+      const bestBadge = r.best_program
+        ? `<div class="best-badge">⭐ Sweet Spot: ${esc(r.best_program)}</div>` : '';
+      const rows = (r.programs || []).map(p => {
+        const g = p.grade || {};
+        const tierClass = { exceptional: 'a-tier', great: 'a-tier', good: 'b-tier', fair: 'c-tier', poor: 'd-tier' }[g.tier] || '';
+        const cpmStr = p.cpm ? `${p.cpm.toFixed(2)} ct/Mile` : '—';
+        const gradeStr = g.grade ? `<span class="award-grade ${tierClass}">${esc(g.grade)}</span>` : '';
+        const labelStr = g.label ? `<span class="award-label ${tierClass}">${g.emoji ? esc(g.emoji) + ' ' : ''}${esc(g.label)}</span>` : '';
+        return `<tr>
+          <td class="aw-prog"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.program)}</a></td>
+          <td class="aw-miles">${p.miles.toLocaleString()} mi</td>
+          <td class="aw-surcharge">+${p.surcharge} EUR</td>
+          <td class="aw-cpm">${cpmStr}</td>
+          <td class="aw-grade">${gradeStr} ${labelStr}</td>
+        </tr>`;
+      }).join('');
+      return `<div class="card${r.best_program ? ' top-card' : ''}">
+        ${bestBadge}
+        <h3>${esc(r.route)} <span class="route-arrow">·</span> ${esc(r.cabin)}</h3>
+        <div class="meta" style="margin:4px 0 10px">
+          <span>${esc(r.date)}${r.returnDate ? ' → ' + esc(r.returnDate) : ''}</span>
+          <span class="badge">${cashStr}</span>
         </div>
-        ${linksHtml(c.links)}
-      </div>`).join('');
+        <div class="award-table-wrap">
+          <table class="award-table">
+            <thead><tr><th>Program</th><th>Miles</th><th>Surcharge</th><th>Value</th><th>Rating</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <p class="legend-note" style="margin-top:8px">Surcharges estimated · miles from Saver charts · <a href="https://seats.aero" target="_blank" rel="noopener">seats.aero</a> for live availability</p>
+        ${linksHtml(r.links)}
+      </div>`;
+    }).join('') || '<div class="card note">No results — try a different route or date.</div>';
   }
 
   $('results').innerHTML = html;
