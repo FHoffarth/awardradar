@@ -15,7 +15,7 @@
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="AwardRadar – Find miles. Fly better.">
   <meta name="twitter:description" content="Compare cash vs. miles for Miles &amp; More. Find sweet spots and hidden-city tickets.">
-  <link rel="stylesheet" href="/static/app.css?v=95">
+  <link rel="stylesheet" href="/static/app.css?v=96">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.min.css">
 </head>
 <body>
@@ -254,6 +254,36 @@
         </div>
       </div>
     </div>
+
+    <section class="examples-section">
+      <div class="examples-header">
+        <span class="examples-label">Example analyses</span>
+        <span class="examples-sub">Representative examples of routes frequently analysed by AwardRadar users</span>
+      </div>
+      <div class="examples-scroll">
+        <div class="ex-card">
+          <div class="ex-type">Cash Analysis</div>
+          <div class="ex-route">FRA <span class="ex-arrow">→</span> JFK</div>
+          <div class="ex-cabin">Business Class</div>
+          <div class="ex-value">Observed market fare: €489</div>
+          <div class="ex-verdict ex-verdict--cash">Market price</div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-type">Award Analysis</div>
+          <div class="ex-route">FRA <span class="ex-arrow">→</span> HND</div>
+          <div class="ex-cabin">Business Class</div>
+          <div class="ex-value">Estimated value: 3.8 ct/mile</div>
+          <div class="ex-verdict ex-verdict--award">Strong redemption</div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-type">Hidden-City Analysis</div>
+          <div class="ex-route">BRU <span class="ex-arrow">→</span> MAD</div>
+          <div class="ex-cabin">Economy</div>
+          <div class="ex-value">Potential fare anomaly detected</div>
+          <div class="ex-verdict ex-verdict--skip">Route verified</div>
+        </div>
+      </div>
+    </section>
 
     <section id="results" class="results" aria-live="polite" aria-atomic="false" aria-label="Search results" tabindex="-1"></section>
   </main>
