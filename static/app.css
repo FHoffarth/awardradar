@@ -70,7 +70,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .logo-name{font-size:20px;font-weight:800;letter-spacing:-.4px;line-height:1}
 .logo-award{background:linear-gradient(135deg,var(--gold),#e8a93a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .logo-radar{color:#8ab4d4;-webkit-text-fill-color:#8ab4d4}
-.logo-tag{font-size:9px;color:var(--muted);letter-spacing:.18em;margin-top:3px;text-transform:uppercase;font-weight:600;opacity:.7}
+.logo-tag{font-size:9px;color:var(--muted);letter-spacing:.18em;margin-top:3px;text-transform:uppercase;font-weight:600}
 .nav-right{display:flex;gap:7px;align-items:center}
 .lang{border:1px solid var(--border);background:var(--chip-bg);color:var(--muted);border-radius:7px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer}
 .theme-btn{border:1px solid var(--border);background:var(--chip-bg);color:var(--muted);border-radius:7px;padding:5px 9px;font-size:13px;cursor:pointer;line-height:1}
@@ -137,7 +137,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .price-sub{font-size:11px;color:var(--muted);margin-top:3px}
 .score-block{margin-top:10px;text-align:right}
 .score-num{font-size:22px;font-weight:800;line-height:1}
-.score-denom{font-size:13px;font-weight:600;opacity:.6}
+.score-denom{font-size:13px;font-weight:600;color:var(--muted)}
 .score-lbl{font-size:11px;font-weight:700;margin-top:3px}
 .s-gold .score-num,.s-gold .score-lbl{color:var(--gold)}
 .s-green .score-num,.s-green .score-lbl{color:var(--green)}
@@ -151,8 +151,8 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .airline-logo{width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.1);object-fit:contain;flex-shrink:0}
 .airline-name{}
 .card-detail{font-size:13px;color:var(--muted);margin-bottom:2px}
-.card-source{font-size:12px;color:var(--muted);margin-top:2px;opacity:.6}
-.price-currency{font-size:16px;font-weight:600;opacity:.8}
+.card-source{font-size:12px;color:var(--muted);margin-top:2px}
+.price-currency{font-size:16px;font-weight:600;color:var(--gold)}
 .score-reason{font-size:11px;color:var(--muted);margin-top:4px;text-align:right}
 .verified-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;margin-bottom:8px;background:rgba(135,247,181,.12);border:1px solid rgba(135,247,181,.3);color:var(--green)}
 .unverified-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;margin-bottom:8px;background:rgba(255,157,157,.07);border:1px solid rgba(255,157,157,.2);color:var(--bad)}

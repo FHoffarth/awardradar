@@ -194,6 +194,25 @@ def remember_app_token(response):
     return response
 
 
+@app.after_request
+def set_security_headers(response):
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net; "
+        "img-src 'self' data: content.airhex.com; "
+        "connect-src 'self'; "
+        "font-src 'self' cdn.jsdelivr.net; "
+        "frame-ancestors 'none';"
+    )
+    return response
+
+
 def unique(seq: list[str]) -> list[str]:
     out = []
     for item in seq:
