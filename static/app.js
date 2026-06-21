@@ -47,10 +47,6 @@ function applyLang() {
 function iso(d) { return d.toISOString().slice(0, 10); }
 
 function initDates() {
-  const d = new Date(); d.setDate(d.getDate() + 60);
-  $('date').value = iso(d);
-  const r = new Date(d); r.setDate(r.getDate() + 7);
-  $('returnDate').value = iso(r);
   toggleReturn();
 }
 

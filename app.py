@@ -462,10 +462,10 @@ def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, m
     }
 
 
-def serpapi_offers(origin: str, dest: str, dep: dt.date, ret: dt.date | None, currency: str, mm_only: bool, lang: str = "de") -> tuple[list[dict], str | None]:
+def serpapi_offers(origin: str, dest: str, dep: dt.date, ret: dt.date | None, currency: str, mm_only: bool, lang: str = "de", cabin: str = "economy") -> tuple[list[dict], str | None]:
     """Liefert Offers im Karten-Schema (oder Fehlermeldung)."""
     try:
-        data = serpapi_search(origin, dest, dep, ret, "economy", currency, lang)
+        data = serpapi_search(origin, dest, dep, ret, cabin, currency, lang)
     except Exception as exc:
         return [], str(exc)
     insights = data.get("price_insights") or {}
@@ -479,9 +479,9 @@ def serpapi_offers(origin: str, dest: str, dep: dt.date, ret: dt.date | None, cu
     return offers, None
 
 
-def serpapi_task(args: tuple[str, str, dt.date, "dt.date | None", str, bool, str]) -> tuple[str, str, list[dict], str | None]:
-    origin, dest, dep, ret, currency, mm_only, lang = args
-    offers, err = serpapi_offers(origin, dest, dep, ret, currency, mm_only, lang)
+def serpapi_task(args: tuple) -> tuple[str, str, list[dict], str | None]:
+    origin, dest, dep, ret, currency, mm_only, lang, cabin = args
+    offers, err = serpapi_offers(origin, dest, dep, ret, currency, mm_only, lang, cabin)
     return origin, dest, offers, err
 
 
@@ -573,15 +573,14 @@ def cheap():
     if not origins or not dests:
         return jsonify({"ok": False, "error": tx("missing_origin_dest", lang)}), 400
 
+    cabin = (data.get("cabins") or ["economy"])[0].lower()
     use_serpapi = PRICE_SOURCE == "serpapi" and bool(SERPAPI_TOKEN)
     started = time.time()
     offers, warnings = [], []
 
     if use_serpapi:
-        # Eine SerpApi-Suche liefert schon eine ganze Ranking-Liste -> kein breites Fan-out nötig.
-        # Wir begrenzen die Anzahl Paare (= Anzahl bezahlter Google-Flights-Suchen) hart.
         pairs = [(o, d) for o in origins[:2] for d in dests[:2] if o != d][:SERPAPI_MAX_PAIRS]
-        tasks = [(o, d, dep, ret, currency, mm_only, lang) for o, d in pairs]
+        tasks = [(o, d, dep, ret, currency, mm_only, lang, cabin) for o, d in pairs]
         with cf.ThreadPoolExecutor(max_workers=min(SERPAPI_MAX_PAIRS, max(1, len(tasks)))) as pool:
             for origin, dest, found, err in pool.map(serpapi_task, tasks):
                 if err:
