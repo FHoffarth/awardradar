@@ -699,14 +699,14 @@ function globeAnimation() {
   let w, h, rot = 0;
 
   const airports = [
-    [50.0, 8.6, 'FRA'], [48.4, 11.8, 'MUC'], [51.5, -0.5, 'LHR'],
-    [49.0, 2.6, 'CDG'], [40.6, -73.8, 'JFK'], [33.9, -118.4, 'LAX'],
-    [1.4, 103.9, 'SIN'], [35.5, 139.8, 'HND'], [25.3, 55.4, 'DXB'],
-    [-33.9, 151.2, 'SYD'], [22.3, 113.9, 'HKG'], [13.7, 100.7, 'BKK'],
-    [52.3, 4.8, 'AMS'], [37.5, 126.5, 'ICN'], [55.6, 12.6, 'CPH'],
-    [41.9, -87.6, 'ORD'], [25.8, -80.3, 'MIA'], [-23.4, -46.5, 'GRU'],
-    [47.5, 19.0, 'BUD'], [48.2, 16.4, 'VIE'], [59.6, 17.9, 'ARN'],
-    [35.7, 139.8, 'NRT'], [-26.1, 28.2, 'JNB'], [19.4, -99.1, 'MEX'],
+    [50.0, 8.6, 'FRA', 'Frankfurt'], [48.4, 11.8, 'MUC', 'Munich'], [51.5, -0.5, 'LHR', 'London'],
+    [49.0, 2.6, 'CDG', 'Paris'], [40.6, -73.8, 'JFK', 'New York'], [33.9, -118.4, 'LAX', 'Los Angeles'],
+    [1.4, 103.9, 'SIN', 'Singapore'], [35.5, 139.8, 'HND', 'Tokyo'], [25.3, 55.4, 'DXB', 'Dubai'],
+    [-33.9, 151.2, 'SYD', 'Sydney'], [22.3, 113.9, 'HKG', 'Hong Kong'], [13.7, 100.7, 'BKK', 'Bangkok'],
+    [52.3, 4.8, 'AMS', 'Amsterdam'], [37.5, 126.5, 'ICN', 'Seoul'], [55.6, 12.6, 'CPH', 'Copenhagen'],
+    [41.9, -87.6, 'ORD', 'Chicago'], [25.8, -80.3, 'MIA', 'Miami'], [-23.4, -46.5, 'GRU', 'São Paulo'],
+    [47.5, 19.0, 'BUD', 'Budapest'], [48.2, 16.4, 'VIE', 'Vienna'], [59.6, 17.9, 'ARN', 'Stockholm'],
+    [35.7, 139.8, 'NRT', 'Tokyo'], [-26.1, 28.2, 'JNB', 'Johannesburg'], [19.4, -99.1, 'MEX', 'Mexico City'],
   ];
 
   const routePairs = [
@@ -729,6 +729,7 @@ function globeAnimation() {
 
   // Drag-to-spin interaction
   let dragging = false, dragX = 0, velX = 0, autoSpin = true;
+  let hoveredAirport = null, mouseX = 0, mouseY = 0;
   const R_screen = () => Math.min(w, h) * 0.32;
   const cx_screen = () => w * 0.78;
   const cy_screen = () => h * 0.36;
@@ -757,7 +758,10 @@ function globeAnimation() {
   }
 
   c.addEventListener('mousedown', e => onDragStart(e.clientX, e.clientY));
-  addEventListener('mousemove', e => onDragMove(e.clientX));
+  addEventListener('mousemove', e => {
+    mouseX = e.clientX; mouseY = e.clientY;
+    onDragMove(e.clientX);
+  });
   addEventListener('mouseup', onDragEnd);
   c.addEventListener('touchstart', e => { e.preventDefault(); onDragStart(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
   addEventListener('touchmove', e => { if (dragging) { e.preventDefault(); onDragMove(e.touches[0].clientX); } }, { passive: false });
@@ -926,26 +930,74 @@ function globeAnimation() {
 
     // Airport dots + IATA labels
     ctx.font = `600 ${Math.round(9.5 * devicePixelRatio)}px Inter,ui-sans-serif,sans-serif`;
-    airports.forEach(([lat, lon, iata]) => {
+    const hitR = 14 * devicePixelRatio;
+    hoveredAirport = null;
+    airports.forEach(([lat, lon, iata, city]) => {
       const p = project(lat, lon);
       if (p.z <= 0) return;
       const a = Math.min(1, p.z * 3.5);
 
-      // Glow
-      const dg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 6 * devicePixelRatio);
-      dg.addColorStop(0, `rgba(${dotColor},${0.45 * a})`);
+      // Hover detection
+      const mx = mouseX * devicePixelRatio, my = mouseY * devicePixelRatio;
+      const dist = Math.sqrt((mx - p.x) ** 2 + (my - p.y) ** 2);
+      const hovered = !dragging && dist < hitR;
+      if (hovered) hoveredAirport = { iata, city, px: p.x, py: p.y };
+
+      // Glow (larger when hovered)
+      const glowR = hovered ? 10 * devicePixelRatio : 6 * devicePixelRatio;
+      const dg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, glowR);
+      dg.addColorStop(0, `rgba(${dotColor},${(hovered ? 0.7 : 0.45) * a})`);
       dg.addColorStop(1, 'transparent');
       ctx.fillStyle = dg;
-      ctx.beginPath(); ctx.arc(p.x, p.y, 6 * devicePixelRatio, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, glowR, 0, Math.PI * 2); ctx.fill();
 
-      // Dot
-      ctx.fillStyle = `rgba(${dotColor},${dotAlpha * a})`;
-      ctx.beginPath(); ctx.arc(p.x, p.y, 2.2 * devicePixelRatio, 0, Math.PI * 2); ctx.fill();
+      // Dot (larger when hovered)
+      const dotR = hovered ? 3.4 * devicePixelRatio : 2.2 * devicePixelRatio;
+      ctx.fillStyle = `rgba(${dotColor},${(hovered ? 1 : dotAlpha) * a})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2); ctx.fill();
 
       // Label
       ctx.fillStyle = `rgba(${lblColor},${0.7 * a})`;
       ctx.fillText(iata, p.x + 5 * devicePixelRatio, p.y - 4 * devicePixelRatio);
     });
+
+    // Tooltip
+    if (hoveredAirport) {
+      const { iata, city, px, py } = hoveredAirport;
+      const dpr = devicePixelRatio;
+      const pad = 10 * dpr, gap = 14 * dpr;
+      ctx.font = `700 ${Math.round(11 * dpr)}px Inter,ui-sans-serif,sans-serif`;
+      const iataW = ctx.measureText(iata).width;
+      ctx.font = `500 ${Math.round(10 * dpr)}px Inter,ui-sans-serif,sans-serif`;
+      const cityW = ctx.measureText(city).width;
+      const boxW = Math.max(iataW, cityW) + pad * 2;
+      const boxH = 36 * dpr;
+      let bx = px + gap, by = py - boxH / 2;
+      if (bx + boxW > w - 8 * dpr) bx = px - gap - boxW;
+      if (by < 4 * dpr) by = 4 * dpr;
+      if (by + boxH > h - 4 * dpr) by = h - boxH - 4 * dpr;
+
+      // Box
+      ctx.fillStyle = isLight ? 'rgba(10,22,40,0.88)' : 'rgba(6,16,31,0.88)';
+      const r = 6 * dpr;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, boxW, boxH, r);
+      ctx.fill();
+
+      // IATA
+      ctx.fillStyle = '#f5c76b';
+      ctx.font = `700 ${Math.round(11 * dpr)}px Inter,ui-sans-serif,sans-serif`;
+      ctx.fillText(iata, bx + pad, by + 14 * dpr);
+
+      // City
+      ctx.fillStyle = 'rgba(255,255,255,0.72)';
+      ctx.font = `500 ${Math.round(10 * dpr)}px Inter,ui-sans-serif,sans-serif`;
+      ctx.fillText(city, bx + pad, by + 28 * dpr);
+
+      c.style.cursor = 'pointer';
+    } else if (!dragging) {
+      c.style.cursor = 'grab';
+    }
 
     requestAnimationFrame(frame);
   }

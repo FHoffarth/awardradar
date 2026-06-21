@@ -113,8 +113,8 @@ a:focus-visible{outline:2px solid var(--cyan);outline-offset:3px;border-radius:3
 [data-theme="light"] .tab.active{background:#ffffff;border-color:transparent;box-shadow:0 4px 16px rgba(154,110,16,.18),0 0 0 1.5px rgba(154,110,16,.3)}
 [data-theme="light"] .tab.active .tab-icon{background:rgba(154,110,16,.09)}
 /* CTA */
-[data-theme="light"] .go{background:linear-gradient(100deg,#b8820e 0%,#0d8eb0 100%);color:#ffffff;box-shadow:0 12px 36px rgba(13,110,138,.22),inset 0 1px 0 rgba(255,255,255,.25)}
-[data-theme="light"] .go:hover{box-shadow:0 18px 44px rgba(13,110,138,.3),inset 0 1px 0 rgba(255,255,255,.25)}
+[data-theme="light"] .go{background:linear-gradient(100deg,#b8820e 0%,#0d8eb0 100%);color:#ffffff;box-shadow:0 24px 48px rgba(56,167,200,.25),0 10px 20px rgba(181,140,45,.18),inset 0 1px 0 rgba(255,255,255,.25)}
+[data-theme="light"] .go:hover{box-shadow:0 30px 56px rgba(56,167,200,.30),0 14px 24px rgba(181,140,45,.22),inset 0 1px 0 rgba(255,255,255,.25);transform:translateY(-2px)}
 [data-theme="light"] .go-icon-wrap{background:rgba(255,255,255,.18)}
 /* Cards — pure white on cream, shadow defines edge */
 [data-theme="light"] .card{background:#ffffff;border-color:transparent;box-shadow:var(--card-shadow)}
