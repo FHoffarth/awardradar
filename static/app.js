@@ -103,8 +103,22 @@ async function run() {
   }
 }
 
-function scoreClass(s) { return s >= 80 ? 'score-hot' : 'score-ok'; }
-function scoreEmoji(s) { return s >= 80 ? '🔥' : '⭐'; }
+function scoreInfo(s) {
+  if (s >= 90) return { tier: 's-gold', emoji: '🔥', label: 'Sweet Spot' };
+  if (s >= 75) return { tier: 's-green', emoji: '⭐', label: 'Great Deal' };
+  if (s >= 60) return { tier: 's-cyan', emoji: '✓', label: 'Good Deal' };
+  return { tier: 's-muted', emoji: '', label: 'Fair' };
+}
+function scoreHtml(s) {
+  if (s == null) return '';
+  const { tier, emoji, label } = scoreInfo(s);
+  return `<div class="score-block ${tier}"><span class="score-num">${s}</span><span class="score-denom">/100</span><div class="score-lbl">${emoji} ${label}</div></div>`;
+}
+function bestBadgeHtml(s) {
+  if (s >= 90) return '<div class="best-badge">🔥 Sweet Spot</div>';
+  if (s >= 75) return '<div class="best-badge">⭐ Best Value</div>';
+  return '<div class="best-badge">Best Match</div>';
+}
 
 function render(data) {
   let html = '';
@@ -114,26 +128,32 @@ function render(data) {
 
   if (mode === 'cheap') {
     if (data.offers?.length) {
-      html += data.offers.map(o => `
-        <div class="card">
+      html += data.offers.map((o, i) => {
+        const isTop = i === 0;
+        const stops = parseInt(o.stops) || 0;
+        const stopsLabel = stops === 0 ? 'Nonstop' : stops === 1 ? '1 Stop' : `${stops} Stops`;
+        const airlineLabel = o.airline ? `${esc(o.airline)}` : tr('airline');
+        return `<div class="card${isTop ? ' top-card' : ''}">
+          ${isTop ? bestBadgeHtml(o.dealScore) : ''}
           <div class="card-row">
             <div class="card-main">
               <h3>${esc(o.origin)}<span class="route-arrow">→</span>${esc(o.dest)}</h3>
               <div class="meta">
-                <span class="badge">${esc(o.airline || tr('airline'))}</span>
-                <span class="badge">${esc(o.stops)} ${tr('stops')}</span>
+                <span class="badge">✈ ${airlineLabel}</span>
+                <span class="badge">${stopsLabel}</span>
                 <span>${esc(o.date)}${o.returnDate ? ' – ' + esc(o.returnDate) : ''}</span>
-                <span>${esc(o.source || '')}</span>
+                <span style="opacity:.6">${esc(o.source || '')}</span>
               </div>
             </div>
             <div class="card-price">
               <div class="price">${Math.round(o.price)} ${esc(o.currency)}</div>
               <div class="price-sub">per person</div>
-              ${o.dealScore != null ? `<div class="score ${scoreClass(o.dealScore)}">${scoreEmoji(o.dealScore)} ${o.dealScore}/100</div>` : ''}
+              ${scoreHtml(o.dealScore)}
             </div>
           </div>
           ${linksHtml(o.links)}
-        </div>`).join('');
+        </div>`;
+      }).join('');
     } else {
       html += `<div class="card"><h3>${tr('no_cache_title')}</h3><p class="tiny" style="margin-top:6px">${tr('no_cache_text')}</p></div>`;
     }
@@ -181,6 +201,20 @@ function toggleReturn() {
   if (rf) rf.style.opacity = on ? .35 : 1;
   $('returnDate').disabled = on;
 }
+
+// USP cards → switch tab
+document.querySelectorAll('.usp-card').forEach(card => {
+  card.onclick = () => {
+    const target = card.dataset.usp;
+    document.querySelectorAll('.usp-card').forEach(c => c.classList.remove('usp-active'));
+    card.classList.add('usp-active');
+    document.querySelectorAll('.tab').forEach(t => {
+      const on = t.dataset.tab === target;
+      t.classList.toggle('active', on);
+      if (on) mode = target;
+    });
+  };
+});
 
 // Sync pill .on class with checkbox state
 function syncPills() {
