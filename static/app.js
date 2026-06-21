@@ -607,10 +607,6 @@ document.querySelectorAll('.pa-target').forEach(b => {
   b.onclick = () => setPaTarget(b.dataset.target);
 });
 
-// When user types in a field, auto-switch the chip target to the OTHER field
-$('origin').addEventListener('focus', () => setPaTarget('origin'));
-$('dest').addEventListener('focus',   () => setPaTarget('dest'));
-
 function updatePaCodes() {
   const destVal   = ($('dest').value   || '').toUpperCase().trim();
   const originVal = ($('origin').value || '').toUpperCase().trim();
