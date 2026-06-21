@@ -202,6 +202,7 @@ async function run() {
     try { data = await res.json(); } catch (_) { throw new Error(res.status + ' ' + res.statusText); }
     if (!res.ok || !data.ok) throw new Error((data && data.error) || res.statusText || 'Error');
     stopProgress(true);
+    if (typeof globePulseRoute === 'function') globePulseRoute(_origin, _dest);
     render(data);
     setStatus(tr('ready'));
     $('results').focus({ preventScroll: false });
@@ -778,6 +779,17 @@ function globeAnimation() {
   addEventListener('touchmove', e => { if (dragging) { e.preventDefault(); onDragMove(e.touches[0].clientX); } }, { passive: false });
   addEventListener('touchend', onDragEnd);
 
+  // Route pulse state
+  let pulseRoute = null; // { from, to, startTime, duration }
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  window.globePulseRoute = function(originCode, destCode) {
+    const from = airports.find(a => a[2] === originCode);
+    const to   = airports.find(a => a[2] === destCode);
+    if (!from || !to) return;
+    pulseRoute = { from, to, startTime: performance.now(), duration: reducedMotion ? 0 : 3000 };
+  };
+
   function project(lat, lon) {
     const phi = lat * Math.PI / 180;
     const lam = (lon * Math.PI / 180) + rot;
@@ -946,6 +958,63 @@ function globeAnimation() {
         ctx.fill();
       }
     });
+
+    // Route pulse after search
+    if (pulseRoute) {
+      const elapsed = performance.now() - pulseRoute.startTime;
+      const progress = Math.min(1, elapsed / pulseRoute.duration);
+      if (progress >= 1) {
+        pulseRoute = null;
+      } else {
+        // Fade in 0→0.3s, hold 0.3→2.5s, fade out 2.5→3s
+        let alpha;
+        if (elapsed < 300)       alpha = elapsed / 300;
+        else if (elapsed < 2500) alpha = 1;
+        else                     alpha = 1 - (elapsed - 2500) / 500;
+        // Gentle pulse on top of the fade (0.85–1.0 range)
+        const pulse = 0.85 + 0.15 * Math.sin(elapsed / 220);
+        alpha *= pulse;
+
+        const col = isLight ? '13,110,138' : '106,215,255';
+        const { from, to } = pulseRoute;
+
+        // Bright arc
+        ctx.beginPath();
+        ctx.setLineDash([]);
+        ctx.lineWidth = 2.2 * devicePixelRatio;
+        ctx.strokeStyle = `rgba(${col},${alpha * 0.9})`;
+        let firstPt = true;
+        for (let i = 0; i <= 100; i++) {
+          const pt = slerp(from, to, i / 100);
+          const p = project(pt[0], pt[1]);
+          if (p.z > 0) { if (firstPt) { ctx.moveTo(p.x, p.y); firstPt = false; } else ctx.lineTo(p.x, p.y); }
+          else firstPt = true;
+        }
+        ctx.stroke();
+
+        // Glow layer
+        ctx.lineWidth = 5 * devicePixelRatio;
+        ctx.strokeStyle = `rgba(${col},${alpha * 0.18})`;
+        firstPt = true;
+        for (let i = 0; i <= 100; i++) {
+          const pt = slerp(from, to, i / 100);
+          const p = project(pt[0], pt[1]);
+          if (p.z > 0) { if (firstPt) { ctx.moveTo(p.x, p.y); firstPt = false; } else ctx.lineTo(p.x, p.y); }
+          else firstPt = true;
+        }
+        ctx.stroke();
+
+        // Endpoint dots
+        [[from[0], from[1]], [to[0], to[1]]].forEach(([lat, lon]) => {
+          const p = project(lat, lon);
+          if (p.z <= 0) return;
+          ctx.fillStyle = `rgba(${col},${alpha})`;
+          ctx.beginPath(); ctx.arc(p.x, p.y, 4 * devicePixelRatio, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = `rgba(${col},${alpha * 0.22})`;
+          ctx.beginPath(); ctx.arc(p.x, p.y, 10 * devicePixelRatio, 0, Math.PI * 2); ctx.fill();
+        });
+      }
+    }
 
     // Airport dots + IATA labels
     ctx.font = `600 ${Math.round(9.5 * devicePixelRatio)}px Inter,ui-sans-serif,sans-serif`;
