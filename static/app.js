@@ -1,6 +1,8 @@
 const $ = id => document.getElementById(id);
 let mode = 'cheap';
 let lang = localStorage.getItem('awardradar_lang') || 'en';
+let currentOffers = [];
+let currentSortKey = 'score';
 
 const I18N = {
   en: {
@@ -57,6 +59,11 @@ function activeCabin() {
   return seg ? seg.dataset.cabin : 'Economy';
 }
 
+function activeFlexDays() {
+  const p = document.querySelector('.flex-pill.on');
+  return p ? parseInt(p.dataset.flex) : 0;
+}
+
 function payload() {
   return {
     lang,
@@ -69,6 +76,7 @@ function payload() {
     mmOnly: $('mmOnly').checked,
     currency: 'eur',
     cabins: [activeCabin()],
+    flexDays: activeFlexDays(),
   };
 }
 
@@ -121,6 +129,69 @@ function bestBadgeHtml(s) {
   return '<div class="best-badge">Best Match</div>';
 }
 
+function calendarStripHtml(calendar) {
+  const cells = calendar.map(c => {
+    const d = new Date(c.date + 'T12:00:00');
+    const label = d.toLocaleDateString('en', { month: 'short', day: 'numeric' });
+    const cls = c.isSelected ? ' dc-sel' : c.isBest ? ' dc-best' : '';
+    const badge = c.isBest ? '🔥' : c.isSelected ? '⭐' : '';
+    const priceStr = c.price ? Math.round(c.price) + ' ' + (c.currency || 'EUR') : '—';
+    return `<button class="date-cell${cls}" onclick="jumpToDate('${c.date}')">
+      <div class="dc-date">${label}</div>
+      <div class="dc-price">${priceStr}</div>
+      ${badge ? `<div class="dc-badge">${badge}</div>` : ''}
+    </button>`;
+  }).join('');
+  return `<div class="date-strip">${cells}</div>`;
+}
+
+function jumpToDate(date) {
+  $('date').value = date;
+  run();
+}
+
+function cheapCardsHtml(offers, sortKey) {
+  let sorted = [...offers];
+  if (sortKey === 'price') sorted.sort((a, b) => (a.price || 99999) - (b.price || 99999));
+  else if (sortKey === 'nonstop') sorted.sort((a, b) => (a.stops || 0) - (b.stops || 0) || (-(a.dealScore || 0)) + (b.dealScore || 0));
+  else sorted.sort((a, b) => (-(a.dealScore || 0)) + (b.dealScore || 0));
+
+  return sorted.map((o, i) => {
+    const isTop = i === 0;
+    const stops = parseInt(o.stops) || 0;
+    const viaText = o.via && o.via.length ? ` via ${o.via.join(', ')}` : '';
+    const stopsLabel = stops === 0 ? 'Nonstop' : stops === 1 ? `1 Stop${viaText}` : `${stops} Stops${viaText}`;
+    const airlineLabel = o.airline || tr('airline');
+    const logoUrl = o.airlineCode ? `https://content.airhex.com/content/logos/airlines_${esc(o.airlineCode)}_200_200_s.png` : '';
+    const logoImg = logoUrl ? `<img src="${logoUrl}" class="airline-logo" alt="" onerror="this.style.display='none'">` : '';
+    return `<div class="card${isTop ? ' top-card' : ''}">
+      ${isTop ? bestBadgeHtml(o.dealScore) : ''}
+      <div class="card-row">
+        <div class="card-main">
+          <h3>${esc(o.origin)}<span class="route-arrow">→</span>${esc(o.dest)}</h3>
+          <div class="card-airline">${logoImg}<span class="airline-name">${esc(airlineLabel)}</span></div>
+          <div class="card-detail">${stopsLabel} · ${esc(o.date)}${o.returnDate ? ' → ' + esc(o.returnDate) : ''}</div>
+          <div class="card-source">${esc(o.source || '')}</div>
+        </div>
+        <div class="card-price">
+          <div class="price">${Math.round(o.price)} <span class="price-currency">${esc(o.currency)}</span></div>
+          <div class="price-sub">per person</div>
+          ${scoreHtml(o.dealScore)}
+          ${o.scoreReason ? `<div class="score-reason">${esc(o.scoreReason)}</div>` : ''}
+        </div>
+      </div>
+      ${linksHtml(o.links)}
+    </div>`;
+  }).join('');
+}
+
+function applySort(key) {
+  currentSortKey = key;
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === key));
+  const wrap = document.getElementById('cards-wrap');
+  if (wrap) wrap.innerHTML = cheapCardsHtml(currentOffers, key);
+}
+
 function render(data) {
   let html = '';
   if (data.note) html += `<div class="card note">${esc(data.note)}</div>`;
@@ -128,33 +199,21 @@ function render(data) {
   if (data.warnings?.length) html += `<div class="card warn">${data.warnings.slice(0, 4).map(esc).join('<br>')}</div>`;
 
   if (mode === 'cheap') {
-    if (data.offers?.length) {
-      html += data.offers.map((o, i) => {
-        const isTop = i === 0;
-        const stops = parseInt(o.stops) || 0;
-        const stopsLabel = stops === 0 ? 'Nonstop' : stops === 1 ? '1 Stop' : `${stops} Stops`;
-        const airlineLabel = o.airline || tr('airline');
-        const logoUrl = o.airlineCode ? `https://content.airhex.com/content/logos/airlines_${esc(o.airlineCode)}_200_200_s.png` : '';
-        const logoImg = logoUrl ? `<img src="${logoUrl}" class="airline-logo" alt="" onerror="this.style.display='none'">` : '';
-        return `<div class="card${isTop ? ' top-card' : ''}">
-          ${isTop ? bestBadgeHtml(o.dealScore) : ''}
-          <div class="card-row">
-            <div class="card-main">
-              <h3>${esc(o.origin)}<span class="route-arrow">→</span>${esc(o.dest)}</h3>
-              <div class="card-airline">${logoImg}<span class="airline-name">${esc(airlineLabel)}</span></div>
-              <div class="card-detail">${stopsLabel} · ${esc(o.date)}${o.returnDate ? ' → ' + esc(o.returnDate) : ''}</div>
-              <div class="card-source">${esc(o.source || '')}</div>
-            </div>
-            <div class="card-price">
-              <div class="price">${Math.round(o.price)} <span class="price-currency">${esc(o.currency)}</span></div>
-              <div class="price-sub">per person</div>
-              ${scoreHtml(o.dealScore)}
-              ${o.scoreReason ? `<div class="score-reason">${esc(o.scoreReason)}</div>` : ''}
-            </div>
-          </div>
-          ${linksHtml(o.links)}
-        </div>`;
-      }).join('');
+    currentOffers = data.offers || [];
+    currentSortKey = 'score';
+
+    if (data.calendar && data.calendar.length > 1) {
+      html += calendarStripHtml(data.calendar);
+    }
+
+    if (currentOffers.length) {
+      html += `<div class="sort-bar">
+        <span class="sort-label">Sort:</span>
+        <button class="sort-btn active" data-sort="score" onclick="applySort('score')">Best Deal</button>
+        <button class="sort-btn" data-sort="price" onclick="applySort('price')">Cheapest</button>
+        <button class="sort-btn" data-sort="nonstop" onclick="applySort('nonstop')">Nonstop first</button>
+      </div>`;
+      html += `<div id="cards-wrap">${cheapCardsHtml(currentOffers, 'score')}</div>`;
     } else {
       html += `<div class="card"><h3>${tr('no_cache_title')}</h3><p class="tiny" style="margin-top:6px">${tr('no_cache_text')}</p></div>`;
     }
@@ -269,6 +328,15 @@ document.querySelectorAll('[data-fill-origin]').forEach(b => b.onclick = () => $
 document.querySelectorAll('[data-fill-dest]').forEach(b => b.onclick = () => $('dest').value = b.dataset.fillDest);
 $('go').onclick = run;
 $('oneWay').onchange = toggleReturn;
+
+// Flex pills — mutually exclusive toggle
+document.querySelectorAll('.flex-pill').forEach(btn => {
+  btn.onclick = () => {
+    const wasOn = btn.classList.contains('on');
+    document.querySelectorAll('.flex-pill').forEach(b => b.classList.remove('on'));
+    if (!wasOn) btn.classList.add('on');
+  };
+});
 
 // Airport autocomplete
 const debounce = (fn, ms = 250) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; };

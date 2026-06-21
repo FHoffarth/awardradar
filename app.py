@@ -43,6 +43,7 @@ PRICE_SOURCE = (os.environ.get("PRICE_SOURCE") or ("serpapi" if SERPAPI_TOKEN el
 SERPAPI_TTL = int(os.environ.get("SERPAPI_TTL", "600"))        # Cache-Lebensdauer in Sekunden (spart Calls/Geld)
 SERPAPI_MAX_PAIRS = int(os.environ.get("SERPAPI_MAX_PAIRS", "2"))  # max. Origin/Dest-Paare pro Klick (= Anzahl bezahlter Suchen)
 SERPAPI_DEEP = (os.environ.get("SERPAPI_DEEP", "0") == "1")    # exakt wie im Browser, aber langsamer
+FLEX_MAX_DAYS = int(os.environ.get("FLEX_MAX_DAYS", "3"))       # max. Flex-Tage (±N) für Datums-Kalender
 
 app = Flask(__name__)
 
@@ -481,6 +482,7 @@ def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, m
     dep_date = ((first.get("departure_airport") or {}).get("time") or "")[:10]
     stops = max(0, len(segs) - 1)
     price = float(item.get("price") or 0)
+    via_airports = [(s.get("arrival_airport") or {}).get("id", "") for s in segs[:-1]] if stops > 0 else []
     return {
         "source": "Google Flights (SerpApi)",
         "price": price,
@@ -492,6 +494,7 @@ def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, m
         "airline": airline_name,
         "airlineCode": airline_code,
         "stops": stops,
+        "via": [v for v in via_airports if v],
         "bookUrl": links_for(origin, dest, dep_date).get("Google Flights"),
         "dealScore": deal_score(price, stops, airline_code, typical_range),
         "scoreReason": score_reason(price, stops, airline_code, typical_range),
@@ -520,6 +523,12 @@ def serpapi_task(args: tuple) -> tuple[str, str, list[dict], str | None]:
     origin, dest, dep, ret, currency, mm_only, lang, cabin = args
     offers, err = serpapi_offers(origin, dest, dep, ret, currency, mm_only, lang, cabin)
     return origin, dest, offers, err
+
+
+def flex_date_task(args: tuple) -> tuple[str, list[dict], str | None]:
+    origin, dest, check_date, ret, currency, mm_only, lang, cabin = args
+    offers, err = serpapi_offers(origin, dest, check_date, ret, currency, mm_only, lang, cabin)
+    return check_date.isoformat(), offers, err
 
 
 def award_links(origin: str, dest: str, dep: str, ret: str | None, cabin: str) -> list[dict]:
@@ -611,9 +620,11 @@ def cheap():
         return jsonify({"ok": False, "error": tx("missing_origin_dest", lang)}), 400
 
     cabin = (data.get("cabins") or ["economy"])[0].lower()
+    flex_days = min(int(data.get("flexDays", 0)), FLEX_MAX_DAYS)
     use_serpapi = PRICE_SOURCE == "serpapi" and bool(SERPAPI_TOKEN)
     started = time.time()
     offers, warnings = [], []
+    calendar: list[dict] = []
 
     if use_serpapi:
         pairs = [(o, d) for o in origins[:2] for d in dests[:2] if o != d][:SERPAPI_MAX_PAIRS]
@@ -624,6 +635,32 @@ def cheap():
                     warnings.append(f"{origin}→{dest}: {err}")
                     continue
                 offers.extend(found)
+
+        if flex_days > 0 and origins and dests:
+            flex_origin, flex_dest = origins[0], dests[0]
+            date_range = [dep + dt.timedelta(days=i) for i in range(-flex_days, flex_days + 1)]
+            flex_tasks = [(flex_origin, flex_dest, d, ret, currency, mm_only, lang, cabin) for d in date_range]
+            with cf.ThreadPoolExecutor(max_workers=min(len(flex_tasks), 7)) as pool:
+                for date_str, found, _err in pool.map(flex_date_task, flex_tasks):
+                    if found:
+                        best = min(found, key=lambda x: x.get("price") or 99999)
+                        calendar.append({
+                            "date": date_str,
+                            "price": best.get("price"),
+                            "currency": best.get("currency", currency.upper()),
+                            "dealScore": best.get("dealScore"),
+                            "airline": best.get("airline"),
+                            "airlineCode": best.get("airlineCode"),
+                            "stops": best.get("stops"),
+                            "isSelected": date_str == dep.isoformat(),
+                        })
+            calendar.sort(key=lambda x: x["date"])
+            if calendar:
+                prices = [c["price"] for c in calendar if c.get("price")]
+                best_price = min(prices) if prices else None
+                for c in calendar:
+                    c["isBest"] = bool(best_price and c.get("price") == best_price)
+
         note_key = "cheap_note_live"
     else:
         tasks = [(origin, dest, dep, ret, direct, currency, 20) for origin in origins[:3] for dest in dests[:4] if origin != dest]
@@ -647,6 +684,7 @@ def cheap():
     return jsonify({
         "ok": True,
         "offers": offers[:8],
+        "calendar": calendar,
         "fallback": fallback,
         "warnings": warnings[:8],
         "debug": {"origins": origins, "dests": dests, "seconds": round(time.time() - started, 2), "source": PRICE_SOURCE if use_serpapi else "travelpayouts"},
