@@ -518,21 +518,29 @@ $('swapBtn').onclick = () => {
   updatePaCodes();
 };
 
-// Popular airport codes → fill dest (or origin if dest filled & origin empty)
+// Track last focused field so chips know where to go
+let lastFocusedField = 'dest';
+$('origin').addEventListener('focus', () => { lastFocusedField = 'origin'; });
+$('dest').addEventListener('focus',   () => { lastFocusedField = 'dest'; });
+
 function updatePaCodes() {
-  const destVal = ($('dest').value || '').toUpperCase().trim();
+  const destVal   = ($('dest').value   || '').toUpperCase().trim();
   const originVal = ($('origin').value || '').toUpperCase().trim();
   document.querySelectorAll('.pa-code').forEach(b => {
     b.classList.toggle('pa-active', b.dataset.code === destVal || b.dataset.code === originVal);
   });
 }
+
 document.querySelectorAll('.pa-code').forEach(b => {
   b.onclick = () => {
     const code = b.dataset.code;
-    if (!$('origin').value) {
+    // Fill whichever field the user last focused; fall back to the empty one
+    if (lastFocusedField === 'origin') {
       $('origin').value = code;
-    } else if (!$('dest').value) {
+    } else if (lastFocusedField === 'dest') {
       $('dest').value = code;
+    } else if (!$('origin').value) {
+      $('origin').value = code;
     } else {
       $('dest').value = code;
     }
