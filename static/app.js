@@ -762,19 +762,31 @@ function globeAnimation() {
     ctx.clearRect(0, 0, w, h);
 
     const isLight = document.documentElement.dataset.theme === 'light';
-    // Light mode: navy/cyan lines — cool premium, not warm/gold
-    const lineColor  = isLight ? [32,127,159]   : [106,215,255];
-    const ringAlpha  = isLight ? 0.30 : 0.20;
-    const latEqAlpha = isLight ? 0.20 : 0.13;
-    const latAlpha   = isLight ? 0.10 : 0.06;
-    const lonAlpha   = isLight ? 0.07 : 0.05;
-    const glowColor  = isLight ? '32,127,159'  : '106,215,255';
-    const glowAlpha  = isLight ? 0.07 : 0.05;
-    const arcAlpha   = isLight ? 0.30 : 0.20;
+    const lineColor  = isLight ? [8, 72, 120]    : [106,215,255];
+    const ringAlpha  = isLight ? 0.55 : 0.20;
+    const latEqAlpha = isLight ? 0.42 : 0.13;
+    const latAlpha   = isLight ? 0.22 : 0.06;
+    const lonAlpha   = isLight ? 0.14 : 0.05;
+    const glowColor  = isLight ? '8,72,120'     : '106,215,255';
+    const glowAlpha  = isLight ? 0.06 : 0.05;
+    const arcAlpha   = isLight ? 0.55 : 0.20;
+    const dotColor   = isLight ? '8,72,120'     : '106,215,255';
+    const dotAlpha   = isLight ? 0.70 : 0.88;
+    const lblColor   = isLight ? '100,55,8'     : '245,199,107';
     const [lr,lg,lb] = lineColor;
 
     const R = Math.min(w, h) * 0.32;
     const cx = w * 0.78, cy = h * 0.36;
+
+    // Sphere fill — subtle depth gradient
+    if (isLight) {
+      const sphereFill = ctx.createRadialGradient(cx - R*0.2, cy - R*0.2, R*0.05, cx, cy, R);
+      sphereFill.addColorStop(0, 'rgba(220,234,248,0.22)');
+      sphereFill.addColorStop(0.6, 'rgba(180,210,235,0.08)');
+      sphereFill.addColorStop(1, 'rgba(120,170,210,0.14)');
+      ctx.fillStyle = sphereFill;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+    }
 
     // Subtle globe glow
     const glow = ctx.createRadialGradient(cx, cy, R * 0.5, cx, cy, R * 1.5);
@@ -785,7 +797,7 @@ function globeAnimation() {
 
     // Globe ring
     ctx.strokeStyle = `rgba(${lr},${lg},${lb},${ringAlpha})`;
-    ctx.lineWidth = 1 * devicePixelRatio;
+    ctx.lineWidth = (isLight ? 1.4 : 1) * devicePixelRatio;
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
 
     // Lat lines
@@ -877,17 +889,17 @@ function globeAnimation() {
 
       // Glow
       const dg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 6 * devicePixelRatio);
-      dg.addColorStop(0, `rgba(106,215,255,${0.45 * a})`);
+      dg.addColorStop(0, `rgba(${dotColor},${0.45 * a})`);
       dg.addColorStop(1, 'transparent');
       ctx.fillStyle = dg;
       ctx.beginPath(); ctx.arc(p.x, p.y, 6 * devicePixelRatio, 0, Math.PI * 2); ctx.fill();
 
       // Dot
-      ctx.fillStyle = `rgba(106,215,255,${0.88 * a})`;
+      ctx.fillStyle = `rgba(${dotColor},${dotAlpha * a})`;
       ctx.beginPath(); ctx.arc(p.x, p.y, 2.2 * devicePixelRatio, 0, Math.PI * 2); ctx.fill();
 
       // Label
-      ctx.fillStyle = `rgba(245,199,107,${0.7 * a})`;
+      ctx.fillStyle = `rgba(${lblColor},${0.7 * a})`;
       ctx.fillText(iata, p.x + 5 * devicePixelRatio, p.y - 4 * devicePixelRatio);
     });
 
