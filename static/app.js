@@ -8,7 +8,6 @@ const consent = {
 };
 
 let mode = 'cheap';
-let lang = localStorage.getItem('awardradar_lang') || 'en';
 let currentOffers = [];
 let currentSortKey = 'score';
 let calendarPrices = {};
@@ -27,47 +26,6 @@ function applyTheme(t) {
 }
 applyTheme(theme);
 
-const I18N = {
-  en: {
-    ready:'ready', searching:'searching…', running:'Radar scanning. One moment…', error:'error',
-    tab_cheap:'Cheap Flights', tab_skiplag:'Skiplag Finder', tab_awards:'Awards',
-    from:'From', to:'To', departure:'Departure', return:'Return',
-    oneway:'one-way', nonstop:'nonstop only', mmstar:'M&M / Star only',
-    start:'Start Radar', resolved:'Resolved',
-    no_cache_title:'No fares found — try the live links below',
-    no_cache_text:'No cached prices for this route right now. Use the links to check live.',
-    stops:'stop(s)', airline:'Airline', hidden_city:'Hidden-city candidate',
-    ticket_dest:'Ticket destination', confidence:'Confidence',
-    saving:'potential saving (unverified)', candidate:'Check candidate · verify routing',
-    no_candidates:'No candidates found.', verify:'Verify routing before booking',
-  },
-  de: {
-    ready:'ready', searching:'suche…', running:'Radar läuft. Einen Moment…', error:'Fehler',
-    tab_cheap:'Cheap Flights', tab_skiplag:'Skiplag Finder', tab_awards:'Awards',
-    from:'Von', to:'Nach', departure:'Hinflug', return:'Rückflug',
-    oneway:'nur Hinflug', nonstop:'nur Nonstop', mmstar:'M&M/Star bevorzugt',
-    start:'Radar starten', resolved:'Aufgelöst',
-    no_cache_title:'Keine Cachepreise – Live-Links bereit',
-    no_cache_text:'Travelpayouts hat für diese Route gerade nichts. Nutze die Links.',
-    stops:'Stop(s)', airline:'Airline', hidden_city:'Hidden-City-Kandidat',
-    ticket_dest:'Ticketziel', confidence:'Confidence',
-    saving:'mögliche Ersparnis (nicht segmentbestätigt)', candidate:'Kandidat prüfen · Routing verifizieren',
-    no_candidates:'Keine Kandidaten gefunden.', verify:'Routing vor Buchung prüfen',
-  },
-};
-
-function tr(k) { return (I18N[lang] && I18N[lang][k]) || I18N.en[k] || k; }
-
-function applyLang() {
-  document.documentElement.lang = lang;
-  document.documentElement.dataset.lang = lang;
-  document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = tr(el.dataset.i18n));
-  document.querySelectorAll('.lang').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
-  document.querySelectorAll('[data-ph-de]').forEach(el => {
-    el.placeholder = (lang === 'de' ? el.dataset.phDe : el.dataset.phEn) || el.placeholder;
-  });
-  setStatus(tr('ready'));
-}
 
 function iso(d) { return d.toISOString().slice(0, 10); }
 
@@ -89,7 +47,7 @@ function activeFlexDays() {
 
 function payload() {
   return {
-    lang,
+    lang: 'en',
     origin: $('origin').value,
     dest: $('dest').value,
     date: $('date').value,
@@ -196,7 +154,7 @@ function linksHtml(obj) {
 }
 
 async function run() {
-  setStatus(tr('searching'));
+  setStatus('searching…');
   $('results').innerHTML = '';
   const _origin = ($('origin').value || '').trim().toUpperCase().slice(0, 3);
   const _dest = ($('dest').value || '').trim().toUpperCase().slice(0, 3);
@@ -215,7 +173,7 @@ async function run() {
     stopProgress(true);
     if (typeof globePulseRoute === 'function') globePulseRoute(_origin, _dest);
     render(data);
-    setStatus(tr('ready'));
+    setStatus('ready');
     $('results').focus({ preventScroll: false });
   } catch (e) {
     stopProgress(false);
@@ -234,7 +192,7 @@ async function run() {
       userMsg = `<div class="card note">Search unavailable. Please try again.</div>`;
     }
     $('results').innerHTML = userMsg;
-    setStatus(tr('error'));
+    setStatus('error');
   }
 }
 
@@ -319,7 +277,7 @@ function cheapCardsHtml(offers, sortKey) {
     const stops = parseInt(o.stops) || 0;
     const viaText = o.via && o.via.length ? ` via ${o.via.join(', ')}` : '';
     const stopsLabel = stops === 0 ? 'Nonstop' : stops === 1 ? `1 Stop${viaText}` : `${stops} Stops${viaText}`;
-    const airlineLabel = o.airline || tr('airline');
+    const airlineLabel = o.airline || 'Airline';
     const logoUrl = o.airlineCode ? `https://content.airhex.com/content/logos/airlines_${esc(o.airlineCode)}_200_200_s.png` : '';
     const logoImg = logoUrl ? `<img src="${logoUrl}" class="airline-logo" alt="" onerror="this.style.display='none'">` : '';
     return `<div class="card${isTop ? ' top-card' : ''}">
@@ -371,7 +329,7 @@ function relatedAnalysesHtml(currentMode) {
 function render(data) {
   let html = '';
   if (data.note) html += `<div class="card note">${esc(data.note)}</div>`;
-  if (data.debug) html += `<div class="card tiny">${tr('resolved')}: ${(data.debug.origins || []).join(', ')} → ${(data.debug.dests || []).join(', ')}${data.debug.seconds ? ' · ' + data.debug.seconds + 's' : ''}${data.debug.source ? ' · ' + esc(data.debug.source) : ''}</div>`;
+  if (data.debug) html += `<div class="card tiny">Resolved: ${(data.debug.origins || []).join(', ')} → ${(data.debug.dests || []).join(', ')}${data.debug.seconds ? ' · ' + data.debug.seconds + 's' : ''}${data.debug.source ? ' · ' + esc(data.debug.source) : ''}</div>`;
   // Warnings: log internally only — never expose raw provider errors to users
   if (data.warnings?.length) console.debug('[AwardRadar warnings]', data.warnings);
 
@@ -395,7 +353,7 @@ function render(data) {
       html += `<div id="cards-wrap">${cheapCardsHtml(currentOffers, 'score')}</div>`;
       html += relatedAnalysesHtml('cheap');
     } else {
-      html += `<div class="card"><h3>${tr('no_cache_title')}</h3><p class="tiny" style="margin-top:6px">${tr('no_cache_text')}</p></div>`;
+      html += `<div class="card"><h3>No fares found — try the live links below</h3><p class="tiny" style="margin-top:6px">No cached prices for this route right now. Use the links to check live.</p></div>`;
     }
     html += (data.fallback || []).map(f => `<div class="card"><h3>${esc(f.route)}</h3>${linksHtml(f.links)}</div>`).join('');
   }
@@ -652,12 +610,6 @@ document.querySelector('[role="tablist"]').addEventListener('keydown', e => {
   if (e.key === 'End')  { e.preventDefault(); tabs[tabs.length-1].focus(); activateTab(tabs[tabs.length-1]); }
 });
 
-document.querySelectorAll('.lang').forEach(b => b.onclick = () => {
-  lang = b.dataset.lang;
-  localStorage.setItem('awardradar_lang', lang);
-  document.querySelectorAll('.lang').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.lang === lang)));
-  applyLang();
-});
 document.querySelectorAll('[data-fill-origin]').forEach(b => b.onclick = () => $('origin').value = b.dataset.fillOrigin);
 document.querySelectorAll('[data-fill-dest]').forEach(b => b.onclick = () => $('dest').value = b.dataset.fillDest);
 $('go').onclick = run;
@@ -1130,5 +1082,5 @@ function globeAnimation() {
 
 initDates();
 syncPills();
-applyLang();
+setStatus('ready');
 if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) globeAnimation();

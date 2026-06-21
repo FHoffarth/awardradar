@@ -15,7 +15,7 @@
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="AwardRadar – Find miles. Fly better.">
   <meta name="twitter:description" content="Compare cash vs. miles for Miles &amp; More. Find sweet spots and hidden-city tickets.">
-  <link rel="stylesheet" href="/static/app.css?v=96">
+  <link rel="stylesheet" href="/static/app.css?v=97">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.min.css">
 </head>
 <body>
@@ -53,8 +53,6 @@
         </div>
       </a>
       <div class="nav-right">
-        <button class="lang active" data-lang="en" aria-label="Switch to English" aria-pressed="true">EN</button>
-        <button class="lang" data-lang="de" aria-label="Auf Deutsch wechseln" aria-pressed="false">DE</button>
         <button class="theme-btn" id="themeBtn" aria-label="Toggle light/dark mode">🌙</button>
         <div class="status" id="status" role="status" aria-live="polite" aria-atomic="true">ready</div>
       </div>
@@ -80,21 +78,21 @@
         <button class="tab active" role="tab" data-tab="cheap" aria-selected="true" aria-controls="results" id="tab-cheap">
           <div class="tab-icon ti-cheap" aria-hidden="true">💸</div>
           <div class="tab-body">
-            <div class="tab-title" data-i18n="tab_cheap">Cheap Flights</div>
+            <div class="tab-title">Cheap Flights</div>
             <div class="tab-sub">Market data</div>
           </div>
         </button>
         <button class="tab" role="tab" data-tab="awards" aria-selected="false" aria-controls="results" id="tab-awards" tabindex="-1">
           <div class="tab-icon ti-awards" aria-hidden="true">🎯</div>
           <div class="tab-body">
-            <div class="tab-title" data-i18n="tab_awards">Awards</div>
+            <div class="tab-title">Awards</div>
             <div class="tab-sub">Best redemptions</div>
           </div>
         </button>
         <button class="tab" role="tab" data-tab="skiplag" aria-selected="false" aria-controls="results" id="tab-skiplag" tabindex="-1">
           <div class="tab-icon ti-skiplag" aria-hidden="true">🕳️</div>
           <div class="tab-body">
-            <div class="tab-title" data-i18n="tab_skiplag">Hidden City</div>
+            <div class="tab-title">Hidden City</div>
             <div class="tab-sub">Verified routes</div>
           </div>
         </button>
@@ -103,24 +101,22 @@
       <!-- Search fields -->
       <div class="fields" role="search" aria-label="Flight search">
         <label for="origin">
-          <span class="field-label" data-i18n="from">FROM</span>
+          <span class="field-label">FROM</span>
           <input id="origin" list="airport-list" placeholder="Frankfurt, FRA or FRA,MUC"
-            data-ph-de="Frankfurt, FRA oder FRA,MUC" data-ph-en="Frankfurt, FRA or FRA,MUC"
-            aria-label="Origin airport or city" autocomplete="off">
+                aria-label="Origin airport or city" autocomplete="off">
         </label>
         <button class="swap-btn" id="swapBtn" type="button" aria-label="Swap origin and destination">⇄</button>
         <label for="dest">
-          <span class="field-label" data-i18n="to">TO</span>
+          <span class="field-label">TO</span>
           <input id="dest" list="airport-list" placeholder="Tokyo, New York, SIN …"
-            data-ph-de="Tokio, New York, SIN …" data-ph-en="Tokyo, New York, SIN …"
             aria-label="Destination airport or city" autocomplete="off">
         </label>
         <label for="date">
-          <span class="field-label" data-i18n="departure">DEPARTURE</span>
+          <span class="field-label">DEPARTURE</span>
           <input id="date" placeholder="20 Aug 2026" autocomplete="off" aria-label="Departure date">
         </label>
         <label class="return-field" id="returnFieldWrap" for="returnDate">
-          <span class="field-label" data-i18n="return">RETURN</span>
+          <span class="field-label">RETURN</span>
           <input id="returnDate" placeholder="27 Aug 2026" autocomplete="off" aria-label="Return date">
         </label>
         <datalist id="airport-list"></datalist>
@@ -198,9 +194,9 @@
           </div>
           <div class="options-row">
             <div class="travel-pills">
-              <label class="pill on"><input id="oneWay" type="checkbox" checked> <span data-i18n="oneway">one-way</span></label>
-              <label class="pill"><input id="direct" type="checkbox"> <span data-i18n="nonstop">nonstop only</span></label>
-              <label class="pill"><input id="mmOnly" type="checkbox"> <span data-i18n="mmstar">M&amp;M / Star only</span></label>
+              <label class="pill on"><input id="oneWay" type="checkbox" checked> <span>one-way</span></label>
+              <label class="pill"><input id="direct" type="checkbox"> <span>nonstop only</span></label>
+              <label class="pill"><input id="mmOnly" type="checkbox"> <span>M&amp;M / Star only</span></label>
             </div>
             <div class="seg-ctrl">
               <button class="seg active" data-cabin="Economy">Economy</button>
@@ -222,7 +218,7 @@
               </svg>
             </span>
             <span class="go-label">
-              <span class="go-main" data-i18n="start">Analyze Route</span>
+              <span class="go-main">Analyze Route</span>
               <span class="go-sub">Cash · Awards · Hidden City</span>
             </span>
           </button>
@@ -302,6 +298,6 @@
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="/static/app.js?v=95"></script>
+  <script src="/static/app.js?v=97"></script>
 </body>
 </html>
