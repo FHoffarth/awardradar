@@ -19,10 +19,10 @@
   --card-shadow:none;
 }
 [data-theme="light"]{
-  --bg:#f5f1e8;
-  --border:#d8d0c2;
+  --bg:#f7f3eb;
+  --border:#ddd6c8;
   --text:#102033;
-  --muted:#51657d;
+  --muted:#5f6e82;
   --gold:#9f7a24;
   --cyan:#267f9e;
   --green:#1a7a45;
@@ -33,7 +33,7 @@
   --chip-bg:rgba(16,32,51,.05);
   --chip-bg-on:rgba(38,127,158,.09);
   --nav-bg:rgba(245,241,232,.96);
-  --globe-op:.04;
+  --globe-op:.18;
   --panel-shadow:0 4px 28px rgba(16,32,51,.13),0 0 0 1px #d8d0c2;
   --card-shadow:0 2px 12px rgba(16,32,51,.1),0 0 0 1px #e8e0d4;
 }

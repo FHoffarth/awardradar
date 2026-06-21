@@ -761,19 +761,30 @@ function globeAnimation() {
     rot += 0.0022;
     ctx.clearRect(0, 0, w, h);
 
-    const info = project(0, 0);
+    const isLight = document.documentElement.dataset.theme === 'light';
+    // Light mode: gold-tinted lines at higher opacity for visibility on cream bg
+    const lineColor  = isLight ? [159,122,36]  : [106,215,255];
+    const ringAlpha  = isLight ? 0.35 : 0.20;
+    const latEqAlpha = isLight ? 0.22 : 0.13;
+    const latAlpha   = isLight ? 0.11 : 0.06;
+    const lonAlpha   = isLight ? 0.08 : 0.05;
+    const glowColor  = isLight ? '159,122,36' : '106,215,255';
+    const glowAlpha  = isLight ? 0.08 : 0.05;
+    const arcAlpha   = isLight ? 0.35 : 0.20;
+    const [lr,lg,lb] = lineColor;
+
     const R = Math.min(w, h) * 0.32;
     const cx = w * 0.78, cy = h * 0.36;
 
     // Subtle globe glow
     const glow = ctx.createRadialGradient(cx, cy, R * 0.5, cx, cy, R * 1.5);
-    glow.addColorStop(0, 'rgba(106,215,255,0.05)');
+    glow.addColorStop(0, `rgba(${glowColor},${glowAlpha})`);
     glow.addColorStop(1, 'transparent');
     ctx.fillStyle = glow;
     ctx.beginPath(); ctx.arc(cx, cy, R * 1.5, 0, Math.PI * 2); ctx.fill();
 
     // Globe ring
-    ctx.strokeStyle = 'rgba(106,215,255,0.2)';
+    ctx.strokeStyle = `rgba(${lr},${lg},${lb},${ringAlpha})`;
     ctx.lineWidth = 1 * devicePixelRatio;
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
 
@@ -786,7 +797,7 @@ function globeAnimation() {
         if (p.z > 0) { if (first) { ctx.moveTo(p.x, p.y); first = false; } else ctx.lineTo(p.x, p.y); }
         else first = true;
       }
-      ctx.strokeStyle = lat === 0 ? 'rgba(106,215,255,0.13)' : 'rgba(106,215,255,0.06)';
+      ctx.strokeStyle = `rgba(${lr},${lg},${lb},${lat === 0 ? latEqAlpha : latAlpha})`;
       ctx.lineWidth = 0.7 * devicePixelRatio;
       ctx.stroke();
     }
@@ -800,7 +811,7 @@ function globeAnimation() {
         if (p.z > 0) { if (first) { ctx.moveTo(p.x, p.y); first = false; } else ctx.lineTo(p.x, p.y); }
         else first = true;
       }
-      ctx.strokeStyle = 'rgba(106,215,255,0.05)';
+      ctx.strokeStyle = `rgba(${lr},${lg},${lb},${lonAlpha})`;
       ctx.stroke();
     }
 
@@ -813,7 +824,7 @@ function globeAnimation() {
       ctx.beginPath();
       ctx.setLineDash([5 * devicePixelRatio, 5 * devicePixelRatio]);
       ctx.lineWidth = 1.1 * devicePixelRatio;
-      ctx.strokeStyle = 'rgba(245,199,107,0.2)';
+      ctx.strokeStyle = `rgba(245,199,107,${arcAlpha})`;
       let first = true;
       for (let i = 0; i <= 80; i++) {
         const pt = slerp(from, to, i / 80);
