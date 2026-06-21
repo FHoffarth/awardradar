@@ -166,6 +166,20 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .card-source{font-size:12px;color:var(--muted);margin-top:2px}
 .price-currency{font-size:16px;font-weight:600;color:var(--gold)}
 .score-reason{font-size:11px;color:var(--muted);margin-top:4px;text-align:right}
+.score-reason-pills{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;margin-top:5px}
+.srp{font-size:10px;font-weight:600;padding:2px 7px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);white-space:nowrap}
+.s-gold .score-block .srp,.s-gold~.score-reason-pills .srp{border-color:rgba(245,199,107,.25);color:var(--gold)}
+
+/* Score legend */
+.score-legend{margin-bottom:10px;border:1px solid var(--border);border-radius:10px;padding:0;overflow:hidden;background:var(--chip-bg)}
+.score-legend summary{padding:9px 14px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;user-select:none}
+.score-legend summary::-webkit-details-marker{display:none}
+.score-legend summary::before{content:'▸';font-size:10px;transition:transform .2s;flex-shrink:0}
+.score-legend[open] summary::before{transform:rotate(90deg)}
+.legend-hint{font-size:10px;font-weight:400;opacity:.6;margin-left:auto}
+.legend-grid{display:grid;grid-template-columns:36px 1fr;gap:6px 10px;padding:10px 14px;align-items:center;font-size:12px;color:var(--text)}
+.legend-grid span{line-height:1.4}
+.legend-note{font-size:11px;color:var(--muted);padding:0 14px 10px;line-height:1.5}
 .verified-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;margin-bottom:8px;background:rgba(135,247,181,.12);border:1px solid rgba(135,247,181,.3);color:var(--green)}
 .unverified-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;margin-bottom:8px;background:rgba(255,157,157,.07);border:1px solid rgba(255,157,157,.2);color:var(--bad)}
 .seg-chain{font-size:13px;font-weight:600;color:var(--muted);margin:4px 0 6px;letter-spacing:.02em}

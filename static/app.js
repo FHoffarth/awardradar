@@ -159,20 +159,37 @@ async function run() {
 }
 
 function scoreInfo(s) {
-  if (s >= 90) return { tier: 's-gold', emoji: '🔥', label: 'Sweet Spot' };
-  if (s >= 75) return { tier: 's-green', emoji: '⭐', label: 'Great Deal' };
-  if (s >= 60) return { tier: 's-cyan', emoji: '✓', label: 'Good Deal' };
-  return { tier: 's-muted', emoji: '', label: 'Fair' };
+  if (s >= 90) return { tier: 's-gold', emoji: '🔥', label: 'Sweet Spot', desc: 'Exceptional price + direct or Star Alliance' };
+  if (s >= 75) return { tier: 's-green', emoji: '⭐', label: 'Great Deal', desc: 'Well below average, good routing' };
+  if (s >= 60) return { tier: 's-cyan', emoji: '✓', label: 'Good Deal', desc: 'Solid value for this route' };
+  return { tier: 's-muted', emoji: '', label: 'Fair', desc: 'Average or above-average price' };
 }
-function scoreHtml(s) {
+function scoreHtml(s, reason) {
   if (s == null) return '';
-  const { tier, emoji, label } = scoreInfo(s);
-  return `<div class="score-block ${tier}"><span class="score-num">${s}</span><span class="score-denom">/100</span><div class="score-lbl">${emoji} ${label}</div></div>`;
+  const { tier, emoji, label, desc } = scoreInfo(s);
+  const tooltip = reason ? esc(reason) : esc(desc);
+  return `<div class="score-block ${tier}" title="${tooltip}" aria-label="Deal score ${s} out of 100: ${label}">
+    <span class="score-num">${s}</span><span class="score-denom">/100</span>
+    <div class="score-lbl">${emoji} ${label}</div>
+  </div>`;
 }
 function bestBadgeHtml(s) {
   if (s >= 90) return '<div class="best-badge">🔥 Sweet Spot</div>';
   if (s >= 75) return '<div class="best-badge">⭐ Best Value</div>';
   return '<div class="best-badge">Best Match</div>';
+}
+
+function scoreLegendHtml() {
+  return `<details class="score-legend">
+    <summary>What is the Deal Score? <span class="legend-hint">tap to expand</span></summary>
+    <div class="legend-grid">
+      <span class="s-gold score-num" style="font-size:15px">90+</span><span>🔥 <strong>Sweet Spot</strong> — exceptional price, often nonstop or Star Alliance</span>
+      <span class="s-green score-num" style="font-size:15px">75+</span><span>⭐ <strong>Great Deal</strong> — well below average, good routing</span>
+      <span class="s-cyan score-num" style="font-size:15px">60+</span><span>✓ <strong>Good Deal</strong> — solid value for this route</span>
+      <span class="s-muted score-num" style="font-size:15px">&lt;60</span><span><strong>Fair</strong> — average or above-average price</span>
+    </div>
+    <p class="legend-note">Score factors: price vs. typical range (up to 30 pts), stops (up to 30 pts), Star Alliance airline (15 pts), price insight signals (25 pts).</p>
+  </details>`;
 }
 
 function priceTiers(calendar) {
@@ -235,8 +252,8 @@ function cheapCardsHtml(offers, sortKey) {
         <div class="card-price">
           <div class="price">${Math.round(o.price)} <span class="price-currency">${esc(o.currency)}</span></div>
           <div class="price-sub">per person</div>
-          ${scoreHtml(o.dealScore)}
-          ${o.scoreReason ? `<div class="score-reason">${esc(o.scoreReason)}</div>` : ''}
+          ${scoreHtml(o.dealScore, o.scoreReason)}
+          ${o.scoreReason ? `<div class="score-reason-pills">${o.scoreReason.split(' · ').map(p => `<span class="srp">${esc(p)}</span>`).join('')}</div>` : ''}
         </div>
       </div>
       ${linksHtml(o.links)}
@@ -269,10 +286,11 @@ function render(data) {
     if (currentOffers.length) {
       html += `<div class="sort-bar">
         <span class="sort-label">Sort:</span>
-        <button class="sort-btn active" data-sort="score" onclick="applySort('score')">Best Deal</button>
-        <button class="sort-btn" data-sort="price" onclick="applySort('price')">Cheapest</button>
-        <button class="sort-btn" data-sort="nonstop" onclick="applySort('nonstop')">Nonstop first</button>
-      </div>`;
+        <button class="sort-btn active" data-sort="score" onclick="applySort('score')">Best Value</button>
+        <button class="sort-btn" data-sort="price" onclick="applySort('price')">Lowest Price</button>
+        <button class="sort-btn" data-sort="nonstop" onclick="applySort('nonstop')">Fewest Stops</button>
+      </div>
+      ${scoreLegendHtml()}`;
       html += `<div id="cards-wrap">${cheapCardsHtml(currentOffers, 'score')}</div>`;
     } else {
       html += `<div class="card"><h3>${tr('no_cache_title')}</h3><p class="tiny" style="margin-top:6px">${tr('no_cache_text')}</p></div>`;
