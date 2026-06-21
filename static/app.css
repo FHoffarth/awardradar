@@ -34,7 +34,7 @@
   --chip-bg:rgba(7,22,41,.04);
   --chip-bg-on:rgba(23,111,140,.08);
   --nav-bg:rgba(237,243,248,.96);
-  --globe-op:.32;
+  --globe-op:.80;
   --panel-shadow:0 22px 70px rgba(7,22,41,.14),0 0 0 1px #cbd8e5;
   --card-shadow:0 12px 34px rgba(7,22,41,.10),0 0 0 1px #dce7f0;
 }
@@ -51,6 +51,7 @@ a,button,input,canvas,#globe,.logo-mark svg{transition:none}
 #progress-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--gold),var(--cyan));border-radius:0 2px 2px 0;transition:width .4s ease;position:relative;overflow:hidden}
 #progress-fill::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.4) 50%,transparent 100%);animation:progress-shimmer 1.2s infinite}
 @keyframes progress-shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}
+[data-theme="light"] #progress-fill{background:linear-gradient(90deg,#c8931a 0%,#1a9fcc 100%)}
 
 /* CTA loading state */
 .go.loading{opacity:.75;cursor:wait}
