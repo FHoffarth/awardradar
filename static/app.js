@@ -757,16 +757,26 @@ function globeAnimation() {
     c._resumeTimer = setTimeout(() => { autoSpin = true; }, 2000);
   }
 
-  c.addEventListener('mousedown', e => onDragStart(e.clientX, e.clientY));
-  addEventListener('mousemove', e => {
+  // Enable pointer events on canvas — only pass through clicks outside globe
+  c.classList.add('interactive');
+  c.addEventListener('mousedown', e => {
+    onDragStart(e.clientX, e.clientY);
+    if (!dragging) return; // outside globe — let event fall through
+  });
+  c.addEventListener('mousemove', e => {
     mouseX = e.clientX; mouseY = e.clientY;
     onDragMove(e.clientX);
+    // Update cursor based on position
+    const dx = e.clientX * devicePixelRatio - cx_screen();
+    const dy = e.clientY * devicePixelRatio - cy_screen();
+    const inside = Math.sqrt(dx*dx + dy*dy) < R_screen() * 1.2;
+    if (!dragging) c.style.cursor = inside ? 'grab' : 'default';
   });
+  addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; onDragMove(e.clientX); });
   addEventListener('mouseup', onDragEnd);
   c.addEventListener('touchstart', e => { e.preventDefault(); onDragStart(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
   addEventListener('touchmove', e => { if (dragging) { e.preventDefault(); onDragMove(e.touches[0].clientX); } }, { passive: false });
   addEventListener('touchend', onDragEnd);
-  c.style.cursor = 'grab';
 
   function project(lat, lon) {
     const phi = lat * Math.PI / 180;
@@ -811,22 +821,22 @@ function globeAnimation() {
 
     const isLight = document.documentElement.dataset.theme === 'light';
     const lineColor  = isLight ? [8, 72, 120]    : [106,215,255];
-    const ringAlpha  = isLight ? 0.55 : 0.20;
-    const latEqAlpha = isLight ? 0.42 : 0.13;
-    const latAlpha   = isLight ? 0.22 : 0.06;
-    const lonAlpha   = isLight ? 0.14 : 0.05;
+    const ringAlpha  = isLight ? 0.55 : 0.38;
+    const latEqAlpha = isLight ? 0.42 : 0.26;
+    const latAlpha   = isLight ? 0.22 : 0.13;
+    const lonAlpha   = isLight ? 0.14 : 0.10;
     const glowColor  = isLight ? '8,72,120'     : '106,215,255';
-    const glowAlpha  = isLight ? 0.06 : 0.05;
-    const arcAlpha   = isLight ? 0.55 : 0.20;
+    const glowAlpha  = isLight ? 0.06 : 0.14;
+    const arcAlpha   = isLight ? 0.55 : 0.42;
     const dotColor   = isLight ? '8,72,120'     : '106,215,255';
-    const dotAlpha   = isLight ? 0.70 : 0.88;
+    const dotAlpha   = isLight ? 0.70 : 0.95;
     const lblColor   = isLight ? '100,55,8'     : '245,199,107';
     const [lr,lg,lb] = lineColor;
 
     const R = Math.min(w, h) * 0.32;
     const cx = w * 0.78, cy = h * 0.36;
 
-    // Sphere fill — subtle depth gradient
+    // Sphere fill
     if (isLight) {
       const sphereFill = ctx.createRadialGradient(cx - R*0.2, cy - R*0.2, R*0.05, cx, cy, R);
       sphereFill.addColorStop(0, 'rgba(220,234,248,0.22)');
@@ -834,18 +844,27 @@ function globeAnimation() {
       sphereFill.addColorStop(1, 'rgba(120,170,210,0.14)');
       ctx.fillStyle = sphereFill;
       ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+    } else {
+      // Dark: inner glow for depth
+      const sphereFill = ctx.createRadialGradient(cx - R*0.15, cy - R*0.15, R*0.02, cx, cy, R);
+      sphereFill.addColorStop(0, 'rgba(106,215,255,0.06)');
+      sphereFill.addColorStop(0.5, 'rgba(56,140,200,0.03)');
+      sphereFill.addColorStop(1, 'rgba(0,30,80,0.12)');
+      ctx.fillStyle = sphereFill;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
     }
 
-    // Subtle globe glow
-    const glow = ctx.createRadialGradient(cx, cy, R * 0.5, cx, cy, R * 1.5);
-    glow.addColorStop(0, `rgba(${glowColor},${glowAlpha})`);
-    glow.addColorStop(1, 'transparent');
-    ctx.fillStyle = glow;
-    ctx.beginPath(); ctx.arc(cx, cy, R * 1.5, 0, Math.PI * 2); ctx.fill();
+    // Globe ambient glow
+    const glowOuter = ctx.createRadialGradient(cx, cy, R * 0.6, cx, cy, R * 1.8);
+    glowOuter.addColorStop(0, `rgba(${glowColor},${glowAlpha})`);
+    glowOuter.addColorStop(0.5, `rgba(${glowColor},${glowAlpha * 0.4})`);
+    glowOuter.addColorStop(1, 'transparent');
+    ctx.fillStyle = glowOuter;
+    ctx.beginPath(); ctx.arc(cx, cy, R * 1.8, 0, Math.PI * 2); ctx.fill();
 
     // Globe ring
     ctx.strokeStyle = `rgba(${lr},${lg},${lb},${ringAlpha})`;
-    ctx.lineWidth = (isLight ? 1.4 : 1) * devicePixelRatio;
+    ctx.lineWidth = (isLight ? 1.4 : 1.2) * devicePixelRatio;
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
 
     // Lat lines
