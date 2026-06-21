@@ -72,95 +72,157 @@
     </section>
 
     <section class="panel">
+      <!-- Tabs -->
       <div class="tabs">
-        <button class="tab active" data-tab="cheap">💸 <span data-i18n="tab_cheap">Cheap Flights</span></button>
-        <button class="tab" data-tab="skiplag">🕳️ <span data-i18n="tab_skiplag">Skiplag Finder</span></button>
-        <button class="tab" data-tab="awards">🎯 <span data-i18n="tab_awards">Awards</span></button>
+        <button class="tab active" data-tab="cheap">
+          <div class="tab-icon ti-cheap">💸</div>
+          <div class="tab-body">
+            <div class="tab-title" data-i18n="tab_cheap">Cheap Flights</div>
+            <div class="tab-sub">Live prices</div>
+          </div>
+        </button>
+        <button class="tab" data-tab="awards">
+          <div class="tab-icon ti-awards">🎯</div>
+          <div class="tab-body">
+            <div class="tab-title" data-i18n="tab_awards">Awards</div>
+            <div class="tab-sub">Best redemptions</div>
+          </div>
+        </button>
+        <button class="tab" data-tab="skiplag">
+          <div class="tab-icon ti-skiplag">🕳️</div>
+          <div class="tab-body">
+            <div class="tab-title" data-i18n="tab_skiplag">Hidden City</div>
+            <div class="tab-sub">Verified routes</div>
+          </div>
+        </button>
       </div>
 
+      <!-- Search fields -->
       <div class="fields">
         <label>
-          <span class="field-label" data-i18n="from">From</span>
+          <span class="field-label" data-i18n="from">FROM</span>
           <input id="origin" list="airport-list" placeholder="Frankfurt, FRA or FRA,MUC"
             data-ph-de="Frankfurt, FRA oder FRA,MUC" data-ph-en="Frankfurt, FRA or FRA,MUC">
         </label>
+        <button class="swap-btn" id="swapBtn" type="button" title="Swap origin and destination">⇄</button>
         <label>
-          <span class="field-label" data-i18n="to">To</span>
+          <span class="field-label" data-i18n="to">TO</span>
           <input id="dest" list="airport-list" placeholder="Tokyo, New York, SIN …"
             data-ph-de="Tokio, New York, SIN …" data-ph-en="Tokyo, New York, SIN …">
         </label>
         <label>
-          <span class="field-label" data-i18n="departure">Departure</span>
+          <span class="field-label" data-i18n="departure">DEPARTURE</span>
           <input id="date" placeholder="20 Aug 2026" autocomplete="off">
         </label>
         <label class="return-field" id="returnFieldWrap">
-          <span class="field-label" data-i18n="return">Return</span>
+          <span class="field-label" data-i18n="return">RETURN</span>
           <input id="returnDate" placeholder="27 Aug 2026" autocomplete="off">
         </label>
         <datalist id="airport-list"></datalist>
       </div>
 
-      <div class="date-tools-row">
-        <div class="date-chips">
-          <button class="date-chip" data-preset="today">Today</button>
-          <button class="date-chip" data-preset="weekend">This Weekend</button>
-          <button class="date-chip" data-preset="nextweek">Next Week</button>
-          <button class="date-chip" data-preset="christmas">Christmas</button>
-          <button class="date-chip" data-preset="newyear">New Year</button>
-          <button class="date-chip" data-preset="summer">Summer</button>
-        </div>
-        <div class="flex-seg">
-          <span class="flex-label">Flex</span>
-          <button class="flex-opt on" data-flex="0">Exact</button>
-          <button class="flex-opt" data-flex="3">±3d</button>
-          <button class="flex-opt" data-flex="7">±7d</button>
-        </div>
-      </div>
+      <!-- Panel bottom: 2-column -->
+      <div class="panel-bottom">
 
-      <div class="options-row">
-        <div class="travel-pills">
-          <label class="pill on"><input id="oneWay" type="checkbox" checked> <span data-i18n="oneway">one-way</span></label>
-          <label class="pill"><input id="direct" type="checkbox"> <span data-i18n="nonstop">nonstop only</span></label>
-          <label class="pill"><input id="mmOnly" type="checkbox"> <span data-i18n="mmstar">M&amp;M / Star only</span></label>
+        <!-- Left: Popular airports -->
+        <div class="pa-col">
+          <div class="pa-label">POPULAR AIRPORTS</div>
+          <div class="pa-grid">
+            <button class="pa-code" data-code="FRA">FRA</button>
+            <button class="pa-code" data-code="MUC">MUC</button>
+            <button class="pa-code" data-code="LHR">LHR</button>
+            <button class="pa-code" data-code="CDG">CDG</button>
+            <button class="pa-code" data-code="AMS">AMS</button>
+            <button class="pa-code" data-code="ZRH">ZRH</button>
+            <button class="pa-code" data-code="VIE">VIE</button>
+            <button class="pa-code" data-code="BRU">BRU</button>
+            <button class="pa-code" data-code="JFK">JFK</button>
+            <button class="pa-code" data-code="EWR">EWR</button>
+            <button class="pa-code" data-code="LAX">LAX</button>
+            <button class="pa-code" data-code="SFO">SFO</button>
+            <button class="pa-code" data-code="ORD">ORD</button>
+            <button class="pa-code" data-code="MIA">MIA</button>
+            <button class="pa-code" data-code="BOS">BOS</button>
+            <button class="pa-code" data-code="SEA">SEA</button>
+            <button class="pa-code" data-code="NRT">NRT</button>
+            <button class="pa-code" data-code="HND">HND</button>
+            <button class="pa-code" data-code="SIN">SIN</button>
+            <button class="pa-code" data-code="HKG">HKG</button>
+            <button class="pa-code" data-code="BKK">BKK</button>
+            <button class="pa-code" data-code="ICN">ICN</button>
+            <button class="pa-code" data-code="SYD">SYD</button>
+            <button class="pa-code" data-code="DXB">DXB</button>
+          </div>
         </div>
-        <div class="seg-ctrl">
-          <button class="seg active" data-cabin="Economy">Economy</button>
-          <button class="seg" data-cabin="Premium Eco">Premium</button>
-          <button class="seg" data-cabin="Business">Business</button>
-          <button class="seg" data-cabin="First">First</button>
-        </div>
-        <button class="go" id="go"><span data-i18n="start">Find Sweet Spots</span></button>
-      </div>
 
-      <div class="quickbar">
-        <button data-fill-origin="Frankfurt">FRA</button>
-        <button data-fill-origin="München">MUC</button>
-        <button data-fill-origin="London">LHR</button>
-        <button data-fill-dest="London">London</button>
-        <button data-fill-dest="New York">NYC</button>
-        <button data-fill-dest="Tokyo">Tokyo</button>
-        <button data-fill-dest="Singapore">SIN</button>
-        <button data-fill-dest="Bangkok">BKK</button>
-        <button data-fill-dest="Hong Kong">HKG</button>
-        <button data-fill-dest="Dubai">DXB</button>
+        <!-- Right: Date + cabin + CTA -->
+        <div class="config-col">
+          <div class="date-tools-row">
+            <div class="date-chips">
+              <button class="date-chip" data-preset="today">Today</button>
+              <button class="date-chip" data-preset="weekend">This Weekend</button>
+              <button class="date-chip" data-preset="nextweek">Next Week</button>
+              <button class="date-chip" data-preset="christmas">Christmas</button>
+              <button class="date-chip" data-preset="newyear">New Year</button>
+              <button class="date-chip" data-preset="summer">Summer</button>
+            </div>
+            <div class="flex-seg">
+              <span class="flex-label">Flex</span>
+              <button class="flex-opt on" data-flex="0">Exact</button>
+              <button class="flex-opt" data-flex="3">±3d</button>
+              <button class="flex-opt" data-flex="7">±7d</button>
+            </div>
+          </div>
+          <div class="options-row">
+            <div class="travel-pills">
+              <label class="pill on"><input id="oneWay" type="checkbox" checked> <span data-i18n="oneway">one-way</span></label>
+              <label class="pill"><input id="direct" type="checkbox"> <span data-i18n="nonstop">nonstop only</span></label>
+              <label class="pill"><input id="mmOnly" type="checkbox"> <span data-i18n="mmstar">M&amp;M / Star only</span></label>
+            </div>
+            <div class="seg-ctrl">
+              <button class="seg active" data-cabin="Economy">Economy</button>
+              <button class="seg" data-cabin="Premium Eco">Premium</button>
+              <button class="seg" data-cabin="Business">Business</button>
+              <button class="seg" data-cabin="First">First</button>
+            </div>
+          </div>
+          <button class="go" id="go">
+            <span class="go-icon-wrap">
+              <svg width="20" height="20" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="17" cy="17" r="13" stroke="currentColor" stroke-width="1.8" fill="none" opacity=".6"/>
+                <circle cx="17" cy="17" r="7" stroke="currentColor" stroke-width="1.4" fill="none" opacity=".4"/>
+                <path d="M17 6 l1.5 4.5L17 12l-1.5-1.5z" fill="currentColor"/>
+                <path d="M13 13.5l7 0-3.5 7z" fill="currentColor" opacity=".8"/>
+              </svg>
+            </span>
+            <span data-i18n="start">Find Sweet Spots</span>
+          </button>
+        </div>
       </div>
     </section>
 
+    <!-- USP cards -->
     <div class="usp-row">
       <div class="usp-card usp-active" data-usp="cheap">
-        <div class="usp-icon">💸</div>
-        <div class="usp-title">Cheap Flights <span class="usp-arrow">→</span></div>
-        <div class="usp-desc">Live Google Flights prices. Cash vs. miles — cent-per-mile calculated instantly.</div>
+        <div class="usp-icon-wrap"><div class="usp-icon">💸</div></div>
+        <div class="usp-content">
+          <div class="usp-title">Cheap Flights <span class="usp-arrow">→</span></div>
+          <div class="usp-desc">Live Google Flights prices. Cash vs. miles — cent-per-mile calculated instantly.</div>
+        </div>
       </div>
       <div class="usp-card" data-usp="awards">
-        <div class="usp-icon">🎯</div>
-        <div class="usp-title">Awards <span class="usp-arrow">→</span></div>
-        <div class="usp-desc">Where your Miles &amp; More points go furthest. Economy to First.</div>
+        <div class="usp-icon-wrap"><div class="usp-icon">🎯</div></div>
+        <div class="usp-content">
+          <div class="usp-title">Awards <span class="usp-arrow">→</span></div>
+          <div class="usp-desc">Where your Miles &amp; More points go furthest. Economy to First.</div>
+        </div>
       </div>
       <div class="usp-card" data-usp="skiplag">
-        <div class="usp-icon">🕳️</div>
-        <div class="usp-title">Hidden City <span class="usp-arrow">→</span></div>
-        <div class="usp-desc">Verified hidden-city candidates. Route proof included. One-way only.</div>
+        <div class="usp-icon-wrap"><div class="usp-icon">🕳️</div></div>
+        <div class="usp-content">
+          <div class="usp-title">Hidden City <span class="usp-arrow">→</span></div>
+          <div class="usp-desc">Verified hidden-city candidates. Route proof included. One-way only.</div>
+        </div>
       </div>
     </div>
 

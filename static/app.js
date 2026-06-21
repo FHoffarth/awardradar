@@ -396,6 +396,35 @@ document.querySelectorAll('[data-fill-dest]').forEach(b => b.onclick = () => $('
 $('go').onclick = run;
 $('oneWay').onchange = toggleReturn;
 
+// Swap origin ⇄ destination
+$('swapBtn').onclick = () => {
+  const o = $('origin').value, d = $('dest').value;
+  $('origin').value = d; $('dest').value = o;
+  updatePaCodes();
+};
+
+// Popular airport codes → fill dest (or origin if dest filled & origin empty)
+function updatePaCodes() {
+  const destVal = ($('dest').value || '').toUpperCase().trim();
+  const originVal = ($('origin').value || '').toUpperCase().trim();
+  document.querySelectorAll('.pa-code').forEach(b => {
+    b.classList.toggle('pa-active', b.dataset.code === destVal || b.dataset.code === originVal);
+  });
+}
+document.querySelectorAll('.pa-code').forEach(b => {
+  b.onclick = () => {
+    const code = b.dataset.code;
+    if (!$('dest').value) {
+      $('dest').value = code;
+    } else if (!$('origin').value) {
+      $('origin').value = code;
+    } else {
+      $('dest').value = code;
+    }
+    updatePaCodes();
+  };
+});
+
 // Flex segmented control — mutually exclusive
 document.querySelectorAll('.flex-opt').forEach(btn => {
   btn.onclick = () => {
