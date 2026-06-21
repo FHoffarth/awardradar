@@ -6,6 +6,19 @@ let currentSortKey = 'score';
 let calendarPrices = {};
 let fpDep, fpRet;
 
+// Theme
+let theme = localStorage.getItem('awardradar_theme')
+  || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+
+function applyTheme(t) {
+  theme = t;
+  document.documentElement.dataset.theme = t;
+  localStorage.setItem('awardradar_theme', t);
+  const btn = $('themeBtn');
+  if (btn) btn.textContent = t === 'light' ? '☀️' : '🌙';
+}
+applyTheme(theme);
+
 const I18N = {
   en: {
     ready:'ready', searching:'searching…', running:'Radar scanning. One moment…', error:'error',
@@ -395,6 +408,7 @@ document.querySelectorAll('[data-fill-origin]').forEach(b => b.onclick = () => $
 document.querySelectorAll('[data-fill-dest]').forEach(b => b.onclick = () => $('dest').value = b.dataset.fillDest);
 $('go').onclick = run;
 $('oneWay').onchange = toggleReturn;
+$('themeBtn').onclick = () => applyTheme(theme === 'dark' ? 'light' : 'dark');
 
 // Swap origin ⇄ destination
 $('swapBtn').onclick = () => {
