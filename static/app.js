@@ -727,6 +727,43 @@ function globeAnimation() {
   addEventListener('resize', size);
   size();
 
+  // Drag-to-spin interaction
+  let dragging = false, dragX = 0, velX = 0, autoSpin = true;
+  const R_screen = () => Math.min(w, h) * 0.32;
+  const cx_screen = () => w * 0.78;
+  const cy_screen = () => h * 0.36;
+
+  function onDragStart(x, y) {
+    const dx = x * devicePixelRatio - cx_screen();
+    const dy = y * devicePixelRatio - cy_screen();
+    if (Math.sqrt(dx*dx + dy*dy) > R_screen() * 1.4) return;
+    dragging = true; dragX = x; velX = 0; autoSpin = false;
+    c.style.cursor = 'grabbing';
+  }
+  function onDragMove(x) {
+    if (!dragging) return;
+    const delta = (x - dragX) / (innerWidth * 0.5);
+    rot -= delta * Math.PI;
+    velX = -(delta * Math.PI);
+    dragX = x;
+  }
+  function onDragEnd() {
+    if (!dragging) return;
+    dragging = false;
+    c.style.cursor = 'grab';
+    // Resume auto-spin after 2s of no drag
+    clearTimeout(c._resumeTimer);
+    c._resumeTimer = setTimeout(() => { autoSpin = true; }, 2000);
+  }
+
+  c.addEventListener('mousedown', e => onDragStart(e.clientX, e.clientY));
+  addEventListener('mousemove', e => onDragMove(e.clientX));
+  addEventListener('mouseup', onDragEnd);
+  c.addEventListener('touchstart', e => { e.preventDefault(); onDragStart(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+  addEventListener('touchmove', e => { if (dragging) { e.preventDefault(); onDragMove(e.touches[0].clientX); } }, { passive: false });
+  addEventListener('touchend', onDragEnd);
+  c.style.cursor = 'grab';
+
   function project(lat, lon) {
     const phi = lat * Math.PI / 180;
     const lam = (lon * Math.PI / 180) + rot;
@@ -758,7 +795,14 @@ function globeAnimation() {
   }
 
   function frame() {
-    rot += 0.0022;
+    if (dragging) {
+      // velX already applied in onDragMove
+    } else if (Math.abs(velX) > 0.0001) {
+      rot += velX;
+      velX *= 0.88; // friction
+    } else if (autoSpin) {
+      rot += 0.0022;
+    }
     ctx.clearRect(0, 0, w, h);
 
     const isLight = document.documentElement.dataset.theme === 'light';
