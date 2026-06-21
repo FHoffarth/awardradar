@@ -762,15 +762,15 @@ function globeAnimation() {
     ctx.clearRect(0, 0, w, h);
 
     const isLight = document.documentElement.dataset.theme === 'light';
-    // Light mode: gold-tinted lines at higher opacity for visibility on cream bg
-    const lineColor  = isLight ? [159,122,36]  : [106,215,255];
-    const ringAlpha  = isLight ? 0.35 : 0.20;
-    const latEqAlpha = isLight ? 0.22 : 0.13;
-    const latAlpha   = isLight ? 0.11 : 0.06;
-    const lonAlpha   = isLight ? 0.08 : 0.05;
-    const glowColor  = isLight ? '159,122,36' : '106,215,255';
-    const glowAlpha  = isLight ? 0.08 : 0.05;
-    const arcAlpha   = isLight ? 0.35 : 0.20;
+    // Light mode: navy/cyan lines — cool premium, not warm/gold
+    const lineColor  = isLight ? [32,127,159]   : [106,215,255];
+    const ringAlpha  = isLight ? 0.30 : 0.20;
+    const latEqAlpha = isLight ? 0.20 : 0.13;
+    const latAlpha   = isLight ? 0.10 : 0.06;
+    const lonAlpha   = isLight ? 0.07 : 0.05;
+    const glowColor  = isLight ? '32,127,159'  : '106,215,255';
+    const glowAlpha  = isLight ? 0.07 : 0.05;
+    const arcAlpha   = isLight ? 0.30 : 0.20;
     const [lr,lg,lb] = lineColor;
 
     const R = Math.min(w, h) * 0.32;
