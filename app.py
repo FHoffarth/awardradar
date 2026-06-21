@@ -359,6 +359,40 @@ def deal_score(price: float, stops: int, airline: str = "", typical_range: list 
     return max(0, min(100, score))
 
 
+def score_reason(price: float, stops: int, airline_code: str, typical_range: list | None) -> str:
+    parts = []
+    if typical_range and len(typical_range) == 2:
+        low, high = float(typical_range[0] or 0), float(typical_range[1] or 0)
+        if low and high and price:
+            if price <= low:
+                parts.append(f"below typical low ({int(low)} EUR)")
+            elif price <= (low + high) / 2:
+                parts.append("below average")
+            else:
+                parts.append("average price range")
+    try:
+        s = int(stops or 0)
+    except Exception:
+        s = 0
+    if s == 0:
+        parts.append("nonstop")
+    elif s == 1:
+        parts.append("1 stop")
+    if airline_code in MM_AIRLINES:
+        parts.append("Star Alliance")
+    return " · ".join(parts)
+
+
+def dedup_offers(offers: list[dict]) -> list[dict]:
+    seen: dict[tuple, dict] = {}
+    for o in offers:
+        key = (o.get("dest", ""), (o.get("airlineCode") or o.get("airline", "")).upper())
+        existing = seen.get(key)
+        if not existing or (o.get("dealScore") or 0) > (existing.get("dealScore") or 0):
+            seen[key] = o
+    return list(seen.values())
+
+
 def offer_from_tp(row: dict, currency: str) -> dict:
     origin = row.get("origin", "")
     dest = row.get("destination", "")
@@ -379,6 +413,7 @@ def offer_from_tp(row: dict, currency: str) -> dict:
         "stops": row.get("transfers", 0),
         "bookUrl": "https://www.aviasales.com" + link if link else links_for(origin, dest, dep, ret).get("Aviasales"),
         "dealScore": deal_score(float(row.get("price") or 0), row.get("transfers", 0), airline),
+        "scoreReason": score_reason(float(row.get("price") or 0), row.get("transfers", 0), airline, None),
         "links": links_for(origin, dest, dep, ret),
     }
 
@@ -458,6 +493,7 @@ def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, m
         "stops": stops,
         "bookUrl": links_for(origin, dest, dep_date).get("Google Flights"),
         "dealScore": deal_score(price, stops, airline_code, typical_range),
+        "scoreReason": score_reason(price, stops, airline_code, typical_range),
         "links": links_for(origin, dest, dep_date),
     }
 
@@ -603,12 +639,13 @@ def cheap():
                     offers.append(offer_from_tp(row, currency))
         note_key = "cheap_note"
 
-    # Beste zuerst: nach Deal-Score absteigend, bei Gleichstand günstigster Preis.
+    # Deduplizieren (gleiche Airline + Ziel), dann nach Deal-Score sortieren
+    offers = dedup_offers(offers)
     offers.sort(key=lambda x: (-(x.get("dealScore") or 0), x.get("price") or 10**9))
     fallback = [{"route": f"{o} → {d}", "links": links_for(o, d, dep.isoformat(), ret.isoformat() if ret else None)} for o in origins[:2] for d in dests[:3] if o != d]
     return jsonify({
         "ok": True,
-        "offers": offers[:30],
+        "offers": offers[:8],
         "fallback": fallback,
         "warnings": warnings[:8],
         "debug": {"origins": origins, "dests": dests, "seconds": round(time.time() - started, 2), "source": PRICE_SOURCE if use_serpapi else "travelpayouts"},

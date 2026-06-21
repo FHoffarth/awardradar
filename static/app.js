@@ -141,17 +141,15 @@ function render(data) {
           <div class="card-row">
             <div class="card-main">
               <h3>${esc(o.origin)}<span class="route-arrow">→</span>${esc(o.dest)}</h3>
-              <div class="meta">
-                <span class="badge" style="display:flex;align-items:center;gap:5px">${logoImg}${esc(airlineLabel)}</span>
-                <span class="badge">${stopsLabel}</span>
-                <span>${esc(o.date)}${o.returnDate ? ' – ' + esc(o.returnDate) : ''}</span>
-                <span style="opacity:.6">${esc(o.source || '')}</span>
-              </div>
+              <div class="card-airline">${logoImg}<span class="airline-name">${esc(airlineLabel)}</span></div>
+              <div class="card-detail">${stopsLabel} · ${esc(o.date)}${o.returnDate ? ' → ' + esc(o.returnDate) : ''}</div>
+              <div class="card-source">${esc(o.source || '')}</div>
             </div>
             <div class="card-price">
-              <div class="price">${Math.round(o.price)} ${esc(o.currency)}</div>
+              <div class="price">${Math.round(o.price)} <span class="price-currency">${esc(o.currency)}</span></div>
               <div class="price-sub">per person</div>
               ${scoreHtml(o.dealScore)}
+              ${o.scoreReason ? `<div class="score-reason">${esc(o.scoreReason)}</div>` : ''}
             </div>
           </div>
           ${linksHtml(o.links)}

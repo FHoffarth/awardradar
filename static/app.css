@@ -71,7 +71,13 @@ body{min-height:100vh;background:radial-gradient(ellipse at 28% 0%,#112038 0,#06
 .best-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;margin-bottom:8px;background:linear-gradient(135deg,rgba(245,199,107,.18),rgba(245,199,107,.08));border:1px solid rgba(245,199,107,.38);color:var(--gold)}
 .meta{display:flex;gap:7px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin:4px 0}
 .badge{background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:5px;padding:2px 7px}
-.airline-logo{width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.1);vertical-align:middle;object-fit:contain;flex-shrink:0}
+.card-airline{display:flex;align-items:center;gap:7px;margin:6px 0 4px;font-size:14px;font-weight:600;color:var(--text)}
+.airline-logo{width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.1);object-fit:contain;flex-shrink:0}
+.airline-name{}
+.card-detail{font-size:13px;color:var(--muted);margin-bottom:2px}
+.card-source{font-size:11px;color:rgba(122,154,184,.45);margin-top:2px}
+.price-currency{font-size:16px;font-weight:600;opacity:.8}
+.score-reason{font-size:10px;color:var(--muted);margin-top:4px;opacity:.7;text-align:right}
 .links{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .links a{color:var(--muted);text-decoration:none;border:1px solid var(--border);background:rgba(255,255,255,.04);border-radius:7px;padding:5px 10px;font-size:11px;transition:all .15s}
 .links a:hover{color:var(--text);border-color:rgba(255,255,255,.2)}
@@ -90,11 +96,14 @@ body{min-height:100vh;background:radial-gradient(ellipse at 28% 0%,#112038 0,#06
 .usp-icon{font-size:18px;margin-bottom:5px}
 .usp-title{font-size:13px;font-weight:700;margin-bottom:3px}
 .usp-desc{font-size:11px;color:var(--muted);line-height:1.5}
+.beta-notice{background:rgba(245,199,107,.07);border:1px solid rgba(245,199,107,.18);border-radius:10px;padding:10px 18px;font-size:12px;color:rgba(245,199,107,.7);text-align:center;margin-bottom:18px;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
+.beta-notice a{color:var(--cyan);text-decoration:none}
+.beta-tag{background:rgba(245,199,107,.2);border:1px solid rgba(245,199,107,.4);color:var(--gold);border-radius:5px;padding:2px 7px;font-size:10px;font-weight:800;letter-spacing:.1em;flex-shrink:0}
 footer{position:relative;z-index:1;text-align:center;padding:32px 0 20px;color:rgba(168,183,200,.42);font-size:12px}
 footer .footer-links{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 footer .footer-links a{color:rgba(106,215,255,.5);text-decoration:none;padding:4px 10px;border:1px solid rgba(255,255,255,.07);border-radius:6px;transition:all .15s}
 footer .footer-links a:hover{color:var(--cyan);border-color:rgba(106,215,255,.25)}
-footer p{margin-bottom:10px}
+footer p{margin-bottom:8px}
 @media(max-width:600px){.usp-row{grid-template-columns:1fr 1fr}}
 
 @media(max-width:800px){
