@@ -144,17 +144,30 @@ function bestBadgeHtml(s) {
   return '<div class="best-badge">Best Match</div>';
 }
 
+function priceTiers(calendar) {
+  const prices = calendar.filter(c => c.price).map(c => c.price).sort((a, b) => a - b);
+  if (!prices.length) return {};
+  const p33 = prices[Math.floor(prices.length * 0.33)];
+  const p66 = prices[Math.floor(prices.length * 0.66)];
+  const map = {};
+  calendar.forEach(c => {
+    if (c.price) map[c.date] = c.price <= p33 ? 'cheap' : c.price <= p66 ? 'mid' : 'exp';
+  });
+  return map;
+}
+
 function calendarStripHtml(calendar) {
+  const tiers = priceTiers(calendar);
   const cells = calendar.map(c => {
     const d = new Date(c.date + 'T12:00:00');
     const label = d.toLocaleDateString('en', { month: 'short', day: 'numeric' });
-    const cls = c.isSelected ? ' dc-sel' : c.isBest ? ' dc-best' : '';
-    const badge = c.isBest ? '🔥' : c.isSelected ? '⭐' : '';
+    const tier = tiers[c.date] || '';
+    const cls = (c.isSelected ? ' dc-sel' : c.isBest ? ' dc-best' : tier ? ` dc-${tier}` : '');
     const priceStr = c.price ? Math.round(c.price) + ' ' + (c.currency || 'EUR') : '—';
     return `<button class="date-cell${cls}" onclick="jumpToDate('${c.date}')">
       <div class="dc-date">${label}</div>
       <div class="dc-price">${priceStr}</div>
-      ${badge ? `<div class="dc-badge">${badge}</div>` : ''}
+      ${c.isBest ? '<div class="dc-badge">BEST</div>' : ''}
     </button>`;
   }).join('');
   return `<div class="date-strip">${cells}</div>`;
@@ -303,10 +316,18 @@ function toggleReturn() {
 
 function updateCalendarPrices(calendar) {
   calendarPrices = {};
-  (calendar || []).forEach(c => {
-    if (c.date && c.price) calendarPrices[c.date] = { price: c.price, isBest: !!c.isBest, isSelected: !!c.isSelected };
+  const entries = (calendar || []).filter(c => c.date && c.price);
+  const tiers = priceTiers(entries.map(c => ({ date: c.date, price: c.price })));
+  entries.forEach(c => {
+    calendarPrices[c.date] = { price: c.price, isBest: !!c.isBest, isSelected: !!c.isSelected, tier: tiers[c.date] || '' };
   });
   if (fpDep) fpDep.redraw();
+  // Auto-jump to best date when flex search returns a better date than selected
+  const best = entries.find(c => c.isBest);
+  if (best && activeFlexDays() > 0) {
+    const cur = fpDep && fpDep.selectedDates[0] ? fpDep.selectedDates[0].toISOString().slice(0, 10) : null;
+    if (cur !== best.date) fpDep.setDate(best.date, false);
+  }
 }
 
 function applyDatePreset(preset) {
@@ -335,14 +356,24 @@ function applyDatePreset(preset) {
 }
 
 function initDatepickers() {
-  const dayCreateHook = function(_dObj, _dStr, _fp, dayElem) {
+  const dayCreateHook = function(_dObj, _dStr, fp, dayElem) {
     const dateStr = dayElem.dateObj.toISOString().slice(0, 10);
+
+    // Flex range band
+    const flexDays = activeFlexDays();
+    if (flexDays > 0 && fp.selectedDates[0]) {
+      const diffMs = dayElem.dateObj - fp.selectedDates[0];
+      const diffD = Math.round(diffMs / 86400000);
+      if (diffD !== 0 && Math.abs(diffD) <= flexDays) dayElem.classList.add('fp-day-range');
+    }
+
     const cal = calendarPrices[dateStr];
     if (cal) {
       const span = document.createElement('span');
-      span.className = 'fp-price' + (cal.isBest ? ' fp-best' : '');
+      span.className = 'fp-price';
       span.textContent = Math.round(cal.price) + '€';
       dayElem.appendChild(span);
+      if (cal.tier) dayElem.classList.add('fp-day-' + cal.tier);
       if (cal.isBest) dayElem.classList.add('fp-day-best');
     }
   };

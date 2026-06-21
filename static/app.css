@@ -205,14 +205,19 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .flatpickr-day.today{border-color:rgba(106,215,255,.4)!important}
 .flatpickr-day.prevMonthDay,.flatpickr-day.nextMonthDay{color:rgba(122,154,184,.3)!important}
 .flatpickr-day.flatpickr-disabled{color:rgba(122,154,184,.2)!important}
-.flatpickr-day.fp-day-best{background:rgba(245,199,107,.1)!important;border-color:rgba(245,199,107,.28)!important}
-.flatpickr-day.fp-day-best:hover{background:rgba(245,199,107,.18)!important}
+.flatpickr-day.fp-day-best{background:rgba(135,247,181,.1)!important;border-color:rgba(135,247,181,.35)!important;box-shadow:0 0 0 1px rgba(135,247,181,.18)!important}
+.flatpickr-day.fp-day-best:hover{background:rgba(135,247,181,.18)!important}
+.flatpickr-day.fp-day-cheap{background:rgba(135,247,181,.05)!important}
+.flatpickr-day.fp-day-cheap .fp-price{color:var(--green)!important}
+.flatpickr-day.fp-day-mid .fp-price{color:var(--gold)!important}
+.flatpickr-day.fp-day-exp .fp-price{color:var(--bad)!important}
+.flatpickr-day.fp-day-range{background:rgba(106,215,255,.05)!important;border-radius:0!important}
 .flatpickr-months .flatpickr-prev-month,.flatpickr-months .flatpickr-next-month{color:var(--muted)!important;fill:var(--muted)!important}
 .flatpickr-months .flatpickr-prev-month:hover,.flatpickr-months .flatpickr-next-month:hover{color:var(--cyan)!important;fill:var(--cyan)!important}
 .numInputWrapper:hover{background:rgba(255,255,255,.05)!important}
 .fp-price{display:block;font-size:8px;line-height:1;margin-top:2px;color:var(--muted);pointer-events:none}
-.fp-price.fp-best{color:var(--gold);font-weight:700}
 .flatpickr-day.selected .fp-price{color:rgba(6,16,31,.7)!important}
+.flatpickr-day.fp-day-best .fp-price{color:var(--green)!important;font-weight:700!important}
 
 .fields.no-return{grid-template-columns:1fr auto 1fr 160px}
 .return-field.rf-hidden{display:none}
@@ -221,10 +226,14 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .date-cell{border:1px solid var(--border);background:rgba(255,255,255,.03);border-radius:10px;padding:8px 10px;cursor:pointer;text-align:center;min-width:72px;flex-shrink:0;transition:all .15s;font-family:inherit}
 .date-cell:hover{border-color:rgba(106,215,255,.3);background:rgba(106,215,255,.06)}
 .date-cell.dc-sel{border-color:rgba(106,215,255,.45);background:rgba(106,215,255,.1)}
-.date-cell.dc-best{border-color:rgba(245,199,107,.45);background:rgba(245,199,107,.08)}
+.date-cell.dc-best{border-color:rgba(135,247,181,.45);background:rgba(135,247,181,.07)}
+.date-cell.dc-cheap .dc-price{color:var(--green)}
+.date-cell.dc-mid .dc-price{color:var(--gold)}
+.date-cell.dc-exp .dc-price{color:var(--bad)}
+.date-cell.dc-best .dc-price{color:var(--green);font-weight:800}
 .dc-date{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:3px}
 .dc-price{font-size:13px;font-weight:700;color:var(--text)}
-.dc-badge{font-size:11px;margin-top:2px}
+.dc-badge{font-size:9px;font-weight:800;letter-spacing:.06em;color:var(--green);margin-top:3px;text-transform:uppercase}
 .sort-bar{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
 .sort-label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.08em}
 .sort-btn{border:1px solid var(--border);background:var(--chip-bg);color:var(--muted);border-radius:7px;padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
@@ -239,7 +248,11 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 [data-theme="light"] .flatpickr-current-month,.flatpickr-monthDropdown-month,.flatpickr-current-month .numInputWrapper input{color:#102033!important}
 [data-theme="light"] .flatpickr-day.prevMonthDay,[data-theme="light"] .flatpickr-day.nextMonthDay{color:rgba(88,112,137,.3)!important}
 [data-theme="light"] .fp-price{color:#587089}
-[data-theme="light"] .fp-price.fp-best{color:#c99a32}
+[data-theme="light"] .flatpickr-day.fp-day-cheap .fp-price{color:var(--green)!important}
+[data-theme="light"] .flatpickr-day.fp-day-mid .fp-price{color:var(--gold)!important}
+[data-theme="light"] .flatpickr-day.fp-day-exp .fp-price{color:var(--bad)!important}
+[data-theme="light"] .flatpickr-day.fp-day-best .fp-price{color:var(--green)!important}
+[data-theme="light"] .flatpickr-day.fp-day-range{background:rgba(46,159,195,.06)!important}
 
 footer{position:relative;z-index:1;text-align:center;padding:32px 0 20px;color:var(--muted);font-size:12px}
 footer .footer-links{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin-bottom:10px}
