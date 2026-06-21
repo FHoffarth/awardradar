@@ -1,38 +1,48 @@
 <!doctype html>
-<html lang="de" data-lang="de">
+<html lang="en" data-lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ app_name }} – {{ tagline }}</title>
-  <meta name="description" content="AwardRadar: Sweet-Spot- und Hidden-City-Finder für Miles &amp; More und Star Alliance. Cash vs. Meilen vergleichen, Cent-pro-Meile berechnen, Hidden-City-Tickets finden.">
+  <title>AwardRadar – Find miles. Fly better.</title>
+  <meta name="description" content="AwardRadar: Compare cash vs. miles for Miles &amp; More and Star Alliance. Find award sweet spots and hidden-city tickets.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://awardradar.app/">
-
-  <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://awardradar.app/">
   <meta property="og:title" content="AwardRadar – Find miles. Fly better.">
-  <meta property="og:description" content="Sweet-Spot- und Hidden-City-Finder für Miles &amp; More. Cash vs. Meilen — mit Cent-pro-Meile-Wertung und verifizierten Hidden-City-Tickets.">
+  <meta property="og:description" content="Compare cash vs. miles for Miles &amp; More. Find award sweet spots and hidden-city tickets.">
   <meta property="og:site_name" content="AwardRadar">
-
-  <!-- Twitter Card -->
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="AwardRadar – Find miles. Fly better.">
-  <meta name="twitter:description" content="Sweet-Spot- und Hidden-City-Finder für Miles &amp; More. Cash vs. Meilen — mit Cent-pro-Meile-Wertung.">
-
-  <link rel="stylesheet" href="/static/app.css?v=52">
+  <meta name="twitter:description" content="Compare cash vs. miles for Miles &amp; More. Find sweet spots and hidden-city tickets.">
+  <link rel="stylesheet" href="/static/app.css?v=60">
 </head>
 <body>
-  <canvas id="radar"></canvas>
-  <main class="shell">
-    <header class="hero">
-      <div>
-        <div class="eyebrow">✈️ AwardRadar {{ version }}</div>
-        <h1>{{ app_name }}</h1>
-        <p>{{ tagline }}</p>
+  <canvas id="globe"></canvas>
+
+  <nav class="navbar">
+    <div class="nav-inner">
+      <div class="logo">
+        <div class="logo-mark">✈</div>
+        <div>
+          <div class="logo-name">AwardRadar</div>
+          <div class="logo-tag">Find miles. Fly better.</div>
+        </div>
       </div>
-      <div class="status-row"><button class="lang active" data-lang="de">DE</button><button class="lang" data-lang="en">EN</button><div class="status" id="status">ready</div></div>
-    </header>
+      <div class="nav-right">
+        <button class="lang active" data-lang="en">EN</button>
+        <button class="lang" data-lang="de">DE</button>
+        <div class="status" id="status">ready</div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="shell">
+    <section class="hero">
+      <div class="eyebrow">Miles &amp; More · Star Alliance</div>
+      <h1>Find where your<br>miles go further.</h1>
+      <p>Compare cash vs. miles, uncover hidden-city tickets,<br>and spot award sweet spots — all in one radar.</p>
+    </section>
 
     <section class="panel">
       <div class="tabs">
@@ -41,54 +51,65 @@
         <button class="tab" data-tab="awards">🎯 <span data-i18n="tab_awards">Awards</span></button>
       </div>
 
-      <div class="grid">
-        <label><span data-i18n="from">Von</span>
-          <input id="origin" list="airport-list" placeholder="Frankfurt, FRA oder FRA,MUC" data-ph-de="Frankfurt, FRA oder FRA,MUC" data-ph-en="Frankfurt, FRA or FRA,MUC" value="Frankfurt">
+      <div class="fields">
+        <label>
+          <span class="field-label" data-i18n="from">From</span>
+          <input id="origin" list="airport-list" placeholder="Frankfurt, FRA or FRA,MUC"
+            data-ph-de="Frankfurt, FRA oder FRA,MUC" data-ph-en="Frankfurt, FRA or FRA,MUC" value="Frankfurt">
         </label>
-        <label><span data-i18n="to">Nach</span>
-          <input id="dest" list="airport-list" placeholder="Tokio, New York, SIN ..." data-ph-de="Tokio, New York, SIN ..." data-ph-en="Tokyo, New York, SIN ..." value="Tokio">
+        <label>
+          <span class="field-label" data-i18n="to">To</span>
+          <input id="dest" list="airport-list" placeholder="Tokyo, New York, SIN …"
+            data-ph-de="Tokio, New York, SIN …" data-ph-en="Tokyo, New York, SIN …" value="Tokyo">
         </label>
-        <datalist id="airport-list"></datalist>
-        <label><span data-i18n="departure">Hinflug</span>
+        <label>
+          <span class="field-label" data-i18n="departure">Departure</span>
           <input id="date" type="date">
         </label>
-        <label class="return-field"><span data-i18n="return">Rückflug</span>
+        <label class="return-field">
+          <span class="field-label" data-i18n="return">Return</span>
           <input id="returnDate" type="date">
         </label>
+        <datalist id="airport-list"></datalist>
+      </div>
+
+      <div class="options-row">
+        <div class="pills">
+          <label class="pill on"><input id="oneWay" type="checkbox" checked> <span data-i18n="oneway">one-way</span></label>
+          <label class="pill"><input id="direct" type="checkbox"> <span data-i18n="nonstop">nonstop only</span></label>
+          <label class="pill"><input id="mmOnly" type="checkbox"> <span data-i18n="mmstar">M&amp;M / Star only</span></label>
+          <label class="pill on"><input class="cabin" value="Economy" type="checkbox" checked> Economy</label>
+          <label class="pill on"><input class="cabin" value="Premium Eco" type="checkbox" checked> Premium Eco</label>
+          <label class="pill on"><input class="cabin" value="Business" type="checkbox" checked> Business</label>
+          <label class="pill"><input class="cabin" value="First" type="checkbox"> First</label>
+        </div>
+        <button class="go" id="go"><span data-i18n="start">Start Radar</span></button>
       </div>
 
       <div class="quickbar">
         <button data-fill-origin="Frankfurt">FRA</button>
         <button data-fill-origin="München">MUC</button>
+        <button data-fill-origin="London">LHR</button>
         <button data-fill-dest="London">London</button>
         <button data-fill-dest="New York">NYC</button>
-        <button data-fill-dest="Tokio">Tokio</button>
-        <button data-fill-dest="Singapur">SIN</button>
+        <button data-fill-dest="Tokyo">Tokyo</button>
+        <button data-fill-dest="Singapore">SIN</button>
         <button data-fill-dest="Bangkok">BKK</button>
-        <button data-fill-dest="Hongkong">HKG</button>
+        <button data-fill-dest="Hong Kong">HKG</button>
+        <button data-fill-dest="Dubai">DXB</button>
       </div>
-
-      <div class="options">
-        <label><input id="oneWay" type="checkbox" checked> <span data-i18n="oneway">nur Hinflug</span></label>
-        <label><input id="direct" type="checkbox"> <span data-i18n="nonstop">nur Nonstop</span></label>
-        <label><input id="mmOnly" type="checkbox"> <span data-i18n="mmstar">M&M/Star bevorzugt</span></label>
-        <label><input class="cabin" value="Economy" type="checkbox" checked> Economy</label>
-        <label><input class="cabin" value="Premium Eco" type="checkbox" checked> Premium Eco</label>
-        <label><input class="cabin" value="Business" type="checkbox" checked> Business</label>
-        <label><input class="cabin" value="First" type="checkbox"> First</label>
-      </div>
-
-      <button class="go" id="go"><span data-i18n="start">Radar starten</span></button>
     </section>
 
     <section id="results" class="results"></section>
   </main>
-  <script src="/static/app.js?v=52"></script>
-  <footer style="text-align:center;padding:32px 0 16px;color:rgba(168,183,200,.5);font-size:13px;">
-    <p style="margin:0 0 10px;">AwardRadar is currently an experimental beta project. Results may be incomplete or inaccurate.</p>
-    <a href="/impressum" style="color:rgba(106,215,255,.6);text-decoration:none;margin:0 12px;">Impressum</a>
-    <a href="/datenschutz" style="color:rgba(106,215,255,.6);text-decoration:none;margin:0 12px;">Datenschutz</a>
-    <span style="margin:0 12px;">© 2026 AwardRadar</span>
+
+  <footer>
+    <p>AwardRadar is currently an experimental beta project. Results may be incomplete or inaccurate.</p>
+    <a href="/impressum">Impressum</a>
+    <a href="/datenschutz">Datenschutz</a>
+    <span>© 2026 AwardRadar</span>
   </footer>
+
+  <script src="/static/app.js?v=60"></script>
 </body>
 </html>
