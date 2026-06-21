@@ -132,14 +132,16 @@ function render(data) {
         const isTop = i === 0;
         const stops = parseInt(o.stops) || 0;
         const stopsLabel = stops === 0 ? 'Nonstop' : stops === 1 ? '1 Stop' : `${stops} Stops`;
-        const airlineLabel = o.airline ? `${esc(o.airline)}` : tr('airline');
+        const airlineLabel = o.airline || tr('airline');
+        const logoUrl = o.airlineCode ? `https://content.airhex.com/content/logos/airlines_${esc(o.airlineCode)}_200_200_s.png` : '';
+        const logoImg = logoUrl ? `<img src="${logoUrl}" class="airline-logo" alt="" onerror="this.style.display='none'">` : '';
         return `<div class="card${isTop ? ' top-card' : ''}">
           ${isTop ? bestBadgeHtml(o.dealScore) : ''}
           <div class="card-row">
             <div class="card-main">
               <h3>${esc(o.origin)}<span class="route-arrow">→</span>${esc(o.dest)}</h3>
               <div class="meta">
-                <span class="badge">✈ ${airlineLabel}</span>
+                <span class="badge" style="display:flex;align-items:center;gap:5px">${logoImg}${esc(airlineLabel)}</span>
                 <span class="badge">${stopsLabel}</span>
                 <span>${esc(o.date)}${o.returnDate ? ' – ' + esc(o.returnDate) : ''}</span>
                 <span style="opacity:.6">${esc(o.source || '')}</span>
