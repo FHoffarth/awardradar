@@ -3,6 +3,8 @@ let mode = 'cheap';
 let lang = localStorage.getItem('awardradar_lang') || 'en';
 let currentOffers = [];
 let currentSortKey = 'score';
+let calendarPrices = {};
+let fpDep, fpRet;
 
 const I18N = {
   en: {
@@ -60,7 +62,7 @@ function activeCabin() {
 }
 
 function activeFlexDays() {
-  const p = document.querySelector('.flex-pill.on');
+  const p = document.querySelector('.flex-opt.on');
   return p ? parseInt(p.dataset.flex) : 0;
 }
 
@@ -201,6 +203,7 @@ function render(data) {
   if (mode === 'cheap') {
     currentOffers = data.offers || [];
     currentSortKey = 'score';
+    updateCalendarPrices(data.calendar);
 
     if (data.calendar && data.calendar.length > 1) {
       html += calendarStripHtml(data.calendar);
@@ -278,9 +281,73 @@ function render(data) {
 
 function toggleReturn() {
   const on = $('oneWay').checked;
-  const rf = document.querySelector('.return-field');
-  if (rf) rf.style.opacity = on ? .35 : 1;
+  const fields = document.querySelector('.fields');
+  const wrap = $('returnFieldWrap');
+  if (fields) fields.classList.toggle('no-return', on);
+  if (wrap) wrap.style.display = on ? 'none' : '';
   $('returnDate').disabled = on;
+}
+
+function updateCalendarPrices(calendar) {
+  calendarPrices = {};
+  (calendar || []).forEach(c => {
+    if (c.date && c.price) calendarPrices[c.date] = { price: c.price, isBest: !!c.isBest, isSelected: !!c.isSelected };
+  });
+  if (fpDep) fpDep.redraw();
+}
+
+function applyDatePreset(preset) {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const day = now.getDay();
+  let d;
+  if (preset === 'today') {
+    d = new Date(now);
+  } else if (preset === 'weekend') {
+    const toSat = day === 6 ? 7 : (6 - day || 7);
+    d = new Date(now); d.setDate(now.getDate() + toSat);
+  } else if (preset === 'nextweek') {
+    const toMon = (8 - day) % 7 || 7;
+    d = new Date(now); d.setDate(now.getDate() + toMon);
+  } else if (preset === 'christmas') {
+    const xmasYear = (m === 11 && now.getDate() > 23) ? y + 1 : y;
+    d = new Date(xmasYear, 11, 24);
+  } else if (preset === 'newyear') {
+    d = new Date(y + 1, 0, 1);
+  } else if (preset === 'summer') {
+    d = new Date(m >= 8 ? y + 1 : y, 6, 15);
+  }
+  if (d && fpDep) fpDep.setDate(d, true);
+}
+
+function initDatepickers() {
+  const dayCreateHook = function(_dObj, _dStr, _fp, dayElem) {
+    const dateStr = dayElem.dateObj.toISOString().slice(0, 10);
+    const cal = calendarPrices[dateStr];
+    if (cal) {
+      const span = document.createElement('span');
+      span.className = 'fp-price' + (cal.isBest ? ' fp-best' : '');
+      span.textContent = Math.round(cal.price) + '€';
+      dayElem.appendChild(span);
+      if (cal.isBest) dayElem.classList.add('fp-day-best');
+    }
+  };
+
+  const baseConfig = {
+    dateFormat: 'Y-m-d',
+    altInput: true,
+    altFormat: 'j M Y',
+    minDate: 'today',
+    disableMobile: false,
+    locale: { firstDayOfWeek: 1 },
+  };
+
+  fpDep = flatpickr('#date', { ...baseConfig, onDayCreate: dayCreateHook });
+  fpDep.altInput.placeholder = 'Departure date';
+
+  fpRet = flatpickr('#returnDate', { ...baseConfig });
+  fpRet.altInput.placeholder = 'Return date';
 }
 
 // Segmented cabin control
@@ -329,14 +396,23 @@ document.querySelectorAll('[data-fill-dest]').forEach(b => b.onclick = () => $('
 $('go').onclick = run;
 $('oneWay').onchange = toggleReturn;
 
-// Flex pills — mutually exclusive toggle
-document.querySelectorAll('.flex-pill').forEach(btn => {
+// Flex segmented control — mutually exclusive
+document.querySelectorAll('.flex-opt').forEach(btn => {
   btn.onclick = () => {
-    const wasOn = btn.classList.contains('on');
-    document.querySelectorAll('.flex-pill').forEach(b => b.classList.remove('on'));
-    if (!wasOn) btn.classList.add('on');
+    document.querySelectorAll('.flex-opt').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
   };
 });
+
+// Date preset chips
+document.querySelectorAll('.date-chip').forEach(btn => {
+  btn.onclick = () => applyDatePreset(btn.dataset.preset);
+});
+
+// Init Flatpickr
+initDatepickers();
+// Init return field visibility
+toggleReturn();
 
 // Airport autocomplete
 const debounce = (fn, ms = 250) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; };

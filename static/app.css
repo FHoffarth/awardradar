@@ -108,6 +108,38 @@ body{min-height:100vh;background:radial-gradient(ellipse at 28% 0%,#112038 0,#06
 .beta-notice{background:rgba(245,199,107,.07);border:1px solid rgba(245,199,107,.18);border-radius:10px;padding:10px 18px;font-size:12px;color:rgba(245,199,107,.7);text-align:center;margin-bottom:18px;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
 .beta-notice a{color:var(--cyan);text-decoration:none}
 .beta-tag{background:rgba(245,199,107,.2);border:1px solid rgba(245,199,107,.4);color:var(--gold);border-radius:5px;padding:2px 7px;font-size:10px;font-weight:800;letter-spacing:.1em;flex-shrink:0}
+.date-tools-row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:10px 0 14px;flex-wrap:wrap}
+.date-chips{display:flex;gap:5px;flex-wrap:wrap}
+.date-chip{border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--muted);border-radius:999px;padding:4px 11px;font-size:11px;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap}
+.date-chip:hover{border-color:rgba(106,215,255,.28);color:var(--cyan);background:rgba(106,215,255,.07)}
+.flex-seg{display:flex;align-items:center;gap:2px;background:rgba(0,0,0,.32);border:1px solid var(--border);border-radius:9px;padding:3px;flex-shrink:0}
+.flex-label{font-size:10px;color:var(--muted);font-weight:600;padding:0 7px;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}
+.flex-opt{border:none;background:transparent;color:var(--muted);border-radius:6px;padding:5px 9px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit;white-space:nowrap}
+.flex-opt.on{background:linear-gradient(135deg,rgba(245,199,107,.22),rgba(106,215,255,.14));color:var(--text);border:1px solid rgba(245,199,107,.28)}
+
+/* Flatpickr theme overrides */
+.flatpickr-calendar{background:rgba(6,18,38,.97)!important;border:1px solid rgba(106,215,255,.15)!important;border-radius:14px!important;box-shadow:0 24px 60px rgba(0,0,0,.55)!important;font-family:Inter,ui-sans-serif,system-ui!important}
+.flatpickr-month,.flatpickr-weekdays,.flatpickr-days{background:transparent!important}
+.flatpickr-current-month,.flatpickr-monthDropdown-month,.flatpickr-current-month .numInputWrapper input{color:var(--text)!important;font-size:14px!important;font-weight:700!important}
+.flatpickr-weekday{color:var(--muted)!important;font-size:11px!important;font-weight:600!important}
+.flatpickr-day{color:var(--text)!important;border-radius:8px!important;height:44px!important;line-height:1!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;padding-top:2px!important;position:relative!important;font-size:13px!important}
+.flatpickr-day:hover{background:rgba(106,215,255,.1)!important;border-color:rgba(106,215,255,.2)!important}
+.flatpickr-day.selected,.flatpickr-day.selected:hover{background:linear-gradient(135deg,var(--gold),var(--cyan))!important;border-color:transparent!important;color:#06101f!important;font-weight:700!important}
+.flatpickr-day.today{border-color:rgba(106,215,255,.4)!important}
+.flatpickr-day.prevMonthDay,.flatpickr-day.nextMonthDay{color:rgba(122,154,184,.3)!important}
+.flatpickr-day.flatpickr-disabled{color:rgba(122,154,184,.2)!important}
+.flatpickr-day.fp-day-best{background:rgba(245,199,107,.1)!important;border-color:rgba(245,199,107,.28)!important}
+.flatpickr-day.fp-day-best:hover{background:rgba(245,199,107,.18)!important}
+.flatpickr-months .flatpickr-prev-month,.flatpickr-months .flatpickr-next-month{color:var(--muted)!important;fill:var(--muted)!important}
+.flatpickr-months .flatpickr-prev-month:hover,.flatpickr-months .flatpickr-next-month:hover{color:var(--cyan)!important;fill:var(--cyan)!important}
+.numInputWrapper:hover{background:rgba(255,255,255,.05)!important}
+.fp-price{display:block;font-size:8px;line-height:1;margin-top:2px;color:var(--muted);pointer-events:none}
+.fp-price.fp-best{color:var(--gold);font-weight:700}
+.flatpickr-day.selected .fp-price{color:rgba(6,16,31,.7)!important}
+
+.fields.no-return{grid-template-columns:1fr 1fr 160px}
+.return-field.rf-hidden{display:none}
+
 .date-strip{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;margin-bottom:6px;scrollbar-width:thin;scrollbar-color:rgba(106,215,255,.2) transparent}
 .date-cell{border:1px solid var(--border);background:rgba(255,255,255,.03);border-radius:10px;padding:8px 10px;cursor:pointer;text-align:center;min-width:72px;flex-shrink:0;transition:all .15s;font-family:inherit}
 .date-cell:hover{border-color:rgba(106,215,255,.3);background:rgba(106,215,255,.06)}
