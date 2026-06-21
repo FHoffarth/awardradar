@@ -502,6 +502,34 @@ def index():
     return render_template("index.html", app_name=APP_NAME, tagline=TAGLINE, version="v6.0")
 
 
+@app.route("/impressum")
+def impressum():
+    return render_template("impressum.html")
+
+
+@app.route("/datenschutz")
+def datenschutz():
+    return render_template("datenschutz.html")
+
+
+@app.route("/robots.txt")
+def robots():
+    body = "User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: https://awardradar.app/sitemap.xml\n"
+    return make_response(body, 200, {"Content-Type": "text/plain"})
+
+
+@app.route("/sitemap.xml")
+def sitemap():
+    today = dt.date.today().isoformat()
+    body = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://awardradar.app/</loc><lastmod>{today}</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://awardradar.app/impressum</loc><lastmod>{today}</lastmod><changefreq>yearly</changefreq><priority>0.2</priority></url>
+  <url><loc>https://awardradar.app/datenschutz</loc><lastmod>{today}</lastmod><changefreq>yearly</changefreq><priority>0.2</priority></url>
+</urlset>"""
+    return make_response(body, 200, {"Content-Type": "application/xml"})
+
+
 @app.route("/api/airports")
 def airports():
     q = (request.args.get("q") or "").lower().strip()
