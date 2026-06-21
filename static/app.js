@@ -519,7 +519,7 @@ $('swapBtn').onclick = () => {
 };
 
 // Track last focused field so chips know where to go
-let lastFocusedField = 'dest';
+let lastFocusedField = 'origin';
 $('origin').addEventListener('focus', () => { lastFocusedField = 'origin'; });
 $('dest').addEventListener('focus',   () => { lastFocusedField = 'dest'; });
 
@@ -537,10 +537,7 @@ document.querySelectorAll('.pa-code').forEach(b => {
     // Fill whichever field the user last focused; fall back to the empty one
     if (lastFocusedField === 'origin') {
       $('origin').value = code;
-    } else if (lastFocusedField === 'dest') {
-      $('dest').value = code;
-    } else if (!$('origin').value) {
-      $('origin').value = code;
+      lastFocusedField = 'dest'; // next chip goes to dest
     } else {
       $('dest').value = code;
     }
