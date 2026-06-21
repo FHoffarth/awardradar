@@ -539,10 +539,21 @@ $('swapBtn').onclick = () => {
   updatePaCodes();
 };
 
-// Track last focused field so chips know where to go
-let lastFocusedField = 'origin';
-$('origin').addEventListener('focus', () => { lastFocusedField = 'origin'; });
-$('dest').addEventListener('focus',   () => { lastFocusedField = 'dest'; });
+// FROM / TO toggle — explicit target for airport chips
+let paTarget = 'origin';
+
+function setPaTarget(t) {
+  paTarget = t;
+  document.querySelectorAll('.pa-target').forEach(b => b.classList.toggle('active', b.dataset.target === t));
+}
+
+document.querySelectorAll('.pa-target').forEach(b => {
+  b.onclick = () => setPaTarget(b.dataset.target);
+});
+
+// When user types in a field, auto-switch the chip target to the OTHER field
+$('origin').addEventListener('focus', () => setPaTarget('origin'));
+$('dest').addEventListener('focus',   () => setPaTarget('dest'));
 
 function updatePaCodes() {
   const destVal   = ($('dest').value   || '').toUpperCase().trim();
@@ -554,14 +565,9 @@ function updatePaCodes() {
 
 document.querySelectorAll('.pa-code').forEach(b => {
   b.onclick = () => {
-    const code = b.dataset.code;
-    // Fill whichever field the user last focused; fall back to the empty one
-    if (lastFocusedField === 'origin') {
-      $('origin').value = code;
-      lastFocusedField = 'dest'; // next chip goes to dest
-    } else {
-      $('dest').value = code;
-    }
+    $(paTarget).value = b.dataset.code;
+    // Auto-advance: after filling origin, target dest next
+    if (paTarget === 'origin') setPaTarget('dest');
     updatePaCodes();
   };
 });

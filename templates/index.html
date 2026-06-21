@@ -15,7 +15,7 @@
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="AwardRadar – Find miles. Fly better.">
   <meta name="twitter:description" content="Compare cash vs. miles for Miles &amp; More. Find sweet spots and hidden-city tickets.">
-  <link rel="stylesheet" href="/static/app.css?v=71">
+  <link rel="stylesheet" href="/static/app.css?v=72">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.min.css">
 </head>
 <body>
@@ -131,7 +131,13 @@
 
         <!-- Left: Popular airports -->
         <div class="pa-col">
-          <div class="pa-label">POPULAR AIRPORTS</div>
+          <div class="pa-label">
+            POPULAR AIRPORTS
+            <span class="pa-target-wrap">
+              <button class="pa-target active" id="paTargetFrom" data-target="origin">FROM</button>
+              <button class="pa-target" id="paTargetTo" data-target="dest">TO</button>
+            </span>
+          </div>
           <div class="pa-grid">
             <button class="pa-code" data-code="FRA" aria-label="Frankfurt FRA">FRA</button>
             <button class="pa-code" data-code="MUC" aria-label="Munich MUC">MUC</button>
@@ -248,6 +254,6 @@
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="/static/app.js?v=71"></script>
+  <script src="/static/app.js?v=72"></script>
 </body>
 </html>
