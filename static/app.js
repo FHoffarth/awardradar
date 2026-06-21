@@ -52,6 +52,11 @@ function initDates() {
 
 function appKey() { return new URLSearchParams(location.search).get('key') || ''; }
 
+function activeCabin() {
+  const seg = document.querySelector('.seg.active');
+  return seg ? seg.dataset.cabin : 'Economy';
+}
+
 function payload() {
   return {
     lang,
@@ -63,7 +68,7 @@ function payload() {
     direct: $('direct').checked,
     mmOnly: $('mmOnly').checked,
     currency: 'eur',
-    cabins: [...document.querySelectorAll('.cabin:checked')].map(x => x.value),
+    cabins: [activeCabin()],
   };
 }
 
@@ -200,6 +205,14 @@ function toggleReturn() {
   $('returnDate').disabled = on;
 }
 
+// Segmented cabin control
+document.querySelectorAll('.seg').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.seg').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+  };
+});
+
 // USP cards → switch tab
 document.querySelectorAll('.usp-card').forEach(card => {
   card.onclick = () => {
@@ -292,8 +305,8 @@ function globeAnimation() {
     const tilt = 0.28;
     const y2 = py * Math.cos(tilt) - pz * Math.sin(tilt);
     const z2 = py * Math.sin(tilt) + pz * Math.cos(tilt);
-    const R = Math.min(w, h) * 0.29;
-    const cx = w * 0.71, cy = h * 0.42;
+    const R = Math.min(w, h) * 0.32;
+    const cx = w * 0.78, cy = h * 0.36;
     return { x: cx + px * R, y: cy - y2 * R, z: z2, R, cx, cy };
   }
 
@@ -318,7 +331,8 @@ function globeAnimation() {
     ctx.clearRect(0, 0, w, h);
 
     const info = project(0, 0);
-    const { R, cx, cy } = info;
+    const R = Math.min(w, h) * 0.32;
+    const cx = w * 0.78, cy = h * 0.36;
 
     // Subtle globe glow
     const glow = ctx.createRadialGradient(cx, cy, R * 0.5, cx, cy, R * 1.5);
