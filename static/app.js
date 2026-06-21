@@ -324,6 +324,24 @@ function applySort(key) {
   if (wrap) wrap.innerHTML = cheapCardsHtml(currentOffers, key);
 }
 
+function switchTabAndRun(targetMode) {
+  const tabEl = document.querySelector(`.tab[data-tab="${targetMode}"]`);
+  if (tabEl) activateTab(tabEl);
+  run();
+}
+
+function relatedAnalysesHtml(currentMode) {
+  const others = {
+    cheap:   [{ tab: 'awards', label: 'Evaluate Award Redemptions' }, { tab: 'skiplag', label: 'Check Hidden-City Candidates' }],
+    awards:  [{ tab: 'cheap',  label: 'Compare Cash Fares' },         { tab: 'skiplag', label: 'Check Hidden-City Candidates' }],
+    skiplag: [{ tab: 'cheap',  label: 'Compare Standard Fares' },     { tab: 'awards',  label: 'Evaluate Award Redemptions' }],
+  }[currentMode] || [];
+  const links = others.map(o =>
+    `<button class="cross-link" onclick="switchTabAndRun('${o.tab}')">${esc(o.label)}</button>`
+  ).join('');
+  return `<div class="related-analyses"><span class="related-label">Related analyses</span>${links}</div>`;
+}
+
 function render(data) {
   let html = '';
   if (data.note) html += `<div class="card note">${esc(data.note)}</div>`;
@@ -348,6 +366,7 @@ function render(data) {
       </div>
       ${scoreLegendHtml()}`;
       html += `<div id="cards-wrap">${cheapCardsHtml(currentOffers, 'score')}</div>`;
+      html += relatedAnalysesHtml('cheap');
     } else {
       html += `<div class="card"><h3>${tr('no_cache_title')}</h3><p class="tiny" style="margin-top:6px">${tr('no_cache_text')}</p></div>`;
     }
@@ -355,77 +374,97 @@ function render(data) {
   }
 
   if (mode === 'skiplag') {
-    html += (data.results || []).map(r => {
-      const isVerified = r.verified === true;
-      const logoUrl = r.airlineCode ? `https://content.airhex.com/content/logos/airlines_${esc(r.airlineCode)}_200_200_s.png` : '';
-      const logoImg = logoUrl ? `<img src="${logoUrl}" class="airline-logo" alt="" onerror="this.style.display='none'">` : '';
-      const verifiedBadge = isVerified
-        ? `<div class="verified-badge">✓ Segment-verified</div>`
-        : `<div class="unverified-badge">⚠ Candidate – verify routing</div>`;
-      const segChain = r.segmentChain ? `<div class="seg-chain">${esc(r.segmentChain)}</div>` : '';
-      const layover = r.layoverDuration ? `<span class="badge">Layover ${r.layoverDuration} min at ${esc(r.hiddenCity)}</span>` : `<span class="badge">Exit at ${esc(r.hiddenCity)}</span>`;
-      const savingsLine = r.savings && r.savings > 0
-        ? `<div class="savings-line">Save ~${Math.round(r.savings)} EUR vs direct</div>`
-        : '';
-      const priceDisplay = r.candidatePrice
-        ? `<div class="price">${Math.round(r.candidatePrice)} <span class="price-currency">${esc(r.currency || 'EUR')}</span></div><div class="price-sub">ticket to ${esc(r.ticketDestination)}</div>`
-        : `<div class="price tiny">check live</div>`;
-      return `<div class="card${isVerified ? ' top-card' : ''}">
-        ${verifiedBadge}
-        <div class="card-row">
-          <div class="card-main">
-            <h3>${esc(r.origin)}<span class="route-arrow">→</span><span style="color:var(--gold)">${esc(r.hiddenCity)}</span><span class="route-arrow">→</span>${esc(r.ticketDestination)}</h3>
-            ${segChain}
-            ${r.airline ? `<div class="card-airline">${logoImg}<span class="airline-name">${esc(r.airline)}</span></div>` : ''}
-            <div class="meta">${layover}<span>${esc(r.date)}</span></div>
-            ${savingsLine}
+    const skipResults = (data.results || []);
+    if (skipResults.length) {
+      html += skipResults.map(r => {
+        const isVerified = r.verified === true;
+        const logoUrl = r.airlineCode ? `https://content.airhex.com/content/logos/airlines_${esc(r.airlineCode)}_200_200_s.png` : '';
+        const logoImg = logoUrl ? `<img src="${logoUrl}" class="airline-logo" alt="" onerror="this.style.display='none'">` : '';
+        const verifiedBadge = isVerified
+          ? `<div class="verified-badge">✓ Segment-verified</div>`
+          : `<div class="unverified-badge">⚠ Candidate – verify routing</div>`;
+        const segChain = r.segmentChain ? `<div class="seg-chain">${esc(r.segmentChain)}</div>` : '';
+        const layover = r.layoverDuration ? `<span class="badge">Layover ${r.layoverDuration} min at ${esc(r.hiddenCity)}</span>` : `<span class="badge">Exit at ${esc(r.hiddenCity)}</span>`;
+        const savingsLine = r.savings && r.savings > 0
+          ? `<div class="savings-line">Save ~${Math.round(r.savings)} EUR vs direct</div>`
+          : '';
+        const priceDisplay = r.candidatePrice
+          ? `<div class="price">${Math.round(r.candidatePrice)} <span class="price-currency">${esc(r.currency || 'EUR')}</span></div><div class="price-sub">ticket to ${esc(r.ticketDestination)}</div>`
+          : `<div class="price tiny">check live</div>`;
+        return `<div class="card${isVerified ? ' top-card' : ''}">
+          ${verifiedBadge}
+          <div class="card-row">
+            <div class="card-main">
+              <h3>${esc(r.origin)}<span class="route-arrow">→</span><span style="color:var(--gold)">${esc(r.hiddenCity)}</span><span class="route-arrow">→</span>${esc(r.ticketDestination)}</h3>
+              ${segChain}
+              ${r.airline ? `<div class="card-airline">${logoImg}<span class="airline-name">${esc(r.airline)}</span></div>` : ''}
+              <div class="meta">${layover}<span>${esc(r.date)}</span></div>
+              ${savingsLine}
+            </div>
+            <div class="card-price">
+              ${priceDisplay}
+            </div>
           </div>
-          <div class="card-price">
-            ${priceDisplay}
-          </div>
-        </div>
-        <p class="tiny warn" style="margin-top:8px">One-way only · no checked baggage · check airline T&amp;Cs</p>
-        ${linksHtml(r.links)}
+          <p class="tiny warn" style="margin-top:8px">One-way only · no checked baggage · check airline T&amp;Cs</p>
+          ${linksHtml(r.links)}
+        </div>`;
+      }).join('');
+      html += relatedAnalysesHtml('skiplag');
+    } else {
+      html += `<div class="card cross-nudge">
+        <div class="cross-nudge-msg">No relevant hidden-city opportunities were identified for this route.</div>
+        <div class="cross-nudge-sub">View available cash fares instead.</div>
+        <button class="cross-btn" onclick="switchTabAndRun('cheap')">Show Cash Fares</button>
       </div>`;
-    }).join('') || `<div class="card">${tr('no_candidates')}</div>`;
+    }
   }
 
   if (mode === 'awards') {
-    html += (data.results || []).map(r => {
-      const cashStr = r.cash_eur ? `${Math.round(r.cash_eur)} EUR cash` : 'no live price';
-      const bestBadge = r.best_program
-        ? `<div class="best-badge">A+ · ${esc(r.best_program)}</div>` : '';
-      const rows = (r.programs || []).map(p => {
-        const g = p.grade || {};
-        const tierClass = { exceptional: 'a-tier', great: 'a-tier', good: 'b-tier', fair: 'c-tier', poor: 'd-tier' }[g.tier] || '';
-        const cpmStr = p.cpm ? `${p.cpm.toFixed(2)} ct/Mile` : '—';
-        const gradeStr = g.grade ? `<span class="award-grade ${tierClass}">${esc(g.grade)}</span>` : '';
-        const labelStr = g.label ? `<span class="award-label ${tierClass}">${esc(g.label)}</span>` : '';
-        return `<tr>
-          <td class="aw-prog"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.program)}</a></td>
-          <td class="aw-miles">${p.miles.toLocaleString()} mi</td>
-          <td class="aw-surcharge">+${p.surcharge} EUR</td>
-          <td class="aw-cpm">${cpmStr}</td>
-          <td class="aw-grade">${gradeStr} ${labelStr}</td>
-        </tr>`;
+    const awardResults = (data.results || []);
+    if (awardResults.length) {
+      html += awardResults.map(r => {
+        const cashStr = r.cash_eur ? `${Math.round(r.cash_eur)} EUR cash` : 'no live price';
+        const bestBadge = r.best_program
+          ? `<div class="best-badge">A+ · ${esc(r.best_program)}</div>` : '';
+        const rows = (r.programs || []).map(p => {
+          const g = p.grade || {};
+          const tierClass = { exceptional: 'a-tier', great: 'a-tier', good: 'b-tier', fair: 'c-tier', poor: 'd-tier' }[g.tier] || '';
+          const cpmStr = p.cpm ? `${p.cpm.toFixed(2)} ct/Mile` : '—';
+          const gradeStr = g.grade ? `<span class="award-grade ${tierClass}">${esc(g.grade)}</span>` : '';
+          const labelStr = g.label ? `<span class="award-label ${tierClass}">${esc(g.label)}</span>` : '';
+          return `<tr>
+            <td class="aw-prog"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.program)}</a></td>
+            <td class="aw-miles">${p.miles.toLocaleString()} mi</td>
+            <td class="aw-surcharge">+${p.surcharge} EUR</td>
+            <td class="aw-cpm">${cpmStr}</td>
+            <td class="aw-grade">${gradeStr} ${labelStr}</td>
+          </tr>`;
+        }).join('');
+        return `<div class="card${r.best_program ? ' top-card' : ''}">
+          ${bestBadge}
+          <h3>${esc(r.route)} <span class="route-arrow">·</span> ${esc(r.cabin)}</h3>
+          <div class="meta" style="margin:4px 0 10px">
+            <span>${esc(r.date)}${r.returnDate ? ' → ' + esc(r.returnDate) : ''}</span>
+            <span class="badge">${cashStr}</span>
+          </div>
+          <div class="award-table-wrap">
+            <table class="award-table">
+              <thead><tr><th>Program</th><th>Miles</th><th>Surcharge</th><th>Value</th><th>Rating</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          <p class="legend-note" style="margin-top:8px">Surcharges estimated · miles from Saver charts · <a href="https://seats.aero" target="_blank" rel="noopener">seats.aero</a> for live availability</p>
+          ${linksHtml(r.links)}
+        </div>`;
       }).join('');
-      return `<div class="card${r.best_program ? ' top-card' : ''}">
-        ${bestBadge}
-        <h3>${esc(r.route)} <span class="route-arrow">·</span> ${esc(r.cabin)}</h3>
-        <div class="meta" style="margin:4px 0 10px">
-          <span>${esc(r.date)}${r.returnDate ? ' → ' + esc(r.returnDate) : ''}</span>
-          <span class="badge">${cashStr}</span>
-        </div>
-        <div class="award-table-wrap">
-          <table class="award-table">
-            <thead><tr><th>Program</th><th>Miles</th><th>Surcharge</th><th>Value</th><th>Rating</th></tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-        <p class="legend-note" style="margin-top:8px">Surcharges estimated · miles from Saver charts · <a href="https://seats.aero" target="_blank" rel="noopener">seats.aero</a> for live availability</p>
-        ${linksHtml(r.links)}
+      html += relatedAnalysesHtml('awards');
+    } else {
+      html += `<div class="card cross-nudge">
+        <div class="cross-nudge-msg">No strong award opportunities were identified for this route.</div>
+        <div class="cross-nudge-sub">View available cash fares instead.</div>
+        <button class="cross-btn" onclick="switchTabAndRun('cheap')">Show Cash Fares</button>
       </div>`;
-    }).join('') || '<div class="card note">No results — try a different route or date.</div>';
+    }
   }
 
   $('results').innerHTML = html;
