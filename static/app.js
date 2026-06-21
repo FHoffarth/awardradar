@@ -162,18 +162,39 @@ function render(data) {
   }
 
   if (mode === 'skiplag') {
-    html += (data.results || []).map(r => `
-      <div class="card">
-        <h3>${esc(r.candidateLabel || tr('hidden_city'))}: ${esc(r.origin)}<span class="route-arrow">→</span>${esc(r.hiddenCity)}<span class="route-arrow">→</span>${esc(r.ticketDestination)}</h3>
-        <div class="meta">
-          <span class="badge">${tr('hidden_city')}: ${esc(r.hiddenCity)}</span>
-          <span class="badge">${tr('ticket_dest')}: ${esc(r.ticketDestination)}</span>
-          <span>${tr('confidence')}: ${esc(r.confidence)}</span>
+    html += (data.results || []).map(r => {
+      const isVerified = r.verified === true;
+      const logoUrl = r.airlineCode ? `https://content.airhex.com/content/logos/airlines_${esc(r.airlineCode)}_200_200_s.png` : '';
+      const logoImg = logoUrl ? `<img src="${logoUrl}" class="airline-logo" alt="" onerror="this.style.display='none'">` : '';
+      const verifiedBadge = isVerified
+        ? `<div class="verified-badge">✓ Segment-verified</div>`
+        : `<div class="unverified-badge">⚠ Candidate – verify routing</div>`;
+      const segChain = r.segmentChain ? `<div class="seg-chain">${esc(r.segmentChain)}</div>` : '';
+      const layover = r.layoverDuration ? `<span class="badge">Layover ${r.layoverDuration} min at ${esc(r.hiddenCity)}</span>` : `<span class="badge">Exit at ${esc(r.hiddenCity)}</span>`;
+      const savingsLine = r.savings && r.savings > 0
+        ? `<div class="savings-line">Save ~${Math.round(r.savings)} EUR vs direct</div>`
+        : '';
+      const priceDisplay = r.candidatePrice
+        ? `<div class="price">${Math.round(r.candidatePrice)} <span class="price-currency">${esc(r.currency || 'EUR')}</span></div><div class="price-sub">ticket to ${esc(r.ticketDestination)}</div>`
+        : `<div class="price tiny">check live</div>`;
+      return `<div class="card${isVerified ? ' top-card' : ''}">
+        ${verifiedBadge}
+        <div class="card-row">
+          <div class="card-main">
+            <h3>${esc(r.origin)}<span class="route-arrow">→</span><span style="color:var(--gold)">${esc(r.hiddenCity)}</span><span class="route-arrow">→</span>${esc(r.ticketDestination)}</h3>
+            ${segChain}
+            ${r.airline ? `<div class="card-airline">${logoImg}<span class="airline-name">${esc(r.airline)}</span></div>` : ''}
+            <div class="meta">${layover}<span>${esc(r.date)}</span></div>
+            ${savingsLine}
+          </div>
+          <div class="card-price">
+            ${priceDisplay}
+          </div>
         </div>
-        <p class="price" style="font-size:18px;margin-top:6px">${r.savings ? tr('saving') + ' ' + Math.round(r.savings) + ' €' : tr('candidate')}</p>
-        <p class="tiny warn" style="margin-top:5px">${esc(r.verifyRouting || tr('verify'))}</p>
+        <p class="tiny warn" style="margin-top:8px">One-way only · no checked baggage · check airline T&amp;Cs</p>
         ${linksHtml(r.links)}
-      </div>`).join('') || `<div class="card">${tr('no_candidates')}</div>`;
+      </div>`;
+    }).join('') || `<div class="card">${tr('no_candidates')}</div>`;
   }
 
   if (mode === 'awards') {

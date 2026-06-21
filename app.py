@@ -31,6 +31,7 @@ AUTOCOMPLETE_BASE = "https://autocomplete.travelpayouts.com/places2"
 PORT = int(os.environ.get("PORT", "5000"))
 SKIPLAG_MAX_WORKERS = int(os.environ.get("SKIPLAG_MAX_WORKERS", "8"))
 SKIPLAG_MAX_CANDIDATES = int(os.environ.get("SKIPLAG_MAX_CANDIDATES", "16"))
+SKIPLAG_MAX_SEARCHES = int(os.environ.get("SKIPLAG_MAX_SEARCHES", "6"))
 
 # --- Echtzeitpreise via SerpApi (Google Flights) ---------------------------
 # PRICE_SOURCE steuert die Quelle für /api/cheap:
@@ -653,6 +654,50 @@ def cheap():
     })
 
 
+def verify_skiplag_serpapi(origin: str, true_dest: str, final_dest: str, dep: dt.date, currency: str, lang: str) -> dict | None:
+    """Search origin→final_dest via SerpApi; return verification data if true_dest appears as layover."""
+    try:
+        data = serpapi_search(origin, final_dest, dep, None, "economy", currency, lang)
+    except Exception:
+        return None
+    insights = data.get("price_insights") or {}
+    typical_range = insights.get("typical_price_range")
+    all_flights = (data.get("best_flights") or []) + (data.get("other_flights") or [])
+    for flight in all_flights:
+        segs = flight.get("flights") or []
+        if len(segs) < 2:
+            continue
+        layover_ids = [(s.get("arrival_airport") or {}).get("id", "") for s in segs[:-1]]
+        if true_dest not in layover_ids:
+            continue
+        price = float(flight.get("price") or 0)
+        first_seg = segs[0]
+        airline_code = iata_from_flight_number(first_seg.get("flight_number", ""))
+        airline_name = first_seg.get("airline") or airline_code
+        layovers = flight.get("layovers") or []
+        layover_at_hidden = next((l for l in layovers if (l.get("id") or "") == true_dest), {})
+        all_airports = [(s.get("departure_airport") or {}).get("id", "?") for s in segs] + [(segs[-1].get("arrival_airport") or {}).get("id", "?")]
+        seg_chain = " → ".join(dict.fromkeys(all_airports))  # deduplicate consecutive identical
+        return {
+            "verified": True,
+            "candidatePrice": price,
+            "currency": currency.upper(),
+            "airline": airline_name,
+            "airlineCode": airline_code,
+            "stops": len(segs) - 1,
+            "layoverDuration": layover_at_hidden.get("duration"),
+            "segmentChain": seg_chain,
+            "typicalRange": typical_range,
+            "links": {
+                "Google Flights (ticket)": links_for(origin, final_dest, dep.isoformat()).get("Google Flights", ""),
+                "Skiplagged": f"https://skiplagged.com/flights/{origin}/{true_dest}/{dep.isoformat()}",
+                "Kayak": links_for(origin, final_dest, dep.isoformat()).get("Kayak", ""),
+                "Momondo": links_for(origin, final_dest, dep.isoformat()).get("Momondo", ""),
+            },
+        }
+    return None
+
+
 @app.route("/api/skiplag", methods=["POST"])
 def skiplag():
     data = request.get_json(force=True) or {}
@@ -665,43 +710,87 @@ def skiplag():
         return jsonify({"ok": False, "error": tx("missing_hidden", lang)}), 400
     started = time.time()
     results, warnings = [], []
-    candidate_endings = SKIPLAG_ENDINGS[:SKIPLAG_MAX_CANDIDATES]
+    use_serpapi = PRICE_SOURCE == "serpapi" and bool(SERPAPI_TOKEN)
+
     for origin in origins[:2]:
         for true_dest in true_dests[:2]:
-            normal_rows = []
+            # Normal price for savings comparison (cheap TP call)
+            normal_price = 0
             try:
                 normal_rows = tp_prices(origin, true_dest, dep, None, False, currency=currency, limit=5, timeout=12)
+                normal_price = cheapest_price(normal_rows)
             except Exception as exc:
-                warnings.append(f"{tx('normal_price', lang)} {origin}→{true_dest}: {exc}")
-            normal_price = cheapest_price(normal_rows)
+                warnings.append(f"Normal price {origin}→{true_dest}: {exc}")
 
-            tasks = [(origin, final_dest, dep, None, False, currency, 5) for final_dest in candidate_endings if final_dest not in (origin, true_dest)]
-            with cf.ThreadPoolExecutor(max_workers=min(SKIPLAG_MAX_WORKERS, max(1, len(tasks)))) as pool:
-                for _origin, final_dest, rows, err in pool.map(tp_price_task, tasks):
-                    price = 0 if err else cheapest_price(rows or [])
-                    savings = (normal_price - price) if normal_price and price else None
-                    # Auch ohne Preis bleibt es ein manueller Kandidat; mit Ersparnis wird er priorisiert.
-                    if savings is None or savings > 0:
+            if use_serpapi:
+                candidates = [e for e in SKIPLAG_ENDINGS if e not in (origin, true_dest)][:SKIPLAG_MAX_SEARCHES]
+
+                def _verify(final_dest: str) -> tuple[str, dict | None]:
+                    return final_dest, verify_skiplag_serpapi(origin, true_dest, final_dest, dep, currency, lang)
+
+                with cf.ThreadPoolExecutor(max_workers=min(SKIPLAG_MAX_SEARCHES, max(1, len(candidates)))) as pool:
+                    for final_dest, v in pool.map(_verify, candidates):
+                        if not v:
+                            continue
+                        savings = (normal_price - v["candidatePrice"]) if normal_price and v["candidatePrice"] else None
                         results.append({
                             "origin": origin,
                             "hiddenCity": true_dest,
                             "ticketDestination": final_dest,
                             "date": dep.isoformat(),
                             "normalPrice": normal_price or None,
-                            "candidatePrice": price or None,
+                            "candidatePrice": v["candidatePrice"],
+                            "currency": v["currency"],
                             "savings": savings,
-                            "confidence": tx("high", lang) if savings and savings > 50 else (tx("check", lang) if price else tx("link_check", lang)),
-                            "candidateLabel": tx("candidate_label", lang),
+                            "airline": v.get("airline"),
+                            "airlineCode": v.get("airlineCode"),
+                            "stops": v.get("stops"),
+                            "layoverDuration": v.get("layoverDuration"),
+                            "segmentChain": v.get("segmentChain"),
+                            "verified": True,
+                            "confidence": "verified" if lang == "en" else "verifiziert",
+                            "candidateLabel": "Verified Hidden-City" if lang == "en" else "Verifizierter Hidden-City",
                             "verifyRouting": tx("verify_routing", lang),
-                            "verified": False,
-                            "links": {
-                                "Skiplagged candidate search": f"https://skiplagged.com/flights/{origin}/{true_dest}/{dep.isoformat()}",
-                                tx("google_via", lang): f"https://www.google.com/travel/flights?q={quote_plus(f'{origin} to {final_dest} via {true_dest} {dep.isoformat()}')}",
-                                tx("ticket_check", lang): links_for(origin, final_dest, dep.isoformat())["Google Flights"],
-                            },
+                            "links": v.get("links", {}),
                         })
-    results.sort(key=lambda x: (-(x.get("savings") or -9999), x.get("ticketDestination")))
-    return jsonify({"ok": True, "results": results[:24], "warnings": warnings[:8], "debug": {"origins": origins, "dests": true_dests, "seconds": round(time.time()-started, 2), "candidates": len(candidate_endings)}, "note": tx("skiplag_note", lang)})
+            else:
+                # Fallback: TP candidate logic
+                candidate_endings = SKIPLAG_ENDINGS[:SKIPLAG_MAX_CANDIDATES]
+                tasks = [(origin, fd, dep, None, False, currency, 5) for fd in candidate_endings if fd not in (origin, true_dest)]
+                with cf.ThreadPoolExecutor(max_workers=min(SKIPLAG_MAX_WORKERS, max(1, len(tasks)))) as pool:
+                    for _o, final_dest, rows, err in pool.map(tp_price_task, tasks):
+                        price = 0 if err else cheapest_price(rows or [])
+                        savings = (normal_price - price) if normal_price and price else None
+                        if savings is None or savings > 0:
+                            results.append({
+                                "origin": origin,
+                                "hiddenCity": true_dest,
+                                "ticketDestination": final_dest,
+                                "date": dep.isoformat(),
+                                "normalPrice": normal_price or None,
+                                "candidatePrice": price or None,
+                                "savings": savings,
+                                "verified": False,
+                                "confidence": tx("high", lang) if savings and savings > 50 else (tx("check", lang) if price else tx("link_check", lang)),
+                                "candidateLabel": tx("candidate_label", lang),
+                                "verifyRouting": tx("verify_routing", lang),
+                                "links": {
+                                    "Skiplagged": f"https://skiplagged.com/flights/{origin}/{true_dest}/{dep.isoformat()}",
+                                    tx("google_via", lang): f"https://www.google.com/travel/flights?q={quote_plus(f'{origin} to {final_dest} via {true_dest} {dep.isoformat()}')}",
+                                    tx("ticket_check", lang): links_for(origin, final_dest, dep.isoformat())["Google Flights"],
+                                },
+                            })
+
+    results.sort(key=lambda x: (0 if x.get("verified") else 1, -(x.get("savings") or -9999)))
+    source_label = "serpapi-verified" if use_serpapi else "tp-candidates"
+    note = ("Segment-verified via Google Flights. One-way only · no checked baggage · check airline T&Cs." if lang == "en" else "Segmentverifiziert via Google Flights. Nur Hinflug · kein Aufgabegepäck · AGB der Airline prüfen.") if use_serpapi else tx("skiplag_note", lang)
+    return jsonify({
+        "ok": True,
+        "results": results[:10],
+        "warnings": warnings[:6],
+        "debug": {"origins": origins, "dests": true_dests, "seconds": round(time.time() - started, 2), "source": source_label},
+        "note": note,
+    })
 
 
 @app.route("/api/awards", methods=["POST"])

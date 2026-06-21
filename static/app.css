@@ -78,6 +78,10 @@ body{min-height:100vh;background:radial-gradient(ellipse at 28% 0%,#112038 0,#06
 .card-source{font-size:11px;color:rgba(122,154,184,.45);margin-top:2px}
 .price-currency{font-size:16px;font-weight:600;opacity:.8}
 .score-reason{font-size:10px;color:var(--muted);margin-top:4px;opacity:.7;text-align:right}
+.verified-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;margin-bottom:8px;background:rgba(135,247,181,.12);border:1px solid rgba(135,247,181,.3);color:var(--green)}
+.unverified-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;margin-bottom:8px;background:rgba(255,157,157,.07);border:1px solid rgba(255,157,157,.2);color:var(--bad)}
+.seg-chain{font-size:13px;font-weight:600;color:var(--muted);margin:4px 0 6px;letter-spacing:.02em}
+.savings-line{font-size:13px;color:var(--green);font-weight:600;margin-top:4px}
 .links{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .links a{color:var(--muted);text-decoration:none;border:1px solid var(--border);background:rgba(255,255,255,.04);border-radius:7px;padding:5px 10px;font-size:11px;transition:all .15s}
 .links a:hover{color:var(--text);border-color:rgba(255,255,255,.2)}
