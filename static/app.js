@@ -511,10 +511,10 @@ function updatePaCodes() {
 document.querySelectorAll('.pa-code').forEach(b => {
   b.onclick = () => {
     const code = b.dataset.code;
-    if (!$('dest').value) {
-      $('dest').value = code;
-    } else if (!$('origin').value) {
+    if (!$('origin').value) {
       $('origin').value = code;
+    } else if (!$('dest').value) {
+      $('dest').value = code;
     } else {
       $('dest').value = code;
     }
