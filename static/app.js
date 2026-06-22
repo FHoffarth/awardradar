@@ -673,13 +673,73 @@ toggleReturn();
 
 // Airport autocomplete
 const debounce = (fn, ms = 250) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; };
+function closeAllAcDrops(except) {
+  ['ac-origin', 'ac-dest'].forEach(id => { if (id !== except) { const d = $(id); if (d) d.innerHTML = ''; } });
+}
+
+function renderAcDrop(dropId, inputId, items) {
+  const drop = $(dropId);
+  if (!drop) return;
+  if (!items || !items.length) { drop.innerHTML = ''; return; }
+  drop.innerHTML = items.map((x, i) =>
+    `<div class="ac-item" role="option" tabindex="-1" data-value="${esc(x.value)}" data-idx="${i}">
+      <span class="ac-code">${esc(x.value)}</span>
+      <span class="ac-label">${esc(x.label)}</span>
+    </div>`
+  ).join('');
+  drop.querySelectorAll('.ac-item').forEach(el => {
+    el.addEventListener('mousedown', ev => {
+      ev.preventDefault();
+      $(inputId).value = el.dataset.value;
+      drop.innerHTML = '';
+    });
+  });
+}
+
 const airportSuggest = debounce(async e => {
-  const q = e.target.value;
-  if (q.length < 2) return;
-  const data = await fetch('/api/airports?q=' + encodeURIComponent(q) + '&lang=' + encodeURIComponent(lang)).then(r => r.json()).catch(() => []);
-  $('airport-list').innerHTML = (data || []).map(x => `<option value="${esc(x.value)}">${esc(x.label)}</option>`).join('');
-}, 250);
-['origin', 'dest'].forEach(id => $(id).addEventListener('input', airportSuggest));
+  const input = e.target;
+  const q = input.value;
+  const isOrigin = input.id === 'origin';
+  const dropId = isOrigin ? 'ac-origin' : 'ac-dest';
+  if (q.length < 2) { $(dropId).innerHTML = ''; return; }
+  closeAllAcDrops(dropId);
+  const data = await fetch('/api/airports?q=' + encodeURIComponent(q) + '&lang=en').then(r => r.json()).catch(() => []);
+  renderAcDrop(dropId, input.id, data || []);
+}, 220);
+
+['origin', 'dest'].forEach(id => {
+  $(id).addEventListener('input', airportSuggest);
+  $(id).addEventListener('blur', () => setTimeout(() => { const d = $('ac-' + id); if (d) d.innerHTML = ''; }, 150));
+  $(id).addEventListener('keydown', e => {
+    const drop = $('ac-' + id);
+    if (!drop) return;
+    const items = drop.querySelectorAll('.ac-item');
+    if (!items.length) return;
+    const active = drop.querySelector('.ac-item.ac-active');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const next = active ? (active.nextElementSibling || items[0]) : items[0];
+      if (active) active.classList.remove('ac-active');
+      next.classList.add('ac-active');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prev = active ? (active.previousElementSibling || items[items.length - 1]) : items[items.length - 1];
+      if (active) active.classList.remove('ac-active');
+      prev.classList.add('ac-active');
+    } else if (e.key === 'Enter' && active) {
+      e.preventDefault();
+      $(id).value = active.dataset.value;
+      drop.innerHTML = '';
+    } else if (e.key === 'Escape') {
+      drop.innerHTML = '';
+    }
+  });
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('label[for="origin"]')) { const d = $('ac-origin'); if (d) d.innerHTML = ''; }
+  if (!e.target.closest('label[for="dest"]')) { const d = $('ac-dest'); if (d) d.innerHTML = ''; }
+});
 
 // Globe animation
 function globeAnimation() {

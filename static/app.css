@@ -249,6 +249,15 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .go.loading .go-radar-svg{animation:spin .8s linear infinite}
 
 
+/* Airport autocomplete dropdown */
+.ac-drop{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--panel-bg);border:1px solid var(--border-strong);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.28);z-index:200;overflow:hidden;max-height:280px;overflow-y:auto}
+.ac-drop:empty{display:none}
+.ac-item{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;transition:background .1s}
+.ac-item:hover,.ac-item.ac-active{background:rgba(106,215,255,.08)}
+.ac-code{font-size:13px;font-weight:700;color:var(--cyan);letter-spacing:.06em;font-variant-numeric:tabular-nums;min-width:36px;flex-shrink:0}
+.ac-label{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+[data-theme="light"] .ac-item:hover,[data-theme="light"] .ac-item.ac-active{background:rgba(13,110,138,.07)}
+
 /* Tabular numerics for codes, prices, routes */
 .price,.price-currency,.pa-code,.ex-route,.fields input,.score-val,.cpm-val{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 .pa-code{letter-spacing:.04em}
