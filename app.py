@@ -1686,7 +1686,7 @@ def top_opportunities():
         if not rows:
             return []
         try:
-            cash = fetch_cash_price(origin, dest, dep, cabin)
+            cash = None  # Discovery scan uses zone fallback only — never burns SerpApi budget
             programs = build_seatsaero_programs(origin, dest, cabin, dep, cash, rows)
             out = []
             for p in programs:
