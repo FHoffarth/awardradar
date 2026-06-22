@@ -1700,7 +1700,7 @@ def top_opportunities():
 
 @app.route("/health")
 def health():
-    return jsonify({"ok": True, "app": APP_NAME, "version": "6.0", "price_source": PRICE_SOURCE, "serpapi_token": bool(SERPAPI_TOKEN), "tp_token": bool(TP_TOKEN), "api_guard": bool(APP_TOKEN), "award_source": AWARD_SOURCE, "seatsaero_key": bool(SEATSAERO_KEY)})
+    return jsonify({"ok": True, "app": APP_NAME, "version": "6.1", "price_source": PRICE_SOURCE, "serpapi_token": bool(SERPAPI_TOKEN), "tp_token": bool(TP_TOKEN), "api_guard": bool(APP_TOKEN), "award_source": AWARD_SOURCE, "seatsaero_key": bool(SEATSAERO_KEY)})
 
 
 if __name__ == "__main__":
