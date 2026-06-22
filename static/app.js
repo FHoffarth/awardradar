@@ -1320,3 +1320,71 @@ initDates();
 syncPills();
 setStatus('ready');
 if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) globeAnimation();
+
+// ===== Discovery Widget =====
+(function initDiscovery() {
+  const container = $('discovery-cards');
+  if (!container) return;
+
+  const GRADE_MAP = {
+    exceptional: { label: 'A+', cls: 'aw-grade-aplus' },
+    great:       { label: 'A',  cls: 'aw-grade-a' },
+    good:        { label: 'B',  cls: 'aw-grade-b' },
+  };
+
+  function timeAgo(iso) {
+    if (!iso) return null;
+    const diff = Math.floor((Date.now() - new Date(iso)) / 60000);
+    if (diff < 1) return 'just now';
+    if (diff < 60) return `${diff} min ago`;
+    const h = Math.floor(diff / 60);
+    return `${h}h ago`;
+  }
+
+  function renderCards(opps) {
+    if (!opps.length) {
+      container.innerHTML = `<div class="disc-empty">
+        <div class="disc-empty-title">No exceptional opportunities detected today.</div>
+        New opportunities are continuously scanned.
+      </div>`;
+      return;
+    }
+    container.innerHTML = opps.map(o => {
+      const gm = GRADE_MAP[o.grade_tier] || null;
+      const metaParts = [];
+      if (o.direct) metaParts.push('<span class="disc-nonstop">Nonstop</span>');
+      if (o.seats > 0 && o.seats <= 2) metaParts.push(`<span class="disc-seats-low">${o.seats} seat${o.seats > 1 ? 's' : ''} left</span>`);
+      else if (o.seats >= 3) metaParts.push(`<span>${o.seats} seats</span>`);
+      const updated = timeAgo(o.available_date ? o.available_date + 'T00:00:00Z' : null);
+      return `<div class="disc-card" role="article" aria-label="${esc(o.program)} ${esc(o.origin)} to ${esc(o.dest)}">
+        <div class="disc-card-header">
+          <span class="disc-program">${esc(o.program)}</span>
+          ${gm ? `<span class="disc-grade-pill aw-grade-pill ${gm.cls}">${gm.label}</span>` : ''}
+        </div>
+        <div class="disc-route">${esc(o.origin)} <span style="opacity:.5">→</span> ${esc(o.dest)}</div>
+        <div class="disc-cabin">${esc(o.cabin)}</div>
+        <div style="margin-top:4px">
+          <span class="disc-miles">${o.miles.toLocaleString()}</span>
+          <span class="disc-miles-unit">miles</span>
+        </div>
+        ${metaParts.length ? `<div class="disc-meta">${metaParts.join('<span style="opacity:.3">·</span>')}</div>` : ''}
+        ${updated ? `<div class="disc-updated">Available ${esc(updated)}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  function renderError() {
+    container.innerHTML = `<div class="disc-error">
+      <div class="disc-error-title">Live opportunity scanning is temporarily unavailable.</div>
+      Check back soon.
+    </div>`;
+  }
+
+  fetch('/api/top-opportunities')
+    .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    .then(d => {
+      if (d.ok) renderCards(d.opportunities || []);
+      else renderError();
+    })
+    .catch(() => renderError());
+})();

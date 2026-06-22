@@ -292,6 +292,40 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .price,.price-currency,.pa-code,.ex-route,.fields input,.score-val,.cpm-val{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 .pa-code{letter-spacing:.04em}
 .price{letter-spacing:-.01em}
+/* ===== Discovery Widget ===== */
+.discovery-section{margin-top:32px}
+.discovery-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.discovery-title{font-size:17px;font-weight:700;color:var(--text);margin:0 0 3px}
+.discovery-sub{font-size:12px;color:var(--muted);margin:0}
+.discovery-cta-top{background:none;border:1px solid var(--border);color:var(--cyan);font-size:13px;font-weight:600;padding:6px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;transition:border-color .15s,background .15s}
+.discovery-cta-top:hover{border-color:var(--cyan);background:rgba(106,215,255,.07)}
+.discovery-scroll{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.discovery-scroll::-webkit-scrollbar{height:3px}
+.discovery-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+/* Discovery card */
+.disc-card{flex:0 0 200px;scroll-snap-align:start;background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:6px;transition:transform .15s,box-shadow .15s}
+.disc-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.disc-card-header{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.disc-program{font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.disc-route{font-size:18px;font-weight:700;color:var(--text);letter-spacing:-.01em;margin:2px 0}
+.disc-cabin{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.disc-miles{font-size:22px;font-weight:700;color:var(--gold);line-height:1}
+.disc-miles-unit{font-size:11px;color:var(--muted);font-weight:400;margin-left:2px}
+.disc-meta{display:flex;flex-wrap:wrap;gap:5px;font-size:11px;color:var(--muted)}
+.disc-nonstop{color:var(--green);font-weight:600}
+.disc-seats-low{color:var(--gold);font-weight:600}
+.disc-updated{font-size:10px;color:var(--muted);opacity:.6;margin-top:auto;padding-top:4px}
+/* Grade pill (reuse aw-grade-pill sizing) */
+.disc-grade-pill{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:20px;border-radius:6px;font-size:11px;font-weight:800;padding:0 5px;flex-shrink:0}
+/* Skeleton */
+.disc-skeleton{animation:disc-pulse 1.4s ease-in-out infinite;background:linear-gradient(90deg,var(--card-bg) 25%,rgba(255,255,255,.04) 50%,var(--card-bg) 75%);background-size:400% 100%}
+@keyframes disc-pulse{0%{background-position:100% 0}100%{background-position:-100% 0}}
+/* Empty / error states */
+.disc-empty,.disc-error{flex:0 0 100%;text-align:center;padding:32px 20px;color:var(--muted);font-size:13px;line-height:1.6}
+.disc-empty-title,.disc-error-title{font-weight:700;color:var(--text);margin-bottom:6px;font-size:14px}
+/* Mobile: one card visible at a time */
+@media(max-width:540px){.disc-card{flex:0 0 calc(100% - 24px)}}
+/* ===== Examples ===== */
 .examples-section{margin-top:24px}
 .examples-header{display:flex;flex-direction:column;gap:3px;margin-bottom:12px}
 .examples-label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.5}

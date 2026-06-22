@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="/static/app.css?v=110">
+  <link rel="stylesheet" href="/static/app.css?v=111">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 </head>
 <body>
@@ -339,6 +339,26 @@
       </div>
     </div>
 
+    <!-- Discovery Widget -->
+    <section class="discovery-section" id="discovery-section">
+      <div class="discovery-header">
+        <div>
+          <h2 class="discovery-title">Top Opportunities Today</h2>
+          <p class="discovery-sub">Live award opportunities discovered across our network.</p>
+        </div>
+        <button class="discovery-cta-top" onclick="document.querySelector('.tab[data-tab=\'awards\']').click();document.getElementById('panel')?.scrollIntoView({behavior:'smooth'})">
+          Discover more <span aria-hidden="true">→</span>
+        </button>
+      </div>
+      <div class="discovery-scroll" id="discovery-cards">
+        <!-- Skeleton state -->
+        <div class="disc-card disc-skeleton"></div>
+        <div class="disc-card disc-skeleton"></div>
+        <div class="disc-card disc-skeleton"></div>
+        <div class="disc-card disc-skeleton"></div>
+      </div>
+    </section>
+
     <section class="examples-section">
       <div class="examples-header">
         <span class="examples-label">Example analyses</span>
@@ -387,6 +407,6 @@
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="/static/app.js?v=104"></script>
+  <script src="/static/app.js?v=105"></script>
 </body>
 </html>
