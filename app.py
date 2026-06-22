@@ -1114,7 +1114,7 @@ def build_seatsaero_programs(
             "surcharge":      surcharge,
             "cpm":            cpm,
             "grade":          grade,
-            "url":            f"https://seats.aero/search?origin={origin}&destination={dest}",
+            "url":            booking_deep_url(prog_name, origin, dest, dep.isoformat()),
             "data_source":    "live",
             "available_date": best["date"],
             "direct":         best["direct"],
@@ -1153,7 +1153,36 @@ def sweet_spot_grade(cpm: float) -> dict:
     return         {"grade": "D",  "tier": "poor",        "label": "Weak Redemption"}
 
 
-def build_program_comparison(origin: str, dest: str, cabin: str, cash_eur: float | None) -> list[dict]:
+_PROG_HOMEPAGES: dict[str, str] = {
+    "Miles & More":          "https://www.miles-and-more.com/de/de/award/award-flight.html",
+    "Aeroplan":              "https://www.aircanada.com/aeroplan/redeem/",
+    "Air Canada Aeroplan":   "https://www.aircanada.com/aeroplan/redeem/",
+    "United":                "https://www.united.com/en/us/fsr/choose-flights",
+    "United MileagePlus":    "https://www.united.com/en/us/fsr/choose-flights",
+    "ANA Mileage Club":      "https://aswbe-i.ana.co.jp/international_asw/pages/award/search/roundTrip/input.xhtml?lang=en",
+    "Singapore KrisFlyer":   "https://www.singaporeair.com/en_UK/ppsclub-krisflyer/kf-plan-redeem/",
+    "Turkish Miles&Smiles":  "https://www.turkishairlines.com/en-int/miles-and-smiles/award-tickets/",
+    "Flying Blue":           "https://www.flyingblue.com/en/spend/flights/award-tickets",
+    "British Airways Avios": "https://www.britishairways.com/en-gb/executive-club/spending-avios/redeem-flights",
+    "Alaska Mileage Plan":   "https://www.alaskaair.com/content/mileage-plan/use-miles/buy-flights",
+    "American AAdvantage":   "https://www.aa.com/booking/choose-flights/1",
+    "Cathay Asia Miles":     "https://www.cathaypacific.com/cx/en_HK/asia-miles/use-miles/flights.html",
+    "Etihad Guest":          "https://www.etihad.com/en/etihad-guest/earn-and-spend/spend-miles/award-flights",
+    "Korean SKYPASS":        "https://www.koreanair.com/us/en/skypass/skypass-award",
+}
+
+def booking_deep_url(program: str, origin: str, dest: str, dep: str) -> str:
+    """Return best known deep link with route+date prefilled, fallback to homepage."""
+    if program in ("United", "United MileagePlus"):
+        return f"https://www.united.com/en/us/fsr/choose-flights?f={origin}&t={dest}&d={dep}&sc=7&tt=1"
+    if program in ("Singapore KrisFlyer",):
+        return f"https://www.singaporeair.com/en_UK/ppsclub-krisflyer/kf-plan-redeem/?journeyType=one-way&departureDate={dep}&flightOrigin={origin}&flightDestination={dest}"
+    if program in ("British Airways Avios",):
+        return f"https://www.britishairways.com/travel/redeem/execclub/_gf/en_gb?eId=106001&departurePoint={origin}&destinationPoint={dest}&departureDate={dep}"
+    return _PROG_HOMEPAGES.get(program, f"https://awardfares.com/search?origin={origin}&destination={dest}&date={dep}")
+
+
+def build_program_comparison(origin: str, dest: str, cabin: str, cash_eur: float | None, dep: str = "") -> list[dict]:
     oz, dz = airport_zone(origin), airport_zone(dest)
     # Fall back to typical zone price so grades are always computed
     effective_cash = cash_eur or TYPICAL_CASH_EUR.get(dz, {}).get(cabin)
@@ -1171,7 +1200,7 @@ def build_program_comparison(origin: str, dest: str, cabin: str, cash_eur: float
             "surcharge":   surcharge,
             "cpm":         cpm,
             "grade":       grade,
-            "url":         url,
+            "url":         booking_deep_url(name, origin, dest, dep) if dep else url,
             "data_source": "estimated",
         })
     # Sort by CPM descending (best value first), unknowns at end
@@ -1255,18 +1284,17 @@ def fetch_cash_price(origin: str, dest: str, dep: dt.date, cabin: str, currency:
     return d.get("price")
 
 
-def award_links(origin: str, dest: str, dep: str, ret: str | None, cabin: str) -> list[dict]:
-    q = quote_plus(f"award flight {origin} {dest} {dep} {cabin}")
-    return [
-        {"name": "Miles & More", "url": "https://www.miles-and-more.com/"},
-        {"name": "Lufthansa", "url": f"https://www.lufthansa.com/de/de/fluege/flugsuche?origin={origin}&destination={dest}&departureDate={dep}"},
-        {"name": "United Awards", "url": f"https://www.united.com/en/us/fsr/choose-flights?f={origin}&t={dest}&d={dep}&sc=7&tt=1"},
-        {"name": "Air Canada Aeroplan", "url": "https://www.aircanada.com/aeroplan/redeem/availability/outbound"},
-        {"name": "AwardFares", "url": f"https://awardfares.com/search?origin={origin}&destination={dest}"},
-        {"name": "Seats.aero", "url": f"https://seats.aero/search?origin={origin}&destination={dest}"},
-        {"name": "Singapore KrisFlyer", "url": "https://www.singaporeair.com/"},
-        {"name": "Google Search", "url": f"https://www.google.com/search?q={q}"},
-    ]
+def award_links(origin: str, dest: str, dep: str, ret: str | None, cabin: str) -> dict:
+    gf_q = quote_plus(f"flights from {origin} to {dest} on {dep}")
+    return {
+        "verify": [
+            {"name": "AwardFares", "url": f"https://awardfares.com/search?origin={origin}&destination={dest}&date={dep}"},
+            {"name": "seats.aero", "url": f"https://seats.aero/search?origin={origin}&destination={dest}"},
+        ],
+        "cash": [
+            {"name": "Google Flights", "url": f"https://www.google.com/travel/flights?q={gf_q}"},
+        ],
+    }
 
 
 @app.route("/")
@@ -1611,7 +1639,7 @@ def _awards_inner():
                 live_programs = []
 
             # Estimated values from award charts
-            est_programs = build_program_comparison(origin, dest, cabin, cash_eur)
+            est_programs = build_program_comparison(origin, dest, cabin, cash_eur, dep.isoformat())
 
             # Merge: live programs first; skip estimated duplicates by program name
             live_names = {p["program"] for p in live_programs}

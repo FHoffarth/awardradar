@@ -275,6 +275,25 @@ function linksHtml(obj) {
   return `<div class="links">${Object.entries(obj || {}).map(([k, v]) => `<a target="_blank" rel="noopener" href="${esc(v)}">${esc(k)}</a>`).join('')}</div>`;
 }
 
+// Structured action links for Awards: Verify | Cash
+function actionLinksHtml(links) {
+  if (!links || Array.isArray(links)) return linksHtml(links);
+  const parts = [];
+  if (links.verify && links.verify.length) {
+    parts.push(`<div class="aw-action-group">
+      <span class="aw-action-label">Verify availability</span>
+      ${links.verify.map(l => `<a class="aw-action-link" target="_blank" rel="noopener" href="${esc(l.url)}">${esc(l.name)} →</a>`).join('')}
+    </div>`);
+  }
+  if (links.cash && links.cash.length) {
+    parts.push(`<div class="aw-action-group">
+      <span class="aw-action-label">Cash fare</span>
+      ${links.cash.map(l => `<a class="aw-action-link aw-action-cash" target="_blank" rel="noopener" href="${esc(l.url)}">${esc(l.name)} →</a>`).join('')}
+    </div>`);
+  }
+  return parts.length ? `<div class="aw-action-links">${parts.join('')}</div>` : '';
+}
+
 async function run() {
   setStatus('searching…');
   $('results').innerHTML = '';
@@ -628,7 +647,7 @@ function render(data) {
           ${liveNote}
           <div class="aw-cards-grid">${cards}</div>
           <p class="legend-note">Taxes &amp; fees estimated · verify before booking</p>
-          ${linksHtml(r.links)}
+          ${actionLinksHtml(r.links)}
         </div>`;
       }).join('');
       html += relatedAnalysesHtml('awards');

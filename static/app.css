@@ -564,6 +564,17 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .aw-card-live .aw-book-link{color:var(--green)}
 .aw-card-live .aw-book-link:hover{color:#a7f3d0}
 
+/* Action links (Verify / Cash) */
+.aw-action-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}
+.aw-action-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.aw-action-label{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.aw-action-link{font-size:12px;font-weight:600;color:var(--cyan);text-decoration:none;padding:4px 8px;border:1px solid rgba(106,215,255,.2);border-radius:6px;white-space:nowrap}
+.aw-action-link:hover{background:rgba(106,215,255,.07);border-color:rgba(106,215,255,.4)}
+.aw-action-cash{color:var(--muted);border-color:var(--border)}
+.aw-action-cash:hover{color:var(--text);background:rgba(255,255,255,.04)}
+[data-theme="light"] .aw-action-link{color:#0d6d8a;border-color:rgba(13,110,138,.25)}
+[data-theme="light"] .aw-action-cash{color:#6b7280;border-color:#d1d5db}
+
 /* Light theme */
 [data-theme="light"] .aw-card{background:rgba(7,18,36,.02)}
 [data-theme="light"] .aw-card:hover{box-shadow:0 4px 16px rgba(7,18,36,.07)}
