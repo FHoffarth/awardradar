@@ -63,7 +63,7 @@ def make_session() -> requests.Session:
         connect=2,
         read=2,
         backoff_factor=0.35,
-        status_forcelist=(429, 500, 502, 503, 504),
+        status_forcelist=(500, 502, 503, 504),  # 429 handled per-call with manual backoff
         allowed_methods=("GET", "POST"),
     )
     session = requests.Session()
