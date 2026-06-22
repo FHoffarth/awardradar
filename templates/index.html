@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="/static/app.css?v=102">
+  <link rel="stylesheet" href="/static/app.css?v=103">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.min.css">
 </head>
 <body>
@@ -105,26 +105,42 @@
 
       <!-- Search fields -->
       <div class="fields" role="search" aria-label="Flight search">
-        <label for="origin" style="position:relative">
+        <label for="origin">
           <span class="field-label">FROM</span>
-          <input id="origin" placeholder="Frankfurt, FRA or FRA,MUC"
-                aria-label="Origin airport or city" autocomplete="off">
-          <div class="ac-drop" id="ac-origin" role="listbox" aria-label="Airport suggestions"></div>
+          <div class="field-input-wrap">
+            <svg class="field-icon-left" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <input id="origin" placeholder="City or airport" data-ph-sub="e.g. Frankfurt, FRA or FRA,MUC"
+                  aria-label="Origin airport or city" autocomplete="off">
+            <div class="ac-drop" id="ac-origin" role="listbox" aria-label="Airport suggestions"></div>
+          </div>
         </label>
-        <button class="swap-btn" id="swapBtn" type="button" aria-label="Swap origin and destination">⇄</button>
-        <label for="dest" style="position:relative">
+        <button class="swap-btn" id="swapBtn" type="button" aria-label="Swap origin and destination">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 16V4m0 0L3 8m4-4 4 4"/><path d="M17 8v12m0 0 4-4m-4 4-4-4"/></svg>
+        </button>
+        <label for="dest">
           <span class="field-label">TO</span>
-          <input id="dest" placeholder="Tokyo, New York, SIN …"
-            aria-label="Destination airport or city" autocomplete="off">
-          <div class="ac-drop" id="ac-dest" role="listbox" aria-label="Airport suggestions"></div>
+          <div class="field-input-wrap">
+            <svg class="field-icon-left" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <input id="dest" placeholder="City or airport" data-ph-sub="e.g. Tokyo, New York or SIN"
+              aria-label="Destination airport or city" autocomplete="off">
+            <div class="ac-drop" id="ac-dest" role="listbox" aria-label="Airport suggestions"></div>
+          </div>
         </label>
         <label for="date">
-          <span class="field-label">DEPARTURE</span>
-          <input id="date" placeholder="20 Aug 2026" autocomplete="off" aria-label="Departure date">
+          <span class="field-label">DEPARTURE DATE</span>
+          <div class="field-input-wrap">
+            <svg class="field-icon-left" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <input id="date" placeholder="Select date" autocomplete="off" aria-label="Departure date">
+            <svg class="field-icon-right" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
         </label>
         <label class="return-field" id="returnFieldWrap" for="returnDate">
-          <span class="field-label">RETURN</span>
-          <input id="returnDate" placeholder="27 Aug 2026" autocomplete="off" aria-label="Return date">
+          <span class="field-label">RETURN DATE</span>
+          <div class="field-input-wrap">
+            <svg class="field-icon-left" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <input id="returnDate" placeholder="Select date" autocomplete="off" aria-label="Return date">
+            <svg class="field-icon-right" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
         </label>
       </div>
 
@@ -180,46 +196,53 @@
           </div>
         </div>
 
-        <!-- Right: Date + cabin + CTA -->
+        <!-- Right: Options + CTA -->
         <div class="config-col">
-          <div class="date-tools-row">
-            <div class="date-chips">
-              <button class="date-chip" data-preset="today">Today</button>
-              <button class="date-chip" data-preset="weekend">This Weekend</button>
-              <button class="date-chip" data-preset="nextweek">Next Week</button>
-              <button class="date-chip" data-preset="christmas">Christmas</button>
-              <button class="date-chip" data-preset="newyear">New Year</button>
-              <button class="date-chip" data-preset="summer">Summer</button>
+          <div class="config-row">
+            <div class="config-section">
+              <div class="config-section-label">TRIP TYPE</div>
+              <div class="travel-pills">
+                <label class="pill on"><input id="oneWay" type="checkbox" checked> <span>one-way</span></label>
+                <label class="pill"><input id="direct" type="checkbox"> <span>nonstop only</span></label>
+                <label class="pill"><input id="mmOnly" type="checkbox"> <span>M&amp;M / Star only</span></label>
+              </div>
             </div>
-            <div class="flex-seg">
-              <span class="flex-label">Flex</span>
-              <button class="flex-opt on" data-flex="0">Exact</button>
-              <button class="flex-opt" data-flex="3">±3d</button>
-              <button class="flex-opt" data-flex="7">±7d</button>
+            <div class="config-section">
+              <div class="config-section-label">DATES</div>
+              <div class="date-chips">
+                <button class="date-chip" data-preset="today">Today</button>
+                <button class="date-chip" data-preset="weekend">This Weekend</button>
+                <button class="date-chip" data-preset="nextweek">Next Week</button>
+                <button class="date-chip" data-preset="christmas">Christmas</button>
+                <button class="date-chip" data-preset="newyear">New Year</button>
+                <button class="date-chip" data-preset="summer">Summer</button>
+              </div>
             </div>
-          </div>
-          <div class="options-row">
-            <div class="travel-pills">
-              <label class="pill on"><input id="oneWay" type="checkbox" checked> <span>one-way</span></label>
-              <label class="pill"><input id="direct" type="checkbox"> <span>nonstop only</span></label>
-              <label class="pill"><input id="mmOnly" type="checkbox"> <span>M&amp;M / Star only</span></label>
+            <div class="config-section">
+              <div class="config-section-label">FLEXIBILITY</div>
+              <div class="flex-seg">
+                <button class="flex-opt on" data-flex="0">Exact</button>
+                <button class="flex-opt" data-flex="3">±3d</button>
+                <button class="flex-opt" data-flex="7">±7d</button>
+              </div>
             </div>
-            <div class="seg-ctrl">
-              <button class="seg active" data-cabin="Economy">Economy</button>
-              <button class="seg" data-cabin="Premium Eco">Premium</button>
-              <button class="seg" data-cabin="Business">Business</button>
-              <button class="seg" data-cabin="First">First</button>
+            <div class="config-section">
+              <div class="config-section-label">CABIN CLASS</div>
+              <div class="seg-ctrl">
+                <button class="seg active" data-cabin="Economy">Economy</button>
+                <button class="seg" data-cabin="Premium Eco">Premium</button>
+                <button class="seg" data-cabin="Business">Business</button>
+                <button class="seg" data-cabin="First">First</button>
+              </div>
             </div>
           </div>
           <button class="go" id="go">
             <span class="go-icon-wrap">
-              <svg class="go-radar-svg" width="28" height="28" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="17" cy="17" r="15" stroke="currentColor" stroke-width="1.2" fill="none" opacity=".5"/>
-                <circle cx="17" cy="17" r="9.5" stroke="currentColor" stroke-width="1" fill="none" opacity=".35"/>
-                <circle cx="17" cy="17" r="4" stroke="currentColor" stroke-width=".8" fill="none" opacity=".25"/>
-                <line x1="17" y1="2" x2="17" y2="32" stroke="currentColor" stroke-width=".6" opacity=".2"/>
-                <line x1="2" y1="17" x2="32" y2="17" stroke="currentColor" stroke-width=".6" opacity=".2"/>
-                <path d="M17 17 L17 2 A15 15 0 0 1 29.5 9.5 Z" fill="currentColor" opacity=".18"/>
+              <svg class="go-radar-svg" width="22" height="22" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="17" cy="17" r="15" stroke="currentColor" stroke-width="1.2" fill="none" opacity=".6"/>
+                <circle cx="17" cy="17" r="9.5" stroke="currentColor" stroke-width="1" fill="none" opacity=".45"/>
+                <circle cx="17" cy="17" r="4" stroke="currentColor" stroke-width=".8" fill="none" opacity=".3"/>
+                <path d="M17 17 L17 2 A15 15 0 0 1 29.5 9.5 Z" fill="currentColor" opacity=".25"/>
                 <circle cx="17" cy="2" r="2.2" fill="currentColor" opacity=".9"/>
               </svg>
             </span>
@@ -227,6 +250,7 @@
               <span class="go-main">Analyze Route</span>
               <span class="go-sub">Cash · Awards · Hidden City</span>
             </span>
+            <svg class="go-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </button>
         </div>
       </div>
