@@ -566,11 +566,11 @@ function initDatepickers() {
   };
 
   fpDep = flatpickr('#date', { ...baseConfig, onDayCreate: dayCreateHook });
-  fpDep.altInput.placeholder = 'Departure date';
+  fpDep.altInput.placeholder = 'Select date';
   fpDep.altInput.setAttribute('aria-label', 'Departure date');
 
   fpRet = flatpickr('#returnDate', { ...baseConfig });
-  fpRet.altInput.placeholder = 'Return date';
+  fpRet.altInput.placeholder = 'Select date';
   fpRet.altInput.setAttribute('aria-label', 'Return date');
 }
 
