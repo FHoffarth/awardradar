@@ -398,8 +398,47 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .b-tier{color:var(--gold)}
 .c-tier{color:var(--muted)}
 .d-tier{color:var(--bad)}
-[data-theme="light"] .award-table td{border-bottom-color:rgba(16,32,51,.06)}
-[data-theme="light"] .award-table tr:hover td{background:rgba(16,32,51,.02)}
+/* Award V2 cards */
+.aw-result-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
+.aw-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:10px}
+.aw-card{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;transition:border-color .15s}
+.aw-card:hover{border-color:rgba(255,255,255,.15)}
+.aw-card-live{background:rgba(135,247,181,.04);border-color:rgba(135,247,181,.2)}
+.aw-card-live:hover{border-color:rgba(135,247,181,.4)}
+.aw-card-live .aw-card-prog a{color:var(--green)}
+.aw-card-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.aw-card-prog a{color:var(--cyan);text-decoration:none;font-size:13px;font-weight:700}
+.aw-card-prog a:hover{text-decoration:underline}
+.aw-card-route{font-size:11px;color:var(--muted);letter-spacing:.04em}
+.aw-card-cost{display:flex;align-items:baseline;gap:4px;flex-wrap:wrap;margin-top:2px}
+.aw-card-miles{font-size:17px;font-weight:700;color:var(--text);letter-spacing:-.01em}
+.aw-card-plus{font-size:12px;color:var(--muted)}
+.aw-card-surcharge{font-size:12px;color:var(--muted)}
+.aw-card-seats{font-size:11px;color:var(--muted)}
+.aw-card-airline{font-size:11px;color:var(--muted);opacity:.7}
+.aw-card-date{font-size:10px;color:var(--muted);opacity:.6}
+.aw-badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.aw-badge{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 6px;border-radius:20px;white-space:nowrap}
+.aw-badge-nonstop{background:rgba(106,215,255,.1);color:var(--cyan);border:1px solid rgba(106,215,255,.25)}
+.aw-badge-avail{background:rgba(135,247,181,.1);color:var(--green);border:1px solid rgba(135,247,181,.25)}
+.aw-badge-limited{background:rgba(245,199,107,.1);color:var(--gold);border:1px solid rgba(245,199,107,.3)}
+.aw-badge-surcharge{background:rgba(255,157,157,.08);color:var(--bad);border:1px solid rgba(255,157,157,.2)}
+.aw-badge-value{background:rgba(135,247,181,.1);color:var(--green);border:1px solid rgba(135,247,181,.25)}
+.aw-card-footer{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:4px;padding-top:8px;border-top:1px solid var(--border)}
+.aw-card-cpm{font-size:12px;font-weight:700;color:var(--text)}
+.aw-grade-pill{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 7px;border-radius:20px;white-space:nowrap}
+.aw-grade-aplus{background:rgba(135,247,181,.15);color:var(--green);border:1px solid rgba(135,247,181,.35)}
+.aw-grade-a{background:rgba(135,247,181,.1);color:var(--green);border:1px solid rgba(135,247,181,.25)}
+.aw-grade-b{background:rgba(245,199,107,.1);color:var(--gold);border:1px solid rgba(245,199,107,.3)}
+.aw-grade-c{background:rgba(255,255,255,.05);color:var(--muted);border:1px solid var(--border)}
+.aw-grade-d{background:rgba(255,157,157,.07);color:var(--bad);border:1px solid rgba(255,157,157,.2)}
+[data-theme="light"] .aw-card{background:rgba(7,18,36,.02)}
+[data-theme="light"] .aw-card-live{background:rgba(15,102,64,.03);border-color:rgba(15,102,64,.18)}
+[data-theme="light"] .aw-grade-aplus,[data-theme="light"] .aw-grade-a{color:#15803d;background:rgba(15,102,64,.07);border-color:rgba(15,102,64,.2)}
+[data-theme="light"] .aw-grade-b{color:#9a6e10;background:rgba(154,110,16,.07);border-color:rgba(154,110,16,.25)}
+[data-theme="light"] .aw-badge-nonstop{color:var(--cyan);background:rgba(13,110,138,.07);border-color:rgba(13,110,138,.2)}
+[data-theme="light"] .aw-badge-avail,[data-theme="light"] .aw-badge-value{color:#15803d;background:rgba(15,102,64,.06);border-color:rgba(15,102,64,.18)}
+@media(max-width:540px){.aw-cards-grid{grid-template-columns:1fr}}
 .links{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .links a{color:var(--muted);text-decoration:none;border:1px solid var(--border);background:rgba(255,255,255,.04);border-radius:7px;padding:5px 10px;font-size:11px;transition:all .15s}
 .links a:hover{color:var(--text);border-color:rgba(255,255,255,.2)}

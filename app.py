@@ -974,11 +974,12 @@ AWARD_PROGRAMS = [
 
 
 # seats.aero response field names per cabin class
-SEATSAERO_CABIN_FIELDS: dict[str, tuple[str, str, str | None]] = {
-    "Economy":    ("YAvailable", "YMileageCost", "YDirect"),
-    "Premium Eco":("WAvailable", "WMileageCost", "WDirect"),
-    "Business":   ("JAvailable", "JMileageCost", "JDirect"),
-    "First":      ("FAvailable", "FMileageCost", None),
+# (avail, miles, direct, airlines, remaining_seats)
+SEATSAERO_CABIN_FIELDS: dict[str, tuple[str, str, str | None, str, str]] = {
+    "Economy":    ("YAvailable", "YMileageCost", "YDirect",  "YAirlines", "YRemainingSeats"),
+    "Premium Eco":("WAvailable", "WMileageCost", "WDirect",  "WAirlines", "WRemainingSeats"),
+    "Business":   ("JAvailable", "JMileageCost", "JDirect",  "JAirlines", "JRemainingSeats"),
+    "First":      ("FAvailable", "FMileageCost", None,       "FAirlines", "FRemainingSeats"),
 }
 SEATSAERO_CABIN_PARAM: dict[str, str] = {
     "Economy": "economy", "Premium Eco": "premium", "Business": "business", "First": "first",
@@ -1029,8 +1030,8 @@ def build_seatsaero_programs(
     cash_eur: float | None, sa_rows: list[dict],
 ) -> list[dict]:
     """Build program comparison rows from seats.aero live data."""
-    avail_field, miles_field, direct_field = SEATSAERO_CABIN_FIELDS.get(
-        cabin, ("Economy", "EconomyMiles", None)
+    avail_field, miles_field, direct_field, airlines_field, seats_field = SEATSAERO_CABIN_FIELDS.get(
+        cabin, ("YAvailable", "YMileageCost", "YDirect", "YAirlines", "YRemainingSeats")
     )
     dz = airport_zone(dest)
 
@@ -1045,14 +1046,16 @@ def build_seatsaero_programs(
             continue
         is_direct = bool(row.get(direct_field)) if direct_field else False
         row_date = row.get("Date", "")
+        airlines = (row.get(airlines_field) or "").split(",")[0].strip()
+        seats = row.get(seats_field) or 0
         existing = by_source.get(src)
         if not existing:
-            by_source[src] = {"miles": miles, "date": row_date, "direct": is_direct}
+            by_source[src] = {"miles": miles, "date": row_date, "direct": is_direct, "airlines": airlines, "seats": seats}
         else:
             better = (is_direct and not existing["direct"]) or \
                      (is_direct == existing["direct"] and miles < existing["miles"])
             if better:
-                by_source[src] = {"miles": miles, "date": row_date, "direct": is_direct}
+                by_source[src] = {"miles": miles, "date": row_date, "direct": is_direct, "airlines": airlines, "seats": seats}
 
     programs: list[dict] = []
     for src, best in by_source.items():
@@ -1071,6 +1074,8 @@ def build_seatsaero_programs(
             "data_source":    "live",
             "available_date": best["date"],
             "direct":         best["direct"],
+            "airlines":       best["airlines"],
+            "seats":          best["seats"],
         })
 
     programs.sort(key=lambda x: -(x["cpm"] or 0))

@@ -426,48 +426,63 @@ function render(data) {
   if (mode === 'awards') {
     const awardResults = (data.results || []);
     if (awardResults.length) {
+      const GRADE_MAP = {
+        exceptional: { label: 'A+ Exceptional', cls: 'aw-grade-aplus' },
+        great:       { label: 'A Great Value',  cls: 'aw-grade-a' },
+        good:        { label: 'B Good Value',   cls: 'aw-grade-b' },
+        fair:        { label: 'C Fair',         cls: 'aw-grade-c' },
+        poor:        { label: 'D Weak',         cls: 'aw-grade-d' },
+      };
       html += awardResults.map(r => {
-        const cashStr = r.cash_eur ? `${Math.round(r.cash_eur)} EUR cash` : 'no live price';
-        const bestBadge = r.best_program
-          ? `<div class="best-badge">A+ · ${esc(r.best_program)}</div>` : '';
-        const rows = (r.programs || []).map(p => {
-          const g = p.grade || {};
-          const tierClass = { exceptional: 'a-tier', great: 'a-tier', good: 'b-tier', fair: 'c-tier', poor: 'd-tier' }[g.tier] || '';
-          const cpmStr = p.cpm ? `${p.cpm.toFixed(2)} ct/Mile` : '—';
-          const gradeStr = g.grade ? `<span class="award-grade ${tierClass}">${esc(g.grade)}</span>` : '';
-          const labelStr = g.label ? `<span class="award-label ${tierClass}">${esc(g.label)}</span>` : '';
-          const isLive = p.data_source === 'live';
-          const sourceBadge = isLive
-            ? `<span class="aw-source-live">Live</span>`
-            : `<span class="aw-source-est">Est.</span>`;
-          const dateHint = isLive && p.available_date ? `<div class="aw-date-hint">${esc(p.available_date)}</div>` : '';
-          return `<tr class="${isLive ? 'aw-row-live' : ''}">
-            <td class="aw-prog"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.program)}</a>${dateHint}</td>
-            <td class="aw-miles">${p.miles.toLocaleString()} mi</td>
-            <td class="aw-surcharge">+${p.surcharge} EUR</td>
-            <td class="aw-cpm">${cpmStr}</td>
-            <td class="aw-grade">${gradeStr} ${labelStr}</td>
-            <td class="aw-source">${sourceBadge}</td>
-          </tr>`;
-        }).join('');
-        const liveHeader = r.has_live_data
+        const cashStr = r.cash_eur ? `${Math.round(r.cash_eur)} EUR cash` : null;
+        const liveNote = r.has_live_data
           ? `<div class="award-data-note"><span class="aw-source-live">Live</span> seats.aero · <span class="aw-source-est">Est.</span> award charts</div>`
           : `<div class="award-data-note"><span class="aw-source-est">Est.</span> Estimated values — verify on program websites</div>`;
+        const cards = (r.programs || []).map(p => {
+          const g = p.grade || {};
+          const gm = GRADE_MAP[g.tier] || null;
+          const isLive = p.data_source === 'live';
+          const cpmStr = p.cpm ? `${p.cpm.toFixed(2)} ct/mile` : null;
+          // Badges
+          const badges = [];
+          if (p.direct)                            badges.push('<span class="aw-badge aw-badge-nonstop">Nonstop</span>');
+          if (p.seats > 0 && p.seats <= 2)         badges.push('<span class="aw-badge aw-badge-limited">Limited availability</span>');
+          else if (p.seats >= 4)                   badges.push('<span class="aw-badge aw-badge-avail">Good availability</span>');
+          if (p.surcharge > 250)                   badges.push('<span class="aw-badge aw-badge-surcharge">High surcharges</span>');
+          if (g.tier === 'exceptional' || g.tier === 'great') badges.push('<span class="aw-badge aw-badge-value">Exceptional value</span>');
+          return `<div class="aw-card${isLive ? ' aw-card-live' : ''}">
+            <div class="aw-card-header">
+              <div class="aw-card-prog"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.program)}</a></div>
+              ${isLive ? '<span class="aw-source-live">Live</span>' : '<span class="aw-source-est">Est.</span>'}
+            </div>
+            <div class="aw-card-route">${esc(r.route)}</div>
+            <div class="aw-card-cost">
+              <span class="aw-card-miles">${p.miles.toLocaleString()} miles</span>
+            </div>
+            <div class="aw-card-surcharge">+ €${p.surcharge} surcharge</div>
+            ${p.seats > 0 ? `<div class="aw-card-seats">${p.seats} seat${p.seats !== 1 ? 's' : ''} available</div>` : ''}
+            ${p.airlines ? `<div class="aw-card-airline">${esc(p.airlines)}</div>` : ''}
+            ${p.available_date && isLive ? `<div class="aw-card-date">${esc(p.available_date)}</div>` : ''}
+            ${badges.length ? `<div class="aw-badges">${badges.join('')}</div>` : ''}
+            <div class="aw-card-footer">
+              ${cpmStr ? `<span class="aw-card-cpm">${cpmStr}</span>` : ''}
+              ${gm ? `<span class="aw-grade-pill ${gm.cls}">${gm.label}</span>` : ''}
+            </div>
+          </div>`;
+        }).join('');
         return `<div class="card${r.best_program ? ' top-card' : ''}">
-          ${bestBadge}
-          <h3>${esc(r.route)} <span class="route-arrow">·</span> ${esc(r.cabin)}</h3>
-          <div class="meta" style="margin:4px 0 10px">
-            <span>${esc(r.date)}${r.returnDate ? ' → ' + esc(r.returnDate) : ''}</span>
-            <span class="badge">${cashStr}</span>
+          <div class="aw-result-header">
+            <div>
+              <h3>${esc(r.route)} <span class="route-arrow">·</span> ${esc(r.cabin)}</h3>
+              <div class="meta" style="margin-top:4px">
+                <span>${esc(r.date)}</span>
+                ${cashStr ? `<span class="badge">${cashStr}</span>` : ''}
+              </div>
+            </div>
           </div>
-          ${liveHeader}
-          <div class="award-table-wrap">
-            <table class="award-table">
-              <thead><tr><th>Program</th><th>Miles</th><th>Surcharge</th><th>Value</th><th>Rating</th><th>Source</th></tr></thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>
-          <p class="legend-note" style="margin-top:8px">Surcharges estimated · verify miles and availability on program websites</p>
+          ${liveNote}
+          <div class="aw-cards-grid">${cards}</div>
+          <p class="legend-note">Surcharges estimated · verify with loyalty program before booking</p>
           ${linksHtml(r.links)}
         </div>`;
       }).join('');
