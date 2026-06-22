@@ -1489,7 +1489,7 @@ def _awards_inner():
     use_seatsaero = AWARD_SOURCE == "seatsaero" and bool(SEATSAERO_KEY)
     results = []
 
-    for origin in origins[:2]:
+    for origin in origins[:4]:
         for dest in dests[:3]:
             if origin == dest:
                 continue

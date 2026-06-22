@@ -46,10 +46,55 @@ function activeFlexDays() {
   return p ? parseInt(p.dataset.flex) : 0;
 }
 
+let extraOrigins = [];
+
+function addOrigin() {
+  if (extraOrigins.length >= 2) return;
+  const idx = extraOrigins.length;
+  const id = `extra-origin-${idx}`;
+  extraOrigins.push('');
+  const wrap = document.getElementById('extra-origins');
+  const div = document.createElement('div');
+  div.className = 'extra-origin-row';
+  div.id = `extra-origin-row-${idx}`;
+  div.innerHTML = `<div class="field-input-wrap extra-origin-wrap">
+    <svg class="field-icon-left" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+    <input id="${id}" class="extra-origin-input" placeholder="Add airport" autocomplete="off" aria-label="Additional departure airport">
+    <div class="ac-drop" id="ac-${id}" role="listbox"></div>
+    <button type="button" class="remove-origin-btn" onclick="removeOrigin(${idx})" aria-label="Remove airport">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>`;
+  wrap.appendChild(div);
+  const inp = document.getElementById(id);
+  initAC(inp, `ac-${id}`);
+  inp.addEventListener('change', () => { extraOrigins[idx] = inp.value.trim().toUpperCase().slice(0, 3); });
+  inp.addEventListener('input', () => { extraOrigins[idx] = inp.value.trim().toUpperCase().slice(0, 3); });
+  updateAddOriginBtn();
+}
+
+function removeOrigin(idx) {
+  const row = document.getElementById(`extra-origin-row-${idx}`);
+  if (row) row.remove();
+  extraOrigins[idx] = '';
+  const remaining = extraOrigins.filter(Boolean);
+  extraOrigins = [];
+  document.getElementById('extra-origins').innerHTML = '';
+  remaining.forEach(() => addOrigin());
+  updateAddOriginBtn();
+}
+
+function updateAddOriginBtn() {
+  const btn = document.getElementById('addOriginBtn');
+  if (!btn) return;
+  btn.style.display = extraOrigins.length >= 2 ? 'none' : '';
+}
+
 function payload() {
+  const allOrigins = [$('origin').value, ...extraOrigins].map(v => v.trim().toUpperCase().slice(0,3)).filter(Boolean);
   return {
     lang: 'en',
-    origin: $('origin').value,
+    origin: allOrigins.join(','),
     dest: $('dest').value,
     date: $('date').value,
     returnDate: $('returnDate').value,
@@ -646,6 +691,8 @@ document.querySelector('[role="tablist"]').addEventListener('keydown', e => {
 
 document.querySelectorAll('[data-fill-origin]').forEach(b => b.onclick = () => $('origin').value = b.dataset.fillOrigin);
 document.querySelectorAll('[data-fill-dest]').forEach(b => b.onclick = () => $('dest').value = b.dataset.fillDest);
+const addOriginBtn = document.getElementById('addOriginBtn');
+if (addOriginBtn) addOriginBtn.addEventListener('click', addOrigin);
 $('go').onclick = run;
 $('oneWay').onchange = toggleReturn;
 $('themeBtn').onclick = () => applyTheme(theme === 'dark' ? 'light' : 'dark');
@@ -730,22 +777,18 @@ function renderAcDrop(dropId, inputId, items) {
   });
 }
 
-const airportSuggest = debounce(async e => {
-  const input = e.target;
-  const q = input.value;
-  const isOrigin = input.id === 'origin';
-  const dropId = isOrigin ? 'ac-origin' : 'ac-dest';
-  if (q.length < 2) { $(dropId).innerHTML = ''; return; }
-  closeAllAcDrops(dropId);
-  const data = await fetch('/api/airports?q=' + encodeURIComponent(q) + '&lang=en').then(r => r.json()).catch(() => []);
-  renderAcDrop(dropId, input.id, data || []);
-}, 220);
 
-['origin', 'dest'].forEach(id => {
-  $(id).addEventListener('input', airportSuggest);
-  $(id).addEventListener('blur', () => setTimeout(() => { const d = $('ac-' + id); if (d) d.innerHTML = ''; }, 150));
-  $(id).addEventListener('keydown', e => {
-    const drop = $('ac-' + id);
+function initAC(inputEl, dropId) {
+  const suggest = debounce(async () => {
+    const q = inputEl.value;
+    if (q.length < 2) { const d = $(dropId); if (d) d.innerHTML = ''; return; }
+    const data = await fetch('/api/airports?q=' + encodeURIComponent(q) + '&lang=en').then(r => r.json()).catch(() => []);
+    renderAcDrop(dropId, inputEl.id, data || []);
+  }, 220);
+  inputEl.addEventListener('input', suggest);
+  inputEl.addEventListener('blur', () => setTimeout(() => { const d = $(dropId); if (d) d.innerHTML = ''; }, 150));
+  inputEl.addEventListener('keydown', e => {
+    const drop = $(dropId);
     if (!drop) return;
     const items = drop.querySelectorAll('.ac-item');
     if (!items.length) return;
@@ -762,13 +805,15 @@ const airportSuggest = debounce(async e => {
       prev.classList.add('ac-active');
     } else if (e.key === 'Enter' && active) {
       e.preventDefault();
-      $(id).value = active.dataset.value;
+      inputEl.value = active.dataset.value;
       drop.innerHTML = '';
     } else if (e.key === 'Escape') {
       drop.innerHTML = '';
     }
   });
-});
+}
+
+['origin', 'dest'].forEach(id => initAC($(id), 'ac-' + id));
 
 document.addEventListener('click', e => {
   if (!e.target.closest('label[for="origin"]')) { const d = $('ac-origin'); if (d) d.innerHTML = ''; }

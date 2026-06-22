@@ -105,15 +105,21 @@
 
       <!-- Search fields -->
       <div class="fields" role="search" aria-label="Flight search">
-        <label for="origin">
-          <span class="field-label">FROM</span>
-          <div class="field-input-wrap">
-            <svg class="field-icon-left" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            <input id="origin" placeholder="City or airport" data-ph-sub="e.g. Frankfurt, FRA or FRA,MUC"
-                  aria-label="Origin airport or city" autocomplete="off">
-            <div class="ac-drop" id="ac-origin" role="listbox" aria-label="Airport suggestions"></div>
-          </div>
-        </label>
+        <div class="from-group">
+          <label for="origin">
+            <span class="field-label">FROM</span>
+            <div class="field-input-wrap">
+              <svg class="field-icon-left" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <input id="origin" placeholder="City or airport" aria-label="Origin airport or city" autocomplete="off">
+              <div class="ac-drop" id="ac-origin" role="listbox" aria-label="Airport suggestions"></div>
+            </div>
+          </label>
+          <div id="extra-origins"></div>
+          <button type="button" id="addOriginBtn" class="add-origin-btn" aria-label="Add another departure airport">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add airport
+          </button>
+        </div>
         <button class="swap-btn" id="swapBtn" type="button" aria-label="Swap origin and destination">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 16V4m0 0L3 8m4-4 4 4"/><path d="M17 8v12m0 0 4-4m-4 4-4-4"/></svg>
         </button>
