@@ -825,6 +825,8 @@ function globeAnimation() {
   const c = $('globe');
   const ctx = c.getContext('2d');
   let w, h, rot = 0;
+  const isMobile = () => innerWidth <= 640;
+  const MOBILE_GLOBE_H = 250; // matches CSS height
 
   const airports = [
     [50.0, 8.6, 'FRA', 'Frankfurt'], [48.4, 11.8, 'MUC', 'Munich'], [51.5, -0.5, 'LHR', 'London'],
@@ -850,7 +852,7 @@ function globeAnimation() {
 
   function size() {
     w = c.width = innerWidth * devicePixelRatio;
-    h = c.height = innerHeight * devicePixelRatio;
+    h = c.height = (isMobile() ? MOBILE_GLOBE_H : innerHeight) * devicePixelRatio;
   }
   addEventListener('resize', size);
   size();
@@ -858,9 +860,9 @@ function globeAnimation() {
   // Drag-to-spin interaction
   let dragging = false, dragX = 0, velX = 0, autoSpin = true;
   let hoveredAirport = null, mouseX = 0, mouseY = 0;
-  const R_screen = () => Math.min(w, h) * 0.32;
-  const cx_screen = () => w * 0.78;
-  const cy_screen = () => h * 0.36;
+  const R_screen = () => isMobile() ? Math.min(w, h) * 0.40 : Math.min(w, h) * 0.32;
+  const cx_screen = () => isMobile() ? w * 0.50 : w * 0.78;
+  const cy_screen = () => isMobile() ? h * 0.50 : h * 0.36;
 
   function onDragStart(x, y) {
     const dx = x * devicePixelRatio - cx_screen();
@@ -902,13 +904,41 @@ function globeAnimation() {
   });
   addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; onDragMove(e.clientX); });
   addEventListener('mouseup', onDragEnd);
-  c.addEventListener('touchstart', e => { e.preventDefault(); onDragStart(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
-  addEventListener('touchmove', e => { if (dragging) { e.preventDefault(); onDragMove(e.touches[0].clientX); } }, { passive: false });
-  addEventListener('touchend', onDragEnd);
+  let touchStartX = 0, touchStartY = 0, touchMoved = false;
+  c.addEventListener('touchstart', e => {
+    e.preventDefault();
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    touchMoved = false;
+    onDragStart(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: false });
+  addEventListener('touchmove', e => {
+    if (dragging) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - touchStartX;
+      const dy = e.touches[0].clientY - touchStartY;
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) touchMoved = true;
+      onDragMove(e.touches[0].clientX);
+    }
+  }, { passive: false });
+  addEventListener('touchend', e => {
+    // Tap without drag: set mouseX/mouseY for tooltip for 1.5s
+    if (!touchMoved && isMobile()) {
+      const t = e.changedTouches[0];
+      mouseX = t.clientX; mouseY = t.clientY;
+      clearTimeout(c._tapTimer);
+      c._tapTimer = setTimeout(() => { mouseX = -999; mouseY = -999; }, 1500);
+    }
+    onDragEnd();
+  });
 
   // Route pulse state
   let pulseRoute = null; // { from, to, startTime, duration }
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Adaptive quality for older devices
+  let fpsAvg = 60, lastFrameTime = performance.now(), frameCount = 0;
+  const lowPerf = () => fpsAvg < 45 && isMobile();
 
   window.globePulseRoute = function(originCode, destCode) {
     const from = airports.find(a => a[2] === originCode);
@@ -926,8 +956,10 @@ function globeAnimation() {
     const tilt = 0.28;
     const y2 = py * Math.cos(tilt) - pz * Math.sin(tilt);
     const z2 = py * Math.sin(tilt) + pz * Math.cos(tilt);
-    const R = Math.min(w, h) * 0.32;
-    const cx = w * 0.78, cy = h * 0.36;
+    const mob = isMobile();
+    const R = Math.min(w, h) * (mob ? 0.40 : 0.32);
+    const cx = mob ? w * 0.50 : w * 0.78;
+    const cy = mob ? h * 0.50 : h * 0.36;
     return { x: cx + px * R, y: cy - y2 * R, z: z2, R, cx, cy };
   }
 
@@ -948,13 +980,22 @@ function globeAnimation() {
   }
 
   function frame() {
+    // FPS tracking for adaptive quality
+    const now = performance.now();
+    frameCount++;
+    if (frameCount % 30 === 0) {
+      const elapsed = now - lastFrameTime;
+      fpsAvg = 30000 / elapsed;
+      lastFrameTime = now;
+    }
+
     if (dragging) {
       // velX already applied in onDragMove
     } else if (Math.abs(velX) > 0.0001) {
       rot += velX;
       velX *= 0.88; // friction
     } else if (autoSpin) {
-      rot += 0.0022;
+      rot += isMobile() ? 0.0014 : 0.0022;
     }
     ctx.clearRect(0, 0, w, h);
 
@@ -972,8 +1013,10 @@ function globeAnimation() {
     const lblColor   = isLight ? '100,55,8'     : '245,199,107';
     const [lr,lg,lb] = lineColor;
 
-    const R = Math.min(w, h) * 0.32;
-    const cx = w * 0.78, cy = h * 0.36;
+    const mob = isMobile();
+    const R = Math.min(w, h) * (mob ? 0.40 : 0.32);
+    const cx = mob ? w * 0.50 : w * 0.78;
+    const cy = mob ? h * 0.50 : h * 0.36;
 
     // Sphere fill
     if (isLight) {
@@ -1006,11 +1049,12 @@ function globeAnimation() {
     ctx.lineWidth = (isLight ? 1.4 : 1.2) * devicePixelRatio;
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
 
-    // Lat lines
+    // Lat lines (reduced step on low-perf mobile)
+    const gridStep = lowPerf() ? 6 : 3;
     for (let lat = -60; lat <= 60; lat += 30) {
       ctx.beginPath();
       let first = true;
-      for (let lon = -180; lon <= 180; lon += 3) {
+      for (let lon = -180; lon <= 180; lon += gridStep) {
         const p = project(lat, lon);
         if (p.z > 0) { if (first) { ctx.moveTo(p.x, p.y); first = false; } else ctx.lineTo(p.x, p.y); }
         else first = true;
@@ -1024,7 +1068,7 @@ function globeAnimation() {
     for (let lon = 0; lon < 360; lon += 30) {
       ctx.beginPath();
       let first = true;
-      for (let lat = -85; lat <= 85; lat += 3) {
+      for (let lat = -85; lat <= 85; lat += gridStep) {
         const p = project(lat, lon);
         if (p.z > 0) { if (first) { ctx.moveTo(p.x, p.y); first = false; } else ctx.lineTo(p.x, p.y); }
         else first = true;

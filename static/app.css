@@ -173,7 +173,9 @@ a:focus-visible{outline:2px solid var(--cyan);outline-offset:3px;border-radius:3
 body{min-height:100vh;font-family:'IBM Plex Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;color:var(--text)}
 body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-gradient(ellipse at 28% 0%,#112038 0,#06101f 52%,#02050b 100%);transition:opacity .3s}
 [data-theme="light"] body::before{background:radial-gradient(circle at 78% 22%,rgba(13,142,176,.11) 0,transparent 30%),radial-gradient(circle at 16% 10%,rgba(184,130,14,.09) 0,transparent 26%),linear-gradient(160deg,#f0ede8 0%,#f5f3ef 40%,#ede9e3 100%)}
-#globe{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:var(--globe-op)}
+/* Desktop: full-screen background globe (fixed, behind nav z-index:10) */
+#globe-wrap{position:fixed;inset:0;z-index:0;pointer-events:none}
+#globe{width:100%;height:100%;pointer-events:none;opacity:var(--globe-op);display:block}
 #globe.interactive{pointer-events:auto;cursor:grab}
 [data-theme="light"] #globe{filter:drop-shadow(0 20px 60px rgba(8,72,120,.08))}
 
@@ -591,6 +593,14 @@ footer p{margin-bottom:8px}
 }
 
 @media(max-width:640px){
+  /* Mobile globe: hero element above search form */
+  #globe-wrap{position:relative;width:100%;height:250px;overflow:hidden;pointer-events:auto;z-index:0;flex-shrink:0}
+  #globe{position:absolute;top:0;left:0;width:100%;height:100%;cursor:grab;opacity:1}
+  /* Fade bottom edge into page background */
+  #globe-wrap::after{content:'';position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(to bottom,transparent,var(--bg));pointer-events:none;z-index:1}
+  /* Push shell below the fixed navbar (globe is now in-flow, navbar still fixed) */
+  .shell{padding-top:8px}
+
   /* Safe area — iPhone notch + home indicator */
   .shell{padding-bottom:max(80px,calc(60px + env(safe-area-inset-bottom)))}
   footer{padding-bottom:max(20px,env(safe-area-inset-bottom))}
