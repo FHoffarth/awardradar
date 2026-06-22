@@ -1137,13 +1137,15 @@ def sweet_spot_grade(cpm: float) -> dict:
 
 def build_program_comparison(origin: str, dest: str, cabin: str, cash_eur: float | None) -> list[dict]:
     oz, dz = airport_zone(origin), airport_zone(dest)
+    # Fall back to typical zone price so grades are always computed
+    effective_cash = cash_eur or TYPICAL_CASH_EUR.get(dz, {}).get(cabin)
     results = []
     for name, chart, url in AWARD_PROGRAMS:
         miles = get_miles(chart, oz, dz, cabin)
         if not miles:
             continue
         surcharge = SURCHARGES_EUR.get(name, {}).get(dz, 100)
-        cpm = calc_cpm(cash_eur, miles, surcharge) if cash_eur else None
+        cpm = calc_cpm(effective_cash, miles, surcharge) if effective_cash else None
         grade = sweet_spot_grade(cpm) if cpm else None
         results.append({
             "program":     name,
