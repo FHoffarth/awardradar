@@ -435,14 +435,23 @@ function render(data) {
           const cpmStr = p.cpm ? `${p.cpm.toFixed(2)} ct/Mile` : '—';
           const gradeStr = g.grade ? `<span class="award-grade ${tierClass}">${esc(g.grade)}</span>` : '';
           const labelStr = g.label ? `<span class="award-label ${tierClass}">${esc(g.label)}</span>` : '';
-          return `<tr>
-            <td class="aw-prog"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.program)}</a></td>
+          const isLive = p.data_source === 'live';
+          const sourceBadge = isLive
+            ? `<span class="aw-source-live">Live</span>`
+            : `<span class="aw-source-est">Est.</span>`;
+          const dateHint = isLive && p.available_date ? `<div class="aw-date-hint">${esc(p.available_date)}</div>` : '';
+          return `<tr class="${isLive ? 'aw-row-live' : ''}">
+            <td class="aw-prog"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.program)}</a>${dateHint}</td>
             <td class="aw-miles">${p.miles.toLocaleString()} mi</td>
             <td class="aw-surcharge">+${p.surcharge} EUR</td>
             <td class="aw-cpm">${cpmStr}</td>
             <td class="aw-grade">${gradeStr} ${labelStr}</td>
+            <td class="aw-source">${sourceBadge}</td>
           </tr>`;
         }).join('');
+        const liveHeader = r.has_live_data
+          ? `<div class="award-data-note"><span class="aw-source-live">Live</span> seats.aero · <span class="aw-source-est">Est.</span> award charts</div>`
+          : `<div class="award-data-note"><span class="aw-source-est">Est.</span> Estimated values — verify on program websites</div>`;
         return `<div class="card${r.best_program ? ' top-card' : ''}">
           ${bestBadge}
           <h3>${esc(r.route)} <span class="route-arrow">·</span> ${esc(r.cabin)}</h3>
@@ -450,13 +459,14 @@ function render(data) {
             <span>${esc(r.date)}${r.returnDate ? ' → ' + esc(r.returnDate) : ''}</span>
             <span class="badge">${cashStr}</span>
           </div>
+          ${liveHeader}
           <div class="award-table-wrap">
             <table class="award-table">
-              <thead><tr><th>Program</th><th>Miles</th><th>Surcharge</th><th>Value</th><th>Rating</th></tr></thead>
+              <thead><tr><th>Program</th><th>Miles</th><th>Surcharge</th><th>Value</th><th>Rating</th><th>Source</th></tr></thead>
               <tbody>${rows}</tbody>
             </table>
           </div>
-          <p class="legend-note" style="margin-top:8px">Surcharges estimated · miles from Saver charts · <a href="https://seats.aero" target="_blank" rel="noopener">seats.aero</a> for live availability</p>
+          <p class="legend-note" style="margin-top:8px">Surcharges estimated · verify miles and availability on program websites</p>
           ${linksHtml(r.links)}
         </div>`;
       }).join('');

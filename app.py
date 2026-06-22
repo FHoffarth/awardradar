@@ -44,6 +44,11 @@ SKIPLAG_MAX_SEARCHES = int(os.environ.get("SKIPLAG_MAX_SEARCHES", "6"))
 SERPAPI_TOKEN = os.environ.get("SERPAPI_TOKEN", "")
 SERPAPI_BASE = "https://serpapi.com/search"
 PRICE_SOURCE = (os.environ.get("PRICE_SOURCE") or ("serpapi" if SERPAPI_TOKEN else "travelpayouts")).lower()
+
+# --- seats.aero live award availability ---
+AWARD_SOURCE   = os.environ.get("AWARD_SOURCE", "estimated").lower()  # "estimated" | "seatsaero"
+SEATSAERO_KEY  = os.environ.get("SEATSAERO_API_KEY", "")
+SEATSAERO_BASE = "https://seats.aero/partnerapi"
 SERPAPI_TTL = int(os.environ.get("SERPAPI_TTL", "21600"))      # Cache-Lebensdauer in Sekunden (default 6h)
 SERPAPI_MAX_PAIRS = int(os.environ.get("SERPAPI_MAX_PAIRS", "2"))  # max. Origin/Dest-Paare pro Klick (= Anzahl bezahlter Suchen)
 SERPAPI_DEEP = (os.environ.get("SERPAPI_DEEP", "0") == "1")    # exakt wie im Browser, aber langsamer
@@ -968,6 +973,105 @@ AWARD_PROGRAMS = [
 ]
 
 
+# seats.aero response field names per cabin class
+SEATSAERO_CABIN_FIELDS: dict[str, tuple[str, str, str | None]] = {
+    "Economy":    ("Economy",        "EconomyMiles",        "EconomyDirect"),
+    "Premium Eco":("PremiumEconomy", "PremiumEconomyMiles", None),
+    "Business":   ("Business",       "BusinessMiles",       "BusinessDirect"),
+    "First":      ("First",          "FirstMiles",          None),
+}
+SEATSAERO_CABIN_PARAM: dict[str, str] = {
+    "Economy": "economy", "Premium Eco": "premium", "Business": "business", "First": "first",
+}
+SEATSAERO_SOURCE_MAP: dict[str, str] = {
+    "united":     "United MileagePlus",
+    "aeroplan":   "Air Canada Aeroplan",
+    "turkish":    "Turkish Miles&Smiles",
+    "singapore":  "Singapore KrisFlyer",
+    "lifemiles":  "Avianca LifeMiles",
+    "aeromexico": "Aeromexico Club Premier",
+    "delta":      "Delta SkyMiles",
+    "virgin":     "Virgin Atlantic",
+    "qantas":     "Qantas Frequent Flyer",
+    "emirates":   "Emirates Skywards",
+}
+
+
+def fetch_seatsaero(origin: str, dest: str, cabin: str, dep: dt.date) -> list[dict]:
+    """Call seats.aero cached-search API. Returns raw availability rows, or [] on any failure."""
+    if not SEATSAERO_KEY:
+        return []
+    cabin_param = SEATSAERO_CABIN_PARAM.get(cabin, "economy")
+    start = (dep - dt.timedelta(days=3)).isoformat()
+    end   = (dep + dt.timedelta(days=3)).isoformat()
+    try:
+        r = sess.get(
+            f"{SEATSAERO_BASE}/search",
+            params={"origin_airport": origin, "destination_airport": dest,
+                    "cabin": cabin_param, "start_date": start, "end_date": end, "take": 50},
+            headers={"Partner-Authorization": SEATSAERO_KEY},
+            timeout=12,
+        )
+        r.raise_for_status()
+        return r.json().get("data", []) or []
+    except Exception as exc:
+        app.logger.warning("seats.aero fetch failed %s→%s %s: %s", origin, dest, cabin, exc)
+        return []
+
+
+def build_seatsaero_programs(
+    origin: str, dest: str, cabin: str, dep: dt.date,
+    cash_eur: float | None, sa_rows: list[dict],
+) -> list[dict]:
+    """Build program comparison rows from seats.aero live data."""
+    avail_field, miles_field, direct_field = SEATSAERO_CABIN_FIELDS.get(
+        cabin, ("Economy", "EconomyMiles", None)
+    )
+    dz = airport_zone(dest)
+
+    # Best option per source: prefer direct, then fewest miles, then closest date
+    by_source: dict[str, dict] = {}
+    for row in sa_rows:
+        if not row.get(avail_field):
+            continue
+        src = (row.get("Source") or "").lower()
+        miles = row.get(miles_field) or 0
+        if not miles or not src:
+            continue
+        is_direct = bool(row.get(direct_field)) if direct_field else False
+        row_date = row.get("Date", "")
+        existing = by_source.get(src)
+        if not existing:
+            by_source[src] = {"miles": miles, "date": row_date, "direct": is_direct}
+        else:
+            better = (is_direct and not existing["direct"]) or \
+                     (is_direct == existing["direct"] and miles < existing["miles"])
+            if better:
+                by_source[src] = {"miles": miles, "date": row_date, "direct": is_direct}
+
+    programs: list[dict] = []
+    for src, best in by_source.items():
+        prog_name = SEATSAERO_SOURCE_MAP.get(src, src.replace("-", " ").title())
+        miles = best["miles"]
+        surcharge = SURCHARGES_EUR.get(prog_name, {}).get(dz, 80)
+        cpm = calc_cpm(cash_eur, miles, surcharge) if cash_eur else None
+        grade = sweet_spot_grade(cpm) if cpm else None
+        programs.append({
+            "program":        prog_name,
+            "miles":          miles,
+            "surcharge":      surcharge,
+            "cpm":            cpm,
+            "grade":          grade,
+            "url":            f"https://seats.aero/search?origin={origin}&destination={dest}",
+            "data_source":    "live",
+            "available_date": best["date"],
+            "direct":         best["direct"],
+        })
+
+    programs.sort(key=lambda x: -(x["cpm"] or 0))
+    return programs
+
+
 def get_miles(chart: dict, oz: str, dz: str, cabin: str) -> int | None:
     for key in [(oz, dz), (dz, oz)]:
         row = chart.get(key)
@@ -1006,12 +1110,13 @@ def build_program_comparison(origin: str, dest: str, cabin: str, cash_eur: float
         cpm = calc_cpm(cash_eur, miles, surcharge) if cash_eur else None
         grade = sweet_spot_grade(cpm) if cpm else None
         results.append({
-            "program":    name,
-            "miles":      miles,
-            "surcharge":  surcharge,
-            "cpm":        cpm,
-            "grade":      grade,
-            "url":        url,
+            "program":     name,
+            "miles":       miles,
+            "surcharge":   surcharge,
+            "cpm":         cpm,
+            "grade":       grade,
+            "url":         url,
+            "data_source": "estimated",
         })
     # Sort by CPM descending (best value first), unknowns at end
     results.sort(key=lambda x: -(x["cpm"] or 0))
@@ -1350,6 +1455,16 @@ def _skiplag_inner():
 
 @app.route("/api/awards", methods=["POST"])
 def awards():
+    try:
+        return _awards_inner()
+    except QuotaError:
+        return jsonify({"ok": False, "error": "quota_exhausted"}), 503
+    except Exception as exc:
+        app.logger.error("awards unhandled: %s", exc, exc_info=True)
+        return jsonify({"ok": False, "error": "analysis_unavailable"}), 500
+
+
+def _awards_inner():
     data = request.get_json(force=True) or {}
     lang = lang_from_payload(data)
     origins = resolve_codes(data.get("origin", ""))
@@ -1361,34 +1476,53 @@ def awards():
     if not origins or not dests:
         return jsonify({"ok": False, "error": tx("missing_origin_dest", lang)}), 400
 
+    use_seatsaero = AWARD_SOURCE == "seatsaero" and bool(SEATSAERO_KEY)
     results = []
-    try:
-        for origin in origins[:2]:
-            for dest in dests[:3]:
-                if origin == dest:
-                    continue
-                cash_eur = fetch_cash_price(origin, dest, dep, cabin)
-                programs = build_program_comparison(origin, dest, cabin, cash_eur)
-                best = next((p for p in programs if p["grade"] and p["grade"]["tier"] in ("exceptional", "great")), None)
-                results.append({
-                    "route":        f"{origin} → {dest}",
-                    "origin":       origin,
-                    "dest":         dest,
-                    "date":         dep.isoformat(),
-                    "returnDate":   ret.isoformat() if ret else None,
-                    "cabin":        cabin,
-                    "cash_eur":     round(cash_eur, 0) if cash_eur else None,
-                    "programs":     programs,
-                    "best_program": best["program"] if best else None,
-                    "links":        award_links(origin, dest, dep.isoformat(), ret.isoformat() if ret else None, cabin),
-                })
-    except QuotaError:
-        return jsonify({"ok": False, "error": "quota_exhausted"}), 503
 
-    note = ("Live-Preise via Google Flights für CPM-Berechnung. Meilen-Schätzwerte — echte Chart-Zahlen auf Programmseiten prüfen."
-            if SERPAPI_TOKEN else
-            "Kein SerpApi-Token — CPM-Berechnung ohne Live-Cashpreis. Meilen-Schätzwerte.")
-    return jsonify({"ok": True, "results": results, "debug": {"origins": origins, "dests": dests}, "note": note})
+    for origin in origins[:2]:
+        for dest in dests[:3]:
+            if origin == dest:
+                continue
+            cash_eur = fetch_cash_price(origin, dest, dep, cabin)
+
+            # Live availability from seats.aero (if configured)
+            if use_seatsaero:
+                sa_rows = fetch_seatsaero(origin, dest, cabin, dep)
+                live_programs = build_seatsaero_programs(origin, dest, cabin, dep, cash_eur, sa_rows)
+            else:
+                live_programs = []
+
+            # Estimated values from award charts
+            est_programs = build_program_comparison(origin, dest, cabin, cash_eur)
+
+            # Merge: live programs first; skip estimated duplicates by program name
+            live_names = {p["program"] for p in live_programs}
+            combined = live_programs + [p for p in est_programs if p["program"] not in live_names]
+            combined.sort(key=lambda x: (0 if x.get("data_source") == "live" else 1, -(x.get("cpm") or 0)))
+
+            best = next((p for p in combined if p.get("grade") and p["grade"]["tier"] in ("exceptional", "great")), None)
+            results.append({
+                "route":          f"{origin} → {dest}",
+                "origin":         origin,
+                "dest":           dest,
+                "date":           dep.isoformat(),
+                "returnDate":     ret.isoformat() if ret else None,
+                "cabin":          cabin,
+                "cash_eur":       round(cash_eur, 0) if cash_eur else None,
+                "programs":       combined,
+                "best_program":   best["program"] if best else None,
+                "has_live_data":  bool(live_programs),
+                "links":          award_links(origin, dest, dep.isoformat(), ret.isoformat() if ret else None, cabin),
+            })
+
+    if use_seatsaero and any(r["has_live_data"] for r in results):
+        note = "Live availability via seats.aero · Estimated values from award charts. Miles and surcharges for guidance — verify on program websites."
+    elif use_seatsaero:
+        note = "seats.aero returned no availability for this route. Showing estimated values from award charts."
+    else:
+        note = "Estimated values from award charts. Miles and surcharges for guidance — verify on program websites."
+
+    return jsonify({"ok": True, "results": results, "note": note})
 
 
 def score_award(origin: str, dest: str, cabin: str, lang: str = "de") -> dict:

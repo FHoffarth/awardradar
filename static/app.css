@@ -373,6 +373,15 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .award-table tr:hover td{background:rgba(255,255,255,.02)}
 .aw-prog a{color:var(--cyan);text-decoration:none;font-weight:600}
 .aw-prog a:hover{text-decoration:underline}
+.aw-date-hint{font-size:10px;color:var(--muted);margin-top:2px;font-weight:400}
+.aw-source{white-space:nowrap}
+.aw-source-live{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:4px;background:rgba(135,247,181,.14);border:1px solid rgba(135,247,181,.28);color:var(--green)}
+.aw-source-est{display:inline-block;font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted)}
+.aw-row-live td{background:rgba(135,247,181,.03)}
+.award-data-note{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-bottom:10px}
+[data-theme="light"] .aw-source-live{background:rgba(15,102,64,.07);border-color:rgba(15,102,64,.2);color:#15803d}
+[data-theme="light"] .aw-source-est{background:rgba(7,18,36,.04);border-color:rgba(7,18,36,.12)}
+[data-theme="light"] .aw-row-live td{background:rgba(15,102,64,.025)}
 .aw-miles{font-weight:700;color:var(--text);white-space:nowrap}
 .aw-surcharge{color:var(--muted);white-space:nowrap}
 .aw-cpm{font-weight:700;white-space:nowrap}
