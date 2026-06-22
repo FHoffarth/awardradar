@@ -594,6 +594,18 @@ function applyDatePreset(preset) {
   if (d && fpDep) fpDep.setDate(d, true);
 }
 
+// Flatpickr: replace native month <select> + year input with custom "‹ June 2026 ›" label
+function arMonthYear(fp) {
+  return fp.l10n.months.longhand[fp.currentMonth] + ' ' + fp.currentYear;
+}
+function patchMonthNav(fp) {
+  const monthDiv = fp.calendarContainer.querySelector('.flatpickr-current-month');
+  if (!monthDiv || monthDiv.querySelector('.ar-month-year')) return;
+  monthDiv.innerHTML = '<span class="ar-month-year"></span>';
+  fp._arLabel = monthDiv.querySelector('.ar-month-year');
+  fp._arLabel.textContent = arMonthYear(fp);
+}
+
 function initDatepickers() {
   const dayCreateHook = function(_dObj, _dStr, fp, dayElem) {
     const dateStr = dayElem.dateObj.toISOString().slice(0, 10);
@@ -622,8 +634,11 @@ function initDatepickers() {
     altInput: true,
     altFormat: 'j M Y',
     minDate: 'today',
-    disableMobile: false,
+    disableMobile: true,
     locale: { firstDayOfWeek: 1 },
+    onReady(_d, _s, fp)     { patchMonthNav(fp); },
+    onMonthChange(_d, _s, fp) { if (fp._arLabel) fp._arLabel.textContent = arMonthYear(fp); },
+    onYearChange(_d, _s, fp)  { if (fp._arLabel) fp._arLabel.textContent = arMonthYear(fp); },
   };
 
   fpDep = flatpickr('#date', { ...baseConfig, onDayCreate: dayCreateHook });
