@@ -471,63 +471,86 @@ function render(data) {
   if (mode === 'awards') {
     const awardResults = (data.results || []);
     if (awardResults.length) {
+      const GRADE_ORDER = ['exceptional','great','good','fair','poor'];
       const GRADE_MAP = {
-        exceptional: { label: 'A+ Exceptional', cls: 'aw-grade-aplus' },
-        great:       { label: 'A Great Value',  cls: 'aw-grade-a' },
-        good:        { label: 'B Good Value',   cls: 'aw-grade-b' },
-        fair:        { label: 'C Fair',         cls: 'aw-grade-c' },
-        poor:        { label: 'D Weak',         cls: 'aw-grade-d' },
+        exceptional: { label: 'A+', cls: 'aw-grade-aplus' },
+        great:       { label: 'A',  cls: 'aw-grade-a' },
+        good:        { label: 'B',  cls: 'aw-grade-b' },
+        fair:        { label: 'C',  cls: 'aw-grade-c' },
+        poor:        { label: 'D',  cls: 'aw-grade-d' },
       };
       html += awardResults.map(r => {
-        const cashStr = r.cash_eur ? `${Math.round(r.cash_eur)} EUR cash` : null;
-        const liveNote = r.has_live_data
+        const cashStr = r.cash_eur ? `${Math.round(r.cash_eur)} EUR` : null;
+        const hasLive = r.has_live_data;
+        const liveNote = hasLive
           ? `<div class="award-data-note"><span class="aw-source-live">Live</span> seats.aero · <span class="aw-source-est">Est.</span> award charts</div>`
-          : `<div class="award-data-note"><span class="aw-source-est">Est.</span> Estimated values — verify on program websites</div>`;
-        const cards = (r.programs || []).map(p => {
+          : `<div class="award-data-note"><span class="aw-source-est">Est.</span> Estimated — verify on program websites</div>`;
+
+        // Sort programs: by grade tier, then by cpm ascending
+        const sorted = [...(r.programs || [])].sort((a, b) => {
+          const ai = GRADE_ORDER.indexOf(a.grade?.tier ?? '');
+          const bi = GRADE_ORDER.indexOf(b.grade?.tier ?? '');
+          const ao = ai === -1 ? 99 : ai;
+          const bo = bi === -1 ? 99 : bi;
+          if (ao !== bo) return ao - bo;
+          return (a.cpm || 99) - (b.cpm || 99);
+        });
+
+        const cards = sorted.map((p, idx) => {
           const g = p.grade || {};
           const gm = GRADE_MAP[g.tier] || null;
           const isLive = p.data_source === 'live';
-          const cpmStr = p.cpm ? `${p.cpm.toFixed(2)} ct/mile` : null;
-          // Badges
-          const badges = [];
-          if (p.direct)                            badges.push('<span class="aw-badge aw-badge-nonstop">Nonstop</span>');
-          if (p.seats > 0 && p.seats <= 2)         badges.push('<span class="aw-badge aw-badge-limited">Limited availability</span>');
-          else if (p.seats >= 4)                   badges.push('<span class="aw-badge aw-badge-avail">Good availability</span>');
-          if (p.surcharge > 250)                   badges.push('<span class="aw-badge aw-badge-surcharge">High surcharges</span>');
-          if (g.tier === 'exceptional' || g.tier === 'great') badges.push('<span class="aw-badge aw-badge-value">Exceptional value</span>');
-          return `<div class="aw-card${isLive ? ' aw-card-live' : ''}">
+          const isBest = idx === 0 && (g.tier === 'exceptional' || g.tier === 'great');
+          const cpmStr = p.cpm ? `${p.cpm.toFixed(1)} ct/mi` : null;
+
+          // Compact meta row: nonstop · seats · cpm
+          const metaParts = [];
+          if (p.direct) metaParts.push('<span class="aw-meta-nonstop">✓ Nonstop</span>');
+          if (p.seats > 0 && p.seats <= 2) metaParts.push(`<span class="aw-meta-seats aw-meta-seats-low">${p.seats} seat${p.seats > 1 ? 's' : ''} left</span>`);
+          else if (p.seats >= 3) metaParts.push(`<span class="aw-meta-seats">${p.seats} seats</span>`);
+          if (cpmStr) metaParts.push(`<span class="aw-meta-cpm">${cpmStr}</span>`);
+
+          // Surcharge class
+          const surchargeClass = p.surcharge > 500 ? 'aw-surcharge-high' : p.surcharge > 250 ? 'aw-surcharge-med' : '';
+
+          const cardClasses = ['aw-card'];
+          if (isLive) cardClasses.push('aw-card-live');
+          if (isBest) cardClasses.push('aw-card-best');
+
+          return `<div class="${cardClasses.join(' ')}">
             <div class="aw-card-header">
-              <div class="aw-card-prog"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.program)}</a></div>
-              ${isLive ? '<span class="aw-source-live">Live</span>' : '<span class="aw-source-est">Est.</span>'}
-            </div>
-            <div class="aw-card-route">${esc(r.route)}</div>
-            <div class="aw-card-cost">
-              <span class="aw-card-miles">${p.miles.toLocaleString()} miles</span>
-            </div>
-            <div class="aw-card-surcharge">+ €${p.surcharge} surcharge</div>
-            ${p.seats > 0 ? `<div class="aw-card-seats">${p.seats} seat${p.seats !== 1 ? 's' : ''} available</div>` : ''}
-            ${p.airlines ? `<div class="aw-card-airline">${esc(p.airlines)}</div>` : ''}
-            ${p.available_date && isLive ? `<div class="aw-card-date">${esc(p.available_date)}</div>` : ''}
-            ${badges.length ? `<div class="aw-badges">${badges.join('')}</div>` : ''}
-            <div class="aw-card-footer">
-              ${cpmStr ? `<span class="aw-card-cpm">${cpmStr}</span>` : ''}
+              <div class="aw-card-prog">
+                <a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.program)}</a>
+                ${isLive ? '<span class="aw-source-live">Live</span>' : '<span class="aw-source-est">Est.</span>'}
+              </div>
               ${gm ? `<span class="aw-grade-pill ${gm.cls}">${gm.label}</span>` : ''}
+            </div>
+            <div class="aw-card-cost">
+              <span class="aw-card-miles">${p.miles.toLocaleString()}</span>
+              <span class="aw-card-miles-unit">miles</span>
+            </div>
+            <div class="aw-card-surcharge${surchargeClass ? ' ' + surchargeClass : ''}">+ €${p.surcharge} taxes &amp; fees</div>
+            ${metaParts.length ? `<div class="aw-card-meta">${metaParts.join('<span class="aw-meta-sep">·</span>')}</div>` : ''}
+            ${p.airlines ? `<div class="aw-card-airline">${esc(p.airlines)}</div>` : ''}
+            <div class="aw-card-footer">
+              <a href="${esc(p.url)}" target="_blank" rel="noopener" class="aw-book-link">Book <span aria-hidden="true">→</span></a>
             </div>
           </div>`;
         }).join('');
+
         return `<div class="card${r.best_program ? ' top-card' : ''}">
           <div class="aw-result-header">
             <div>
               <h3>${esc(r.route)} <span class="route-arrow">·</span> ${esc(r.cabin)}</h3>
               <div class="meta" style="margin-top:4px">
                 <span>${esc(r.date)}</span>
-                ${cashStr ? `<span class="badge">${cashStr}</span>` : ''}
+                ${cashStr ? `<span class="badge">Cash: ${cashStr}</span>` : ''}
               </div>
             </div>
           </div>
           ${liveNote}
           <div class="aw-cards-grid">${cards}</div>
-          <p class="legend-note">Surcharges estimated · verify with loyalty program before booking</p>
+          <p class="legend-note">Taxes &amp; fees estimated · verify before booking</p>
           ${linksHtml(r.links)}
         </div>`;
       }).join('');

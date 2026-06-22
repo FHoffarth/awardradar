@@ -414,44 +414,104 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .d-tier{color:var(--bad)}
 /* Award V2 cards */
 .aw-result-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
-.aw-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:10px}
-.aw-card{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;transition:border-color .15s}
-.aw-card:hover{border-color:rgba(255,255,255,.15)}
-.aw-card-live{background:rgba(135,247,181,.04);border-color:rgba(135,247,181,.2)}
-.aw-card-live:hover{border-color:rgba(135,247,181,.4)}
-.aw-card-live .aw-card-prog a{color:var(--green)}
-.aw-card-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.aw-card-prog a{color:var(--cyan);text-decoration:none;font-size:13px;font-weight:700}
+/* ===== Award Cards V2 ===== */
+.aw-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-bottom:10px}
+
+/* Base card */
+.aw-card{
+  background:rgba(255,255,255,.03);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:14px 14px 12px;
+  display:flex;flex-direction:column;gap:5px;
+  transition:border-color .15s,box-shadow .15s;
+  position:relative;
+}
+.aw-card:hover{border-color:rgba(255,255,255,.14);box-shadow:0 4px 16px rgba(0,0,0,.18)}
+
+/* Live data card */
+.aw-card-live{background:rgba(135,247,181,.03);border-color:rgba(135,247,181,.18)}
+.aw-card-live:hover{border-color:rgba(135,247,181,.38)}
+
+/* Best card (A+/A, top-sorted) — gold top accent */
+.aw-card-best{
+  border-color:rgba(245,199,107,.35);
+  background:rgba(245,199,107,.03);
+  box-shadow:0 0 0 1px rgba(245,199,107,.12) inset;
+}
+.aw-card-best:hover{border-color:rgba(245,199,107,.55)}
+.aw-card-best::before{
+  content:'';position:absolute;top:0;left:16px;right:16px;height:2px;
+  background:linear-gradient(90deg,transparent,rgba(245,199,107,.6),transparent);
+  border-radius:0 0 2px 2px;
+}
+
+/* Header row: program name + Live/Est badge + grade pill */
+.aw-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.aw-card-prog{display:flex;flex-direction:column;gap:3px;min-width:0}
+.aw-card-prog a{color:var(--cyan);text-decoration:none;font-size:13px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .aw-card-prog a:hover{text-decoration:underline}
-.aw-card-route{font-size:11px;color:var(--muted);letter-spacing:.04em}
-.aw-card-cost{display:flex;align-items:baseline;gap:4px;flex-wrap:wrap;margin-top:2px}
-.aw-card-miles{font-size:17px;font-weight:700;color:var(--text);letter-spacing:-.01em}
-.aw-card-plus{font-size:12px;color:var(--muted)}
+.aw-card-live .aw-card-prog a{color:var(--green)}
+
+/* Grade pill — top-right, larger than before */
+.aw-grade-pill{
+  font-size:11px;font-weight:800;letter-spacing:.04em;
+  padding:3px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0;
+  line-height:1.4;
+}
+.aw-grade-aplus{background:rgba(135,247,181,.15);color:var(--green);border:1px solid rgba(135,247,181,.4)}
+.aw-grade-a   {background:rgba(135,247,181,.1); color:var(--green);border:1px solid rgba(135,247,181,.28)}
+.aw-grade-b   {background:rgba(245,199,107,.1); color:var(--gold); border:1px solid rgba(245,199,107,.35)}
+.aw-grade-c   {background:rgba(255,255,255,.05);color:var(--muted);border:1px solid var(--border)}
+.aw-grade-d   {background:rgba(255,157,157,.07);color:var(--bad);  border:1px solid rgba(255,157,157,.2)}
+
+/* Miles — dominant number */
+.aw-card-cost{display:flex;align-items:baseline;gap:5px;margin-top:6px}
+.aw-card-miles{font-size:22px;font-weight:700;color:var(--text);letter-spacing:-.02em;line-height:1}
+.aw-card-miles-unit{font-size:12px;color:var(--muted);font-weight:500}
+
+/* Surcharge */
 .aw-card-surcharge{font-size:12px;color:var(--muted)}
-.aw-card-seats{font-size:11px;color:var(--muted)}
-.aw-card-airline{font-size:11px;color:var(--muted);opacity:.7}
-.aw-card-date{font-size:10px;color:var(--muted);opacity:.6}
-.aw-badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
-.aw-badge{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 6px;border-radius:20px;white-space:nowrap}
-.aw-badge-nonstop{background:rgba(106,215,255,.1);color:var(--cyan);border:1px solid rgba(106,215,255,.25)}
-.aw-badge-avail{background:rgba(135,247,181,.1);color:var(--green);border:1px solid rgba(135,247,181,.25)}
-.aw-badge-limited{background:rgba(245,199,107,.1);color:var(--gold);border:1px solid rgba(245,199,107,.3)}
-.aw-badge-surcharge{background:rgba(255,157,157,.08);color:var(--bad);border:1px solid rgba(255,157,157,.2)}
-.aw-badge-value{background:rgba(135,247,181,.1);color:var(--green);border:1px solid rgba(135,247,181,.25)}
-.aw-card-footer{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:4px;padding-top:8px;border-top:1px solid var(--border)}
-.aw-card-cpm{font-size:12px;font-weight:700;color:var(--text)}
-.aw-grade-pill{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 7px;border-radius:20px;white-space:nowrap}
-.aw-grade-aplus{background:rgba(135,247,181,.15);color:var(--green);border:1px solid rgba(135,247,181,.35)}
-.aw-grade-a{background:rgba(135,247,181,.1);color:var(--green);border:1px solid rgba(135,247,181,.25)}
-.aw-grade-b{background:rgba(245,199,107,.1);color:var(--gold);border:1px solid rgba(245,199,107,.3)}
-.aw-grade-c{background:rgba(255,255,255,.05);color:var(--muted);border:1px solid var(--border)}
-.aw-grade-d{background:rgba(255,157,157,.07);color:var(--bad);border:1px solid rgba(255,157,157,.2)}
+.aw-surcharge-med{color:var(--gold)!important}
+.aw-surcharge-high{color:var(--bad)!important}
+
+/* Compact meta row */
+.aw-card-meta{display:flex;align-items:center;flex-wrap:wrap;gap:4px;font-size:11px;margin-top:4px}
+.aw-meta-nonstop{color:var(--cyan);font-weight:600}
+.aw-meta-seats{color:var(--muted)}
+.aw-meta-seats-low{color:var(--gold);font-weight:600}
+.aw-meta-cpm{color:var(--muted)}
+.aw-meta-sep{color:var(--border);margin:0 1px}
+
+/* Airline line */
+.aw-card-airline{font-size:11px;color:var(--muted);opacity:.65;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Footer: book link */
+.aw-card-footer{margin-top:auto;padding-top:10px;border-top:1px solid var(--border)}
+.aw-book-link{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:12px;font-weight:700;color:var(--cyan);text-decoration:none;
+  transition:color .12s;
+}
+.aw-book-link:hover{color:#a8e8ff}
+.aw-card-live .aw-book-link{color:var(--green)}
+.aw-card-live .aw-book-link:hover{color:#a7f3d0}
+
+/* Light theme */
 [data-theme="light"] .aw-card{background:rgba(7,18,36,.02)}
-[data-theme="light"] .aw-card-live{background:rgba(15,102,64,.03);border-color:rgba(15,102,64,.18)}
-[data-theme="light"] .aw-grade-aplus,[data-theme="light"] .aw-grade-a{color:#15803d;background:rgba(15,102,64,.07);border-color:rgba(15,102,64,.2)}
-[data-theme="light"] .aw-grade-b{color:#9a6e10;background:rgba(154,110,16,.07);border-color:rgba(154,110,16,.25)}
-[data-theme="light"] .aw-badge-nonstop{color:var(--cyan);background:rgba(13,110,138,.07);border-color:rgba(13,110,138,.2)}
-[data-theme="light"] .aw-badge-avail,[data-theme="light"] .aw-badge-value{color:#15803d;background:rgba(15,102,64,.06);border-color:rgba(15,102,64,.18)}
+[data-theme="light"] .aw-card:hover{box-shadow:0 4px 16px rgba(7,18,36,.07)}
+[data-theme="light"] .aw-card-live{background:rgba(15,102,64,.025);border-color:rgba(15,102,64,.15)}
+[data-theme="light"] .aw-card-best{border-color:rgba(154,110,16,.3);background:rgba(154,110,16,.025)}
+[data-theme="light"] .aw-card-best::before{background:linear-gradient(90deg,transparent,rgba(154,110,16,.5),transparent)}
+[data-theme="light"] .aw-card-miles{color:#0a1628}
+[data-theme="light"] .aw-grade-aplus,[data-theme="light"] .aw-grade-a{color:#15803d;background:rgba(15,102,64,.07);border-color:rgba(15,102,64,.22)}
+[data-theme="light"] .aw-grade-b{color:#9a6e10;background:rgba(154,110,16,.07);border-color:rgba(154,110,16,.28)}
+[data-theme="light"] .aw-meta-nonstop{color:#0d6e8a}
+[data-theme="light"] .aw-book-link{color:#0d6e8a}
+[data-theme="light"] .aw-book-link:hover{color:#0a5870}
+[data-theme="light"] .aw-card-live .aw-book-link{color:#15803d}
+[data-theme="light"] .aw-surcharge-med{color:#9a6e10!important}
+
 @media(max-width:540px){.aw-cards-grid{grid-template-columns:1fr}}
 .links{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .links a{color:var(--muted);text-decoration:none;border:1px solid var(--border);background:rgba(255,255,255,.04);border-radius:7px;padding:5px 10px;font-size:11px;transition:all .15s}
