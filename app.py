@@ -1702,6 +1702,27 @@ def top_opportunities():
     return jsonify({"ok": True, "opportunities": top, "source": "live"})
 
 
+@app.route("/debug/seatsaero")
+def debug_seatsaero():
+    """Raw seats.aero response for FRA→JFK Business — temporary debug route."""
+    if not SEATSAERO_KEY:
+        return jsonify({"error": "no key"}), 503
+    dep = dt.date.today() + dt.timedelta(days=30)
+    start = (dep - dt.timedelta(days=30)).isoformat()
+    end   = (dep + dt.timedelta(days=30)).isoformat()
+    try:
+        r = HTTP.get(
+            f"{SEATSAERO_BASE}/search",
+            params={"origin_airport": "FRA", "destination_airport": "JFK",
+                    "cabin": "business", "start_date": start, "end_date": end, "take": 10},
+            headers={"Partner-Authorization": SEATSAERO_KEY},
+            timeout=15,
+        )
+        return jsonify({"status": r.status_code, "body": r.json() if r.ok else r.text[:500]})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/health")
 def health():
     return jsonify({"ok": True, "app": APP_NAME, "version": "6.1", "price_source": PRICE_SOURCE, "serpapi_token": bool(SERPAPI_TOKEN), "tp_token": bool(TP_TOKEN), "api_guard": bool(APP_TOKEN), "award_source": AWARD_SOURCE, "seatsaero_key": bool(SEATSAERO_KEY)})
