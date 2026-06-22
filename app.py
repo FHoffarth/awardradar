@@ -975,10 +975,10 @@ AWARD_PROGRAMS = [
 
 # seats.aero response field names per cabin class
 SEATSAERO_CABIN_FIELDS: dict[str, tuple[str, str, str | None]] = {
-    "Economy":    ("Economy",        "EconomyMiles",        "EconomyDirect"),
-    "Premium Eco":("PremiumEconomy", "PremiumEconomyMiles", None),
-    "Business":   ("Business",       "BusinessMiles",       "BusinessDirect"),
-    "First":      ("First",          "FirstMiles",          None),
+    "Economy":    ("YAvailable", "YMileageCost", "YDirect"),
+    "Premium Eco":("WAvailable", "WMileageCost", "WDirect"),
+    "Business":   ("JAvailable", "JMileageCost", "JDirect"),
+    "First":      ("FAvailable", "FMileageCost", None),
 }
 SEATSAERO_CABIN_PARAM: dict[str, str] = {
     "Economy": "economy", "Premium Eco": "premium", "Business": "business", "First": "first",
@@ -1556,14 +1556,6 @@ def score_award(origin: str, dest: str, cabin: str, lang: str = "de") -> dict:
 @app.route("/health")
 def health():
     return jsonify({"ok": True, "app": APP_NAME, "version": "6.0", "price_source": PRICE_SOURCE, "serpapi_token": bool(SERPAPI_TOKEN), "tp_token": bool(TP_TOKEN), "api_guard": bool(APP_TOKEN), "award_source": AWARD_SOURCE, "seatsaero_key": bool(SEATSAERO_KEY)})
-
-
-@app.route("/debug/seatsaero")
-def debug_seatsaero():
-    """Temporary debug endpoint — remove after seats.aero integration verified."""
-    import datetime as _dt
-    rows = fetch_seatsaero("FRA", "JFK", "business", _dt.date(2026, 8, 15))
-    return jsonify({"rows_returned": len(rows), "sample": rows[:3] if rows else [], "key_set": bool(SEATSAERO_KEY), "award_source": AWARD_SOURCE})
 
 
 if __name__ == "__main__":
