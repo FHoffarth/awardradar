@@ -1729,31 +1729,6 @@ def top_opportunities():
 
 
 
-@app.route("/debug/sa")
-def debug_sa():
-    """TEMP — raw seats.aero single-route check. Remove after diagnosis."""
-    if not SEATSAERO_KEY:
-        return jsonify({"error": "no key"}), 503
-    origin = request.args.get("o", "FRA").upper()
-    dest   = request.args.get("d", "JFK").upper()
-    cabin  = request.args.get("c", "business").lower()
-    start  = dt.date.today().isoformat()
-    end    = (dt.date.today() + dt.timedelta(days=60)).isoformat()
-    try:
-        r = HTTP.get(f"{SEATSAERO_BASE}/search",
-            params={"origin_airport": origin, "destination_airport": dest,
-                    "cabin": cabin, "start_date": start, "end_date": end, "take": 5},
-            headers={"Partner-Authorization": SEATSAERO_KEY}, timeout=15)
-        remaining = r.headers.get("X-RateLimit-Remaining", "n/a")
-        if not r.ok:
-            return jsonify({"status": r.status_code, "remaining": remaining, "body": r.text[:300]})
-        rows = r.json().get("data", []) or []
-        return jsonify({"status": 200, "remaining": remaining, "rows": len(rows),
-                        "keys": list(rows[0].keys()) if rows else [],
-                        "sample": [{k:v for k,v in row.items() if k!="ID"} for row in rows[:2]]})
-    except Exception as ex:
-        return jsonify({"error": str(ex)}), 500
-
 
 @app.route("/health")
 def health():
