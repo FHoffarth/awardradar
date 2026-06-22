@@ -1,5 +1,81 @@
 const $ = id => document.getElementById(id);
 
+// Sprint 2B — Itinerary Intelligence helpers
+function fmtDur(min) {
+  if (!min) return '';
+  const h = Math.floor(min / 60), m = min % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+const AIRCRAFT_STUBS = {
+  'A380': 'Double-deck superjumbo', 'A350': 'Modern long-haul', 'A330': 'Long-haul widebody',
+  'B747': 'Widebody flagship', '747-': 'Widebody flagship',
+  'B787': 'Modern widebody', '787-': 'Modern widebody',
+  'B777': 'Long-haul workhorse', '777-': 'Long-haul workhorse',
+  'A320': 'Narrowbody', 'A321': 'Narrowbody', 'B737': 'Narrowbody',
+};
+function aircraftStub(aircraft) {
+  if (!aircraft) return null;
+  for (const [k, v] of Object.entries(AIRCRAFT_STUBS)) {
+    if (aircraft.includes(k)) return v;
+  }
+  return null;
+}
+function buildItinerary(f) {
+  if (!f) return '';
+  // Summary line
+  const sumParts = [];
+  if (f.flight_number) sumParts.push(`<span class="aw-fs-fn">${esc(f.flight_number)}</span>`);
+  if (f.dep_time && f.arr_time) sumParts.push(`<span class="aw-fs-times">${esc(f.dep_time)} → ${esc(f.arr_time)}</span>`);
+  if (f.duration) sumParts.push(`<span class="aw-fs-dur">${esc(f.duration)}</span>`);
+  if (f.stops === 0) sumParts.push('<span class="aw-fs-nonstop">Nonstop</span>');
+  else if (f.stops > 0) {
+    const viaStr = (f.via || []).join(' · ');
+    sumParts.push(`<span class="aw-fs-stops">${f.stops} stop${f.stops > 1 ? 's' : ''}${viaStr ? ' · ' + esc(viaStr) : ''}</span>`);
+  }
+
+  // Badges (P3)
+  const badges = [];
+  if (f.stops === 0) badges.push('<span class="aw-badge aw-badge-nonstop">Nonstop</span>');
+  if ((f.layovers || []).some(l => l.duration_min > 0 && l.duration_min < 60)) badges.push('<span class="aw-badge aw-badge-warn">Short connection</span>');
+  if ((f.segments || []).some(s => s.overnight)) badges.push('<span class="aw-badge aw-badge-warn">Overnight</span>');
+  if ((f.layovers || []).some(l => l.duration_min >= 240)) badges.push('<span class="aw-badge aw-badge-muted">Long layover</span>');
+
+  // Segment detail (P2) — only for connecting flights
+  let detail = '';
+  if (f.stops > 0 && (f.segments || []).length > 1) {
+    const segsHtml = f.segments.map((seg, i) => {
+      const stub = aircraftStub(seg.aircraft);
+      const lay = f.layovers && f.layovers[i];
+      return `<div class="aw-seg">
+        <div class="aw-seg-header">
+          ${seg.flight_number ? `<span class="aw-seg-fn">${esc(seg.flight_number)}</span>` : ''}
+          ${seg.aircraft ? `<span class="aw-seg-aircraft">${esc(seg.aircraft)}${stub ? ` <span class="aw-seg-stub">${esc(stub)}</span>` : ''}</span>` : ''}
+        </div>
+        <div class="aw-seg-route">
+          <span class="aw-seg-ap">${esc(seg.dep_iata || '')}</span>
+          <span class="aw-seg-t">${esc(seg.dep_time || '')}</span>
+          <span class="aw-seg-arr">→</span>
+          <span class="aw-seg-ap">${esc(seg.arr_iata || '')}</span>
+          <span class="aw-seg-t">${esc(seg.arr_time || '')}</span>
+          ${seg.duration_min ? `<span class="aw-seg-dur">${fmtDur(seg.duration_min)}</span>` : ''}
+        </div>
+        ${lay ? `<div class="aw-layover-row">${esc(lay.iata || '')} · ${fmtDur(lay.duration_min || 0)} layover${lay.overnight ? ' · overnight' : ''}</div>` : ''}
+      </div>`;
+    }).join('');
+    detail = `<div class="aw-itin-detail" hidden>${segsHtml}</div>`;
+  }
+
+  const toggle = detail
+    ? `<button class="aw-itin-toggle" onclick="(function(b){var d=b.closest('.aw-itin').querySelector('.aw-itin-detail');d.hidden=!d.hidden;b.textContent=d.hidden?'Show itinerary ▼':'Hide itinerary ▲';})(this)">Show itinerary ▼</button>`
+    : '';
+
+  return `<div class="aw-itin">
+    <div class="aw-itin-sum">${sumParts.join('<span class="aw-fs-sep">·</span>')}</div>
+    ${badges.length ? `<div class="aw-itin-badges">${badges.join('')}</div>` : ''}
+    ${toggle}${detail}
+  </div>`;
+}
+
 // Consent state — Phase 1: necessary only. Extend when analytics/affiliate added.
 const consent = {
   necessary: true,   // always true — theme, lang, ar_key session cookie
@@ -538,20 +614,6 @@ function render(data) {
           </div>`;
         }).join('');
 
-        // Flight strip (Sprint 1: schedule from cheapest cash flight)
-        let flightStrip = '';
-        if (r.flight) {
-          const f = r.flight;
-          const parts = [];
-          if (f.flight_number) parts.push(`<span class="aw-fs-fn">${esc(f.flight_number)}</span>`);
-          if (f.dep_time && f.arr_time) parts.push(`<span class="aw-fs-times">${esc(f.dep_time)} → ${esc(f.arr_time)}</span>`);
-          if (f.duration) parts.push(`<span class="aw-fs-dur">${esc(f.duration)}</span>`);
-          if (f.stops === 0) parts.push('<span class="aw-fs-nonstop">Nonstop</span>');
-          else if (f.stops === 1) parts.push(`<span class="aw-fs-stops">${f.via && f.via[0] ? `1 stop · ${esc(f.via[0])}` : '1 stop'}</span>`);
-          else if (f.stops > 1) parts.push(`<span class="aw-fs-stops">${f.stops} stops</span>`);
-          if (parts.length) flightStrip = `<div class="aw-flight-strip">${parts.join('<span class="aw-fs-sep">·</span>')}</div>`;
-        }
-
         return `<div class="card${r.best_program ? ' top-card' : ''}">
           <div class="aw-result-header">
             <div>
@@ -560,7 +622,7 @@ function render(data) {
                 <span>${esc(r.date)}</span>
                 ${cashStr ? `<span class="badge">Cash: ${cashStr}</span>` : ''}
               </div>
-              ${flightStrip}
+              ${buildItinerary(r.flight)}
             </div>
           </div>
           ${liveNote}

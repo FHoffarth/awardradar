@@ -448,14 +448,37 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .d-tier{color:var(--bad)}
 /* Award V2 cards */
 .aw-result-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
-/* Flight strip — schedule from cheapest cash flight (Sprint 1) */
-.aw-flight-strip{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:6px;font-size:12px;color:var(--muted);line-height:1}
+/* Itinerary Intelligence V1 (Sprint 2B) */
+.aw-itin{margin-top:8px;font-size:12px;line-height:1.4}
+.aw-itin-sum{display:flex;flex-wrap:wrap;align-items:center;gap:4px;color:var(--muted)}
 .aw-fs-fn{font-weight:700;color:var(--text);letter-spacing:.02em}
 .aw-fs-times{font-variant-numeric:tabular-nums;color:var(--text)}
 .aw-fs-dur{color:var(--muted)}
 .aw-fs-nonstop{color:var(--green);font-weight:600}
 .aw-fs-stops{color:var(--gold)}
 .aw-fs-sep{color:var(--border);margin:0 1px}
+/* Badges (P3) */
+.aw-itin-badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.aw-badge{font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;letter-spacing:.03em;text-transform:uppercase}
+.aw-badge-nonstop{background:rgba(82,196,142,.15);color:var(--green);border:1px solid rgba(82,196,142,.3)}
+.aw-badge-warn{background:rgba(255,193,70,.12);color:var(--gold);border:1px solid rgba(255,193,70,.25)}
+.aw-badge-muted{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--border)}
+/* Toggle */
+.aw-itin-toggle{background:none;border:none;cursor:pointer;color:var(--cyan);font-size:11px;padding:4px 0;margin-top:4px;display:block}
+.aw-itin-toggle:hover{opacity:.8}
+/* Segment detail */
+.aw-itin-detail{margin-top:8px;border-top:1px solid var(--border);padding-top:8px;display:flex;flex-direction:column;gap:8px}
+.aw-seg{}
+.aw-seg-header{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+.aw-seg-fn{font-weight:700;color:var(--text);font-size:12px}
+.aw-seg-aircraft{color:var(--muted);font-size:11px}
+.aw-seg-stub{color:var(--border);font-size:10px;font-style:italic}
+.aw-seg-route{display:flex;align-items:center;gap:5px;font-size:12px;font-variant-numeric:tabular-nums}
+.aw-seg-ap{font-weight:700;color:var(--text)}
+.aw-seg-t{color:var(--text)}
+.aw-seg-arr{color:var(--muted)}
+.aw-seg-dur{color:var(--muted);font-size:11px;margin-left:4px}
+.aw-layover-row{font-size:11px;color:var(--muted);padding:4px 8px;background:rgba(255,255,255,.03);border-radius:4px;border-left:2px solid var(--border);margin-top:4px}
 /* ===== Award Cards V2 ===== */
 .aw-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-bottom:10px}
 

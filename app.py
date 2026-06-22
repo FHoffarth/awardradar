@@ -1209,15 +1209,39 @@ def fetch_cash_details(origin: str, dest: str, dep: dt.date, cabin: str, currenc
         stops = max(0, len(segs) - 1)
         flight_number = first.get("flight_number") or None
         via = [((s.get("arrival_airport") or {}).get("id") or "") for s in segs[:-1]] if stops > 0 else []
+        # Full per-segment data for Itinerary Intelligence (Sprint 2B)
+        segments = []
+        for seg in segs:
+            da = seg.get("departure_airport") or {}
+            aa = seg.get("arrival_airport") or {}
+            dt_raw = da.get("time") or ""
+            at_raw = aa.get("time") or ""
+            segments.append({
+                "flight_number": seg.get("flight_number"),
+                "airline":       seg.get("airline"),
+                "aircraft":      seg.get("airplane"),
+                "dep_iata":      da.get("id"),
+                "dep_time":      dt_raw[11:16] if len(dt_raw) > 10 else None,
+                "arr_iata":      aa.get("id"),
+                "arr_time":      at_raw[11:16] if len(at_raw) > 10 else None,
+                "duration_min":  seg.get("duration"),
+                "overnight":     seg.get("overnight", False),
+            })
+        layovers = [
+            {"iata": l.get("id"), "duration_min": l.get("duration"), "overnight": l.get("overnight", False)}
+            for l in (best.get("layovers") or [])
+        ]
         return {
-            "price": float(best["price"]),
-            "dep_time": dep_time,
-            "arr_time": arr_time,
-            "duration": _fmt_duration(best.get("total_duration")),
-            "duration_min": best.get("total_duration"),
-            "stops": stops,
-            "via": [v for v in via if v],
+            "price":         float(best["price"]),
+            "dep_time":      dep_time,
+            "arr_time":      arr_time,
+            "duration":      _fmt_duration(best.get("total_duration")),
+            "duration_min":  best.get("total_duration"),
+            "stops":         stops,
+            "via":           [v for v in via if v],
             "flight_number": flight_number,
+            "segments":      segments,
+            "layovers":      layovers,
         }
     except QuotaError:
         raise
