@@ -1718,23 +1718,35 @@ def top_opportunities():
     return jsonify({"ok": True, "opportunities": top, "source": "live"})
 
 
-@app.route("/debug/seatsaero")
-def debug_seatsaero():
-    """Raw seats.aero response for FRA→JFK Business — temporary debug route."""
+@app.route("/debug/seatsaero/raw")
+def debug_seatsaero_raw():
+    """TEMPORARY — minimal seats.aero response inspection. Remove after diagnosis."""
     if not SEATSAERO_KEY:
         return jsonify({"error": "no key"}), 503
+    origin  = request.args.get("origin", "FRA").upper()
+    dest    = request.args.get("destination", "JFK").upper()
+    cabin   = request.args.get("cabin", "business").lower()
     dep = dt.date.today() + dt.timedelta(days=30)
     start = (dep - dt.timedelta(days=30)).isoformat()
     end   = (dep + dt.timedelta(days=30)).isoformat()
     try:
         r = HTTP.get(
             f"{SEATSAERO_BASE}/search",
-            params={"origin_airport": "FRA", "destination_airport": "JFK",
-                    "cabin": "business", "start_date": start, "end_date": end, "take": 10},
+            params={"origin_airport": origin, "destination_airport": dest,
+                    "cabin": cabin, "start_date": start, "end_date": end, "take": 10},
             headers={"Partner-Authorization": SEATSAERO_KEY},
             timeout=15,
         )
-        return jsonify({"status": r.status_code, "body": r.json() if r.ok else r.text[:500]})
+        if not r.ok:
+            return jsonify({"status": r.status_code, "error": r.text[:300]})
+        rows = r.json().get("data", []) or []
+        sample = [{k: v for k, v in row.items() if k != "ID"} for row in rows[:2]]
+        return jsonify({
+            "status": r.status_code,
+            "rows_returned": len(rows),
+            "first_row_keys": list(rows[0].keys()) if rows else [],
+            "sample": sample,
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
