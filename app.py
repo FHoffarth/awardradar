@@ -1041,13 +1041,13 @@ def build_seatsaero_programs(
         if not row.get(avail_field):
             continue
         src = (row.get("Source") or "").lower()
-        miles = row.get(miles_field) or 0
-        if not miles or not src:
+        miles = int(row.get(miles_field) or 0)
+        seats = int(row.get(seats_field) or 0)
+        if not miles or not src or (seats == 0 and not row.get(direct_field)):
             continue
         is_direct = bool(row.get(direct_field)) if direct_field else False
         row_date = row.get("Date", "")
         airlines = (row.get(airlines_field) or "").split(",")[0].strip()
-        seats = row.get(seats_field) or 0
         existing = by_source.get(src)
         if not existing:
             by_source[src] = {"miles": miles, "date": row_date, "direct": is_direct, "airlines": airlines, "seats": seats}
