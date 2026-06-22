@@ -1133,19 +1133,56 @@ def build_program_comparison(origin: str, dest: str, cabin: str, cash_eur: float
     return results
 
 
-def fetch_cash_price(origin: str, dest: str, dep: dt.date, cabin: str, currency: str = "EUR") -> float | None:
-    """Quick SerpApi lookup for cash price — returns cheapest price found or None."""
-    if not SERPAPI_TOKEN:
+def _fmt_duration(minutes: int | None) -> str | None:
+    if not minutes:
         return None
+    h, m = divmod(int(minutes), 60)
+    return f"{h}h {m:02d}m" if m else f"{h}h"
+
+
+def fetch_cash_details(origin: str, dest: str, dep: dt.date, cabin: str, currency: str = "EUR") -> dict:
+    """Quick SerpApi lookup — returns {price, dep_time, arr_time, duration, stops, flight_number} for cheapest flight."""
+    empty: dict = {}
+    if not SERPAPI_TOKEN:
+        return empty
     try:
         data = serpapi_search(origin, dest, dep, None, cabin, currency)
         items = (data.get("best_flights") or []) + (data.get("other_flights") or [])
-        prices = [float(it["price"]) for it in items if it.get("price")]
-        return min(prices) if prices else None
+        if not items:
+            return empty
+        best = min((it for it in items if it.get("price")), key=lambda x: float(x["price"]), default=None)
+        if not best:
+            return empty
+        segs = best.get("flights") or []
+        first = segs[0] if segs else {}
+        last  = segs[-1] if segs else {}
+        dep_time_raw = ((first.get("departure_airport") or {}).get("time") or "")
+        arr_time_raw = ((last.get("arrival_airport")  or {}).get("time") or "")
+        dep_time = dep_time_raw[11:16] if len(dep_time_raw) > 10 else None
+        arr_time = arr_time_raw[11:16] if len(arr_time_raw) > 10 else None
+        stops = max(0, len(segs) - 1)
+        flight_number = first.get("flight_number") or None
+        via = [((s.get("arrival_airport") or {}).get("id") or "") for s in segs[:-1]] if stops > 0 else []
+        return {
+            "price": float(best["price"]),
+            "dep_time": dep_time,
+            "arr_time": arr_time,
+            "duration": _fmt_duration(best.get("total_duration")),
+            "duration_min": best.get("total_duration"),
+            "stops": stops,
+            "via": [v for v in via if v],
+            "flight_number": flight_number,
+        }
     except QuotaError:
         raise
     except Exception:
-        return None
+        return empty
+
+
+def fetch_cash_price(origin: str, dest: str, dep: dt.date, cabin: str, currency: str = "EUR") -> float | None:
+    """Wrapper kept for compatibility — returns price only."""
+    d = fetch_cash_details(origin, dest, dep, cabin, currency)
+    return d.get("price")
 
 
 def award_links(origin: str, dest: str, dep: str, ret: str | None, cabin: str) -> list[dict]:
@@ -1493,7 +1530,8 @@ def _awards_inner():
         for dest in dests[:3]:
             if origin == dest:
                 continue
-            cash_eur = fetch_cash_price(origin, dest, dep, cabin)
+            cash_details = fetch_cash_details(origin, dest, dep, cabin)
+            cash_eur = cash_details.get("price")
 
             # Live availability from seats.aero (if configured)
             if use_seatsaero:
@@ -1511,6 +1549,7 @@ def _awards_inner():
             combined.sort(key=lambda x: (0 if x.get("data_source") == "live" else 1, -(x.get("cpm") or 0)))
 
             best = next((p for p in combined if p.get("grade") and p["grade"]["tier"] in ("exceptional", "great")), None)
+            flight_info = {k: v for k, v in cash_details.items() if k != "price"} if cash_details else None
             results.append({
                 "route":          f"{origin} → {dest}",
                 "origin":         origin,
@@ -1519,6 +1558,7 @@ def _awards_inner():
                 "returnDate":     ret.isoformat() if ret else None,
                 "cabin":          cabin,
                 "cash_eur":       round(cash_eur, 0) if cash_eur else None,
+                "flight":         flight_info,
                 "programs":       combined,
                 "best_program":   best["program"] if best else None,
                 "has_live_data":  bool(live_programs),

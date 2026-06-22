@@ -538,6 +538,20 @@ function render(data) {
           </div>`;
         }).join('');
 
+        // Flight strip (Sprint 1: schedule from cheapest cash flight)
+        let flightStrip = '';
+        if (r.flight) {
+          const f = r.flight;
+          const parts = [];
+          if (f.flight_number) parts.push(`<span class="aw-fs-fn">${esc(f.flight_number)}</span>`);
+          if (f.dep_time && f.arr_time) parts.push(`<span class="aw-fs-times">${esc(f.dep_time)} → ${esc(f.arr_time)}</span>`);
+          if (f.duration) parts.push(`<span class="aw-fs-dur">${esc(f.duration)}</span>`);
+          if (f.stops === 0) parts.push('<span class="aw-fs-nonstop">Nonstop</span>');
+          else if (f.stops === 1) parts.push(`<span class="aw-fs-stops">${f.via && f.via[0] ? `1 stop · ${esc(f.via[0])}` : '1 stop'}</span>`);
+          else if (f.stops > 1) parts.push(`<span class="aw-fs-stops">${f.stops} stops</span>`);
+          if (parts.length) flightStrip = `<div class="aw-flight-strip">${parts.join('<span class="aw-fs-sep">·</span>')}</div>`;
+        }
+
         return `<div class="card${r.best_program ? ' top-card' : ''}">
           <div class="aw-result-header">
             <div>
@@ -546,6 +560,7 @@ function render(data) {
                 <span>${esc(r.date)}</span>
                 ${cashStr ? `<span class="badge">Cash: ${cashStr}</span>` : ''}
               </div>
+              ${flightStrip}
             </div>
           </div>
           ${liveNote}

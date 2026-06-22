@@ -414,6 +414,14 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .d-tier{color:var(--bad)}
 /* Award V2 cards */
 .aw-result-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
+/* Flight strip — schedule from cheapest cash flight (Sprint 1) */
+.aw-flight-strip{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:6px;font-size:12px;color:var(--muted);line-height:1}
+.aw-fs-fn{font-weight:700;color:var(--text);letter-spacing:.02em}
+.aw-fs-times{font-variant-numeric:tabular-nums;color:var(--text)}
+.aw-fs-dur{color:var(--muted)}
+.aw-fs-nonstop{color:var(--green);font-weight:600}
+.aw-fs-stops{color:var(--gold)}
+.aw-fs-sep{color:var(--border);margin:0 1px}
 /* ===== Award Cards V2 ===== */
 .aw-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-bottom:10px}
 
