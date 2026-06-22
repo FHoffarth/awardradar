@@ -1787,6 +1787,22 @@ def health():
     return jsonify({"ok": True, "app": APP_NAME, "version": "6.1", "price_source": PRICE_SOURCE, "serpapi_token": bool(SERPAPI_TOKEN), "tp_token": bool(TP_TOKEN), "api_guard": bool(APP_TOKEN), "award_source": AWARD_SOURCE, "seatsaero_key": bool(SEATSAERO_KEY), "seatsaero_remaining": _seatsaero_remaining})
 
 
+@app.route("/static/icon-<int:size>.png")
+def pwa_icon(size: int):
+    """Generate PNG icon on-the-fly from SVG using cairosvg if available, else serve SVG redirect."""
+    if size not in (192, 512):
+        return ("Not found", 404)
+    svg_path = os.path.join(app.static_folder, "icon.svg")
+    try:
+        import cairosvg  # type: ignore
+        png_bytes = cairosvg.svg2png(url=svg_path, output_width=size, output_height=size)
+        return Response(png_bytes, mimetype="image/png",
+                        headers={"Cache-Control": "public,max-age=86400"})
+    except Exception:
+        # Fallback: redirect to SVG (Chrome/Android accepts it; iOS will use page screenshot)
+        return redirect(url_for("static", filename="icon.svg"))
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=PORT, debug=os.environ.get("FLASK_DEBUG", "0") == "1")
 
