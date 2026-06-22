@@ -49,6 +49,8 @@ PRICE_SOURCE = (os.environ.get("PRICE_SOURCE") or ("serpapi" if SERPAPI_TOKEN el
 AWARD_SOURCE   = os.environ.get("AWARD_SOURCE", "estimated").lower()  # "estimated" | "seatsaero"
 SEATSAERO_KEY  = os.environ.get("SEATSAERO_API_KEY", "")
 SEATSAERO_BASE = "https://seats.aero/partnerapi"
+SEATSAERO_DAILY_BUDGET = 500        # soft cap: reserve half of 1000/day for user searches
+_seatsaero_remaining: int | None = None  # updated from X-RateLimit-Remaining header
 SERPAPI_TTL = int(os.environ.get("SERPAPI_TTL", "21600"))      # Cache-Lebensdauer in Sekunden (default 6h)
 SERPAPI_MAX_PAIRS = int(os.environ.get("SERPAPI_MAX_PAIRS", "2"))  # max. Origin/Dest-Paare pro Klick (= Anzahl bezahlter Suchen)
 SERPAPI_DEEP = (os.environ.get("SERPAPI_DEEP", "0") == "1")    # exakt wie im Browser, aber langsamer
@@ -1028,28 +1030,36 @@ def fetch_seatsaero(origin: str, dest: str, cabin: str, dep: dt.date, window_day
     start = (dep - dt.timedelta(days=window_days)).isoformat()
     end   = (dep + dt.timedelta(days=window_days)).isoformat()
     try:
-        for attempt in range(3):
-            if attempt:
-                time.sleep(2 ** attempt)
-            r = HTTP.get(
-                f"{SEATSAERO_BASE}/search",
-                params={"origin_airport": origin, "destination_airport": dest,
-                        "cabin": cabin_param, "start_date": start, "end_date": end, "take": 50},
-                headers={"Partner-Authorization": SEATSAERO_KEY},
-                timeout=15,
-            )
-            app.logger.info("seats.aero %s→%s %s status=%s (attempt %d)", origin, dest, cabin_param, r.status_code, attempt + 1)
-            if r.status_code == 429:
-                app.logger.warning("seats.aero 429 rate limit on attempt %d", attempt + 1)
-                continue
-            if r.status_code != 200:
-                app.logger.warning("seats.aero non-200 body: %s", r.text[:500])
-                return []
-            rows = r.json().get("data", []) or []
-            app.logger.info("seats.aero returned %d rows", len(rows))
-            return rows
-        app.logger.warning("seats.aero exhausted retries for %s→%s", origin, dest)
-        return []
+        global _seatsaero_remaining
+        # Budget guard: stop if we're running low
+        if _seatsaero_remaining is not None and _seatsaero_remaining < 50:
+            app.logger.warning("seats.aero budget guard: only %d calls remaining, skipping", _seatsaero_remaining)
+            return []
+        r = HTTP.get(
+            f"{SEATSAERO_BASE}/search",
+            params={"origin_airport": origin, "destination_airport": dest,
+                    "cabin": cabin_param, "start_date": start, "end_date": end, "take": 50},
+            headers={"Partner-Authorization": SEATSAERO_KEY},
+            timeout=15,
+        )
+        # Track remaining budget from header
+        remaining_hdr = r.headers.get("X-RateLimit-Remaining")
+        if remaining_hdr is not None:
+            try:
+                _seatsaero_remaining = int(remaining_hdr)
+                app.logger.info("seats.aero remaining calls today: %d", _seatsaero_remaining)
+            except ValueError:
+                pass
+        app.logger.info("seats.aero %s→%s %s status=%s remaining=%s", origin, dest, cabin_param, r.status_code, _seatsaero_remaining)
+        if r.status_code == 429:
+            app.logger.warning("seats.aero 429 — daily limit hit, not retrying")
+            return []
+        if r.status_code != 200:
+            app.logger.warning("seats.aero non-200 body: %s", r.text[:500])
+            return []
+        rows = r.json().get("data", []) or []
+        app.logger.info("seats.aero returned %d rows for %s→%s", len(rows), origin, dest)
+        return rows
     except Exception as exc:
         app.logger.warning("seats.aero fetch failed %s→%s %s: %s", origin, dest, cabin, exc)
         return []
@@ -1669,7 +1679,7 @@ def top_opportunities():
         origin, dest, cabin = args
         with rate_lock:
             try:
-                time.sleep(0.5)  # gentle spacing between calls
+                time.sleep(2.0)  # 2s spacing → max ~30 calls/min, well within daily budget
                 rows = fetch_seatsaero(origin, dest, cabin, dep, window_days=30)
             except Exception:
                 rows = []
@@ -1718,42 +1728,10 @@ def top_opportunities():
     return jsonify({"ok": True, "opportunities": top, "source": "live"})
 
 
-@app.route("/debug/seatsaero/raw")
-def debug_seatsaero_raw():
-    """TEMPORARY — minimal seats.aero response inspection. Remove after diagnosis."""
-    if not SEATSAERO_KEY:
-        return jsonify({"error": "no key"}), 503
-    origin  = request.args.get("origin", "FRA").upper()
-    dest    = request.args.get("destination", "JFK").upper()
-    cabin   = request.args.get("cabin", "business").lower()
-    dep = dt.date.today() + dt.timedelta(days=30)
-    start = (dep - dt.timedelta(days=30)).isoformat()
-    end   = (dep + dt.timedelta(days=30)).isoformat()
-    try:
-        r = HTTP.get(
-            f"{SEATSAERO_BASE}/search",
-            params={"origin_airport": origin, "destination_airport": dest,
-                    "cabin": cabin, "start_date": start, "end_date": end, "take": 10},
-            headers={"Partner-Authorization": SEATSAERO_KEY},
-            timeout=15,
-        )
-        if not r.ok:
-            return jsonify({"status": r.status_code, "error": r.text[:300]})
-        rows = r.json().get("data", []) or []
-        sample = [{k: v for k, v in row.items() if k != "ID"} for row in rows[:2]]
-        return jsonify({
-            "status": r.status_code,
-            "rows_returned": len(rows),
-            "first_row_keys": list(rows[0].keys()) if rows else [],
-            "sample": sample,
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
 
 @app.route("/health")
 def health():
-    return jsonify({"ok": True, "app": APP_NAME, "version": "6.1", "price_source": PRICE_SOURCE, "serpapi_token": bool(SERPAPI_TOKEN), "tp_token": bool(TP_TOKEN), "api_guard": bool(APP_TOKEN), "award_source": AWARD_SOURCE, "seatsaero_key": bool(SEATSAERO_KEY)})
+    return jsonify({"ok": True, "app": APP_NAME, "version": "6.1", "price_source": PRICE_SOURCE, "serpapi_token": bool(SERPAPI_TOKEN), "tp_token": bool(TP_TOKEN), "api_guard": bool(APP_TOKEN), "award_source": AWARD_SOURCE, "seatsaero_key": bool(SEATSAERO_KEY), "seatsaero_remaining": _seatsaero_remaining})
 
 
 if __name__ == "__main__":
