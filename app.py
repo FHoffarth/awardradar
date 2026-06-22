@@ -22,7 +22,7 @@ import requests
 
 class QuotaError(RuntimeError):
     """SerpApi search quota exhausted."""
-from flask import Flask, jsonify, make_response, render_template, request
+from flask import Flask, jsonify, make_response, redirect, render_template, request, send_from_directory, url_for
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -1787,20 +1787,41 @@ def health():
     return jsonify({"ok": True, "app": APP_NAME, "version": "6.1", "price_source": PRICE_SOURCE, "serpapi_token": bool(SERPAPI_TOKEN), "tp_token": bool(TP_TOKEN), "api_guard": bool(APP_TOKEN), "award_source": AWARD_SOURCE, "seatsaero_key": bool(SEATSAERO_KEY), "seatsaero_remaining": _seatsaero_remaining})
 
 
+def _serve_png(filename: str, fallback_svg: str = "icon.svg"):
+    """Serve a static PNG if it exists, otherwise redirect to SVG fallback."""
+    import pathlib
+    png_path = pathlib.Path(app.static_folder) / filename
+    if png_path.exists():
+        return send_from_directory(app.static_folder, filename,
+                                   mimetype="image/png",
+                                   max_age=86400)
+    return redirect(url_for("static", filename=fallback_svg))
+
+
+@app.route("/apple-touch-icon.png")
+@app.route("/apple-touch-icon-precomposed.png")
+@app.route("/static/apple-touch-icon.png")
+def apple_touch_icon():
+    return _serve_png("apple-touch-icon.png")
+
+
+@app.route("/favicon.ico")
+@app.route("/static/favicon.ico")
+def favicon():
+    # Serve favicon.ico if present, else send the SVG icon as fallback
+    import pathlib
+    ico_path = pathlib.Path(app.static_folder) / "favicon.ico"
+    if ico_path.exists():
+        return send_from_directory(app.static_folder, "favicon.ico",
+                                   mimetype="image/x-icon", max_age=86400)
+    return redirect(url_for("static", filename="icon.svg"))
+
+
 @app.route("/static/icon-<int:size>.png")
 def pwa_icon(size: int):
-    """Generate PNG icon on-the-fly from SVG using cairosvg if available, else serve SVG redirect."""
     if size not in (192, 512):
         return ("Not found", 404)
-    svg_path = os.path.join(app.static_folder, "icon.svg")
-    try:
-        import cairosvg  # type: ignore
-        png_bytes = cairosvg.svg2png(url=svg_path, output_width=size, output_height=size)
-        return Response(png_bytes, mimetype="image/png",
-                        headers={"Cache-Control": "public,max-age=86400"})
-    except Exception:
-        # Fallback: redirect to SVG (Chrome/Android accepts it; iOS will use page screenshot)
-        return redirect(url_for("static", filename="icon.svg"))
+    return _serve_png(f"icon-{size}.png")
 
 
 if __name__ == "__main__":

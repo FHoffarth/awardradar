@@ -1,73 +1,43 @@
 <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="bg" cx="40%" cy="35%" r="65%">
-      <stop offset="0%" stop-color="#0d2a4a"/>
-      <stop offset="100%" stop-color="#02050b"/>
+    <radialGradient id="bg" cx="38%" cy="32%" r="70%">
+      <stop offset="0%" stop-color="#0d2244"/>
+      <stop offset="100%" stop-color="#04091a"/>
     </radialGradient>
-    <radialGradient id="glow-cyan" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#6ad7ff" stop-opacity=".18"/>
-      <stop offset="100%" stop-color="#6ad7ff" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="glow-gold" cx="70%" cy="30%" r="50%">
-      <stop offset="0%" stop-color="#ffc146" stop-opacity=".22"/>
-      <stop offset="100%" stop-color="#ffc146" stop-opacity="0"/>
-    </radialGradient>
-    <clipPath id="globe-clip">
-      <circle cx="256" cy="272" r="148"/>
-    </clipPath>
   </defs>
 
   <!-- Background -->
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
 
-  <!-- Glow layers -->
-  <rect width="512" height="512" rx="112" fill="url(#glow-cyan)"/>
-  <rect width="512" height="512" rx="112" fill="url(#glow-gold)"/>
+  <!-- Globe: outer ring -->
+  <circle cx="256" cy="268" r="158" fill="none" stroke="#4ab8e8" stroke-width="5" opacity=".45"/>
 
-  <!-- Globe outline -->
-  <circle cx="256" cy="272" r="148" stroke="#6ad7ff" stroke-width="1.5" fill="none" opacity=".35"/>
+  <!-- Globe: equator -->
+  <ellipse cx="256" cy="268" rx="158" ry="52" fill="none" stroke="#4ab8e8" stroke-width="4" opacity=".35"/>
 
-  <!-- Latitude lines clipped to globe -->
-  <g clip-path="url(#globe-clip)" opacity=".4">
-    <ellipse cx="256" cy="272" rx="148" ry="52" stroke="#6ad7ff" stroke-width="1.2" fill="none"/>
-    <ellipse cx="256" cy="210" rx="128" ry="42" stroke="#6ad7ff" stroke-width=".9" fill="none"/>
-    <ellipse cx="256" cy="334" rx="128" ry="42" stroke="#6ad7ff" stroke-width=".9" fill="none"/>
-  </g>
+  <!-- Globe: one longitude arc (right side) -->
+  <path d="M256 110 Q310 188 310 268 Q310 348 256 426"
+        fill="none" stroke="#4ab8e8" stroke-width="3" opacity=".25"/>
 
-  <!-- Longitude line -->
-  <g clip-path="url(#globe-clip)" opacity=".25">
-    <ellipse cx="256" cy="272" rx="56" ry="148" stroke="#6ad7ff" stroke-width="1" fill="none"/>
-  </g>
+  <!-- Gold route arc — main visual anchor, bold -->
+  <path d="M130 370 Q200 170 380 158"
+        fill="none" stroke="#ffc146" stroke-width="14"
+        stroke-linecap="round" opacity=".92"/>
 
-  <!-- Radar sweep — gold arc from center -->
-  <path d="M256 272 L256 108 A164 164 0 0 1 404 188 Z"
-        fill="url(#glow-gold)" opacity=".55"/>
-  <path d="M256 272 L256 108 A164 164 0 0 1 404 188 Z"
-        fill="none" stroke="#ffc146" stroke-width="1.8" opacity=".7"/>
+  <!-- Cyan radar sweep wedge -->
+  <path d="M256 268 L256 124 A144 144 0 0 1 382 196 Z"
+        fill="#4ab8e8" fill-opacity=".08"
+        stroke="#4ab8e8" stroke-width="3" stroke-linejoin="round" opacity=".6"/>
 
-  <!-- Radar rings (cyan arcs) -->
-  <path d="M256 272 m0,-60 a60 60 0 0 1 52 30" fill="none" stroke="#6ad7ff" stroke-width="2" opacity=".5" stroke-linecap="round"/>
-  <path d="M256 272 m0,-100 a100 100 0 0 1 87 50" fill="none" stroke="#6ad7ff" stroke-width="1.8" opacity=".35" stroke-linecap="round"/>
-  <path d="M256 272 m0,-140 a140 140 0 0 1 121 70" fill="none" stroke="#6ad7ff" stroke-width="1.5" opacity=".2" stroke-linecap="round"/>
+  <!-- Radar sweep leading edge — single bright line -->
+  <line x1="256" y1="268" x2="382" y2="196"
+        stroke="#4ab8e8" stroke-width="3.5" opacity=".7" stroke-linecap="round"/>
+  <line x1="256" y1="268" x2="256" y2="124"
+        stroke="#4ab8e8" stroke-width="2.5" opacity=".4" stroke-linecap="round"/>
 
-  <!-- Airplane icon (gold, pointing up-right) -->
-  <g transform="translate(318, 168) rotate(35)" opacity=".95">
-    <path d="M0,-22 C2,-20 4,-14 4,-8 L16,0 L4,0 L4,8 L8,10 L8,14 L0,12 L-8,14 L-8,10 L-4,8 L-4,0 L-16,0 L-4,-8 C-4,-14 -2,-20 0,-22 Z"
-          fill="#ffc146"/>
-  </g>
+  <!-- Gold dot: departure point on arc -->
+  <circle cx="148" cy="355" r="10" fill="#ffc146" opacity=".9"/>
 
-  <!-- Gold orbit ring around globe -->
-  <ellipse cx="256" cy="330" rx="188" ry="46"
-           fill="none" stroke="#ffc146" stroke-width="1.8" opacity=".4"/>
-
-  <!-- City dots on globe -->
-  <circle cx="240" cy="220" r="4" fill="#6ad7ff" opacity=".8"/>
-  <circle cx="290" cy="248" r="3.5" fill="#6ad7ff" opacity=".65"/>
-  <circle cx="210" cy="265" r="3" fill="#ffc146" opacity=".7"/>
-  <circle cx="310" cy="290" r="3" fill="#6ad7ff" opacity=".55"/>
-
-  <!-- "AR" monogram — subtle, top-left of globe area -->
-  <text x="148" y="194" font-family="'IBM Plex Sans', ui-sans-serif, sans-serif"
-        font-size="28" font-weight="700" letter-spacing="2"
-        fill="#6ad7ff" opacity=".22">AR</text>
+  <!-- Cyan dot: arrival point on arc -->
+  <circle cx="372" cy="162" r="10" fill="#4ab8e8" opacity=".9"/>
 </svg>
