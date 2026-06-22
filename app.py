@@ -1005,7 +1005,7 @@ def fetch_seatsaero(origin: str, dest: str, cabin: str, dep: dt.date) -> list[di
     start = (dep - dt.timedelta(days=3)).isoformat()
     end   = (dep + dt.timedelta(days=3)).isoformat()
     try:
-        r = sess.get(
+        r = HTTP.get(
             f"{SEATSAERO_BASE}/search",
             params={"origin_airport": origin, "destination_airport": dest,
                     "cabin": cabin_param, "start_date": start, "end_date": end, "take": 50},
