@@ -1012,8 +1012,13 @@ def fetch_seatsaero(origin: str, dest: str, cabin: str, dep: dt.date) -> list[di
             headers={"Partner-Authorization": SEATSAERO_KEY},
             timeout=12,
         )
-        r.raise_for_status()
-        return r.json().get("data", []) or []
+        app.logger.info("seats.aero %s→%s %s status=%s", origin, dest, cabin_param, r.status_code)
+        if r.status_code != 200:
+            app.logger.warning("seats.aero non-200 body: %s", r.text[:500])
+            return []
+        rows = r.json().get("data", []) or []
+        app.logger.info("seats.aero returned %d rows", len(rows))
+        return rows
     except Exception as exc:
         app.logger.warning("seats.aero fetch failed %s→%s %s: %s", origin, dest, cabin, exc)
         return []
@@ -1550,7 +1555,7 @@ def score_award(origin: str, dest: str, cabin: str, lang: str = "de") -> dict:
 
 @app.route("/health")
 def health():
-    return jsonify({"ok": True, "app": APP_NAME, "version": "6.0", "price_source": PRICE_SOURCE, "serpapi_token": bool(SERPAPI_TOKEN), "tp_token": bool(TP_TOKEN), "api_guard": bool(APP_TOKEN)})
+    return jsonify({"ok": True, "app": APP_NAME, "version": "6.0", "price_source": PRICE_SOURCE, "serpapi_token": bool(SERPAPI_TOKEN), "tp_token": bool(TP_TOKEN), "api_guard": bool(APP_TOKEN), "award_source": AWARD_SOURCE, "seatsaero_key": bool(SEATSAERO_KEY)})
 
 
 if __name__ == "__main__":
