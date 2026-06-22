@@ -972,6 +972,18 @@ AWARD_PROGRAMS = [
     ("United",       UNITED_CHART, "https://www.united.com/en/us/fsr/choose-flights"),
 ]
 
+# Typical one-way cash prices (EUR) per dest-zone + cabin — used as fallback when SerpApi has no result
+TYPICAL_CASH_EUR: dict[str, dict[str, int]] = {
+    "europe":        {"Economy": 200,  "Premium Eco": 380,  "Business": 700,   "First": 1400},
+    "north_america": {"Economy": 600,  "Premium Eco": 950,  "Business": 1800,  "First": 3500},
+    "asia":          {"Economy": 700,  "Premium Eco": 1100, "Business": 2200,  "First": 5000},
+    "middle_east":   {"Economy": 400,  "Premium Eco": 650,  "Business": 1300,  "First": 2800},
+    "pacific":       {"Economy": 1000, "Premium Eco": 1600, "Business": 3200,  "First": 7000},
+    "south_america": {"Economy": 700,  "Premium Eco": 1100, "Business": 2200,  "First": 5000},
+    "africa":        {"Economy": 500,  "Premium Eco": 800,  "Business": 1600,  "First": 3500},
+    "other":         {"Economy": 500,  "Premium Eco": 800,  "Business": 1500,  "First": 3000},
+}
+
 
 # seats.aero response field names per cabin class
 # (avail, miles, direct, airlines, remaining_seats)
@@ -1043,6 +1055,10 @@ def build_seatsaero_programs(
     avail_field, miles_field, direct_field, airlines_field, seats_field = SEATSAERO_CABIN_FIELDS.get(
         cabin, ("YAvailable", "YMileageCost", "YDirect", "YAirlines", "YRemainingSeats")
     )
+    # Fall back to zone-based typical price so cpm/grade can still be computed
+    if not cash_eur:
+        dz_fallback = airport_zone(dest)
+        cash_eur = TYPICAL_CASH_EUR.get(dz_fallback, {}).get(cabin)
     dz = airport_zone(dest)
 
     # Best option per source: prefer direct, then fewest miles, then closest date
