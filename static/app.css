@@ -70,7 +70,9 @@ a:focus-visible{outline:2px solid var(--cyan);outline-offset:3px;border-radius:3
 /* Reduced motion */
 @media(prefers-reduced-motion:reduce){
   *{transition:none!important;animation:none!important}
+  /* Desktop: hide animated globe — on mobile keep it visible as a static element */
   #globe{display:none}
+  @media(max-width:640px){#globe{display:block;opacity:.6}}
   .radar-ring-sweep{display:none}
 }
 

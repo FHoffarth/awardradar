@@ -1373,15 +1373,18 @@ function globeAnimation() {
       c.style.cursor = 'grab';
     }
 
-    requestAnimationFrame(frame);
+    if (!reducedMotion) requestAnimationFrame(frame);
   }
-  frame();
+  frame(); // always draw at least one frame (static snapshot for reduced-motion)
 }
 
 initDates();
 syncPills();
 setStatus('ready');
-if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) globeAnimation();
+// On mobile: always show globe (static snapshot if reduced-motion, animated otherwise)
+// On desktop: skip globe when reduced-motion (it's a background decoration there)
+const _reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (!_reducedMotion || innerWidth <= 640) globeAnimation();
 
 // ===== Discovery Widget =====
 (function initDiscovery() {
