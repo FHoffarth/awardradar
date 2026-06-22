@@ -1020,13 +1020,13 @@ SEATSAERO_SOURCE_MAP: dict[str, str] = {
 }
 
 
-def fetch_seatsaero(origin: str, dest: str, cabin: str, dep: dt.date) -> list[dict]:
+def fetch_seatsaero(origin: str, dest: str, cabin: str, dep: dt.date, window_days: int = 3) -> list[dict]:
     """Call seats.aero cached-search API. Returns raw availability rows, or [] on any failure."""
     if not SEATSAERO_KEY:
         return []
     cabin_param = SEATSAERO_CABIN_PARAM.get(cabin, "economy")
-    start = (dep - dt.timedelta(days=3)).isoformat()
-    end   = (dep + dt.timedelta(days=3)).isoformat()
+    start = (dep - dt.timedelta(days=window_days)).isoformat()
+    end   = (dep + dt.timedelta(days=window_days)).isoformat()
     try:
         r = HTTP.get(
             f"{SEATSAERO_BASE}/search",
@@ -1651,13 +1651,15 @@ def top_opportunities():
     if not (AWARD_SOURCE == "seatsaero" and SEATSAERO_KEY):
         return jsonify({"ok": False, "error": "seats.aero not configured"}), 503
 
-    dep = dt.date.today() + dt.timedelta(days=30)
+    today = dt.date.today()
+    dep = today + dt.timedelta(days=30)  # midpoint for cash price lookup
     results: list[dict] = []
 
     def scan_route(args: tuple) -> list[dict]:
         origin, dest, cabin = args
         try:
-            rows = fetch_seatsaero(origin, dest, cabin, dep)
+            # Wide 60-day window: today+7 to today+67, centred on dep
+            rows = fetch_seatsaero(origin, dest, cabin, dep, window_days=30)
             cash = fetch_cash_price(origin, dest, dep, cabin)
             programs = build_seatsaero_programs(origin, dest, cabin, dep, cash, rows)
             out = []
