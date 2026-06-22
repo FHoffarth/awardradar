@@ -157,6 +157,7 @@ function linksHtml(obj) {
 async function run() {
   setStatus('searching…');
   $('results').innerHTML = '';
+  document.querySelector('.shell').classList.add('has-results');
   const _origin = ($('origin').value || '').trim().toUpperCase().slice(0, 3);
   const _dest = ($('dest').value || '').trim().toUpperCase().slice(0, 3);
   startProgress(_origin, _dest);
