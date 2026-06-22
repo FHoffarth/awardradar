@@ -182,15 +182,22 @@ async function run() {
     let userMsg;
     if (e.isQuota) {
       userMsg = `<div class="card skiplag-empty">
-        <div class="skiplag-empty-header">Live Data</div>
-        <div class="skiplag-empty-title">Live fare data is temporarily unavailable.</div>
-        <p class="skiplag-empty-reason">Search capacity is refreshed periodically. Please try again in a few minutes.</p>
-        <p class="muted-note" style="margin-top:10px">Using cached data where available.</p>
+        <div class="skiplag-empty-header">Capacity Limit</div>
+        <div class="skiplag-empty-title">Search capacity temporarily reached.</div>
+        <p class="skiplag-empty-reason">Live data refreshes periodically. Please try again in a few minutes.</p>
       </div>`;
     } else if (mode === 'skiplag') {
-      userMsg = `<div class="card skiplag-empty"><div class="skiplag-empty-title">Analysis unavailable.</div><p class="skiplag-empty-reason">The hidden-city analysis could not be completed for this search.</p><button class="cross-btn" onclick="switchTabAndRun('cheap')">Show Cash Fares</button></div>`;
+      userMsg = `<div class="card skiplag-empty">
+        <div class="skiplag-empty-header">Hidden City Analysis</div>
+        <div class="skiplag-empty-title">Analysis could not be completed.</div>
+        <p class="skiplag-empty-reason">No viable hidden-city candidates found for this route and date.</p>
+        <button class="cross-btn" onclick="switchTabAndRun('cheap')">Compare Cash Fares</button>
+      </div>`;
     } else {
-      userMsg = `<div class="card note">Search unavailable. Please try again.</div>`;
+      userMsg = `<div class="card skiplag-empty">
+        <div class="skiplag-empty-title">Search temporarily unavailable.</div>
+        <p class="skiplag-empty-reason">Please try again in a moment.</p>
+      </div>`;
     }
     $('results').innerHTML = userMsg;
     setStatus('error');
@@ -367,8 +374,8 @@ function render(data) {
         const logoUrl = r.airlineCode ? `https://content.airhex.com/content/logos/airlines_${esc(r.airlineCode)}_200_200_s.png` : '';
         const logoImg = logoUrl ? `<img src="${logoUrl}" class="airline-logo" alt="" onerror="this.style.display='none'">` : '';
         const verifiedBadge = isVerified
-          ? `<div class="verified-badge">✓ Segment-verified</div>`
-          : `<div class="unverified-badge">⚠ Candidate – verify routing</div>`;
+          ? `<div class="verified-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Segment-verified</div>`
+          : `<div class="unverified-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Candidate — verify routing</div>`;
         const segChain = r.segmentChain ? `<div class="seg-chain">${esc(r.segmentChain)}</div>` : '';
         const layover = r.layoverDuration ? `<span class="badge">Layover ${r.layoverDuration} min at ${esc(r.hiddenCity)}</span>` : `<span class="badge">Exit at ${esc(r.hiddenCity)}</span>`;
         const savingsLine = r.savings && r.savings > 0
@@ -391,7 +398,7 @@ function render(data) {
               ${priceDisplay}
             </div>
           </div>
-          <p class="tiny warn" style="margin-top:8px">One-way only · no checked baggage · check airline T&amp;Cs</p>
+          <p class="tiny muted-note" style="margin-top:8px">One-way only · no checked baggage · verify airline T&amp;Cs before booking</p>
           ${linksHtml(r.links)}
         </div>`;
       }).join('');

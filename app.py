@@ -1245,6 +1245,15 @@ def verify_skiplag_serpapi(origin: str, true_dest: str, final_dest: str, dep: dt
 
 @app.route("/api/skiplag", methods=["POST"])
 def skiplag():
+    try:
+        return _skiplag_inner()
+    except QuotaError:
+        return jsonify({"ok": False, "error": "quota_exhausted"}), 503
+    except Exception as exc:
+        app.logger.error("skiplag unhandled: %s", exc, exc_info=True)
+        return jsonify({"ok": False, "error": "analysis_unavailable"}), 500
+
+def _skiplag_inner():
     data = request.get_json(force=True) or {}
     lang = lang_from_payload(data)
     origins = resolve_codes(data.get("origin", ""))
@@ -1330,13 +1339,11 @@ def skiplag():
                             })
 
     results.sort(key=lambda x: (0 if x.get("verified") else 1, -(x.get("savings") or -9999)))
-    source_label = "serpapi-verified" if use_serpapi else "tp-candidates"
     note = ("Segment-verified via Google Flights. One-way only · no checked baggage · check airline T&Cs." if lang == "en" else "Segmentverifiziert via Google Flights. Nur Hinflug · kein Aufgabegepäck · AGB der Airline prüfen.") if use_serpapi else tx("skiplag_note", lang)
     return jsonify({
         "ok": True,
         "results": results[:10],
         "provider_available": use_serpapi or bool(results),
-        "debug": {"origins": origins, "dests": true_dests, "seconds": round(time.time() - started, 2), "source": source_label},
         "note": note,
     })
 
