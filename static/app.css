@@ -183,9 +183,10 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 
 .navbar{position:relative;z-index:10;padding:14px 0;background:var(--nav-bg);backdrop-filter:blur(12px)}
 .nav-inner{width:min(1120px,94vw);margin:0 auto;display:flex;justify-content:space-between;align-items:center}
-.logo{display:flex;align-items:center;gap:10px;text-decoration:none;min-width:220px}
-.logo-mark{width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.logo-name{font-size:20px;font-weight:800;letter-spacing:-.4px;line-height:1}
+.logo{display:flex;align-items:center;gap:12px;text-decoration:none;min-width:220px}
+.logo-mark{width:52px;height:52px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:radial-gradient(circle at 42% 38%,rgba(106,215,255,.1) 0,transparent 68%);border-radius:14px}
+.logo-name{font-size:21px;font-weight:800;letter-spacing:-.4px;line-height:1.1}
+.logo-tagline{font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:2px;opacity:.65}
 .logo-award{background:linear-gradient(135deg,var(--gold),#e8a93a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .logo-radar{color:#8ab4d4;-webkit-text-fill-color:#8ab4d4}
 .nav-right{display:flex;gap:7px;align-items:center}
