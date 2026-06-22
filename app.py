@@ -985,16 +985,26 @@ SEATSAERO_CABIN_PARAM: dict[str, str] = {
     "Economy": "economy", "Premium Eco": "premium", "Business": "business", "First": "first",
 }
 SEATSAERO_SOURCE_MAP: dict[str, str] = {
-    "united":     "United MileagePlus",
-    "aeroplan":   "Air Canada Aeroplan",
-    "turkish":    "Turkish Miles&Smiles",
-    "singapore":  "Singapore KrisFlyer",
-    "lifemiles":  "Avianca LifeMiles",
-    "aeromexico": "Aeromexico Club Premier",
-    "delta":      "Delta SkyMiles",
-    "virgin":     "Virgin Atlantic",
-    "qantas":     "Qantas Frequent Flyer",
-    "emirates":   "Emirates Skywards",
+    "united":        "United MileagePlus",
+    "aeroplan":      "Air Canada Aeroplan",
+    "turkish":       "Turkish Miles&Smiles",
+    "singapore":     "Singapore KrisFlyer",
+    "lifemiles":     "Avianca LifeMiles",
+    "aeromexico":    "Aeromexico Club Premier",
+    "delta":         "Delta SkyMiles",
+    "virgin":        "Virgin Atlantic",
+    "qantas":        "Qantas Frequent Flyer",
+    "emirates":      "Emirates Skywards",
+    "ana":           "ANA Mileage Club",
+    "lufthansa":     "Miles & More",
+    "flyingblue":    "Flying Blue",
+    "british":       "British Airways Avios",
+    "alaska":        "Alaska Mileage Plan",
+    "american":      "American AAdvantage",
+    "southwest":     "Southwest Rapid Rewards",
+    "cathay":        "Cathay Pacific Asia Miles",
+    "etihad":        "Etihad Guest",
+    "korean":        "Korean Air SKYPASS",
 }
 
 
@@ -1596,6 +1606,80 @@ def score_award(origin: str, dest: str, cabin: str, lang: str = "de") -> dict:
     if cabin == "First":
         return {"label": "🔴 selten", "text": "First ist stark abhängig von Airline und kurzfristiger Freigabe."}
     return {"label": "🟢 solide", "text": "Kurzstrecke eher verfügbar, aber Cashpreise vergleichen."}
+
+
+# Popular longhaul routes for the Discovery widget — DACH-first origin bias
+TOP_OPP_ROUTES: list[tuple[str, str, str]] = [
+    ("FRA", "JFK", "Business"), ("FRA", "HND", "Business"), ("FRA", "SIN", "Business"),
+    ("FRA", "HKG", "Business"), ("FRA", "BKK", "Business"), ("FRA", "LAX", "Business"),
+    ("MUC", "JFK", "Business"), ("MUC", "HND", "Business"), ("MUC", "SIN", "Business"),
+    ("ZRH", "JFK", "Business"), ("ZRH", "HND", "Business"), ("ZRH", "SIN", "Business"),
+    ("VIE", "JFK", "Business"), ("FRA", "NRT", "Business"), ("FRA", "ICN", "Business"),
+    ("FRA", "DXB", "Business"), ("MUC", "DXB", "Business"), ("FRA", "DOH", "Business"),
+    ("FRA", "JFK", "First"),    ("FRA", "HND", "First"),    ("MUC", "HND", "First"),
+]
+
+_TOP_OPP_CACHE: tuple[float, list] | None = None
+TOP_OPP_TTL = 3600  # refresh once per hour
+
+
+@app.route("/api/top-opportunities")
+def top_opportunities():
+    global _TOP_OPP_CACHE
+    now = time.time()
+    if _TOP_OPP_CACHE and now - _TOP_OPP_CACHE[0] < TOP_OPP_TTL:
+        return jsonify({"ok": True, "opportunities": _TOP_OPP_CACHE[1], "source": "cache"})
+
+    if not (AWARD_SOURCE == "seatsaero" and SEATSAERO_KEY):
+        return jsonify({"ok": False, "error": "seats.aero not configured"}), 503
+
+    dep = dt.date.today() + dt.timedelta(days=30)
+    results: list[dict] = []
+
+    def scan_route(args: tuple) -> list[dict]:
+        origin, dest, cabin = args
+        try:
+            rows = fetch_seatsaero(origin, dest, cabin, dep)
+            cash = fetch_cash_price(origin, dest, dep, cabin)
+            programs = build_seatsaero_programs(origin, dest, cabin, dep, cash, rows)
+            out = []
+            for p in programs:
+                g = p.get("grade") or {}
+                if g.get("tier") in ("exceptional", "great"):
+                    out.append({
+                        "origin": origin, "dest": dest, "cabin": cabin,
+                        "program": p["program"], "miles": p["miles"],
+                        "surcharge": p["surcharge"], "cpm": p["cpm"],
+                        "grade_tier": g["tier"], "grade_label": g.get("label", ""),
+                        "direct": p.get("direct", False), "seats": p.get("seats", 0),
+                        "airlines": p.get("airlines", ""),
+                        "available_date": p.get("available_date", dep.isoformat()),
+                        "url": p["url"],
+                        "cash_eur": round(cash, 0) if cash else None,
+                    })
+            return out
+        except Exception:
+            return []
+
+    with cf.ThreadPoolExecutor(max_workers=6) as pool:
+        for batch in pool.map(scan_route, TOP_OPP_ROUTES):
+            results.extend(batch)
+
+    # Sort: exceptional first, then by cpm descending
+    grade_order = {"exceptional": 0, "great": 1}
+    results.sort(key=lambda x: (grade_order.get(x["grade_tier"], 9), -(x["cpm"] or 0)))
+
+    # Deduplicate: max 1 entry per program+route
+    seen, deduped = set(), []
+    for r in results:
+        key = (r["program"], r["origin"], r["dest"], r["cabin"])
+        if key not in seen:
+            seen.add(key)
+            deduped.append(r)
+
+    top = deduped[:12]
+    _TOP_OPP_CACHE = (now, top)
+    return jsonify({"ok": True, "opportunities": top, "source": "live"})
 
 
 @app.route("/health")
