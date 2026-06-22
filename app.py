@@ -1028,20 +1028,28 @@ def fetch_seatsaero(origin: str, dest: str, cabin: str, dep: dt.date, window_day
     start = (dep - dt.timedelta(days=window_days)).isoformat()
     end   = (dep + dt.timedelta(days=window_days)).isoformat()
     try:
-        r = HTTP.get(
-            f"{SEATSAERO_BASE}/search",
-            params={"origin_airport": origin, "destination_airport": dest,
-                    "cabin": cabin_param, "start_date": start, "end_date": end, "take": 50},
-            headers={"Partner-Authorization": SEATSAERO_KEY},
-            timeout=12,
-        )
-        app.logger.info("seats.aero %s→%s %s status=%s", origin, dest, cabin_param, r.status_code)
-        if r.status_code != 200:
-            app.logger.warning("seats.aero non-200 body: %s", r.text[:500])
-            return []
-        rows = r.json().get("data", []) or []
-        app.logger.info("seats.aero returned %d rows", len(rows))
-        return rows
+        for attempt in range(3):
+            if attempt:
+                time.sleep(2 ** attempt)
+            r = HTTP.get(
+                f"{SEATSAERO_BASE}/search",
+                params={"origin_airport": origin, "destination_airport": dest,
+                        "cabin": cabin_param, "start_date": start, "end_date": end, "take": 50},
+                headers={"Partner-Authorization": SEATSAERO_KEY},
+                timeout=15,
+            )
+            app.logger.info("seats.aero %s→%s %s status=%s (attempt %d)", origin, dest, cabin_param, r.status_code, attempt + 1)
+            if r.status_code == 429:
+                app.logger.warning("seats.aero 429 rate limit on attempt %d", attempt + 1)
+                continue
+            if r.status_code != 200:
+                app.logger.warning("seats.aero non-200 body: %s", r.text[:500])
+                return []
+            rows = r.json().get("data", []) or []
+            app.logger.info("seats.aero returned %d rows", len(rows))
+            return rows
+        app.logger.warning("seats.aero exhausted retries for %s→%s", origin, dest)
+        return []
     except Exception as exc:
         app.logger.warning("seats.aero fetch failed %s→%s %s: %s", origin, dest, cabin, exc)
         return []
@@ -1655,11 +1663,19 @@ def top_opportunities():
     dep = today + dt.timedelta(days=30)  # midpoint for cash price lookup
     results: list[dict] = []
 
+    rate_lock = __import__("threading").Semaphore(2)  # max 2 concurrent seats.aero calls
+
     def scan_route(args: tuple) -> list[dict]:
         origin, dest, cabin = args
+        with rate_lock:
+            try:
+                time.sleep(0.5)  # gentle spacing between calls
+                rows = fetch_seatsaero(origin, dest, cabin, dep, window_days=30)
+            except Exception:
+                rows = []
+        if not rows:
+            return []
         try:
-            # Wide 60-day window: today+7 to today+67, centred on dep
-            rows = fetch_seatsaero(origin, dest, cabin, dep, window_days=30)
             cash = fetch_cash_price(origin, dest, dep, cabin)
             programs = build_seatsaero_programs(origin, dest, cabin, dep, cash, rows)
             out = []
@@ -1681,15 +1697,14 @@ def top_opportunities():
         except Exception:
             return []
 
-    with cf.ThreadPoolExecutor(max_workers=6) as pool:
+    with cf.ThreadPoolExecutor(max_workers=3) as pool:
         for batch in pool.map(scan_route, TOP_OPP_ROUTES):
             results.extend(batch)
 
-    # Sort: exceptional first, then by cpm descending
+    # Only cache if we got actual data (don't cache 429-induced empty results)
     grade_order = {"exceptional": 0, "great": 1}
     results.sort(key=lambda x: (grade_order.get(x["grade_tier"], 9), -(x["cpm"] or 0)))
 
-    # Deduplicate: max 1 entry per program+route
     seen, deduped = set(), []
     for r in results:
         key = (r["program"], r["origin"], r["dest"], r["cabin"])
@@ -1698,7 +1713,8 @@ def top_opportunities():
             deduped.append(r)
 
     top = deduped[:12]
-    _TOP_OPP_CACHE = (now, top)
+    if top:  # only cache non-empty results
+        _TOP_OPP_CACHE = (now, top)
     return jsonify({"ok": True, "opportunities": top, "source": "live"})
 
 
