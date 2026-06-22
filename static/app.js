@@ -21,8 +21,9 @@ function applyTheme(t) {
   theme = t;
   document.documentElement.dataset.theme = t;
   localStorage.setItem('awardradar_theme', t);
-  const btn = $('themeBtn');
-  if (btn) btn.textContent = t === 'light' ? '☀️' : '🌙';
+  const moon = $('themeIconMoon'), sun = $('themeIconSun');
+  if (moon) moon.style.display = t === 'light' ? 'none' : '';
+  if (sun)  sun.style.display  = t === 'light' ? '' : 'none';
 }
 applyTheme(theme);
 
