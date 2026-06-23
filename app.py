@@ -1614,6 +1614,7 @@ def awards():
     try:
         return _awards_inner()
     except QuotaError:
+        # Cash quota exhausted AND somehow not caught inside — return 503 only as last resort
         return jsonify({"ok": False, "error": "quota_exhausted"}), 503
     except Exception as exc:
         app.logger.error("awards unhandled: %s", exc, exc_info=True)
@@ -1639,7 +1640,10 @@ def _awards_inner():
         for dest in dests[:3]:
             if origin == dest:
                 continue
-            cash_details = fetch_cash_details(origin, dest, dep, cabin)
+            try:
+                cash_details = fetch_cash_details(origin, dest, dep, cabin)
+            except QuotaError:
+                cash_details = {}   # SerpApi quota empty — use zone fallback, don't abort
             cash_eur = cash_details.get("price")
 
             # Live availability from seats.aero (if configured)
