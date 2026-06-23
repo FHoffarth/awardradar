@@ -1115,32 +1115,9 @@ function globeAnimation() {
   }
 
   // Simplified continent outlines [lat, lon] — drawn as stroked paths on the globe
-  const LAND_POLYS = [
-    // Europe mainland + Scandinavia
-    [[71,28],[70,26],[66,14],[58,5],[57,8],[55,8],[52,4],[51,2],[51,-2],[44,-9],[36,-8],[36,-5],[37,2],[37,15],[38,13],[40,18],[42,20],[42,28],[44,32],[46,38],[60,24],[64,26],[68,28],[70,26],[71,28]],
-    // British Isles (rough)
-    [[58,-3],[57,-2],[53,-3],[50,-5],[50,-3],[51,-1],[51,2],[58,-1],[58,-3]],
-    // Africa
-    [[37,10],[30,32],[25,34],[12,44],[5,42],[-5,40],[-10,36],[-26,33],[-34,26],[-35,18],[-28,-17],[-18,-12],[-5,-10],[0,8],[5,2],[4,9],[12,15],[22,22],[30,33],[37,10]],
-    // Middle East / W Asia
-    [[44,32],[46,38],[42,45],[38,55],[25,57],[22,60],[12,44],[22,38],[30,32],[44,32]],
-    // Asia Central + East
-    [[50,60],[60,72],[65,72],[70,70],[70,85],[68,100],[62,100],[60,130],[44,135],[36,120],[22,114],[10,100],[2,104],[1,110],[5,116],[22,114],[36,120],[44,135],[60,140],[70,140],[72,68],[77,58],[80,60],[74,90],[68,100],[60,100],[50,60]],
-    // Indian subcontinent
-    [[28,65],[28,72],[22,70],[8,78],[8,80],[22,88],[28,88],[28,78],[28,65]],
-    // Japan (rough)
-    [[44,145],[38,140],[34,131],[33,131],[30,130],[32,131],[35,137],[36,140],[38,141],[44,145]],
-    // North America
-    [[72,-80],[70,-60],[60,-65],[47,-53],[45,-63],[44,-66],[38,-75],[30,-82],[25,-80],[24,-77],[26,-90],[22,-88],[22,-100],[28,-96],[28,-110],[32,-117],[38,-122],[48,-124],[55,-130],[60,-142],[65,-138],[70,-140],[72,-130],[72,-80]],
-    // Greenland
-    [[83,-40],[76,-18],[72,-25],[68,-26],[64,-52],[68,-54],[70,-54],[76,-70],[80,-70],[83,-50],[83,-40]],
-    // South America
-    [[12,-72],[10,-62],[5,-52],[0,-50],[-5,-35],[-14,-40],[-22,-43],[-32,-52],[-34,-58],[-40,-62],[-55,-66],[-56,-68],[-48,-73],[-33,-71],[-22,-70],[-15,-76],[-4,-80],[0,-80],[8,-77],[12,-72]],
-    // Australia
-    [[-12,131],[-14,136],[-17,136],[-26,114],[-32,116],[-38,140],[-38,147],[-32,153],[-24,154],[-20,150],[-14,145],[-12,136],[-12,131]],
-    // New Zealand (rough)
-    [[-36,174],[-38,175],[-44,168],[-46,168],[-44,170],[-36,174]],
-  ];
+  // Land polygons loaded from world-land.js (Natural Earth 110m, self-hosted).
+  // Falls back to empty array gracefully if script not loaded.
+  const LAND_POLYS = (typeof WORLD_LAND !== 'undefined') ? WORLD_LAND : [];
 
   // Major city clusters for night lights (dark mode)
   const NIGHT_CITIES = [
@@ -1253,26 +1230,15 @@ function globeAnimation() {
     // Continent fills + outlines — clipped to globe disc
     ctx.save();
     ctx.beginPath(); ctx.arc(cx, cy, R - 0.5 * devicePixelRatio, 0, Math.PI * 2); ctx.clip();
-    const landFill   = isLight ? 'rgba(160,200,140,0.42)' : 'rgba(22,52,88,0.72)';
-    const landStroke = isLight ? 'rgba(80,130,80,0.40)'   : 'rgba(60,130,200,0.38)';
-    LAND_POLYS.forEach(poly => {
+    // Dark mode: near-black land (Earth-at-Night) with coastal highlight edge.
+    // Light mode: soft green-grey terrain fill.
+    const landFill   = isLight ? 'rgba(148,188,128,0.46)' : 'rgba(6,16,34,0.90)';
+    const coastStroke = isLight ? 'rgba(70,120,70,0.45)'  : 'rgba(50,110,170,0.50)';
+    const coastGlow   = isLight ? null                    : 'rgba(80,160,220,0.18)';
+
+    const drawLandPath = (poly) => {
       ctx.beginPath();
       let wasVis = false;
-      for (const [lat, lon] of poly) {
-        const p = project(lat, lon);
-        if (p.z > -0.05) {
-          if (!wasVis) ctx.moveTo(p.x, p.y);
-          else ctx.lineTo(p.x, p.y);
-          wasVis = true;
-        } else {
-          if (wasVis) { ctx.closePath(); ctx.fillStyle = landFill; ctx.fill(); }
-          wasVis = false;
-        }
-      }
-      if (wasVis) { ctx.closePath(); ctx.fillStyle = landFill; ctx.fill(); }
-      // Outline pass
-      ctx.beginPath();
-      wasVis = false;
       for (const [lat, lon] of poly) {
         const p = project(lat, lon);
         if (p.z > -0.05) {
@@ -1284,8 +1250,26 @@ function globeAnimation() {
         }
       }
       ctx.closePath();
-      ctx.strokeStyle = landStroke;
-      ctx.lineWidth = 0.7 * devicePixelRatio;
+    };
+
+    LAND_POLYS.forEach(poly => {
+      // Fill pass
+      drawLandPath(poly);
+      ctx.fillStyle = landFill;
+      ctx.fill();
+
+      // Coastal glow (dark mode only) — wider, very low alpha
+      if (coastGlow) {
+        drawLandPath(poly);
+        ctx.strokeStyle = coastGlow;
+        ctx.lineWidth = 3.5 * devicePixelRatio;
+        ctx.stroke();
+      }
+
+      // Coast outline — crisp, thin
+      drawLandPath(poly);
+      ctx.strokeStyle = coastStroke;
+      ctx.lineWidth = 0.75 * devicePixelRatio;
       ctx.stroke();
     });
     ctx.restore();
@@ -1446,16 +1430,17 @@ function globeAnimation() {
       NIGHT_CITIES.forEach(([lat, lon]) => {
         const p = project(lat, lon);
         if (p.z <= 0.05) return;
-        const a = Math.min(1, (p.z - 0.05) * 3.5) * 0.72;
-        const r = 2.8 * devicePixelRatio;
-        const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 3.5);
-        grd.addColorStop(0, `rgba(255,210,100,${a})`);
-        grd.addColorStop(0.4, `rgba(255,160,50,${a * 0.55})`);
+        const a = Math.min(1, (p.z - 0.05) * 3.5) * 0.88;
+        const r = 3.2 * devicePixelRatio;
+        const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 4.0);
+        grd.addColorStop(0, `rgba(255,220,120,${a})`);
+        grd.addColorStop(0.35, `rgba(255,170,60,${a * 0.60})`);
+        grd.addColorStop(0.7, `rgba(220,110,20,${a * 0.18})`);
         grd.addColorStop(1, 'transparent');
         ctx.fillStyle = grd;
-        ctx.beginPath(); ctx.arc(p.x, p.y, r * 3.5, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = `rgba(255,230,160,${a})`;
-        ctx.beginPath(); ctx.arc(p.x, p.y, 1.0 * devicePixelRatio, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x, p.y, r * 4.0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = `rgba(255,240,200,${a})`;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 1.2 * devicePixelRatio, 0, Math.PI * 2); ctx.fill();
       });
     }
 
