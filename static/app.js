@@ -1417,14 +1417,26 @@ if (innerWidth <= 640) {
     const di = canvas ? getComputedStyle(canvas).display  : '?';
     const empty = !canvas || cw === 0 || ch === 0;
 
-    // On-screen debug bar — shows key values without needing Web Inspector
+    // Check if canvas has any drawn pixels (non-transparent)
+    let hasPixels = false, ctxOk = false;
+    try {
+      const ctx2 = canvas && canvas.getContext('2d');
+      ctxOk = !!ctx2;
+      if (ctx2 && cw > 0 && ch > 0) {
+        // Sample center pixel
+        const px = ctx2.getImageData(Math.floor(cw/2), Math.floor(ch/2), 1, 1).data;
+        hasPixels = px[3] > 0; // alpha > 0 means something was drawn
+      }
+    } catch(e) { ctxOk = false; }
+
+    // On-screen debug bar
     const dbg = document.createElement('div');
     dbg.id = 'globe-debug';
-    dbg.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,.85);color:#f5c76b;font:11px monospace;padding:6px 10px;z-index:9999;white-space:pre-wrap';
-    dbg.textContent = `Globe: canvas=${cw}×${ch} wrap-h=${wh} op=${op} display=${di} rm=${_reducedMotion}`;
+    dbg.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,.9);color:#f5c76b;font:11px monospace;padding:6px 10px;z-index:9999;white-space:pre-wrap';
+    dbg.textContent = `Globe: ${cw}×${ch} wh=${wh} op=${op} di=${di} rm=${_reducedMotion} ctx=${ctxOk} px=${hasPixels}`;
     document.body.appendChild(dbg);
 
-    if (empty) {
+    if (empty || !ctxOk) {
       if (wrap) wrap.innerHTML = '<img src="/static/icon.svg" alt="" style="width:200px;height:200px;display:block;margin:30px auto;opacity:.7">';
       dbg.textContent += ' → FALLBACK';
     }
