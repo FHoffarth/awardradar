@@ -1114,6 +1114,60 @@ function globeAnimation() {
     return [Math.atan2(y, Math.sqrt(x*x + z*z)) * 180/Math.PI, Math.atan2(z, x) * 180/Math.PI];
   }
 
+  // Simplified continent outlines [lat, lon] — drawn as stroked paths on the globe
+  const LAND_POLYS = [
+    // Europe mainland + Scandinavia
+    [[71,28],[70,26],[66,14],[58,5],[57,8],[55,8],[52,4],[51,2],[51,-2],[44,-9],[36,-8],[36,-5],[37,2],[37,15],[38,13],[40,18],[42,20],[42,28],[44,32],[46,38],[60,24],[64,26],[68,28],[70,26],[71,28]],
+    // British Isles (rough)
+    [[58,-3],[57,-2],[53,-3],[50,-5],[50,-3],[51,-1],[51,2],[58,-1],[58,-3]],
+    // Africa
+    [[37,10],[30,32],[25,34],[12,44],[5,42],[-5,40],[-10,36],[-26,33],[-34,26],[-35,18],[-28,-17],[-18,-12],[-5,-10],[0,8],[5,2],[4,9],[12,15],[22,22],[30,33],[37,10]],
+    // Middle East / W Asia
+    [[44,32],[46,38],[42,45],[38,55],[25,57],[22,60],[12,44],[22,38],[30,32],[44,32]],
+    // Asia Central + East
+    [[50,60],[60,72],[65,72],[70,70],[70,85],[68,100],[62,100],[60,130],[44,135],[36,120],[22,114],[10,100],[2,104],[1,110],[5,116],[22,114],[36,120],[44,135],[60,140],[70,140],[72,68],[77,58],[80,60],[74,90],[68,100],[60,100],[50,60]],
+    // Indian subcontinent
+    [[28,65],[28,72],[22,70],[8,78],[8,80],[22,88],[28,88],[28,78],[28,65]],
+    // Japan (rough)
+    [[44,145],[38,140],[34,131],[33,131],[30,130],[32,131],[35,137],[36,140],[38,141],[44,145]],
+    // North America
+    [[72,-80],[70,-60],[60,-65],[47,-53],[45,-63],[44,-66],[38,-75],[30,-82],[25,-80],[24,-77],[26,-90],[22,-88],[22,-100],[28,-96],[28,-110],[32,-117],[38,-122],[48,-124],[55,-130],[60,-142],[65,-138],[70,-140],[72,-130],[72,-80]],
+    // Greenland
+    [[83,-40],[76,-18],[72,-25],[68,-26],[64,-52],[68,-54],[70,-54],[76,-70],[80,-70],[83,-50],[83,-40]],
+    // South America
+    [[12,-72],[10,-62],[5,-52],[0,-50],[-5,-35],[-14,-40],[-22,-43],[-32,-52],[-34,-58],[-40,-62],[-55,-66],[-56,-68],[-48,-73],[-33,-71],[-22,-70],[-15,-76],[-4,-80],[0,-80],[8,-77],[12,-72]],
+    // Australia
+    [[-12,131],[-14,136],[-17,136],[-26,114],[-32,116],[-38,140],[-38,147],[-32,153],[-24,154],[-20,150],[-14,145],[-12,136],[-12,131]],
+    // New Zealand (rough)
+    [[-36,174],[-38,175],[-44,168],[-46,168],[-44,170],[-36,174]],
+  ];
+
+  // Major city clusters for night lights (dark mode)
+  const NIGHT_CITIES = [
+    // Europe
+    [51.5,-0.1],[48.9,2.3],[52.5,13.4],[41.9,12.5],[40.4,-3.7],[50.1,8.7],
+    [48.2,16.4],[47.5,19.0],[55.8,37.6],[59.9,30.3],[52.2,21.0],[50.1,14.4],
+    [59.3,18.1],[55.7,12.6],[60.4,5.3],[63.4,10.4],[37.0,-8.0],[38.7,-9.1],
+    // North America
+    [40.7,-74.0],[34.0,-118.2],[41.8,-87.6],[29.8,-95.4],[33.7,-84.4],[42.4,-71.1],
+    [45.5,-73.6],[43.7,-79.4],[49.3,-123.1],[32.7,-117.2],[37.8,-122.4],
+    [47.6,-122.3],[25.8,-80.3],[36.2,-86.8],[39.1,-94.6],[44.9,-93.2],[35.5,-97.5],
+    // East Asia
+    [35.7,139.7],[34.7,135.5],[35.2,136.9],[33.6,130.4],[37.6,127.0],
+    [39.9,116.4],[31.2,121.5],[23.1,113.3],[22.3,114.2],[22.6,120.3],[25.0,121.6],
+    [1.3,103.9],[3.1,101.7],[6.9,79.8],
+    // South/SE Asia
+    [28.6,77.2],[19.1,72.9],[12.9,77.6],[22.5,88.4],[13.8,100.5],[14.1,121.0],
+    // Middle East
+    [25.3,55.4],[24.7,46.7],[33.5,36.3],[31.8,35.2],[30.1,31.4],
+    // Africa
+    [-33.9,18.4],[-26.2,28.0],[6.5,3.4],[-4.3,15.3],[9.1,7.4],[36.8,3.1],
+    // South America
+    [-23.5,-46.6],[-34.6,-58.4],[4.7,-74.1],[-12.0,-77.0],[10.5,-66.9],[-22.9,-43.2],
+    // Australia
+    [-33.9,151.2],[-37.8,145.0],[-27.5,153.0],[-31.9,115.9],
+  ];
+
   function frame() {
     // FPS tracking for adaptive quality
     const now = performance.now();
@@ -1153,36 +1207,88 @@ function globeAnimation() {
     const cx = mob ? w * 0.50 : w * 0.78;
     const cy = mob ? h * 0.50 : h * 0.36;
 
-    // Sphere fill
+    // Deep ocean base fill
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
     if (isLight) {
-      const sphereFill = ctx.createRadialGradient(cx - R*0.2, cy - R*0.2, R*0.05, cx, cy, R);
-      sphereFill.addColorStop(0, 'rgba(220,234,248,0.22)');
-      sphereFill.addColorStop(0.6, 'rgba(180,210,235,0.08)');
-      sphereFill.addColorStop(1, 'rgba(120,170,210,0.14)');
-      ctx.fillStyle = sphereFill;
-      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(185,215,240,0.55)';
     } else {
-      // Dark: inner glow for depth
-      const sphereFill = ctx.createRadialGradient(cx - R*0.15, cy - R*0.15, R*0.02, cx, cy, R);
-      sphereFill.addColorStop(0, 'rgba(106,215,255,0.06)');
-      sphereFill.addColorStop(0.5, 'rgba(56,140,200,0.03)');
-      sphereFill.addColorStop(1, 'rgba(0,30,80,0.12)');
-      ctx.fillStyle = sphereFill;
-      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(4,18,48,0.88)';
     }
+    ctx.fill();
 
-    // Globe ambient glow
-    const glowOuter = ctx.createRadialGradient(cx, cy, R * 0.6, cx, cy, R * 1.8);
-    glowOuter.addColorStop(0, `rgba(${glowColor},${glowAlpha})`);
-    glowOuter.addColorStop(0.5, `rgba(${glowColor},${glowAlpha * 0.4})`);
-    glowOuter.addColorStop(1, 'transparent');
-    ctx.fillStyle = glowOuter;
-    ctx.beginPath(); ctx.arc(cx, cy, R * 1.8, 0, Math.PI * 2); ctx.fill();
+    // Sphere sheen — highlight from upper-left
+    const sphereFill = ctx.createRadialGradient(cx - R*0.28, cy - R*0.28, R*0.04, cx, cy, R);
+    if (isLight) {
+      sphereFill.addColorStop(0, 'rgba(255,255,255,0.28)');
+      sphereFill.addColorStop(0.5, 'rgba(180,215,240,0.08)');
+      sphereFill.addColorStop(1, 'rgba(100,155,210,0.18)');
+    } else {
+      sphereFill.addColorStop(0, 'rgba(120,200,255,0.10)');
+      sphereFill.addColorStop(0.5, 'rgba(40,100,180,0.04)');
+      sphereFill.addColorStop(1, 'rgba(0,10,60,0.20)');
+    }
+    ctx.fillStyle = sphereFill;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+
+    // Atmosphere glow — multi-stop, wider halo
+    const atmoInner = ctx.createRadialGradient(cx, cy, R * 0.85, cx, cy, R * 1.0);
+    atmoInner.addColorStop(0, 'transparent');
+    atmoInner.addColorStop(1, isLight ? `rgba(80,140,220,0.18)` : `rgba(${glowColor},0.28)`);
+    ctx.fillStyle = atmoInner;
+    ctx.beginPath(); ctx.arc(cx, cy, R * 1.0, 0, Math.PI * 2); ctx.fill();
+
+    const atmoOuter = ctx.createRadialGradient(cx, cy, R * 0.95, cx, cy, R * 2.2);
+    atmoOuter.addColorStop(0, isLight ? `rgba(80,140,220,0.16)` : `rgba(${glowColor},${glowAlpha * 1.4})`);
+    atmoOuter.addColorStop(0.3, isLight ? `rgba(80,140,220,0.07)` : `rgba(${glowColor},${glowAlpha * 0.6})`);
+    atmoOuter.addColorStop(0.7, isLight ? `rgba(80,140,220,0.02)` : `rgba(${glowColor},${glowAlpha * 0.2})`);
+    atmoOuter.addColorStop(1, 'transparent');
+    ctx.fillStyle = atmoOuter;
+    ctx.beginPath(); ctx.arc(cx, cy, R * 2.2, 0, Math.PI * 2); ctx.fill();
 
     // Globe ring
     ctx.strokeStyle = `rgba(${lr},${lg},${lb},${ringAlpha})`;
-    ctx.lineWidth = (isLight ? 1.4 : 1.2) * devicePixelRatio;
+    ctx.lineWidth = (isLight ? 1.6 : 1.4) * devicePixelRatio;
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+
+    // Continent fills + outlines — clipped to globe disc
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, R - 0.5 * devicePixelRatio, 0, Math.PI * 2); ctx.clip();
+    const landFill   = isLight ? 'rgba(160,200,140,0.42)' : 'rgba(22,52,88,0.72)';
+    const landStroke = isLight ? 'rgba(80,130,80,0.40)'   : 'rgba(60,130,200,0.38)';
+    LAND_POLYS.forEach(poly => {
+      ctx.beginPath();
+      let wasVis = false;
+      for (const [lat, lon] of poly) {
+        const p = project(lat, lon);
+        if (p.z > -0.05) {
+          if (!wasVis) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+          wasVis = true;
+        } else {
+          if (wasVis) { ctx.closePath(); ctx.fillStyle = landFill; ctx.fill(); }
+          wasVis = false;
+        }
+      }
+      if (wasVis) { ctx.closePath(); ctx.fillStyle = landFill; ctx.fill(); }
+      // Outline pass
+      ctx.beginPath();
+      wasVis = false;
+      for (const [lat, lon] of poly) {
+        const p = project(lat, lon);
+        if (p.z > -0.05) {
+          if (!wasVis) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+          wasVis = true;
+        } else {
+          wasVis = false;
+        }
+      }
+      ctx.closePath();
+      ctx.strokeStyle = landStroke;
+      ctx.lineWidth = 0.7 * devicePixelRatio;
+      ctx.stroke();
+    });
+    ctx.restore();
 
     // Lat lines (reduced step on low-perf mobile)
     const gridStep = lowPerf() ? 6 : 3;
@@ -1217,18 +1323,31 @@ function globeAnimation() {
       const from = airports[f.route[0]];
       const to = airports[f.route[1]];
 
-      // Arc
-      ctx.beginPath();
-      ctx.setLineDash([5 * devicePixelRatio, 5 * devicePixelRatio]);
-      ctx.lineWidth = 1.1 * devicePixelRatio;
-      ctx.strokeStyle = `rgba(245,199,107,${arcAlpha})`;
-      let first = true;
+      // Arc — glow pass then crisp line
+      const arcPts = [];
       for (let i = 0; i <= 80; i++) {
         const pt = slerp(from, to, i / 80);
-        const p = project(pt[0], pt[1]);
-        if (p.z > 0) { if (first) { ctx.moveTo(p.x, p.y); first = false; } else ctx.lineTo(p.x, p.y); }
-        else first = true;
+        arcPts.push(project(pt[0], pt[1]));
       }
+      const drawArcPath = () => {
+        ctx.beginPath();
+        let first = true;
+        for (const p of arcPts) {
+          if (p.z > 0) { if (first) { ctx.moveTo(p.x, p.y); first = false; } else ctx.lineTo(p.x, p.y); }
+          else first = true;
+        }
+      };
+      // Glow layer
+      drawArcPath();
+      ctx.lineWidth = 4.5 * devicePixelRatio;
+      ctx.strokeStyle = `rgba(245,199,107,${arcAlpha * 0.22})`;
+      ctx.setLineDash([]);
+      ctx.stroke();
+      // Main arc — solid, thin
+      drawArcPath();
+      ctx.lineWidth = 1.2 * devicePixelRatio;
+      ctx.strokeStyle = `rgba(245,199,107,${arcAlpha})`;
+      ctx.setLineDash([4 * devicePixelRatio, 5 * devicePixelRatio]);
       ctx.stroke();
       ctx.setLineDash([]);
 
@@ -1320,6 +1439,24 @@ function globeAnimation() {
           ctx.beginPath(); ctx.arc(p.x, p.y, 10 * devicePixelRatio, 0, Math.PI * 2); ctx.fill();
         });
       }
+    }
+
+    // Night city lights — warm amber glow dots, dark mode only
+    if (!isLight) {
+      NIGHT_CITIES.forEach(([lat, lon]) => {
+        const p = project(lat, lon);
+        if (p.z <= 0.05) return;
+        const a = Math.min(1, (p.z - 0.05) * 3.5) * 0.72;
+        const r = 2.8 * devicePixelRatio;
+        const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 3.5);
+        grd.addColorStop(0, `rgba(255,210,100,${a})`);
+        grd.addColorStop(0.4, `rgba(255,160,50,${a * 0.55})`);
+        grd.addColorStop(1, 'transparent');
+        ctx.fillStyle = grd;
+        ctx.beginPath(); ctx.arc(p.x, p.y, r * 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = `rgba(255,230,160,${a})`;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 1.0 * devicePixelRatio, 0, Math.PI * 2); ctx.fill();
+      });
     }
 
     // Airport dots + IATA labels
