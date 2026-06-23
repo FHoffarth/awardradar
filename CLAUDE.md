@@ -2,6 +2,17 @@
 
 Kontext für Claude Code und KI-Assistenten. Lies das zuerst, bevor du Änderungen machst.
 
+For all Git workflow and branch safety rules, see `CONTRIBUTING.md`.
+Compliance is mandatory for all AI-assisted development.
+
+## Product Mission
+
+AwardRadar exists to help travelers make better award booking decisions.
+
+Primary question:
+
+> Should I book this?
+
 ## Was AwardRadar ist
 Der **Sweet-Spot- und Hidden-City-Finder für Miles & More / Star Alliance** im deutschsprachigen Raum. Kein weiterer generischer Flugsucher. Der USP liegt in drei Dingen, die die Konkurrenz (PointsYeah, seats.aero, Roame, AwardTool) NICHT hat:
 1. Deutsch & M&M-first

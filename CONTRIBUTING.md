@@ -1,3 +1,69 @@
+# Codex Constitution
+
+## Mandatory Pre-Flight Checklist
+
+Before every task:
+
+```bash
+git status
+git branch --show-current
+```
+
+Confirm:
+
+- Current branch is NOT `main`
+- Current branch matches the assigned task
+
+Allowed branches:
+
+- `codex/*`
+- `feature/*`
+- explicitly assigned branch
+
+## Forbidden Actions
+
+Never:
+
+```bash
+git add .
+```
+
+Never:
+
+- work directly on `main`
+- merge branches
+- stage `.claude/`
+- stage `AGENTS.md`
+- modify secrets
+- modify environment variables
+- push unreviewed changes to production
+
+## Staging Rule
+
+Stage only explicit task files.
+
+Example:
+
+```bash
+git add scripts/smoke_test.py README.md
+```
+
+## Commit Rule
+
+Before every commit:
+
+- review changed files
+- verify no secrets are included
+- verify no unintended production behavior changed
+
+## Merge Rule
+
+All merges require human review.
+
+Codex never merges.
+
+---
+
 # Contributing to AwardRadar
 
 ## Team-Rollen
