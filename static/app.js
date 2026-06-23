@@ -1393,11 +1393,19 @@ function globeAnimation() {
     }
 
     if (!reducedMotion) requestAnimationFrame(frame);
-    // reduced-motion: one frame only — already drawn, stop here
   }
   // Always use requestAnimationFrame for first draw — iOS suppresses sync canvas draws
   // during page load when prefers-reduced-motion is active.
   requestAnimationFrame(frame);
+
+  // iOS clears canvas content when scrolling if there's no active animation loop.
+  // Re-draw one frame whenever the canvas scrolls back into view (reduced-motion only).
+  if (reducedMotion && 'IntersectionObserver' in window) {
+    const obs = new IntersectionObserver(function(entries) {
+      if (entries[0].isIntersecting) requestAnimationFrame(frame);
+    }, { threshold: 0.1 });
+    obs.observe(c);
+  }
 }
 
 initDates();
