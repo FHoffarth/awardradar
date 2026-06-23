@@ -1174,10 +1174,16 @@ _PROG_HOMEPAGES: dict[str, str] = {
 def booking_deep_url(program: str, origin: str, dest: str, dep: str) -> str:
     """Return best known deep link with route+date prefilled, fallback to homepage."""
     if program in ("United", "United MileagePlus"):
+        # sc=7 award search, tt=1 one-way — confirmed working
         return f"https://www.united.com/en/us/fsr/choose-flights?f={origin}&t={dest}&d={dep}&sc=7&tt=1"
+    if program in ("Air Canada Aeroplan", "Aeroplan"):
+        # tripType=O one-way, ADT=1 adult — confirmed working
+        return f"https://www.aircanada.com/aeroplan/redeem/flights/search#/results?org0={origin}&dest0={dest}&departureDate0={dep}&ADT=1&YTH=0&CHD=0&INF=0&tripType=O&lang=en-CA"
     if program in ("Singapore KrisFlyer",):
+        # date format YYYY-MM-DD accepted; lands on search form with fields prefilled
         return f"https://www.singaporeair.com/en_UK/ppsclub-krisflyer/kf-plan-redeem/?journeyType=one-way&departureDate={dep}&flightOrigin={origin}&flightDestination={dest}"
     if program in ("British Airways Avios",):
+        # eId=106001 = award redemption flow; date format YYYY-MM-DD
         return f"https://www.britishairways.com/travel/redeem/execclub/_gf/en_gb?eId=106001&departurePoint={origin}&destinationPoint={dest}&departureDate={dep}"
     return _PROG_HOMEPAGES.get(program, f"https://awardfares.com/search?origin={origin}&destination={dest}&date={dep}")
 
@@ -1284,12 +1290,17 @@ def fetch_cash_price(origin: str, dest: str, dep: dt.date, cabin: str, currency:
     return d.get("price")
 
 
+_AWARDFARES_CABIN = {"economy": "economy", "premium": "premium", "business": "business", "first": "first"}
+_SEATSAERO_CABIN  = {"economy": "economy", "premium": "premium-economy", "business": "business", "first": "first"}
+
 def award_links(origin: str, dest: str, dep: str, ret: str | None, cabin: str) -> dict:
-    gf_q = quote_plus(f"flights from {origin} to {dest} on {dep}")
+    af_cabin  = _AWARDFARES_CABIN.get(cabin, "business")
+    sa_cabin  = _SEATSAERO_CABIN.get(cabin, "business")
+    gf_q      = quote_plus(f"flights from {origin} to {dest} on {dep}")
     return {
         "verify": [
-            {"name": "AwardFares", "url": f"https://awardfares.com/search?origin={origin}&destination={dest}&date={dep}"},
-            {"name": "seats.aero", "url": f"https://seats.aero/search?origin={origin}&destination={dest}"},
+            {"name": "AwardFares", "url": f"https://awardfares.com/search?origin={origin}&destination={dest}&date={dep}&cabin={af_cabin}"},
+            {"name": "seats.aero", "url": f"https://seats.aero/search?origin={origin}&destination={dest}&date={dep}&cabin={sa_cabin}"},
         ],
         "cash": [
             {"name": "Google Flights", "url": f"https://www.google.com/travel/flights?q={gf_q}"},
