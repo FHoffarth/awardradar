@@ -992,7 +992,7 @@ function globeAnimation() {
   size();
 
   // Drag-to-spin interaction
-  let dragging = false, dragX = 0, velX = 0, autoSpin = !reducedMotion;
+  let dragging = false, dragX = 0, velX = 0, autoSpin = true;
   let hoveredAirport = null, mouseX = 0, mouseY = 0;
   const R_screen = () => isMobile() ? Math.min(w, h) * 0.40 : Math.min(w, h) * 0.32;
   const cx_screen = () => isMobile() ? w * 0.50 : w * 0.78;
@@ -1069,6 +1069,7 @@ function globeAnimation() {
   // Route pulse state
   let pulseRoute = null; // { from, to, startTime, duration }
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reducedMotion) autoSpin = false; // freeze rotation — loop still runs to prevent iOS canvas-clear
 
   // Adaptive quality for older devices
   let fpsAvg = 60, lastFrameTime = performance.now(), frameCount = 0;
