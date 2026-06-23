@@ -1143,14 +1143,24 @@ def calc_cpm(cash_eur: float, miles: int, surcharge_eur: float) -> float:
 
 def sweet_spot_grade(cpm: float) -> dict:
     if cpm >= 2.5:
-        return {"grade": "A+", "tier": "exceptional", "label": "Exceptional Redemption"}
+        return {"grade": "A+", "tier": "exceptional", "label": "Exceptional Value",
+                "recommendation": "book_miles",
+                "reasoning": "Sehr hoher Meilenwert – weit über dem M&M-Durchschnitt. Meilen-Buchung klar die bessere Wahl."}
     if cpm >= 1.8:
-        return {"grade": "A",  "tier": "great",       "label": "Great Redemption"}
+        return {"grade": "A",  "tier": "great",       "label": "Great Value",
+                "recommendation": "book_miles",
+                "reasoning": "Guter Meilenwert gegenüber dem Cash-Preis. Meilen-Buchung empfohlen."}
     if cpm >= 1.2:
-        return {"grade": "B",  "tier": "good",        "label": "Good Redemption"}
+        return {"grade": "B",  "tier": "good",        "label": "Good Value",
+                "recommendation": "lean_miles",
+                "reasoning": "Solider Meilenwert – Meilen haben leichten Vorteil. Lohnt sich bei ausreichend Meilen."}
     if cpm >= 0.7:
-        return {"grade": "C",  "tier": "fair",        "label": "Fair Redemption"}
-    return         {"grade": "D",  "tier": "poor",        "label": "Weak Redemption"}
+        return {"grade": "C",  "tier": "fair",        "label": "Fair",
+                "recommendation": "consider",
+                "reasoning": "Knapper Meilenwert – Cash-Alternativen prüfen, bevor du buchst."}
+    return         {"grade": "D",  "tier": "poor",        "label": "Weak",
+                "recommendation": "pay_cash",
+                "reasoning": "Meilenwert zu niedrig – Cash-Buchung ist bei diesem Preis die günstigere Option."}
 
 
 _PROG_HOMEPAGES: dict[str, str] = {

@@ -591,6 +591,45 @@ function render(data) {
           return (a.cpm || 99) - (b.cpm || 99);
         });
 
+        // --- Booking Decision Card ---
+        const best = sorted[0];
+        let decisionCard = '';
+        if (best && best.cpm) {
+          const g = best.grade || {};
+          const tier = g.tier || 'fair';
+          const cpm  = best.cpm;
+          const REC = {
+            book_miles: { label: '✓ Book with Miles', cls: 'bdc-rec-miles' },
+            lean_miles: { label: '↗ Lean Miles',       cls: 'bdc-rec-lean'  },
+            consider:   { label: '≈ Your Call',         cls: 'bdc-rec-consider' },
+            pay_cash:   { label: '↩ Pay Cash',          cls: 'bdc-rec-cash'  },
+          };
+          const STARS = { exceptional: '★★★★★', great: '★★★★☆', good: '★★★☆☆', fair: '★★☆☆☆', poor: '★☆☆☆☆' };
+          const rec = REC[g.recommendation] || REC.consider;
+          const stars = STARS[tier] || '★★☆☆☆';
+          const cashLine = r.cash_eur
+            ? `<div class="bdc-cash-vs">vs. <strong>€${Math.round(r.cash_eur)}</strong> cash&thinsp;·&thinsp;you save <strong>€${Math.round(r.cash_eur - best.surcharge)}</strong> in cash outlay</div>`
+            : '';
+          decisionCard = `
+          <div class="bdc bdc-${tier}">
+            <div class="bdc-top">
+              <div class="bdc-verdict">
+                <span class="bdc-stars" aria-hidden="true">${stars}</span>
+                <span class="bdc-tier-label">${esc(g.label || tier)}</span>
+              </div>
+              <div class="bdc-cpp-block">
+                <span class="bdc-cpp-val">${cpm.toFixed(1)}</span>
+                <span class="bdc-cpp-unit">ct/mi</span>
+              </div>
+            </div>
+            <div class="bdc-action-row">
+              <span class="bdc-rec-badge ${rec.cls}">${rec.label}</span>
+              ${cashLine}
+            </div>
+            <p class="bdc-reasoning">${esc(g.reasoning || '')}</p>
+          </div>`;
+        }
+
         const cards = sorted.map((p, idx) => {
           const g = p.grade || {};
           const gm = GRADE_MAP[g.tier] || null;
@@ -645,6 +684,7 @@ function render(data) {
             </div>
           </div>
           ${liveNote}
+          ${decisionCard}
           <div class="aw-cards-grid">${cards}</div>
           <p class="legend-note">Taxes &amp; fees estimated · verify before booking</p>
           ${actionLinksHtml(r.links)}
