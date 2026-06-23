@@ -1711,19 +1711,18 @@ def score_award(origin: str, dest: str, cabin: str, lang: str = "de") -> dict:
     return {"label": "🟢 solide", "text": "Kurzstrecke eher verfügbar, aber Cashpreise vergleichen."}
 
 
-# Popular longhaul routes for the Discovery widget — DACH-first origin bias
+# Popular longhaul routes for the Discovery widget — DACH-first, kept small to protect daily budget.
+# Max 8 routes × 3 Gunicorn workers = 24 calls per cold-start worst case.
+# Expand only after file-based shared cache is in place.
 TOP_OPP_ROUTES: list[tuple[str, str, str]] = [
     ("FRA", "JFK", "Business"), ("FRA", "HND", "Business"), ("FRA", "SIN", "Business"),
-    ("FRA", "HKG", "Business"), ("FRA", "BKK", "Business"), ("FRA", "LAX", "Business"),
-    ("MUC", "JFK", "Business"), ("MUC", "HND", "Business"), ("MUC", "SIN", "Business"),
-    ("ZRH", "JFK", "Business"), ("ZRH", "HND", "Business"), ("ZRH", "SIN", "Business"),
-    ("VIE", "JFK", "Business"), ("FRA", "NRT", "Business"), ("FRA", "ICN", "Business"),
-    ("FRA", "DXB", "Business"), ("MUC", "DXB", "Business"), ("FRA", "DOH", "Business"),
-    ("FRA", "JFK", "First"),    ("FRA", "HND", "First"),    ("MUC", "HND", "First"),
+    ("MUC", "JFK", "Business"), ("MUC", "SIN", "Business"),
+    ("ZRH", "HND", "Business"),
+    ("FRA", "JFK", "First"),    ("FRA", "HND", "First"),
 ]
 
 _TOP_OPP_CACHE: tuple[float, list] | None = None
-TOP_OPP_TTL = 3600  # refresh once per hour
+TOP_OPP_TTL = 14400  # 4h — reduces per-worker re-scan frequency
 
 
 @app.route("/api/top-opportunities")

@@ -1482,11 +1482,27 @@ if (innerWidth <= 640) {
     </div>`;
   }
 
-  fetch('/api/top-opportunities')
-    .then(r => r.ok ? r.json() : Promise.reject(r.status))
-    .then(d => {
-      if (d.ok) renderCards(d.opportunities || []);
-      else renderError();
-    })
-    .catch(() => renderError());
+  // Only fetch when widget scrolls into view — prevents auto-fire on every page load
+  let _fetched = false;
+  function loadOpportunities() {
+    if (_fetched) return;
+    _fetched = true;
+    fetch('/api/top-opportunities')
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(d => {
+        if (d.ok) renderCards(d.opportunities || []);
+        else renderError();
+      })
+      .catch(() => renderError());
+  }
+
+  if ('IntersectionObserver' in window) {
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) { obs.disconnect(); loadOpportunities(); }
+    }, { rootMargin: '200px' });
+    obs.observe(container);
+  } else {
+    // Fallback for old browsers: load after 3s delay
+    setTimeout(loadOpportunities, 3000);
+  }
 })();
