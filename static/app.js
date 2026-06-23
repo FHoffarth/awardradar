@@ -594,39 +594,54 @@ function render(data) {
         // --- Booking Decision Card ---
         const best = sorted[0];
         let decisionCard = '';
-        if (best && best.cpm) {
-          const g = best.grade || {};
-          const tier = g.tier || 'fair';
-          const cpm  = best.cpm;
-          const REC = {
-            book_miles: { label: '✓ Book with Miles', cls: 'bdc-rec-miles' },
-            lean_miles: { label: '↗ Lean Miles',       cls: 'bdc-rec-lean'  },
-            consider:   { label: '≈ Your Call',         cls: 'bdc-rec-consider' },
-            pay_cash:   { label: '↩ Pay Cash',          cls: 'bdc-rec-cash'  },
+        if (best) {
+          const g        = best.grade || {};
+          const tier     = g.tier || 'fair';
+          const hasCash  = !!(r.cash_eur && best.cpm);
+          const isLive   = best.data_source === 'live';
+          const allEst   = sorted.every(p => p.data_source !== 'live');
+          const seatsStr = best.seats > 0 ? `, ${best.seats} seat${best.seats !== 1 ? 's' : ''} available` : '';
+
+          // Action headline — only when we have a proper economic verdict
+          const ACTION = {
+            book_miles: 'Best move: Book with Miles',
+            lean_miles: 'Lean towards Miles',
+            consider:   'Compare your options',
+            pay_cash:   'Best move: Pay Cash',
           };
-          const STARS = { exceptional: '★★★★★', great: '★★★★☆', good: '★★★☆☆', fair: '★★☆☆☆', poor: '★☆☆☆☆' };
-          const rec = REC[g.recommendation] || REC.consider;
-          const stars = STARS[tier] || '★★☆☆☆';
-          const cashLine = r.cash_eur
-            ? `<div class="bdc-cash-vs">vs. <strong>€${Math.round(r.cash_eur)}</strong> cash&thinsp;·&thinsp;you save <strong>€${Math.round(r.cash_eur - best.surcharge)}</strong> in cash outlay</div>`
-            : '';
+          const headline = hasCash
+            ? (ACTION[g.recommendation] || 'Award opportunity found')
+            : 'Best award option';
+
+          // Subline: program + miles + fees + seats
+          const subline = hasCash
+            ? `${esc(best.program)} — ${best.miles.toLocaleString()} miles + €${best.surcharge}${seatsStr}.`
+            : `${esc(best.program)} shows ${isLive ? 'live availability' : 'availability (estimated)'} — ${best.miles.toLocaleString()} miles + €${best.surcharge}${seatsStr}.`;
+
+          // Supporting metric row (only when CPM exists)
+          const metricRow = hasCash ? `
+            <div class="bdc-metric-row">
+              <span class="bdc-cpp">${best.cpm.toFixed(1)} <small>ct/mi</small></span>
+              <span class="bdc-cash-vs">vs. <strong>€${Math.round(r.cash_eur)}</strong> cash · save <strong>€${Math.round(r.cash_eur - best.surcharge)}</strong></span>
+            </div>` : '';
+
+          // Footer note — confidence level
+          let footerNote;
+          if (!hasCash) {
+            footerNote = `<span class="bdc-conf bdc-conf-nodata">Cash comparison will update when fare data is available.</span>`;
+          } else if (allEst) {
+            footerNote = `<span class="bdc-conf bdc-conf-est">⚠ Estimated values — verify before booking</span>`;
+          } else {
+            footerNote = `<span class="bdc-conf bdc-conf-live">● Real-time availability confirmed</span>`;
+          }
+
+          const bdcTier = hasCash ? tier : 'availability';
           decisionCard = `
-          <div class="bdc bdc-${tier}">
-            <div class="bdc-top">
-              <div class="bdc-verdict">
-                <span class="bdc-stars" aria-hidden="true">${stars}</span>
-                <span class="bdc-tier-label">${esc(g.label || tier)}</span>
-              </div>
-              <div class="bdc-cpp-block">
-                <span class="bdc-cpp-val">${cpm.toFixed(1)}</span>
-                <span class="bdc-cpp-unit">ct/mi</span>
-              </div>
-            </div>
-            <div class="bdc-action-row">
-              <span class="bdc-rec-badge ${rec.cls}">${rec.label}</span>
-              ${cashLine}
-            </div>
-            <p class="bdc-reasoning">${esc(g.reasoning || '')}</p>
+          <div class="bdc bdc-${bdcTier}">
+            <div class="bdc-headline">${headline}</div>
+            <div class="bdc-subline">${subline}</div>
+            ${metricRow}
+            <div class="bdc-footer">${footerNote}</div>
           </div>`;
         }
 

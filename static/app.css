@@ -1005,54 +1005,60 @@ span.flatpickr-weekday{
 /* ===== Booking Decision Card ===== */
 .bdc{
   border-radius:14px;
-  padding:18px 20px 14px;
+  padding:18px 20px 16px;
   margin-bottom:14px;
-  border-left:3px solid var(--bdc-accent,var(--gold));
+  border-left:4px solid var(--bdc-accent,var(--gold));
   background:var(--bdc-bg,rgba(245,199,107,.06));
 }
-.bdc-exceptional{--bdc-accent:var(--gold);--bdc-bg:rgba(245,199,107,.08)}
-.bdc-great      {--bdc-accent:var(--green);--bdc-bg:rgba(135,247,181,.06)}
-.bdc-good       {--bdc-accent:var(--cyan);--bdc-bg:rgba(106,215,255,.05)}
-.bdc-fair       {--bdc-accent:var(--muted);--bdc-bg:rgba(122,154,184,.04)}
-.bdc-poor       {--bdc-accent:var(--bad);--bdc-bg:rgba(255,157,157,.05)}
+.bdc-exceptional  {--bdc-accent:var(--gold);  --bdc-bg:rgba(245,199,107,.08);--bdc-hl:var(--gold)}
+.bdc-great        {--bdc-accent:var(--green); --bdc-bg:rgba(135,247,181,.07);--bdc-hl:var(--green)}
+.bdc-good         {--bdc-accent:var(--cyan);  --bdc-bg:rgba(106,215,255,.06);--bdc-hl:var(--cyan)}
+.bdc-fair         {--bdc-accent:var(--muted); --bdc-bg:rgba(122,154,184,.04);--bdc-hl:var(--text)}
+.bdc-poor         {--bdc-accent:var(--bad);   --bdc-bg:rgba(255,157,157,.05);--bdc-hl:var(--bad)}
+.bdc-availability {--bdc-accent:var(--cyan);  --bdc-bg:rgba(106,215,255,.05);--bdc-hl:var(--cyan)}
 
-.bdc-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
-.bdc-verdict{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.bdc-stars{font-size:14px;letter-spacing:1px;color:var(--bdc-accent)}
-.bdc-tier-label{font-size:13px;font-weight:700;color:var(--bdc-accent);text-transform:uppercase;letter-spacing:.05em}
-
-.bdc-cpp-block{display:flex;align-items:baseline;gap:3px;flex-shrink:0}
-.bdc-cpp-val{font-size:28px;font-weight:800;color:var(--bdc-accent);line-height:1}
-.bdc-cpp-unit{font-size:12px;font-weight:600;color:var(--muted)}
-
-.bdc-action-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
-.bdc-rec-badge{
-  display:inline-flex;align-items:center;gap:5px;
-  font-size:13px;font-weight:700;
-  padding:5px 13px;border-radius:20px;
-  border:1.5px solid currentColor;
+/* Headline: the action statement — this is the hero */
+.bdc-headline{
+  font-size:17px;font-weight:800;
+  color:var(--bdc-hl,var(--text));
+  line-height:1.2;margin-bottom:5px;
 }
-.bdc-rec-miles  {color:var(--green);border-color:rgba(135,247,181,.5);background:rgba(135,247,181,.08)}
-.bdc-rec-lean   {color:var(--cyan);border-color:rgba(106,215,255,.4);background:rgba(106,215,255,.07)}
-.bdc-rec-consider{color:var(--muted);border-color:rgba(122,154,184,.35);background:rgba(122,154,184,.05)}
-.bdc-rec-cash   {color:var(--bad);border-color:rgba(255,157,157,.45);background:rgba(255,157,157,.06)}
-
+/* Subline: program + miles + seats */
+.bdc-subline{
+  font-size:14px;color:var(--text);
+  line-height:1.5;margin-bottom:10px;
+}
+/* Supporting metrics: cpp + cash comparison */
+.bdc-metric-row{
+  display:flex;align-items:baseline;gap:10px;
+  flex-wrap:wrap;margin-bottom:10px;
+}
+.bdc-cpp{
+  font-size:15px;font-weight:700;color:var(--bdc-accent);
+}
+.bdc-cpp small{font-size:11px;font-weight:500;color:var(--muted)}
 .bdc-cash-vs{font-size:13px;color:var(--muted)}
 .bdc-cash-vs strong{color:var(--text)}
-.bdc-reasoning{font-size:13px;color:var(--muted);margin:0;line-height:1.5}
+/* Footer confidence note */
+.bdc-footer{margin-top:2px}
+.bdc-conf{font-size:12px}
+.bdc-conf-live{color:var(--green)}
+.bdc-conf-est {color:var(--gold)}
+.bdc-conf-nodata{color:var(--muted)}
 
-/* Light theme overrides */
-[data-theme="light"] .bdc-exceptional{--bdc-bg:rgba(154,110,16,.06)}
-[data-theme="light"] .bdc-great      {--bdc-bg:rgba(15,102,64,.05)}
-[data-theme="light"] .bdc-good       {--bdc-bg:rgba(13,110,138,.05)}
-[data-theme="light"] .bdc-fair       {--bdc-bg:rgba(74,85,104,.04)}
-[data-theme="light"] .bdc-poor       {--bdc-bg:rgba(158,46,46,.05)}
+/* Light theme */
+[data-theme="light"] .bdc-exceptional  {--bdc-bg:rgba(154,110,16,.06)}
+[data-theme="light"] .bdc-great        {--bdc-bg:rgba(15,102,64,.05)}
+[data-theme="light"] .bdc-good         {--bdc-bg:rgba(13,110,138,.05)}
+[data-theme="light"] .bdc-fair         {--bdc-bg:rgba(74,85,104,.04)}
+[data-theme="light"] .bdc-poor         {--bdc-bg:rgba(158,46,46,.05)}
+[data-theme="light"] .bdc-availability {--bdc-bg:rgba(13,110,138,.05)}
 
 /* Mobile */
 @media(max-width:640px){
   .bdc{padding:14px 16px 12px}
-  .bdc-cpp-val{font-size:24px}
-  .bdc-cash-vs{display:none} /* too narrow for cash comparison inline */
+  .bdc-headline{font-size:15px}
+  .bdc-cash-vs{display:none}
 }
 
 /* === Globe mobile protection — must be last, overrides everything including reduced-motion === */
