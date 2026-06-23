@@ -1600,19 +1600,20 @@ if (innerWidth <= 640) {
   const container = $('discovery-cards');
   if (!container) return;
 
-  const GRADE_MAP = {
-    exceptional: { label: 'A+', cls: 'aw-grade-aplus' },
-    great:       { label: 'A',  cls: 'aw-grade-a' },
-    good:        { label: 'B',  cls: 'aw-grade-b' },
+  const STARS_MAP = { exceptional: '★★★★★', great: '★★★★☆' };
+  const REC_LABEL  = {
+    book_miles: 'Book with Miles', lean_miles: 'Lean towards Miles',
+    consider:   'Compare options', pay_cash:   'Pay Cash',
   };
 
-  function timeAgo(iso) {
-    if (!iso) return null;
-    const diff = Math.floor((Date.now() - new Date(iso)) / 60000);
-    if (diff < 1) return 'just now';
-    if (diff < 60) return `${diff} min ago`;
-    const h = Math.floor(diff / 60);
-    return `${h}h ago`;
+  function discReason(o) {
+    const isPremium = /business|first/i.test(o.cabin || '');
+    const highFees  = (o.surcharge || 0) > 300;
+    if (!o.cpm) return null;
+    if (o.cpm >= 4.0) return isPremium ? 'Exceptionally low mileage for a premium cabin.' : 'Far below typical cost for this route.';
+    if (o.cpm >= 2.5) return highFees ? 'Strong value despite elevated fees.' : 'Well above average redemption value.';
+    if (o.cpm >= 1.8) return isPremium ? 'Solid value for a premium cabin.' : 'Good miles efficiency on this route.';
+    return null;
   }
 
   function renderCards(opps) {
@@ -1624,25 +1625,40 @@ if (innerWidth <= 640) {
       return;
     }
     container.innerHTML = opps.map(o => {
-      const gm = GRADE_MAP[o.grade_tier] || null;
-      const metaParts = [];
-      if (o.direct) metaParts.push('<span class="disc-nonstop">Nonstop</span>');
-      if (o.seats > 0 && o.seats <= 2) metaParts.push(`<span class="disc-seats-low">${o.seats} seat${o.seats > 1 ? 's' : ''} left</span>`);
-      else if (o.seats >= 3) metaParts.push(`<span>${o.seats} seats</span>`);
-      const updated = timeAgo(o.available_date ? o.available_date + 'T00:00:00Z' : null);
-      return `<div class="disc-card" role="article" aria-label="${esc(o.program)} ${esc(o.origin)} to ${esc(o.dest)}">
-        <div class="disc-card-header">
-          <span class="disc-program">${esc(o.program)}</span>
-          ${gm ? `<span class="disc-grade-pill aw-grade-pill ${gm.cls}">${gm.label}</span>` : ''}
+      const tier    = o.grade_tier || 'great';
+      const stars   = STARS_MAP[tier] || '';
+      const recLbl  = REC_LABEL[o.recommendation] || 'Book with Miles';
+      const reason  = discReason(o);
+      const seatsLbl = o.seats > 0 ? `${o.seats} seat${o.seats !== 1 ? 's' : ''} available` : '';
+      const metaLine = [o.direct ? 'Nonstop' : '', seatsLbl].filter(Boolean).join(' · ');
+
+      // CTA: prefill search form fields then switch to awards tab
+      const ctaClick = `(function(){` +
+        `var f=$('from-0');var t=$('to-0');` +
+        `if(f)f.value='${esc(o.origin)}';if(t)t.value='${esc(o.dest)}';` +
+        `switchTabAndRun('awards');` +
+        `})();return false;`;
+
+      return `<div class="disc-card disc-card-${tier}" role="article">
+        <div class="disc-route-row">
+          <span class="disc-route">${esc(o.origin)} → ${esc(o.dest)}</span>
+          <span class="disc-cabin-pill">${esc(o.cabin)}</span>
         </div>
-        <div class="disc-route">${esc(o.origin)} <span style="opacity:.5">→</span> ${esc(o.dest)}</div>
-        <div class="disc-cabin">${esc(o.cabin)}</div>
-        <div style="margin-top:4px">
-          <span class="disc-miles">${o.miles.toLocaleString()}</span>
-          <span class="disc-miles-unit">miles</span>
+        <div class="disc-verdict-row">
+          ${stars ? `<span class="disc-stars" aria-hidden="true">${stars}</span>` : ''}
+          <span class="disc-tier-label">${esc(o.grade_label || tier)}</span>
         </div>
-        ${metaParts.length ? `<div class="disc-meta">${metaParts.join('<span style="opacity:.3">·</span>')}</div>` : ''}
-        ${updated ? `<div class="disc-updated">Available ${esc(updated)}</div>` : ''}
+        <div class="disc-rec-label">↗ ${recLbl}</div>
+        <div class="disc-offer-row">
+          <span class="disc-program">${esc(o.program)}</span><span class="disc-sep"> · </span><span class="disc-miles-val">${o.miles.toLocaleString()} miles + €${o.surcharge}</span>
+        </div>
+        ${metaLine ? `<div class="disc-meta">${esc(metaLine)}</div>` : ''}
+        ${reason   ? `<div class="disc-reason">${reason}</div>` : ''}
+        <div class="disc-footer-row">
+          <span class="disc-conf disc-conf-live">● Live availability</span>
+          ${o.cpm ? `<span class="disc-cpm">${o.cpm.toFixed(1)} ct/mi</span>` : ''}
+        </div>
+        <a href="#" class="disc-cta-btn" onclick="${ctaClick}">Search this route →</a>
       </div>`;
     }).join('');
   }

@@ -1810,6 +1810,8 @@ def top_opportunities():
                         "program": p["program"], "miles": p["miles"],
                         "surcharge": p["surcharge"], "cpm": p["cpm"],
                         "grade_tier": g["tier"], "grade_label": g.get("label", ""),
+                        "recommendation": g.get("recommendation", "book_miles"),
+                        "reasoning": g.get("reasoning", ""),
                         "direct": p.get("direct", False), "seats": p.get("seats", 0),
                         "airlines": p.get("airlines", ""),
                         "available_date": p.get("available_date", dep.isoformat()),
