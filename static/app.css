@@ -70,9 +70,8 @@ a:focus-visible{outline:2px solid var(--cyan);outline-offset:3px;border-radius:3
 /* Reduced motion */
 @media(prefers-reduced-motion:reduce){
   *{transition:none!important;animation:none!important}
-  /* Desktop: hide animated globe — on mobile keep it visible as a static element */
+  /* Desktop: hide animated globe */
   #globe{display:none}
-  @media(max-width:640px){#globe{display:block;opacity:.6}}
   .radar-ring-sweep{display:none}
 }
 
@@ -999,3 +998,11 @@ span.flatpickr-weekday{
 [data-theme="light"] .flatpickr-day.flatpickr-disabled,
 [data-theme="light"] .flatpickr-day.prevMonthDay,
 [data-theme="light"] .flatpickr-day.nextMonthDay{color:rgba(74,85,104,.18)!important}
+
+/* === Globe mobile protection — must be last, overrides everything including reduced-motion === */
+@media(max-width:640px){
+  #globe{display:block!important;visibility:visible!important;opacity:.6!important;min-height:250px}
+}
+@media(prefers-reduced-motion:reduce) and (max-width:640px){
+  #globe{display:block!important;visibility:visible!important;opacity:.6!important;min-height:250px}
+}
