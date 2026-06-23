@@ -992,7 +992,7 @@ function globeAnimation() {
   size();
 
   // Drag-to-spin interaction
-  let dragging = false, dragX = 0, velX = 0, autoSpin = true;
+  let dragging = false, dragX = 0, velX = 0, autoSpin = !reducedMotion;
   let hoveredAirport = null, mouseX = 0, mouseY = 0;
   const R_screen = () => isMobile() ? Math.min(w, h) * 0.40 : Math.min(w, h) * 0.32;
   const cx_screen = () => isMobile() ? w * 0.50 : w * 0.78;
@@ -1392,20 +1392,11 @@ function globeAnimation() {
       c.style.cursor = 'grab';
     }
 
-    if (!reducedMotion) requestAnimationFrame(frame);
+    // Always loop — iOS clears canvas on scroll if rAF stops.
+    // With reducedMotion: rot is frozen (no spin/movement), loop just repaints static globe.
+    requestAnimationFrame(frame);
   }
-  // Always use requestAnimationFrame for first draw — iOS suppresses sync canvas draws
-  // during page load when prefers-reduced-motion is active.
   requestAnimationFrame(frame);
-
-  // iOS clears canvas content when scrolling if there's no active animation loop.
-  // Re-draw one frame whenever the canvas scrolls back into view (reduced-motion only).
-  if (reducedMotion && 'IntersectionObserver' in window) {
-    const obs = new IntersectionObserver(function(entries) {
-      if (entries[0].isIntersecting) requestAnimationFrame(frame);
-    }, { threshold: 0.1 });
-    obs.observe(c);
-  }
 }
 
 initDates();
