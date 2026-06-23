@@ -1393,8 +1393,11 @@ function globeAnimation() {
     }
 
     if (!reducedMotion) requestAnimationFrame(frame);
+    // reduced-motion: one frame only — already drawn, stop here
   }
-  frame(); // always draw at least one frame (static snapshot for reduced-motion)
+  // Always use requestAnimationFrame for first draw — iOS suppresses sync canvas draws
+  // during page load when prefers-reduced-motion is active.
+  requestAnimationFrame(frame);
 }
 
 initDates();
