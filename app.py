@@ -1721,19 +1721,56 @@ TOP_OPP_ROUTES: list[tuple[str, str, str]] = [
     ("FRA", "JFK", "First"),    ("FRA", "HND", "First"),
 ]
 
-_TOP_OPP_CACHE: tuple[float, list] | None = None
-TOP_OPP_TTL = 14400  # 4h — reduces per-worker re-scan frequency
+TOP_OPP_TTL   = 14400  # 4h
+_TOP_OPP_FILE = "/tmp/awardradar_top_opportunities_cache.json"
+_TOP_OPP_LOCK = __import__("threading").Lock()   # guards the scan (one scan at a time per worker)
+
+
+def _read_file_cache() -> list | None:
+    """Return cached opportunities if file exists and is fresh, else None."""
+    try:
+        import json as _json
+        p = __import__("pathlib").Path(_TOP_OPP_FILE)
+        if not p.exists():
+            return None
+        data = _json.loads(p.read_text())
+        if time.time() - data["ts"] < TOP_OPP_TTL:
+            return data["opportunities"]
+    except Exception:
+        pass
+    return None
+
+
+def _write_file_cache(opportunities: list) -> None:
+    """Atomic write: temp file → rename, so readers never see partial data."""
+    try:
+        import json as _json, pathlib, tempfile, os
+        payload = _json.dumps({"ts": time.time(), "opportunities": opportunities})
+        tmp = _TOP_OPP_FILE + ".tmp"
+        pathlib.Path(tmp).write_text(payload)
+        os.replace(tmp, _TOP_OPP_FILE)
+    except Exception as exc:
+        app.logger.warning("top-opp file cache write failed: %s", exc)
 
 
 @app.route("/api/top-opportunities")
 def top_opportunities():
-    global _TOP_OPP_CACHE
-    now = time.time()
-    if _TOP_OPP_CACHE and now - _TOP_OPP_CACHE[0] < TOP_OPP_TTL:
-        return jsonify({"ok": True, "opportunities": _TOP_OPP_CACHE[1], "source": "cache"})
+    # 1. Try shared file cache first — all workers share this
+    cached = _read_file_cache()
+    if cached is not None:
+        return jsonify({"ok": True, "opportunities": cached, "source": "cache"})
 
     if not (AWARD_SOURCE == "seatsaero" and SEATSAERO_KEY):
         return jsonify({"ok": False, "error": "seats.aero not configured"}), 503
+
+    # 2. Lock prevents concurrent scans within the same worker process
+    if not _TOP_OPP_LOCK.acquire(blocking=False):
+        # Another thread in this worker is already scanning — wait briefly and try cache again
+        _TOP_OPP_LOCK.acquire(blocking=True, timeout=30)
+        _TOP_OPP_LOCK.release()
+        cached = _read_file_cache()
+        if cached is not None:
+            return jsonify({"ok": True, "opportunities": cached, "source": "cache"})
 
     today = dt.date.today()
     dep = today + dt.timedelta(days=30)  # midpoint for cash price lookup
@@ -1790,7 +1827,11 @@ def top_opportunities():
 
     top = deduped[:12]
     if top:  # only cache non-empty results
-        _TOP_OPP_CACHE = (now, top)
+        _write_file_cache(top)
+    try:
+        _TOP_OPP_LOCK.release()
+    except RuntimeError:
+        pass  # wasn't acquired (non-blocking path)
     return jsonify({"ok": True, "opportunities": top, "source": "live"})
 
 
