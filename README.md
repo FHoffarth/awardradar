@@ -25,6 +25,21 @@ Dann öffnen:
 http://127.0.0.1:5000/?v=53
 ```
 
+## Production Smoke Test
+
+Der Smoke Test prüft die wichtigsten Production-JSON-Endpunkte, ohne Produktverhalten zu ändern. Standardmäßig läuft er gegen `https://awardradar.app` und nutzt nur die Python-Standardbibliothek.
+
+```powershell
+python scripts/smoke_test.py
+```
+
+Optional gegen eine andere Instanz:
+
+```powershell
+$env:BASE_URL="http://127.0.0.1:5000"
+python scripts/smoke_test.py
+```
+
 ## Hosting
 
 ```text
