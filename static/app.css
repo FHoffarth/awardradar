@@ -434,6 +434,9 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .aw-row-live td{background:rgba(135,247,181,.04)}
 .aw-row-live td:first-child{border-left:3px solid rgba(135,247,181,.5);padding-left:13px}
 .award-data-note{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-bottom:10px}
+.aw-trust-bar{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-bottom:10px;letter-spacing:.01em}
+.aw-trust-bar.aw-trust-est{opacity:.7}
+.aw-trust-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0}
 [data-theme="light"] .aw-source-live{background:rgba(15,102,64,.07);border-color:rgba(15,102,64,.2);color:#15803d}
 [data-theme="light"] .aw-source-est{background:rgba(7,18,36,.04);border-color:rgba(7,18,36,.12)}
 [data-theme="light"] .aw-row-live td{background:rgba(15,102,64,.03)}

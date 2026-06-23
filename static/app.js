@@ -578,8 +578,8 @@ function render(data) {
         const cashStr = r.cash_eur ? `${Math.round(r.cash_eur)} EUR` : null;
         const hasLive = r.has_live_data;
         const liveNote = hasLive
-          ? `<div class="award-data-note"><span class="aw-source-live">Live</span> seats.aero · <span class="aw-source-est">Est.</span> award charts</div>`
-          : `<div class="award-data-note"><span class="aw-source-est">Est.</span> Estimated — verify on program websites</div>`;
+          ? `<div class="aw-trust-bar"><span class="aw-trust-dot"></span>Real-time award availability · Verify before booking</div>`
+          : `<div class="aw-trust-bar aw-trust-est">Estimated values · Verify before booking</div>`;
 
         // Sort programs: by grade tier, then by cpm ascending
         const sorted = [...(r.programs || [])].sort((a, b) => {

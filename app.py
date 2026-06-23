@@ -1679,11 +1679,11 @@ def _awards_inner():
             })
 
     if use_seatsaero and any(r["has_live_data"] for r in results):
-        note = "Live availability via seats.aero · Estimated values from award charts. Miles and surcharges for guidance — verify on program websites."
+        note = "Real-time award availability · Verify before booking"
     elif use_seatsaero:
-        note = "seats.aero returned no availability for this route. Showing estimated values from award charts."
+        note = "No live availability found for this route · Showing estimated values"
     else:
-        note = "Estimated values from award charts. Miles and surcharges for guidance — verify on program websites."
+        note = "Estimated values · Verify before booking"
 
     return jsonify({"ok": True, "results": results, "note": note})
 
