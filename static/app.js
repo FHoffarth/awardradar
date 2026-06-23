@@ -1408,42 +1408,14 @@ setStatus('ready');
 const _reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 if (!_reducedMotion || innerWidth <= 640) globeAnimation();
 
-// Mobile debug overlay + fallback
+// Safety net: if canvas stayed empty after 800ms, show icon fallback
 if (innerWidth <= 640) {
   setTimeout(function() {
     const canvas = document.getElementById('globe');
-    const wrap   = document.getElementById('globe-wrap');
-    const cw = canvas ? canvas.width  : -1;
-    const ch = canvas ? canvas.height : -1;
-    const wh = wrap   ? wrap.offsetHeight : -1;
-    const op = canvas ? getComputedStyle(canvas).opacity : '?';
-    const di = canvas ? getComputedStyle(canvas).display  : '?';
-    const empty = !canvas || cw === 0 || ch === 0;
-
-    // Check if canvas has any drawn pixels (non-transparent)
-    let hasPixels = false, ctxOk = false;
-    try {
-      const ctx2 = canvas && canvas.getContext('2d');
-      ctxOk = !!ctx2;
-      if (ctx2 && cw > 0 && ch > 0) {
-        // Sample center pixel
-        const px = ctx2.getImageData(Math.floor(cw/2), Math.floor(ch/2), 1, 1).data;
-        hasPixels = px[3] > 0; // alpha > 0 means something was drawn
-      }
-    } catch(e) { ctxOk = false; }
-
-    // On-screen debug bar
-    const dbg = document.createElement('div');
-    dbg.id = 'globe-debug';
-    dbg.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,.9);color:#f5c76b;font:11px monospace;padding:6px 10px;z-index:9999;white-space:pre-wrap';
-    dbg.textContent = `Globe: ${cw}×${ch} wh=${wh} op=${op} di=${di} rm=${_reducedMotion} ctx=${ctxOk} px=${hasPixels}`;
-    document.body.appendChild(dbg);
-
-    if (empty || !ctxOk) {
-      if (wrap) wrap.innerHTML = '<img src="/static/icon.svg" alt="" style="width:200px;height:200px;display:block;margin:30px auto;opacity:.7">';
-      dbg.textContent += ' → FALLBACK';
-    }
-  }, 500);
+    if (!canvas || canvas.width > 0) return;
+    const wrap = document.getElementById('globe-wrap');
+    if (wrap) wrap.innerHTML = '<img src="/static/icon.svg" alt="" style="width:200px;height:200px;display:block;margin:30px auto;opacity:.7">';
+  }, 800);
 }
 
 // ===== Discovery Widget =====
