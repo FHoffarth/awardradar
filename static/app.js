@@ -1403,7 +1403,25 @@ setStatus('ready');
 // On mobile: always show globe (static snapshot if reduced-motion, animated otherwise)
 // On desktop: skip globe when reduced-motion (it's a background decoration there)
 const _reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+console.log('AR Globe Debug', { width: innerWidth, reducedMotion: _reducedMotion, globeElement: !!document.getElementById('globe') });
 if (!_reducedMotion || innerWidth <= 640) globeAnimation();
+
+// Emergency static fallback: if canvas stays empty after 500ms, show fallback image
+if (innerWidth <= 640) {
+  setTimeout(function() {
+    const c = document.getElementById('globe');
+    if (!c) return;
+    const canvas = c.tagName === 'CANVAS' ? c : c.querySelector('canvas');
+    const empty = !canvas || canvas.width === 0 || canvas.height === 0;
+    console.log('AR Globe Fallback Check', { canvasWidth: canvas && canvas.width, canvasHeight: canvas && canvas.height, empty });
+    if (empty) {
+      const wrap = document.getElementById('globe-wrap');
+      if (wrap) {
+        wrap.innerHTML = '<img src="/static/icon.svg" alt="AwardRadar Globe" style="width:200px;height:200px;display:block;margin:30px auto;opacity:.7">';
+      }
+    }
+  }, 500);
+}
 
 // ===== Discovery Widget =====
 (function initDiscovery() {

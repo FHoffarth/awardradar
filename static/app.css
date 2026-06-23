@@ -1001,8 +1001,12 @@ span.flatpickr-weekday{
 
 /* === Globe mobile protection — must be last, overrides everything including reduced-motion === */
 @media(max-width:640px){
-  #globe{display:block!important;visibility:visible!important;opacity:.6!important;min-height:250px}
+  #globe-wrap{display:block!important;visibility:visible!important;opacity:1!important;min-height:260px!important;height:260px!important}
+  #globe{display:block!important;visibility:visible!important;opacity:.8!important;position:relative!important;width:100%!important;height:260px!important;min-height:260px!important}
+  #globe canvas{display:block!important;visibility:visible!important;opacity:1!important;width:100%!important;height:100%!important}
 }
 @media(prefers-reduced-motion:reduce) and (max-width:640px){
-  #globe{display:block!important;visibility:visible!important;opacity:.6!important;min-height:250px}
+  #globe-wrap{display:block!important;visibility:visible!important;opacity:1!important;min-height:260px!important;height:260px!important}
+  #globe{display:block!important;visibility:visible!important;opacity:.8!important;position:relative!important;width:100%!important;height:260px!important;min-height:260px!important}
+  #globe canvas{display:block!important;visibility:visible!important;opacity:1!important;width:100%!important;height:100%!important}
 }
