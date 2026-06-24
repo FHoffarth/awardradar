@@ -15,7 +15,8 @@ from urllib import error, request
 
 
 BASE_URL = os.environ.get("BASE_URL", "https://awardradar.app").rstrip("/")
-TIMEOUT_SECONDS = 45
+# /api/awards can take ~45-60s when external cash/award providers are slow.
+TIMEOUT_SECONDS = 75
 
 
 @dataclass
@@ -148,7 +149,8 @@ def check_awards() -> tuple[Check, dict[str, Any] | None]:
     detail = (
         f"status={res.status}, ok={res.data.get('ok')}, "
         f"results={result_count}, programs={program_count}, "
-        f"live_seatsaero_data={bool_label(live_data)}"
+        f"live_seatsaero_data={bool_label(live_data)}, "
+        f"timeout={TIMEOUT_SECONDS}s"
     )
     if res.data.get("error"):
         detail += f", error={res.data.get('error')}"
