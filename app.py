@@ -46,7 +46,7 @@ SERPAPI_BASE = "https://serpapi.com/search"
 PRICE_SOURCE = (os.environ.get("PRICE_SOURCE") or ("serpapi" if SERPAPI_TOKEN else "travelpayouts")).lower()
 
 # --- seats.aero live award availability ---
-AWARD_SOURCE   = os.environ.get("AWARD_SOURCE", "estimated").lower()  # "estimated" | "seatsaero"
+AWARD_SOURCE   = os.environ.get("AWARD_SOURCE", "estimated").lower()  # "estimated" | "static" | "seatsaero"
 SEATSAERO_KEY  = os.environ.get("SEATSAERO_API_KEY", "")
 SEATSAERO_BASE = "https://seats.aero/partnerapi"
 SEATSAERO_DAILY_BUDGET = 500        # soft cap: reserve half of 1000/day for user searches
@@ -1198,30 +1198,129 @@ def booking_deep_url(program: str, origin: str, dest: str, dep: str) -> str:
     return _PROG_HOMEPAGES.get(program, f"https://awardfares.com/search?origin={origin}&destination={dest}&date={dep}")
 
 
+STATIC_AWARD_LIMITATIONS = [
+    "Zone-based static estimate, not observed award availability.",
+    "Taxes and surcharges are typical estimates, not live priced.",
+    "No seat count, last-seen timestamp, married-segment logic, or program-specific availability rules.",
+    "Values are normalized per direction / one-way unless a caller explicitly marks otherwise.",
+]
+
+
+def _date_iso(value) -> str | None:
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value) if value else None
+
+
+def _award_source_mode() -> str:
+    mode = (AWARD_SOURCE or "estimated").strip().lower()
+    if mode in {"estimated", "estimate", "static", "static_estimate"}:
+        return "static"
+    if mode == "seatsaero":
+        return "seatsaero"
+    return "static"
+
+
+class AwardSource:
+    name = "AwardSource"
+    source_type = "unknown"
+
+    def search(
+        self,
+        origin: str,
+        dest: str,
+        cabin: str,
+        cash_eur: float | None,
+        dep,
+        ret=None,
+        trip_type: str = "one_way",
+        currency: str = "EUR",
+    ) -> list[dict]:
+        raise NotImplementedError
+
+
+class StaticAwardSource(AwardSource):
+    name = "StaticAwardSource"
+    source_type = "static_estimate"
+
+    def search(
+        self,
+        origin: str,
+        dest: str,
+        cabin: str,
+        cash_eur: float | None,
+        dep,
+        ret=None,
+        trip_type: str = "one_way",
+        currency: str = "EUR",
+    ) -> list[dict]:
+        oz, dz = airport_zone(origin), airport_zone(dest)
+        effective_cash = cash_eur or TYPICAL_CASH_EUR.get(dz, {}).get(cabin)
+        departure_date = _date_iso(dep) or ""
+        return_date = _date_iso(ret)
+        results: list[dict] = []
+
+        for name, chart, url in AWARD_PROGRAMS:
+            miles = get_miles(chart, oz, dz, cabin)
+            if not miles:
+                continue
+            surcharge = SURCHARGES_EUR.get(name, {}).get(dz, 100)
+            cpm = calc_cpm(effective_cash, miles, surcharge) if effective_cash else None
+            grade = sweet_spot_grade(cpm) if cpm else None
+            booking_url = booking_deep_url(name, origin, dest, departure_date) if departure_date else url
+            results.append({
+                "program": name,
+                "miles": miles,
+                "miles_required": miles,
+                "surcharge": surcharge,
+                "taxes_fees": surcharge,
+                "currency": currency,
+                "cpm": cpm,
+                "grade": grade,
+                "url": booking_url,
+                "data_source": "estimated",
+                "source": self.name,
+                "source_type": self.source_type,
+                "origin": origin,
+                "destination": dest,
+                "departure_date": departure_date,
+                "return_date": return_date,
+                "trip_type": "one_way",
+                "requested_trip_type": trip_type,
+                "cabin": cabin,
+                "is_estimate": True,
+                "is_live_data": False,
+                "fetched_at": None,
+                "last_seen_at": None,
+                "freshness_label": "estimate",
+                "confidence_level": "low",
+                "provider_limitations": STATIC_AWARD_LIMITATIONS,
+            })
+
+        results.sort(key=lambda x: -(x["cpm"] or 0))
+        return results
+
+
+STATIC_AWARD_SOURCE = StaticAwardSource()
+
+
 def build_program_comparison(origin: str, dest: str, cabin: str, cash_eur: float | None, dep: str = "") -> list[dict]:
-    oz, dz = airport_zone(origin), airport_zone(dest)
-    # Fall back to typical zone price so grades are always computed
-    effective_cash = cash_eur or TYPICAL_CASH_EUR.get(dz, {}).get(cabin)
-    results = []
-    for name, chart, url in AWARD_PROGRAMS:
-        miles = get_miles(chart, oz, dz, cabin)
-        if not miles:
-            continue
-        surcharge = SURCHARGES_EUR.get(name, {}).get(dz, 100)
-        cpm = calc_cpm(effective_cash, miles, surcharge) if effective_cash else None
-        grade = sweet_spot_grade(cpm) if cpm else None
-        results.append({
-            "program":     name,
-            "miles":       miles,
-            "surcharge":   surcharge,
-            "cpm":         cpm,
-            "grade":       grade,
-            "url":         booking_deep_url(name, origin, dest, dep) if dep else url,
-            "data_source": "estimated",
-        })
-    # Sort by CPM descending (best value first), unknowns at end
-    results.sort(key=lambda x: -(x["cpm"] or 0))
-    return results
+    return STATIC_AWARD_SOURCE.search(origin, dest, cabin, cash_eur, dep, trip_type="one_way")
+
+
+def award_source_metadata() -> dict:
+    mode = _award_source_mode()
+    live_source_enabled = mode == "seatsaero" and bool(SEATSAERO_KEY)
+    return {
+        "configured_source": AWARD_SOURCE or "estimated",
+        "active_static_source": STATIC_AWARD_SOURCE.name,
+        "provider_mode": mode,
+        "live_source_enabled": live_source_enabled,
+        "supports_global_credentials": mode == "seatsaero",
+        "supports_user_credentials": False,
+    }
 
 
 def _fmt_duration(minutes: int | None) -> str | None:
@@ -1643,7 +1742,9 @@ def _awards_inner():
     if not origins or not dests:
         return jsonify({"ok": False, "error": tx("missing_origin_dest", lang)}), 400
 
-    use_seatsaero = AWARD_SOURCE == "seatsaero" and bool(SEATSAERO_KEY)
+    trip_type = "one_way" if one_way else "round_trip"
+    award_source_meta = award_source_metadata()
+    use_seatsaero = award_source_meta["provider_mode"] == "seatsaero" and bool(SEATSAERO_KEY)
     results = []
 
     for origin in origins[:4]:
@@ -1663,8 +1764,8 @@ def _awards_inner():
             else:
                 live_programs = []
 
-            # Estimated values from award charts
-            est_programs = build_program_comparison(origin, dest, cabin, cash_eur, dep.isoformat())
+            # Static estimates are routed through the AwardSource boundary.
+            est_programs = STATIC_AWARD_SOURCE.search(origin, dest, cabin, cash_eur, dep, ret, trip_type=trip_type)
 
             # Merge: live programs first; skip estimated duplicates by program name
             live_names = {p["program"] for p in live_programs}
@@ -1685,6 +1786,7 @@ def _awards_inner():
                 "programs":       combined,
                 "best_program":   best["program"] if best else None,
                 "has_live_data":  bool(live_programs),
+                "award_source":   award_source_meta,
                 "links":          award_links(origin, dest, dep.isoformat(), ret.isoformat() if ret else None, cabin),
             })
 
@@ -1695,7 +1797,7 @@ def _awards_inner():
     else:
         note = "Estimated values · Verify before booking"
 
-    return jsonify({"ok": True, "results": results, "note": note})
+    return jsonify({"ok": True, "results": results, "note": note, "award_source": award_source_meta})
 
 
 def score_award(origin: str, dest: str, cabin: str, lang: str = "de") -> dict:
@@ -1893,5 +1995,3 @@ def pwa_icon(size: int):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=PORT, debug=os.environ.get("FLASK_DEBUG", "0") == "1")
-
-
