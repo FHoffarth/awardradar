@@ -2,6 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
+  {% if request.host in ["awardradar.app", "www.awardradar.app"] %}
   <!-- Google Tag Manager -->
   <script>
     (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
@@ -11,6 +12,7 @@
     })(window,document,'script','dataLayer','GTM-TBBPLXGV');
   </script>
   <!-- End Google Tag Manager -->
+  {% endif %}
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Impressum – AwardRadar</title>
   <meta name="robots" content="noindex, follow">
@@ -25,10 +27,12 @@
   </style>
 </head>
 <body>
+  {% if request.host in ["awardradar.app", "www.awardradar.app"] %}
   <!-- Google Tag Manager (noscript) -->
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TBBPLXGV"
   height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- End Google Tag Manager (noscript) -->
+  {% endif %}
   <div class="legal">
     <a href="/" class="back">← Zurück zu AwardRadar</a>
     <h1>Impressum</h1>
