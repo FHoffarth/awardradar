@@ -66,6 +66,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="/static/app.css?v=121">
   <link rel="stylesheet" href="/static/consent.css?v=1">
+  <link rel="stylesheet" href="/static/saved_searches.css?v=1">
   <link rel="stylesheet" href="/static/flatpickr.min.css">
   <script src="/static/consent.js?v=1" defer></script>
 </head>
@@ -358,6 +359,16 @@
             </span>
             <svg class="go-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </button>
+          <section class="saved-searches" aria-label="Saved searches">
+            <div class="saved-searches-head">
+              <div>
+                <div class="saved-searches-kicker">MEMORY</div>
+                <h2>Saved searches</h2>
+              </div>
+              <button type="button" class="saved-searches-save" id="saveSearchBtn">Save search</button>
+            </div>
+            <div id="savedSearchesList" class="saved-searches-list" aria-live="polite"></div>
+          </section>
         </div>
       </div>
     </section>
@@ -458,5 +469,6 @@
   <script src="/static/flatpickr.min.js"></script>
   <script src="/static/world-land.js"></script>
   <script src="/static/app.js?v=122"></script>
+  <script src="/static/saved_searches.js?v=1"></script>
 </body>
 </html>
