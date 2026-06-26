@@ -1063,16 +1063,9 @@ function globeAnimation() {
     [35.7, 139.8, 'NRT', 'Tokyo'], [-26.1, 28.2, 'JNB', 'Johannesburg'], [19.4, -99.1, 'MEX', 'Mexico City'],
   ];
 
-  const routePairs = [
-    [0, 4], [2, 6], [4, 7], [8, 2], [3, 9],
-    [5, 11], [1, 8], [12, 4], [6, 9], [4, 21],
-  ];
-
-  const flights = routePairs.map((r, i) => ({
-    route: r,
-    t: i / routePairs.length,
-    speed: 0.0011 + (i % 4) * 0.00035,
-  }));
+  // Keep the hero globe calm by default: route highlights are only shown after
+  // a user action via pulseRoute, not as permanent animated decoration.
+  const flights = [];
 
   function size() {
     w = c.width = innerWidth * devicePixelRatio;
