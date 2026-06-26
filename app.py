@@ -1115,6 +1115,8 @@ def build_seatsaero_programs(
             "cpm":            cpm,
             "grade":          grade,
             "url":            program_verify_url(prog_name),
+            "verification_note": program_verify_note(prog_name),
+            "verification_level": "manual_program_search",
             "data_source":    "live",
             "available_date": best["date"],
             "direct":         best["direct"],
@@ -1164,7 +1166,7 @@ def sweet_spot_grade(cpm: float) -> dict:
 
 
 _PROG_HOMEPAGES: dict[str, str] = {
-    "Miles & More":          "https://www.miles-and-more.com/de/de/award/award-flight.html",
+    "Miles & More":          "https://www.miles-and-more.com/",
     "Aeroplan":              "https://www.aircanada.com/aeroplan/redeem/",
     "Air Canada Aeroplan":   "https://www.aircanada.com/aeroplan/redeem/",
     "United":                "https://www.united.com/en/us/fsr/choose-flights",
@@ -1184,6 +1186,13 @@ _PROG_HOMEPAGES: dict[str, str] = {
 def program_verify_url(program: str) -> str:
     """Return a stable program page for manual award verification."""
     return _PROG_HOMEPAGES.get(program, "https://www.staralliance.com/en/earn-and-redeem")
+
+
+def program_verify_note(program: str) -> str:
+    """Explain manual verification without implying a guaranteed deep link."""
+    if program == "Miles & More":
+        return "Miles & More award search can be login- and region-dependent. Open the program site and search manually with the route, date and cabin shown here."
+    return "Open the loyalty program site and search manually with the route, date and cabin shown here."
 
 
 STATIC_AWARD_LIMITATIONS = [
@@ -1268,6 +1277,8 @@ class StaticAwardSource(AwardSource):
                 "cpm": cpm,
                 "grade": grade,
                 "url": verify_url,
+                "verification_note": program_verify_note(name),
+                "verification_level": "manual_program_search",
                 "data_source": "estimated",
                 "source": self.name,
                 "source_type": self.source_type,
@@ -1712,7 +1723,7 @@ def _awards_inner():
     dep     = parse_date(data.get("date", ""), 60)
     one_way = bool(data.get("oneWay", True))
     ret     = None if one_way else parse_date(data.get("returnDate", ""), 67)
-    cabin   = data.get("cabin") or "Economy"
+    cabin   = data.get("cabin") or (data.get("cabins") or ["Economy"])[0]
     if not origins or not dests:
         return jsonify({"ok": False, "error": tx("missing_origin_dest", lang)}), 400
 

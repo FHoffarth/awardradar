@@ -192,6 +192,7 @@ function payload() {
     direct: $('direct').checked,
     mmOnly: $('mmOnly').checked,
     currency: 'eur',
+    cabin: activeCabin(),
     cabins: [activeCabin()],
     flexDays: activeFlexDays(),
   };
@@ -673,6 +674,15 @@ function render(data) {
             .filter(Boolean)
             .map(esc)
             .join(' / ');
+          const verificationNote = p.verification_note
+            ? `<div class="aw-verify-note">${esc(p.verification_note)}</div>`
+            : '';
+          const cabinAvailabilityNote = isLive
+            ? ''
+            : `<div class="aw-verify-note">Cabin-specific live availability is not confirmed for this estimate. Search the program directly before transferring points.</div>`;
+          const verifyLink = p.url
+            ? `<a href="${esc(p.url)}" target="_blank" rel="noopener" class="aw-book-link">Verify with program site <span aria-hidden="true">-&gt;</span></a>`
+            : `<span class="aw-link-unavailable">Manual program verification required</span>`;
 
           // Compact meta row: nonstop · seats · cpm
           const metaParts = [];
@@ -705,8 +715,10 @@ function render(data) {
             ${p.airlines ? `<div class="aw-card-airline">${esc(p.airlines)}</div>` : ''}
             ${awardTrustMetaHtml(p)}
             <div class="aw-verify-context">Search to verify: ${verifyContext}</div>
+            ${verificationNote}
+            ${cabinAvailabilityNote}
             <div class="aw-card-footer">
-              <a href="${esc(p.url)}" target="_blank" rel="noopener" class="aw-book-link">Verify with program <span aria-hidden="true">-&gt;</span></a>
+              ${verifyLink}
             </div>
           </div>`;
         }).join('');
@@ -854,6 +866,7 @@ document.querySelectorAll('.seg').forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll('.seg').forEach(s => s.classList.remove('active'));
     btn.classList.add('active');
+    if ($('results').children.length && $('origin').value && $('dest').value) run();
   };
 });
 
@@ -903,8 +916,14 @@ document.querySelector('[role="tablist"]').addEventListener('keydown', e => {
   if (e.key === 'End')  { e.preventDefault(); tabs[tabs.length-1].focus(); activateTab(tabs[tabs.length-1]); }
 });
 
-document.querySelectorAll('[data-fill-origin]').forEach(b => b.onclick = () => $('origin').value = b.dataset.fillOrigin);
-document.querySelectorAll('[data-fill-dest]').forEach(b => b.onclick = () => $('dest').value = b.dataset.fillDest);
+document.querySelectorAll('[data-fill-origin]').forEach(b => b.onclick = () => {
+  setAirportInputValue('origin', b.dataset.fillOrigin);
+  setPaTarget('dest');
+});
+document.querySelectorAll('[data-fill-dest]').forEach(b => b.onclick = () => {
+  setAirportInputValue('dest', b.dataset.fillDest);
+  setPaTarget('dest');
+});
 const addOriginBtn = document.getElementById('addOriginBtn');
 if (addOriginBtn) addOriginBtn.addEventListener('click', addOrigin);
 $('go').onclick = run;
@@ -924,6 +943,30 @@ let paTarget = 'origin';
 function setPaTarget(t) {
   paTarget = t;
   document.querySelectorAll('.pa-target').forEach(b => b.classList.toggle('active', b.dataset.target === t));
+}
+
+function normalizeAirportValue(value) {
+  const v = String(value || '').trim();
+  return /^[a-z]{3}$/i.test(v) ? v.toUpperCase() : v;
+}
+
+function setAirportInputValue(inputId, value) {
+  const input = $(inputId);
+  if (!input) return;
+  input.value = normalizeAirportValue(value);
+  updatePaCodes();
+}
+
+function bindAirportTarget(inputId, target) {
+  const input = $(inputId);
+  if (!input) return;
+  input.addEventListener('focus', () => setPaTarget(target));
+  input.addEventListener('click', () => setPaTarget(target));
+  input.addEventListener('input', updatePaCodes);
+  input.addEventListener('blur', () => {
+    input.value = normalizeAirportValue(input.value);
+    updatePaCodes();
+  });
 }
 
 document.querySelectorAll('.pa-target').forEach(b => {
@@ -950,10 +993,9 @@ function updatePaCodes() {
 
 document.querySelectorAll('.pa-code').forEach(b => {
   b.onclick = () => {
-    $(paTarget).value = b.dataset.code;
+    setAirportInputValue(paTarget, b.dataset.code);
     // Auto-advance: after filling origin, target dest next
     if (paTarget === 'origin') setPaTarget('dest');
-    updatePaCodes();
   };
 });
 
@@ -995,7 +1037,8 @@ function renderAcDrop(dropId, inputId, items) {
   drop.querySelectorAll('.ac-item').forEach(el => {
     el.addEventListener('mousedown', ev => {
       ev.preventDefault();
-      $(inputId).value = el.dataset.value;
+      setAirportInputValue(inputId, el.dataset.value);
+      if (inputId === 'origin') setPaTarget('dest');
       drop.innerHTML = '';
     });
   });
@@ -1029,7 +1072,8 @@ function initAC(inputEl, dropId) {
       prev.classList.add('ac-active');
     } else if (e.key === 'Enter' && active) {
       e.preventDefault();
-      inputEl.value = active.dataset.value;
+      setAirportInputValue(inputEl.id, active.dataset.value);
+      if (inputEl.id === 'origin') setPaTarget('dest');
       drop.innerHTML = '';
     } else if (e.key === 'Escape') {
       drop.innerHTML = '';
@@ -1037,6 +1081,8 @@ function initAC(inputEl, dropId) {
   });
 }
 
+bindAirportTarget('origin', 'origin');
+bindAirportTarget('dest', 'dest');
 ['origin', 'dest'].forEach(id => initAC($(id), 'ac-' + id));
 
 document.addEventListener('click', e => {
