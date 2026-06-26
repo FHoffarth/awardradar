@@ -905,6 +905,16 @@ document.querySelectorAll('.pa-target').forEach(b => {
   b.onclick = () => setPaTarget(b.dataset.target);
 });
 
+document.querySelectorAll('.pa-toggle').forEach(btn => {
+  btn.onclick = () => {
+    const group = btn.closest('.pa-group');
+    if (!group) return;
+    const expanded = group.classList.toggle('expanded');
+    btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    btn.textContent = expanded ? 'Show less' : 'Show more';
+  };
+});
+
 function updatePaCodes() {
   const destVal   = ($('dest').value   || '').toUpperCase().trim();
   const originVal = ($('origin').value || '').toUpperCase().trim();

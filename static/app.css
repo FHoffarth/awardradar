@@ -252,6 +252,10 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .pa-code{font-size:11px;font-weight:700;padding:5px 7px;border:1px solid var(--border);border-radius:6px;background:var(--chip-bg);color:var(--muted);cursor:pointer;font-family:inherit}
 .pa-code:hover{border-color:rgba(106,215,255,.3);color:var(--cyan);background:rgba(106,215,255,.06)}
 .pa-code.pa-active{border-color:rgba(245,199,107,.45);color:var(--gold);background:rgba(245,199,107,.07)}
+.pa-extra{display:none}
+.pa-group.expanded .pa-extra{display:inline-flex}
+.pa-toggle{border:none;background:transparent;color:var(--cyan);font-size:10px;font-weight:700;letter-spacing:.04em;padding:5px 0 0;cursor:pointer;font-family:inherit;text-transform:uppercase}
+.pa-toggle:hover{text-decoration:underline}
 .config-col{display:flex;flex-direction:column;gap:20px;min-width:0}
 .config-row{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
 .config-section{display:flex;flex-direction:column;gap:8px;min-width:0}
@@ -814,6 +818,8 @@ footer p{margin-bottom:8px}
   .pa-group-label{font-size:8px}
   .pa-grid{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;scrollbar-width:none}
   .pa-grid::-webkit-scrollbar{display:none}
+  .pa-extra{display:flex}
+  .pa-toggle{display:none}
   .pa-code{flex-shrink:0;min-height:34px;padding:5px 9px;display:flex;align-items:center}
 
   /* Touch targets — min 36–44px */
