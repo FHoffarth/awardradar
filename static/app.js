@@ -993,9 +993,12 @@ function updatePaCodes() {
 
 document.querySelectorAll('.pa-code').forEach(b => {
   b.onclick = () => {
-    setAirportInputValue(paTarget, b.dataset.code);
+    closeAllAcDrops();
+    const focusedId = document.activeElement?.id;
+    const target = (focusedId === 'origin' || focusedId === 'dest') ? focusedId : paTarget;
+    setAirportInputValue(target, b.dataset.code);
     // Auto-advance: after filling origin, target dest next
-    if (paTarget === 'origin') setPaTarget('dest');
+    if (target === 'origin') setPaTarget('dest');
   };
 });
 
