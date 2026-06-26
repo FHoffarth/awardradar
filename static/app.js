@@ -76,6 +76,20 @@ function buildItinerary(f) {
   </div>`;
 }
 
+function awardTrustMetaHtml(p) {
+  const items = [];
+  const isEstimate = p.is_estimate || p.data_source === 'estimated' || p.source_type === 'static_estimate';
+  const isLive = p.is_live_data || p.data_source === 'live';
+  if (isLive) items.push('<span class="aw-trust-pill aw-trust-live">Live data</span>');
+  if (isEstimate) items.push('<span class="aw-trust-pill aw-trust-estimate">Estimate</span>');
+  if (p.freshness_label) items.push(`<span class="aw-trust-pill">Freshness: ${esc(p.freshness_label)}</span>`);
+  if (p.confidence_level) items.push(`<span class="aw-trust-pill">${esc(p.confidence_level)} confidence</span>`);
+  if (Object.prototype.hasOwnProperty.call(p, 'last_seen_at')) {
+    items.push(`<span class="aw-trust-pill">Last seen: ${p.last_seen_at ? esc(p.last_seen_at) : 'unavailable'}</span>`);
+  }
+  return items.length ? `<div class="aw-card-trust">${items.join('')}</div>` : '';
+}
+
 // Consent state — Phase 1: necessary only. Extend when analytics/affiliate added.
 const consent = {
   necessary: true,   // always true — theme, lang, ar_key session cookie
@@ -578,8 +592,12 @@ function render(data) {
         const cashStr = r.cash_eur ? `${Math.round(r.cash_eur)} EUR` : null;
         const hasLive = r.has_live_data;
         const liveNote = hasLive
-          ? `<div class="aw-trust-bar"><span class="aw-trust-dot"></span>Real-time award availability · Verify before booking</div>`
-          : `<div class="aw-trust-bar aw-trust-est">Estimated values · Verify before booking</div>`;
+          ? `<div class="aw-trust-bar"><span class="aw-trust-dot"></span>Live award data - verify availability, price and rules with the program</div>`
+          : `<div class="aw-trust-bar aw-trust-est">Estimate - verify times, availability and mileage price with the program</div>`;
+        const itineraryHtml = buildItinerary(r.flight);
+        const scheduleFallback = itineraryHtml
+          ? ''
+          : `<div class="aw-schedule-note">Flight times are not available for this result. Verify the schedule with the airline or loyalty program before booking.</div>`;
 
         // Sort programs: by grade tier, then by cpm ascending
         const sorted = [...(r.programs || [])].sort((a, b) => {
@@ -604,7 +622,7 @@ function render(data) {
 
           // Action headline — only when we have a proper economic verdict
           const ACTION = {
-            book_miles: 'Best move: Book with Miles',
+            book_miles: 'Best move: Verify miles option',
             lean_miles: 'Lean towards Miles',
             consider:   'Compare your options',
             pay_cash:   'Best move: Pay Cash',
@@ -630,9 +648,9 @@ function render(data) {
           if (!hasCash) {
             footerNote = `<span class="bdc-conf bdc-conf-nodata">Cash comparison will update when fare data is available.</span>`;
           } else if (allEst) {
-            footerNote = `<span class="bdc-conf bdc-conf-est">⚠ Estimated values — verify before booking</span>`;
+            footerNote = `<span class="bdc-conf bdc-conf-est">Estimated values - verify before transferring points or booking.</span>`;
           } else {
-            footerNote = `<span class="bdc-conf bdc-conf-live">● Real-time availability confirmed</span>`;
+            footerNote = `<span class="bdc-conf bdc-conf-live">Live data - final availability is not guaranteed.</span>`;
           }
 
           const bdcTier = hasCash ? tier : 'availability';
@@ -651,6 +669,10 @@ function render(data) {
           const isLive = p.data_source === 'live';
           const isBest = idx === 0 && (g.tier === 'exceptional' || g.tier === 'great');
           const cpmStr = p.cpm ? `${p.cpm.toFixed(1)} ct/mi` : null;
+          const verifyContext = [r.route, r.date, r.cabin, p.program]
+            .filter(Boolean)
+            .map(esc)
+            .join(' / ');
 
           // Compact meta row: nonstop · seats · cpm
           const metaParts = [];
@@ -681,8 +703,10 @@ function render(data) {
             <div class="aw-card-surcharge${surchargeClass ? ' ' + surchargeClass : ''}">+ €${p.surcharge} taxes &amp; fees</div>
             ${metaParts.length ? `<div class="aw-card-meta">${metaParts.join('<span class="aw-meta-sep">·</span>')}</div>` : ''}
             ${p.airlines ? `<div class="aw-card-airline">${esc(p.airlines)}</div>` : ''}
+            ${awardTrustMetaHtml(p)}
+            <div class="aw-verify-context">Search to verify: ${verifyContext}</div>
             <div class="aw-card-footer">
-              <a href="${esc(p.url)}" target="_blank" rel="noopener" class="aw-book-link">Book <span aria-hidden="true">→</span></a>
+              <a href="${esc(p.url)}" target="_blank" rel="noopener" class="aw-book-link">Verify with program <span aria-hidden="true">-&gt;</span></a>
             </div>
           </div>`;
         }).join('');
@@ -695,13 +719,14 @@ function render(data) {
                 <span>${esc(r.date)}</span>
                 ${cashStr ? `<span class="badge">Cash: ${cashStr}</span>` : ''}
               </div>
-              ${buildItinerary(r.flight)}
+              ${itineraryHtml}
+              ${scheduleFallback}
             </div>
           </div>
           ${liveNote}
           ${decisionCard}
           <div class="aw-cards-grid">${cards}</div>
-          <p class="legend-note">Taxes &amp; fees estimated · verify before booking</p>
+          <p class="legend-note">Final availability, mileage prices, taxes, fees and booking rules must be confirmed with the airline or loyalty program before you transfer points or book.</p>
           ${actionLinksHtml(r.links)}
         </div>`;
       }).join('');
@@ -1612,7 +1637,7 @@ if (innerWidth <= 640) {
 
   const STARS_MAP = { exceptional: '★★★★★', great: '★★★★☆' };
   const REC_LABEL  = {
-    book_miles: 'Book with Miles', lean_miles: 'Lean towards Miles',
+    book_miles: 'Verify miles option', lean_miles: 'Lean towards Miles',
     consider:   'Compare options', pay_cash:   'Pay Cash',
   };
 
@@ -1637,7 +1662,7 @@ if (innerWidth <= 640) {
     container.innerHTML = opps.map(o => {
       const tier    = o.grade_tier || 'great';
       const stars   = STARS_MAP[tier] || '';
-      const recLbl  = REC_LABEL[o.recommendation] || 'Book with Miles';
+      const recLbl  = REC_LABEL[o.recommendation] || 'Verify miles option';
       const reason  = discReason(o);
       const seatsLbl = o.seats > 0 ? `${o.seats} seat${o.seats !== 1 ? 's' : ''} available` : '';
       const metaLine = [o.direct ? 'Nonstop' : '', seatsLbl].filter(Boolean).join(' · ');

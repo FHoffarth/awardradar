@@ -1114,7 +1114,7 @@ def build_seatsaero_programs(
             "surcharge":      surcharge,
             "cpm":            cpm,
             "grade":          grade,
-            "url":            booking_deep_url(prog_name, origin, dest, dep.isoformat()),
+            "url":            program_verify_url(prog_name),
             "data_source":    "live",
             "available_date": best["date"],
             "direct":         best["direct"],
@@ -1174,28 +1174,16 @@ _PROG_HOMEPAGES: dict[str, str] = {
     "Turkish Miles&Smiles":  "https://www.turkishairlines.com/en-int/miles-and-smiles/award-tickets/",
     "Flying Blue":           "https://www.flyingblue.com/en/spend/flights/award-tickets",
     "British Airways Avios": "https://www.britishairways.com/en-gb/executive-club/spending-avios/redeem-flights",
-    "Alaska Mileage Plan":   "https://www.alaskaair.com/content/mileage-plan/use-miles/buy-flights",
+    "Alaska Mileage Plan":   "https://www.alaskaair.com/content/mileage-plan/use-miles",
     "American AAdvantage":   "https://www.aa.com/booking/choose-flights/1",
     "Cathay Asia Miles":     "https://www.cathaypacific.com/cx/en_HK/asia-miles/use-miles/flights.html",
     "Etihad Guest":          "https://www.etihad.com/en/etihad-guest/earn-and-spend/spend-miles/award-flights",
     "Korean SKYPASS":        "https://www.koreanair.com/us/en/skypass/skypass-award",
 }
 
-def booking_deep_url(program: str, origin: str, dest: str, dep: str) -> str:
-    """Return best known deep link with route+date prefilled, fallback to homepage."""
-    if program in ("United", "United MileagePlus"):
-        # sc=7 award search, tt=1 one-way — confirmed working
-        return f"https://www.united.com/en/us/fsr/choose-flights?f={origin}&t={dest}&d={dep}&sc=7&tt=1"
-    if program in ("Air Canada Aeroplan", "Aeroplan"):
-        # tripType=O one-way, ADT=1 adult — confirmed working
-        return f"https://www.aircanada.com/aeroplan/redeem/flights/search#/results?org0={origin}&dest0={dest}&departureDate0={dep}&ADT=1&YTH=0&CHD=0&INF=0&tripType=O&lang=en-CA"
-    if program in ("Singapore KrisFlyer",):
-        # date format YYYY-MM-DD accepted; lands on search form with fields prefilled
-        return f"https://www.singaporeair.com/en_UK/ppsclub-krisflyer/kf-plan-redeem/?journeyType=one-way&departureDate={dep}&flightOrigin={origin}&flightDestination={dest}"
-    if program in ("British Airways Avios",):
-        # eId=106001 = award redemption flow; date format YYYY-MM-DD
-        return f"https://www.britishairways.com/travel/redeem/execclub/_gf/en_gb?eId=106001&departurePoint={origin}&destinationPoint={dest}&departureDate={dep}"
-    return _PROG_HOMEPAGES.get(program, f"https://awardfares.com/search?origin={origin}&destination={dest}&date={dep}")
+def program_verify_url(program: str) -> str:
+    """Return a stable program page for manual award verification."""
+    return _PROG_HOMEPAGES.get(program, "https://www.staralliance.com/en/earn-and-redeem")
 
 
 STATIC_AWARD_LIMITATIONS = [
@@ -1269,7 +1257,7 @@ class StaticAwardSource(AwardSource):
             surcharge = SURCHARGES_EUR.get(name, {}).get(dz, 100)
             cpm = calc_cpm(effective_cash, miles, surcharge) if effective_cash else None
             grade = sweet_spot_grade(cpm) if cpm else None
-            booking_url = booking_deep_url(name, origin, dest, departure_date) if departure_date else url
+            verify_url = program_verify_url(name)
             results.append({
                 "program": name,
                 "miles": miles,
@@ -1279,7 +1267,7 @@ class StaticAwardSource(AwardSource):
                 "currency": currency,
                 "cpm": cpm,
                 "grade": grade,
-                "url": booking_url,
+                "url": verify_url,
                 "data_source": "estimated",
                 "source": self.name,
                 "source_type": self.source_type,
@@ -1399,22 +1387,8 @@ def fetch_cash_price(origin: str, dest: str, dep: dt.date, cabin: str, currency:
     return d.get("price")
 
 
-_AWARDFARES_CABIN = {"economy": "economy", "premium": "premium", "business": "business", "first": "first"}
-_SEATSAERO_CABIN  = {"economy": "economy", "premium": "premium-economy", "business": "business", "first": "first"}
-
 def award_links(origin: str, dest: str, dep: str, ret: str | None, cabin: str) -> dict:
-    af_cabin  = _AWARDFARES_CABIN.get(cabin, "business")
-    sa_cabin  = _SEATSAERO_CABIN.get(cabin, "business")
-    gf_q      = quote_plus(f"flights from {origin} to {dest} on {dep}")
-    return {
-        "verify": [
-            {"name": "AwardFares", "url": f"https://awardfares.com/search?origin={origin}&destination={dest}&date={dep}&cabin={af_cabin}"},
-            {"name": "seats.aero", "url": f"https://seats.aero/search?origin={origin}&destination={dest}&date={dep}&cabin={sa_cabin}"},
-        ],
-        "cash": [
-            {"name": "Google Flights", "url": f"https://www.google.com/travel/flights?q={gf_q}"},
-        ],
-    }
+    return {}
 
 
 @app.route("/")
