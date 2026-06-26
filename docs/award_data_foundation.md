@@ -1,6 +1,6 @@
 # Award Data Foundation
 
-Status: foundation sprint
+Status: closed
 
 Branch: `codex/award-data-foundation`
 
@@ -15,6 +15,45 @@ The first implementation is intentionally small:
 - `/api/awards` routes static estimates through `StaticAwardSource`
 
 This sprint does not add seats.aero calls, scraping, OAuth, accounts, payments, alerts, or background jobs.
+
+## Closure
+
+Award Data Foundation is `CLOSED`.
+
+The Railway raw `/api/awards` JSON spotcheck passed for:
+
+```text
+FRA -> JFK
+Business
+2026-08-15
+```
+
+Verified estimate-row contract:
+
+- `miles_required` present
+- `taxes_fees` present
+- `is_estimate=true`
+- `is_live_data=false`
+- `last_seen_at=null`
+- `freshness_label="estimate"`
+- `confidence_level="low"`
+- `source="StaticAwardSource"`
+- `source_type="static_estimate"`
+- `data_source="estimated"`
+
+Live provider rows remain separated with `data_source="live"` and do not falsely inherit static-estimate flags.
+
+Current sequence:
+
+```text
+Raw JSON Spotcheck
+-> Award Data Foundation CLOSED
+-> Provider Feasibility Review
+-> Cost & Rate Limit Guardrail
+-> Real Provider Adapter
+   or
+-> Decision Engine L1 on Static Estimates + Cash References
+```
 
 ## Product Principles
 

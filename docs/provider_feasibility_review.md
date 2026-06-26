@@ -350,24 +350,34 @@ Recommended review artifacts:
 
 ## Relation to Current Award Data Gate
 
-The Award Data Foundation remains:
+The Award Data Foundation is:
 
 ```text
-DEPLOYED / FUNCTIONALLY GREEN
+CLOSED
 ```
 
-The raw `/api/awards` metadata spotcheck remains:
+The raw `/api/awards` metadata spotcheck is:
 
 ```text
-PENDING
+PASSED
 ```
 
 Reason:
 
 ```text
-Execution-location issue, not code issue.
+Railway raw JSON verified the AwardSource metadata contract.
 ```
 
-This provider feasibility review does not close the Award Data Foundation.
+This provider feasibility review did not close the Award Data Foundation by itself. The separate Railway raw JSON spotcheck closed it.
 
-Award Data Foundation can only be marked `CLOSED` after the Railway raw JSON spotcheck verifies the expected AwardSource metadata contract.
+Verified estimate rows include:
+
+- `miles_required`
+- `taxes_fees`
+- `is_estimate=true`
+- `is_live_data=false`
+- `last_seen_at=null`
+- `freshness_label="estimate"`
+- `confidence_level="low"`
+
+Live provider rows remain separated with `data_source="live"` and do not falsely inherit static-estimate flags.
