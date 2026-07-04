@@ -246,10 +246,11 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .pa-target{border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:5px;padding:2px 7px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.06em;transition:all .15s}
 .pa-target.active{background:rgba(106,215,255,.1);color:var(--cyan);border-color:rgba(106,215,255,.3)}
 [data-theme="light"] .pa-target.active{background:rgba(13,110,138,.09);color:var(--cyan);border-color:rgba(13,110,138,.28)}
-.pa-groups{display:flex;flex-direction:column;gap:10px}
+.pa-groups{display:flex;flex-direction:column;gap:10px;min-width:0}
+.pa-group{min-width:0}
 .pa-group-label{font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);opacity:.55;margin-bottom:4px;text-transform:uppercase}
-.pa-grid{display:flex;flex-wrap:wrap;gap:4px}
-.pa-code{font-size:11px;font-weight:700;padding:5px 7px;border:1px solid var(--border);border-radius:6px;background:var(--chip-bg);color:var(--muted);cursor:pointer;font-family:inherit}
+.pa-grid{display:flex;flex-wrap:wrap;align-items:flex-start;gap:5px;min-width:0;max-width:100%}
+.pa-code{display:inline-flex;align-items:center;justify-content:center;min-width:40px;min-height:28px;line-height:1;padding:0 8px;border:1px solid var(--border);border-radius:6px;background:var(--chip-bg);color:var(--muted);cursor:pointer;font-family:inherit;font-size:11px;font-weight:700;text-align:center;white-space:nowrap;appearance:none;-webkit-appearance:none}
 .pa-code:hover{border-color:rgba(106,215,255,.3);color:var(--cyan);background:rgba(106,215,255,.06)}
 .pa-code.pa-active{border-color:rgba(245,199,107,.45);color:var(--gold);background:rgba(245,199,107,.07)}
 .pa-extra{display:none}
@@ -824,11 +825,11 @@ footer p{margin-bottom:8px}
   /* Airport groups: compact on mobile */
   .pa-groups{gap:8px}
   .pa-group-label{font-size:8px}
-  .pa-grid{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;scrollbar-width:none}
+  .pa-grid{flex-wrap:wrap;overflow:visible;padding-bottom:0;scrollbar-width:auto}
   .pa-grid::-webkit-scrollbar{display:none}
   .pa-extra{display:flex}
   .pa-toggle{display:none}
-  .pa-code{flex-shrink:0;min-height:34px;padding:5px 9px;display:flex;align-items:center}
+  .pa-code{flex:0 0 auto;min-width:44px;min-height:34px;padding:0 9px}
 
   /* Touch targets — min 36–44px */
   .pa-target{min-height:32px;padding:5px 11px;font-size:11px}
