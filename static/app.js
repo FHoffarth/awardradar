@@ -1298,6 +1298,43 @@ function globeAnimation() {
     [-33.9,151.2],[-37.8,145.0],[-27.5,153.0],[-31.9,115.9],
   ];
 
+  // Land as a precomputed dot grid instead of filled polygons: filling a
+  // partially hidden ring on a sphere needs true horizon clipping — every
+  // cheaper approximation produces chord lines or rim blobs while rotating.
+  // Dots cannot: each one is independently z-culled at the horizon.
+  const LAND_DOTS = (() => {
+    const dots = [];
+    if (!LAND_POLYS.length) return dots;
+    const boxes = LAND_POLYS.map(poly => {
+      let latMin = 90, latMax = -90, lonMin = 180, lonMax = -180;
+      for (const [lat, lon] of poly) {
+        if (lat < latMin) latMin = lat; if (lat > latMax) latMax = lat;
+        if (lon < lonMin) lonMin = lon; if (lon > lonMax) lonMax = lon;
+      }
+      return [latMin, latMax, lonMin, lonMax];
+    });
+    const inPoly = (lat, lon, poly) => {
+      let inside = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const yi = poly[i][0], xi = poly[i][1], yj = poly[j][0], xj = poly[j][1];
+        if ((yi > lat) !== (yj > lat) && lon < (xj - xi) * (lat - yi) / (yj - yi) + xi) inside = !inside;
+      }
+      return inside;
+    };
+    const STEP = 2.3;
+    for (let lat = -55; lat <= 82; lat += STEP) {
+      const lonStep = STEP / Math.max(0.35, Math.cos(lat * Math.PI / 180));
+      for (let lon = -180; lon < 180; lon += lonStep) {
+        for (let k = 0; k < LAND_POLYS.length; k++) {
+          const b = boxes[k];
+          if (lat < b[0] || lat > b[1] || lon < b[2] || lon > b[3]) continue;
+          if (inPoly(lat, lon, LAND_POLYS[k])) { dots.push([lat, lon]); break; }
+        }
+      }
+    }
+    return dots;
+  })();
+
   function frame() {
     // FPS tracking for adaptive quality
     const now = performance.now();
@@ -1383,59 +1420,20 @@ function globeAnimation() {
     ctx.lineWidth = (isLight ? 1.6 : 1.4) * devicePixelRatio;
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
 
-    // Continent fills + outlines — clipped to globe disc
-    ctx.save();
-    ctx.beginPath(); ctx.arc(cx, cy, R - 0.5 * devicePixelRatio, 0, Math.PI * 2); ctx.clip();
-    // Dark mode: near-black land (Earth-at-Night) with coastal highlight edge.
-    // Light mode: soft green-grey terrain fill.
-    const landFill   = isLight ? 'rgba(148,188,128,0.46)' : 'rgba(6,16,34,0.90)';
-    const coastStroke = isLight ? 'rgba(70,120,70,0.45)'  : 'rgba(50,110,170,0.50)';
-    const coastGlow   = isLight ? null                    : 'rgba(80,160,220,0.18)';
-
-    const drawLandPath = (poly) => {
-      // closePath only when the ring never dipped behind the horizon —
-      // closing a partially visible ring strokes a straight chord across
-      // the visible disc (the "cut line" artifact).
-      ctx.beginPath();
-      let wasVis = false, started = false, broken = false;
-      for (const [lat, lon] of poly) {
-        const p = project(lat, lon);
-        if (p.z > -0.05) {
-          if (!wasVis) {
-            if (started) broken = true;
-            ctx.moveTo(p.x, p.y);
-            started = true;
-          } else ctx.lineTo(p.x, p.y);
-          wasVis = true;
-        } else {
-          if (started) broken = true;
-          wasVis = false;
-        }
-      }
-      if (started && !broken) ctx.closePath();
-    };
-
-    LAND_POLYS.forEach(poly => {
-      // Fill pass
-      drawLandPath(poly);
-      ctx.fillStyle = landFill;
-      ctx.fill();
-
-      // Coastal glow (dark mode only) — wider, very low alpha
-      if (coastGlow) {
-        drawLandPath(poly);
-        ctx.strokeStyle = coastGlow;
-        ctx.lineWidth = 3.5 * devicePixelRatio;
-        ctx.stroke();
-      }
-
-      // Coast outline — crisp, thin
-      drawLandPath(poly);
-      ctx.strokeStyle = coastStroke;
-      ctx.lineWidth = 0.75 * devicePixelRatio;
-      ctx.stroke();
-    });
-    ctx.restore();
+    // Continents as dotted land — z-culled per dot, no fill clipping needed
+    const dotRGB = isLight ? '52,96,70' : '110,180,240';
+    const dotMaxA = isLight ? 0.78 : 0.60;
+    const landStyles = [];
+    for (let i = 0; i <= 10; i++) landStyles.push(`rgba(${dotRGB},${(dotMaxA * i / 10).toFixed(3)})`);
+    const dotS = 1.7 * devicePixelRatio;
+    const dotSkip = lowPerf() ? 2 : 1;
+    for (let di = 0; di < LAND_DOTS.length; di += dotSkip) {
+      const p = project(LAND_DOTS[di][0], LAND_DOTS[di][1]);
+      if (p.z <= 0.02) continue;
+      const ai = Math.min(10, Math.round(p.z * 2.4 * 10));
+      ctx.fillStyle = landStyles[ai];
+      ctx.fillRect(p.x - dotS / 2, p.y - dotS / 2, dotS, dotS);
+    }
 
     // Lat lines (reduced step on low-perf mobile)
     const gridStep = lowPerf() ? 6 : 3;
