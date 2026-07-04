@@ -1099,7 +1099,7 @@ function globeAnimation() {
   const ctx = c.getContext('2d');
   let w, h, rot = 0;
   const isMobile = () => innerWidth <= 640;
-  const MOBILE_GLOBE_H = 250; // matches CSS height
+  const MOBILE_GLOBE_H = 260; // fallback only — matches CSS !important height
 
   const airports = [
     [50.0, 8.6, 'FRA', 'Frankfurt'], [48.4, 11.8, 'MUC', 'Munich'], [51.5, -0.5, 'LHR', 'London'],
@@ -1117,11 +1117,24 @@ function globeAnimation() {
   const flights = [];
 
   function size() {
-    w = c.width = innerWidth * devicePixelRatio;
-    h = c.height = (isMobile() ? MOBILE_GLOBE_H : innerHeight) * devicePixelRatio;
+    // Backing store must match the CSS box exactly — innerWidth includes the
+    // scrollbar and the mobile CSS height (260px) differs from the old constant,
+    // both of which stretched the raster and shifted every drawn element.
+    const rect = c.getBoundingClientRect();
+    const cssW = rect.width || innerWidth;
+    const cssH = rect.height || (isMobile() ? MOBILE_GLOBE_H : innerHeight);
+    w = c.width = Math.round(cssW * devicePixelRatio);
+    h = c.height = Math.round(cssH * devicePixelRatio);
   }
   addEventListener('resize', size);
   size();
+
+  // Pointer coords must be canvas-relative: on mobile the canvas sits below
+  // the navbar, so raw clientX/clientY are offset against the drawn globe.
+  const canvasPos = (clientX, clientY) => {
+    const r = c.getBoundingClientRect();
+    return [clientX - r.left, clientY - r.top];
+  };
 
   // Drag-to-spin interaction
   let dragging = false, dragX = 0, velX = 0, autoSpin = true;
@@ -1156,19 +1169,20 @@ function globeAnimation() {
   // Enable pointer events on canvas — only pass through clicks outside globe
   c.classList.add('interactive');
   c.addEventListener('mousedown', e => {
-    onDragStart(e.clientX, e.clientY);
+    const [px, py] = canvasPos(e.clientX, e.clientY);
+    onDragStart(px, py);
     if (!dragging) return; // outside globe — let event fall through
   });
   c.addEventListener('mousemove', e => {
-    mouseX = e.clientX; mouseY = e.clientY;
+    [mouseX, mouseY] = canvasPos(e.clientX, e.clientY);
     onDragMove(e.clientX);
     // Update cursor based on position
-    const dx = e.clientX * devicePixelRatio - cx_screen();
-    const dy = e.clientY * devicePixelRatio - cy_screen();
+    const dx = mouseX * devicePixelRatio - cx_screen();
+    const dy = mouseY * devicePixelRatio - cy_screen();
     const inside = Math.sqrt(dx*dx + dy*dy) < R_screen() * 1.2;
     if (!dragging) c.style.cursor = inside ? 'grab' : 'default';
   });
-  addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; onDragMove(e.clientX); });
+  addEventListener('mousemove', e => { [mouseX, mouseY] = canvasPos(e.clientX, e.clientY); onDragMove(e.clientX); });
   addEventListener('mouseup', onDragEnd);
   let touchStartX = 0, touchStartY = 0, touchMoved = false;
   c.addEventListener('touchstart', e => {
@@ -1176,7 +1190,8 @@ function globeAnimation() {
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
     touchMoved = false;
-    onDragStart(e.touches[0].clientX, e.touches[0].clientY);
+    const [px, py] = canvasPos(e.touches[0].clientX, e.touches[0].clientY);
+    onDragStart(px, py);
   }, { passive: false });
   addEventListener('touchmove', e => {
     if (dragging) {
@@ -1191,7 +1206,7 @@ function globeAnimation() {
     // Tap without drag: set mouseX/mouseY for tooltip for 1.5s
     if (!touchMoved && isMobile()) {
       const t = e.changedTouches[0];
-      mouseX = t.clientX; mouseY = t.clientY;
+      [mouseX, mouseY] = canvasPos(t.clientX, t.clientY);
       clearTimeout(c._tapTimer);
       c._tapTimer = setTimeout(() => { mouseX = -999; mouseY = -999; }, 1500);
     }
@@ -1346,13 +1361,16 @@ function globeAnimation() {
     ctx.fillStyle = atmoInner;
     ctx.beginPath(); ctx.arc(cx, cy, R * 1.0, 0, Math.PI * 2); ctx.fill();
 
-    const atmoOuter = ctx.createRadialGradient(cx, cy, R * 0.95, cx, cy, R * 2.2);
+    // Cap the halo so it fades out inside the canvas — on mobile the canvas is
+    // only ~260px tall and an uncapped 2.2R glow gets cut into a hard rectangle.
+    const atmoOuterR = mob ? Math.max(R * 1.05, Math.min(R * 2.2, cy, h - cy, cx, w - cx)) : R * 2.2;
+    const atmoOuter = ctx.createRadialGradient(cx, cy, R * 0.95, cx, cy, atmoOuterR);
     atmoOuter.addColorStop(0, isLight ? `rgba(80,140,220,0.16)` : `rgba(${glowColor},${glowAlpha * 1.4})`);
     atmoOuter.addColorStop(0.3, isLight ? `rgba(80,140,220,0.07)` : `rgba(${glowColor},${glowAlpha * 0.6})`);
     atmoOuter.addColorStop(0.7, isLight ? `rgba(80,140,220,0.02)` : `rgba(${glowColor},${glowAlpha * 0.2})`);
     atmoOuter.addColorStop(1, 'transparent');
     ctx.fillStyle = atmoOuter;
-    ctx.beginPath(); ctx.arc(cx, cy, R * 2.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, atmoOuterR, 0, Math.PI * 2); ctx.fill();
 
     // Globe ring
     ctx.strokeStyle = `rgba(${lr},${lg},${lb},${ringAlpha})`;
@@ -1369,19 +1387,26 @@ function globeAnimation() {
     const coastGlow   = isLight ? null                    : 'rgba(80,160,220,0.18)';
 
     const drawLandPath = (poly) => {
+      // closePath only when the ring never dipped behind the horizon —
+      // closing a partially visible ring strokes a straight chord across
+      // the visible disc (the "cut line" artifact).
       ctx.beginPath();
-      let wasVis = false;
+      let wasVis = false, started = false, broken = false;
       for (const [lat, lon] of poly) {
         const p = project(lat, lon);
         if (p.z > -0.05) {
-          if (!wasVis) ctx.moveTo(p.x, p.y);
-          else ctx.lineTo(p.x, p.y);
+          if (!wasVis) {
+            if (started) broken = true;
+            ctx.moveTo(p.x, p.y);
+            started = true;
+          } else ctx.lineTo(p.x, p.y);
           wasVis = true;
         } else {
+          if (started) broken = true;
           wasVis = false;
         }
       }
-      ctx.closePath();
+      if (started && !broken) ctx.closePath();
     };
 
     LAND_POLYS.forEach(poly => {
