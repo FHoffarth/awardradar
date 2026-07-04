@@ -296,13 +296,13 @@ function actionLinksHtml(links) {
   const parts = [];
   if (links.verify && links.verify.length) {
     parts.push(`<div class="aw-action-group">
-      <span class="aw-action-label">Verify availability</span>
+      <span class="aw-action-label">Verify with official program</span>
       ${links.verify.map(l => `<a class="aw-action-link" target="_blank" rel="noopener" href="${esc(l.url)}">${esc(l.name)} →</a>`).join('')}
     </div>`);
   }
   if (links.cash && links.cash.length) {
     parts.push(`<div class="aw-action-group">
-      <span class="aw-action-label">Cash fare</span>
+      <span class="aw-action-label">Cash fare context</span>
       ${links.cash.map(l => `<a class="aw-action-link aw-action-cash" target="_blank" rel="noopener" href="${esc(l.url)}">${esc(l.name)} →</a>`).join('')}
     </div>`);
   }
@@ -371,7 +371,7 @@ function scoreHtml(s, reason) {
   if (s == null) return '';
   const { tier, grade, label, desc } = scoreInfo(s);
   const tooltip = reason ? esc(reason) : esc(desc);
-  return `<div class="score-block ${tier}" title="${tooltip}" aria-label="Deal score ${s} out of 100: ${label}">
+  return `<div class="score-block ${tier}" title="${tooltip}" aria-label="Value Signal ${s} out of 100: ${label}">
     <span class="score-num">${s}</span><span class="score-denom">/100</span>
     <div class="score-lbl"><span class="score-grade">${grade}</span> ${label}</div>
   </div>`;
@@ -384,7 +384,7 @@ function bestBadgeHtml(s) {
 
 function scoreLegendHtml() {
   return `<details class="score-legend">
-    <summary>What is the Deal Score? <span class="legend-hint">tap to expand</span></summary>
+    <summary>What is the Value Signal? <span class="legend-hint">tap to expand</span></summary>
     <div class="legend-grid">
       <span class="s-gold score-num" style="font-size:15px">A+</span><span><strong>Exceptional</strong> — top-tier price, often nonstop or Star Alliance (90+)</span>
       <span class="s-green score-num" style="font-size:15px">A</span><span><strong>Great Value</strong> — well below average, good routing (75+)</span>
@@ -392,7 +392,7 @@ function scoreLegendHtml() {
       <span class="s-muted score-num" style="font-size:15px">C</span><span><strong>Fair</strong> — average price (40+)</span>
       <span class="s-muted score-num" style="font-size:15px">D</span><span><strong>Weak</strong> — above-average price</span>
     </div>
-    <p class="legend-note">Score factors: price vs. typical range (up to 30 pts), stops (up to 30 pts), Star Alliance airline (15 pts), price insight signals (25 pts).</p>
+    <p class="legend-note">Value Signal factors: fare context, routing quality, Star Alliance relevance and price insight signals.</p>
   </details>`;
 }
 
@@ -517,7 +517,7 @@ function render(data) {
       html += `<div id="cards-wrap">${cheapCardsHtml(currentOffers, 'score')}</div>`;
       html += relatedAnalysesHtml('cheap');
     } else {
-      html += `<div class="card"><h3>No fares found — try the live links below</h3><p class="tiny" style="margin-top:6px">No cached prices for this route right now. Use the links to check live.</p></div>`;
+      html += `<div class="card"><h3>No fare context found — try the verification links below</h3><p class="tiny" style="margin-top:6px">No cached fare context for this route right now. Use the links to verify current pricing.</p></div>`;
     }
     html += (data.fallback || []).map(f => `<div class="card"><h3>${esc(f.route)}</h3>${linksHtml(f.links)}</div>`).join('');
   }
@@ -530,16 +530,16 @@ function render(data) {
         const logoUrl = r.airlineCode ? `https://content.airhex.com/content/logos/airlines_${esc(r.airlineCode)}_200_200_s.png` : '';
         const logoImg = logoUrl ? `<img src="${logoUrl}" class="airline-logo" alt="" onerror="this.style.display='none'">` : '';
         const verifiedBadge = isVerified
-          ? `<div class="verified-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Segment-verified</div>`
-          : `<div class="unverified-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Candidate — verify routing</div>`;
+          ? `<div class="verified-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Segment context available</div>`
+          : `<div class="unverified-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Risk context — verify routing</div>`;
         const segChain = r.segmentChain ? `<div class="seg-chain">${esc(r.segmentChain)}</div>` : '';
         const layover = r.layoverDuration ? `<span class="badge">Layover ${r.layoverDuration} min at ${esc(r.hiddenCity)}</span>` : `<span class="badge">Exit at ${esc(r.hiddenCity)}</span>`;
         const savingsLine = r.savings && r.savings > 0
-          ? `<div class="savings-line">Save ~${Math.round(r.savings)} EUR vs direct</div>`
+          ? `<div class="savings-line">Potential difference ~${Math.round(r.savings)} EUR vs direct</div>`
           : '';
         const priceDisplay = r.candidatePrice
-          ? `<div class="price">${Math.round(r.candidatePrice)} <span class="price-currency">${esc(r.currency || 'EUR')}</span></div><div class="price-sub">ticket to ${esc(r.ticketDestination)}</div>`
-          : `<div class="price tiny">check live</div>`;
+          ? `<div class="price">${Math.round(r.candidatePrice)} <span class="price-currency">${esc(r.currency || 'EUR')}</span></div><div class="price-sub">fare to ${esc(r.ticketDestination)}</div>`
+          : `<div class="price tiny">verify current</div>`;
         return `<div class="card${isVerified ? ' top-card' : ''}">
           ${verifiedBadge}
           <div class="card-row">
@@ -554,7 +554,7 @@ function render(data) {
               ${priceDisplay}
             </div>
           </div>
-          <p class="tiny muted-note" style="margin-top:8px">One-way only · no checked baggage · verify airline T&amp;Cs before booking</p>
+          <p class="tiny muted-note" style="margin-top:8px">One-way only · no checked baggage · verify airline T&amp;Cs before purchase</p>
           ${linksHtml(r.links)}
         </div>`;
       }).join('');
@@ -593,12 +593,12 @@ function render(data) {
         const cashStr = r.cash_eur ? `${Math.round(r.cash_eur)} EUR` : null;
         const hasLive = r.has_live_data;
         const liveNote = hasLive
-          ? `<div class="aw-trust-bar"><span class="aw-trust-dot"></span>Live award data - verify availability, price and rules with the program</div>`
-          : `<div class="aw-trust-bar aw-trust-est">Estimate - verify times, availability and mileage price with the program</div>`;
+          ? `<div class="aw-trust-bar"><span class="aw-trust-dot"></span>Award data signal - verify availability, price and rules with the official program</div>`
+          : `<div class="aw-trust-bar aw-trust-est">Estimate - verify timing, availability and mileage price with the official program</div>`;
         const itineraryHtml = buildItinerary(r.flight);
         const scheduleFallback = itineraryHtml
           ? ''
-          : `<div class="aw-schedule-note">Flight times are not available for this result. Verify the schedule with the airline or loyalty program before booking.</div>`;
+          : `<div class="aw-schedule-note">Flight times are not available for this result. Check the schedule with the airline or loyalty program before any transfer or purchase.</div>`;
 
         // Sort programs: by grade tier, then by cpm ascending
         const sorted = [...(r.programs || [])].sort((a, b) => {
@@ -623,14 +623,14 @@ function render(data) {
 
           // Action headline — only when we have a proper economic verdict
           const ACTION = {
-            book_miles: 'Best move: Verify miles option',
-            lean_miles: 'Lean towards Miles',
+            book_miles: 'May make sense: Verify miles option',
+            lean_miles: 'Miles may make sense',
             consider:   'Compare your options',
-            pay_cash:   'Best move: Pay Cash',
+            pay_cash:   'Cash fare may make sense',
           };
           const headline = hasCash
-            ? (ACTION[g.recommendation] || 'Award opportunity found')
-            : 'Best award option';
+            ? (ACTION[g.recommendation] || 'Award redemption value signal found')
+            : 'Best award redemption signal';
 
           // Subline: program + miles + fees + seats
           const subline = hasCash
@@ -647,11 +647,11 @@ function render(data) {
           // Footer note — confidence level
           let footerNote;
           if (!hasCash) {
-            footerNote = `<span class="bdc-conf bdc-conf-nodata">Cash comparison will update when fare data is available.</span>`;
+            footerNote = `<span class="bdc-conf bdc-conf-nodata">Cash fare context will update when fare data is available.</span>`;
           } else if (allEst) {
-            footerNote = `<span class="bdc-conf bdc-conf-est">Estimated values - verify before transferring points or booking.</span>`;
+            footerNote = `<span class="bdc-conf bdc-conf-est">Estimated values - verify before transferring points or purchase.</span>`;
           } else {
-            footerNote = `<span class="bdc-conf bdc-conf-live">Live data - final availability is not guaranteed.</span>`;
+            footerNote = `<span class="bdc-conf bdc-conf-live">Current data signal - final availability may change.</span>`;
           }
 
           const bdcTier = hasCash ? tier : 'availability';
@@ -679,10 +679,10 @@ function render(data) {
             : '';
           const cabinAvailabilityNote = isLive
             ? ''
-            : `<div class="aw-verify-note">Cabin-specific live availability is not confirmed for this estimate. Search the program directly before transferring points.</div>`;
+            : `<div class="aw-verify-note">Cabin-specific availability is not confirmed for this estimate. Verify with the official program before transferring points.</div>`;
           const verifyLink = p.url
-            ? `<a href="${esc(p.url)}" target="_blank" rel="noopener" class="aw-book-link">Verify with program site <span aria-hidden="true">-&gt;</span></a>`
-            : `<span class="aw-link-unavailable">Manual program verification required</span>`;
+            ? `<a href="${esc(p.url)}" target="_blank" rel="noopener" class="aw-book-link">Verify with official program <span aria-hidden="true">-&gt;</span></a>`
+            : `<span class="aw-link-unavailable">Manual official-program verification required</span>`;
 
           // Compact meta row: nonstop · seats · cpm
           const metaParts = [];
@@ -738,15 +738,15 @@ function render(data) {
           ${liveNote}
           ${decisionCard}
           <div class="aw-cards-grid">${cards}</div>
-          <p class="legend-note">Final availability, mileage prices, taxes, fees and booking rules must be confirmed with the airline or loyalty program before you transfer points or book.</p>
+          <p class="legend-note">Final availability, mileage prices, taxes, fees and rules must be confirmed with the airline or loyalty program before any transfer or purchase.</p>
           ${actionLinksHtml(r.links)}
         </div>`;
       }).join('');
       html += relatedAnalysesHtml('awards');
     } else {
       html += `<div class="card cross-nudge">
-        <div class="cross-nudge-msg">No strong award opportunities were identified for this route.</div>
-        <div class="cross-nudge-sub">View available cash fares instead.</div>
+        <div class="cross-nudge-msg">No strong award redemption value signals were identified for this route.</div>
+        <div class="cross-nudge-sub">Review cash fare context instead.</div>
         <button class="cross-btn" onclick="switchTabAndRun('cheap')">Show Fare Context</button>
       </div>`;
     }
@@ -1732,10 +1732,10 @@ if (innerWidth <= 640) {
         ${metaLine ? `<div class="disc-meta">${esc(metaLine)}</div>` : ''}
         ${reason   ? `<div class="disc-reason">${reason}</div>` : ''}
         <div class="disc-footer-row">
-          <span class="disc-conf disc-conf-live">● Live availability</span>
+          <span class="disc-conf disc-conf-live">● Current availability signal</span>
           ${o.cpm ? `<span class="disc-cpm">${o.cpm.toFixed(1)} ct/mi</span>` : ''}
         </div>
-        <a href="#" class="disc-cta-btn" onclick="${ctaClick}">Search this route →</a>
+        <a href="#" class="disc-cta-btn" onclick="${ctaClick}">Review this route →</a>
       </div>`;
     }).join('');
   }

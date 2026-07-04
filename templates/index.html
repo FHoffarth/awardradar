@@ -173,7 +173,7 @@
           <div class="tab-icon ti-cheap" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
           <div class="tab-body">
             <div class="tab-title">Best Value Flights</div>
-            <div class="tab-sub">Find strong value signals</div>
+            <div class="tab-sub">Compare fare and mileage value</div>
           </div>
           <span class="tab-info" aria-label="Compare cash fare context against mileage value." tabindex="0">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
@@ -184,7 +184,7 @@
           <div class="tab-icon ti-awards" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
           <div class="tab-body">
             <div class="tab-title">Award Redemptions</div>
-            <div class="tab-sub">Assess mileage value</div>
+            <div class="tab-sub">Review award redemption value</div>
           </div>
           <span class="tab-info" aria-label="Evaluate whether using miles offers better value than paying cash." tabindex="0">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
@@ -195,7 +195,7 @@
           <div class="tab-icon ti-skiplag" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg></div>
           <div class="tab-body">
             <div class="tab-title">Hidden Opportunities</div>
-            <div class="tab-sub">Review routing context</div>
+            <div class="tab-sub">Review risk and verification context</div>
           </div>
           <span class="tab-info" aria-label="Review overlooked routing patterns with risk context." tabindex="0">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
@@ -410,8 +410,8 @@
               </svg>
             </span>
             <span class="go-label">
-              <span class="go-main">Analyze Route</span>
-              <span class="go-sub">Cash &middot; Award Redemptions &middot; Hidden Opportunities</span>
+              <span class="go-main">Analyze Flight Value</span>
+              <span class="go-sub">Cash fares &middot; Award redemptions &middot; Hidden opportunities</span>
             </span>
             <svg class="go-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </button>
@@ -460,10 +460,10 @@
       <div class="discovery-header">
         <div>
           <h2 class="discovery-title">Top Opportunities Today</h2>
-          <p class="discovery-sub">Live award opportunities discovered across our network.</p>
+          <p class="discovery-sub">Award redemption value signals surfaced for review.</p>
         </div>
         <button class="discovery-cta-top" onclick="document.querySelector('.tab[data-tab=\'awards\']').click();document.getElementById('panel')?.scrollIntoView({behavior:'smooth'})">
-          Discover more <span aria-hidden="true">→</span>
+          Review value signals <span aria-hidden="true">→</span>
         </button>
       </div>
       <div class="discovery-scroll" id="discovery-cards">
@@ -478,22 +478,22 @@
     <section class="examples-section">
       <div class="examples-header">
         <span class="examples-label">Example analyses</span>
-        <span class="examples-sub">Representative examples of routes frequently analysed by AwardRadar users</span>
+        <span class="examples-sub">Representative examples of value signals reviewed in AwardRadar</span>
       </div>
       <div class="examples-scroll">
         <div class="ex-card">
-          <div class="ex-type">Cash Analysis</div>
+          <div class="ex-type">Cash Fare Context</div>
           <div class="ex-route">FRA <span class="ex-arrow">→</span> JFK</div>
           <div class="ex-cabin">Business Class</div>
-          <div class="ex-value">Observed market fare: €489</div>
-          <div class="ex-verdict ex-verdict--cash">Market price</div>
+          <div class="ex-value">Observed fare context: €489</div>
+          <div class="ex-verdict ex-verdict--cash">Fare context</div>
         </div>
         <div class="ex-card">
-          <div class="ex-type">Award Analysis</div>
+          <div class="ex-type">Award Redemption Value</div>
           <div class="ex-route">FRA <span class="ex-arrow">→</span> HND</div>
           <div class="ex-cabin">Business Class</div>
           <div class="ex-value">Estimated value: 3.8 ct/mile</div>
-          <div class="ex-verdict ex-verdict--award">Strong redemption</div>
+          <div class="ex-verdict ex-verdict--award">Estimated value looks promising</div>
         </div>
         <div class="ex-card">
           <div class="ex-type">Hidden Opportunities Analysis</div>
@@ -511,7 +511,7 @@
   <footer>
     <div class="beta-notice">
       <span class="beta-tag">Intelligence</span>
-      AwardRadar provides analytical guidance based on public fare and award data. Availability and pricing should always be verified with the respective provider. · <a href="mailto:hello@awardradar.app">hello@awardradar.app</a>
+      AwardRadar provides decision-support context based on fare and award data. Availability, pricing and rules should always be checked with the respective provider. · <a href="mailto:hello@awardradar.app">hello@awardradar.app</a>
     </div>
     <div class="footer-links">
       <a href="mailto:hello@awardradar.app">Contact</a>

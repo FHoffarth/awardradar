@@ -91,19 +91,19 @@ TEXT = {
     "missing_origin_dest": {"de": "Bitte Start und Ziel eingeben, z. B. Frankfurt und Tokio.", "en": "Please enter origin and destination, e.g. Frankfurt and Tokyo."},
     "missing_hidden": {"de": "Bitte Start und eigentliches Ziel eingeben.", "en": "Please enter origin and intended destination."},
     "api_guard": {"de": "API geschützt. Öffne die App einmal mit ?key=DEIN_APP_TOKEN.", "en": "API protected. Open the app once with ?key=YOUR_APP_TOKEN."},
-    "cheap_note": {"de": "Travelpayouts ist cache-basiert. Wenn keine Preise kommen, nutze die Live-Links; v6 zeigt echte Cachepreise, wenn verfügbar, und kennzeichnet Hidden-City nur als prüfpflichtige Kandidaten.", "en": "Travelpayouts is cache-based. If no prices appear, use the live links; v6 displays cached fares when available and labels hidden-city results as candidates that must be verified."},
-    "cheap_note_live": {"de": "Marktpreise via Google Flights. Gecacht für Beta — zum Vergleich vor der Buchung bestätigen.", "en": "Market data via Google Flights. Cached during beta — confirm before booking."},
-    "skiplag_note": {"de": "Hidden-City bleibt Kandidatenlogik: Travelpayouts bestätigt keine tatsächliche Umstiegsroute über dein Ziel. Routing vor Buchung prüfen; nur One-way und ohne Aufgabegepäck.", "en": "Hidden-city remains candidate logic: Travelpayouts does not confirm that the itinerary actually connects via your intended destination. Verify routing before booking; one-way only and no checked baggage."},
-    "awards_note": {"de": "Live-Award-Verfügbarkeiten brauchen später eine echte Award-Datenquelle; MileHunter erzeugt Suchstarts für Eco bis First.", "en": "Live award availability will require a real award data source later; MileHunter creates search starts from Economy to First."},
+    "cheap_note": {"de": "Travelpayouts ist cache-basiert. Wenn kein Preiskontext erscheint, nutze die Prueflinks; Cachepreise werden gezeigt, wenn verfuegbar, und Routing-Muster enthalten Risikokontext.", "en": "Travelpayouts is cache-based. If no fare context appears, use the verification links; cached fares are shown when available and overlooked routing results include risk context."},
+    "cheap_note_live": {"de": "Cash-Fare-Kontext aus externen Preisquellen. Waehrend der Beta gecacht - vor Kauf pruefen.", "en": "Cash fare context from external fare sources. Cached during beta - verify before purchase."},
+    "skiplag_note": {"de": "Overlooked Routing bleibt Risikokontext: Travelpayouts bestaetigt keine tatsaechliche Umstiegsroute ueber dein Ziel. Routing vor Kauf pruefen; nur One-way und ohne Aufgabegepaeck.", "en": "Overlooked routing remains risk-context logic: Travelpayouts does not confirm that the itinerary actually connects via your intended destination. Verify routing before purchase; one-way only and no checked baggage."},
+    "awards_note": {"de": "Award-Redemption-Verfuegbarkeiten brauchen eine offizielle Datenquelle; AwardRadar erzeugt Search-to-verify-Starts von Eco bis First.", "en": "Award redemption availability requires an official data source; AwardRadar creates search-to-verify starts from Economy to First."},
     "normal_price": {"de": "Normalpreis", "en": "Normal fare"},
-    "candidate_label": {"de": "Hidden-City-Kandidat", "en": "Hidden-city candidate"},
-    "verify_routing": {"de": "Routing vor Buchung prüfen", "en": "Verify routing before booking"},
-    "unverified": {"de": "nicht segmentbestätigt", "en": "not segment-verified"},
+    "candidate_label": {"de": "Overlooked-Routing-Signal", "en": "Overlooked routing signal"},
+    "verify_routing": {"de": "Routing vor Kauf pruefen", "en": "Verify routing before purchase"},
+    "unverified": {"de": "Verifizierungskontext nicht verfuegbar", "en": "verification context unavailable"},
     "high": {"de": "prüfenswert", "en": "worth checking"},
     "check": {"de": "prüfen", "en": "check"},
     "link_check": {"de": "Link-Check", "en": "link check"},
-    "google_search": {"de": "Google Suche", "en": "Google Search"},
-    "google_via": {"de": "Google: via prüfen", "en": "Google: check via"},
+    "google_search": {"de": "Suchanbieter", "en": "Search provider"},
+    "google_via": {"de": "Preisquelle: via pruefen", "en": "Fare source: check via"},
     "ticket_check": {"de": "Ticketziel prüfen", "en": "Check ticket destination"},
 }
 
@@ -669,7 +669,7 @@ def links_for(origin: str, dest: str, dep: str, ret: str | None = None, cabin: s
     q = quote_plus(f"{origin} to {dest} {dep}" + (f" return {ret}" if ret else ""))
     av = f"https://www.aviasales.com/search/{origin}{dep.replace('-', '')}{dest}1"
     return {
-        "Google Flights": f"https://www.google.com/travel/flights?q={q}",
+        "Fare source": f"https://www.google.com/travel/flights?q={q}",
         "Skiplagged": f"https://skiplagged.com/flights/{origin}/{dest}/{dep}" + (f"/{ret}" if ret else ""),
         "Aviasales": av,
         "Kayak": f"https://www.kayak.de/flights/{origin}-{dest}/{dep}" + (f"/{ret}" if ret else ""),
@@ -849,7 +849,7 @@ def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, m
     price = float(item.get("price") or 0)
     via_airports = [(s.get("arrival_airport") or {}).get("id", "") for s in segs[:-1]] if stops > 0 else []
     return {
-        "source": "Google Flights (SerpApi)",
+        "source": "Fare source (SerpApi)",
         "price": price,
         "currency": currency.upper(),
         "origin": origin,
@@ -860,7 +860,7 @@ def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, m
         "airlineCode": airline_code,
         "stops": stops,
         "via": [v for v in via_airports if v],
-        "bookUrl": links_for(origin, dest, dep_date).get("Google Flights"),
+        "bookUrl": links_for(origin, dest, dep_date).get("Fare source"),
         "dealScore": deal_score(price, stops, airline_code, typical_range),
         "scoreReason": score_reason(price, stops, airline_code, typical_range),
         "links": links_for(origin, dest, dep_date),
@@ -1589,7 +1589,7 @@ def verify_skiplag_serpapi(origin: str, true_dest: str, final_dest: str, dep: dt
             "segmentChain": seg_chain,
             "typicalRange": typical_range,
             "links": {
-                "Google Flights (ticket)": links_for(origin, final_dest, dep.isoformat()).get("Google Flights", ""),
+                "Fare source (ticket)": links_for(origin, final_dest, dep.isoformat()).get("Fare source", ""),
                 "Skiplagged": f"https://skiplagged.com/flights/{origin}/{true_dest}/{dep.isoformat()}",
                 "Kayak": links_for(origin, final_dest, dep.isoformat()).get("Kayak", ""),
                 "Momondo": links_for(origin, final_dest, dep.isoformat()).get("Momondo", ""),
@@ -1658,8 +1658,8 @@ def _skiplag_inner():
                                 "layoverDuration": v.get("layoverDuration"),
                                 "segmentChain": v.get("segmentChain"),
                                 "verified": True,
-                                "confidence": "verified" if lang == "en" else "verifiziert",
-                                "candidateLabel": "Verified Hidden-City" if lang == "en" else "Verifizierter Hidden-City",
+                                "confidence": "verification context" if lang == "en" else "Verifizierungskontext",
+                                "candidateLabel": "Overlooked routing signal" if lang == "en" else "Overlooked-Routing-Signal",
                                 "verifyRouting": tx("verify_routing", lang),
                                 "links": v.get("links", {}),
                             })
@@ -1689,12 +1689,12 @@ def _skiplag_inner():
                                 "links": {
                                     "Skiplagged": f"https://skiplagged.com/flights/{origin}/{true_dest}/{dep.isoformat()}",
                                     tx("google_via", lang): f"https://www.google.com/travel/flights?q={quote_plus(f'{origin} to {final_dest} via {true_dest} {dep.isoformat()}')}",
-                                    tx("ticket_check", lang): links_for(origin, final_dest, dep.isoformat())["Google Flights"],
+                                    tx("ticket_check", lang): links_for(origin, final_dest, dep.isoformat())["Fare source"],
                                 },
                             })
 
     results.sort(key=lambda x: (0 if x.get("verified") else 1, -(x.get("savings") or -9999)))
-    note = ("Segment-verified via Google Flights. One-way only · no checked baggage · check airline T&Cs." if lang == "en" else "Segmentverifiziert via Google Flights. Nur Hinflug · kein Aufgabegepäck · AGB der Airline prüfen.") if use_serpapi else tx("skiplag_note", lang)
+    note = ("Verification context from fare-source segments. One-way only · no checked baggage · verify airline T&Cs." if lang == "en" else "Verifizierungskontext aus Preisquellen-Segmenten. Nur Hinflug · kein Aufgabegepäck · AGB der Airline prüfen.") if use_serpapi else tx("skiplag_note", lang)
     return jsonify({
         "ok": True,
         "results": results[:10],
@@ -1776,11 +1776,11 @@ def _awards_inner():
             })
 
     if use_seatsaero and any(r["has_live_data"] for r in results):
-        note = "Real-time award availability · Verify before booking"
+        note = "Award redemption data signal · Verify before purchase"
     elif use_seatsaero:
-        note = "No live availability found for this route · Showing estimated values"
+        note = "No current availability signal found for this route · Showing estimated values"
     else:
-        note = "Estimated values · Verify before booking"
+        note = "Estimated values · Verify before purchase"
 
     return jsonify({"ok": True, "results": results, "note": note, "award_source": award_source_meta})
 
@@ -1789,18 +1789,18 @@ def score_award(origin: str, dest: str, cabin: str, lang: str = "de") -> dict:
     longhaul = dest in {"JFK", "EWR", "BOS", "YYZ", "YUL", "SIN", "HKG", "BKK", "HND", "NRT", "LAX", "SFO", "SEA", "DXB", "DOH", "ICN", "TPE", "SYD", "MEL"}
     if lang == "en":
         if cabin == "Economy":
-            return {"label": "🟢 good chance", "text": "Economy awards are often available, but compare cents-per-mile value against cash fares."}
+            return {"label": "🟢 good chance", "text": "Economy award redemptions may be available, but compare cents-per-mile value against cash fare context."}
         if cabin == "Premium Eco":
             return {"label": "🟡 interesting", "text": "Premium Economy can be a useful sweet spot, especially on long-haul routes."}
         if cabin == "Business" and longhaul:
             return {"label": "🟡 hunt", "text": "Business is possible, but search flexibly: ±7 days and multiple airports."}
         if cabin == "First":
             return {"label": "🔴 rare", "text": "First depends heavily on airline and last-minute release patterns."}
-        return {"label": "🟢 solid", "text": "Short-haul awards are usually easier, but compare against cash fares."}
+        return {"label": "🟢 solid", "text": "Short-haul award redemptions may be easier, but compare against cash fare context."}
     if cabin == "Economy":
-        return {"label": "🟢 gute Chance", "text": "Eco-Awards sind oft verfügbar, Wert pro Meile aber mit Cashpreis vergleichen."}
+        return {"label": "🟢 gute Chance", "text": "Eco-Award-Redemptions können verfügbar sein; Wert pro Meile aber mit Cash-Fare-Kontext vergleichen."}
     if cabin == "Premium Eco":
-        return {"label": "🟡 interessant", "text": "Premium Eco kann ein guter Sweet Spot sein, vor allem auf Langstrecke."}
+        return {"label": "🟡 interessant", "text": "Premium Eco kann einen guten Award-Redemption-Wert bieten, vor allem auf Langstrecke."}
     if cabin == "Business" and longhaul:
         return {"label": "🟡 jagen", "text": "Business ist möglich, aber flexibel suchen: ±7 Tage und mehrere Airports."}
     if cabin == "First":
