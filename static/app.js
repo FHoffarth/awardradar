@@ -1112,9 +1112,15 @@ function globeAnimation() {
     [35.7, 139.8, 'NRT', 'Tokyo'], [-26.1, 28.2, 'JNB', 'Johannesburg'], [19.4, -99.1, 'MEX', 'Mexico City'],
   ];
 
-  // Keep the hero globe calm by default: route highlights are only shown after
-  // a user action via pulseRoute, not as permanent animated decoration.
-  const flights = [];
+  // Always-on showcase routes: index pairs into airports[], t staggered so the
+  // planes are spread along their arcs instead of departing simultaneously.
+  const flights = [
+    { route: [0, 4], t: 0.10, speed: 0.0016 }, // FRA → JFK
+    { route: [2, 7], t: 0.45, speed: 0.0013 }, // LHR → HND
+    { route: [0, 6], t: 0.70, speed: 0.0014 }, // FRA → SIN
+    { route: [1, 8], t: 0.25, speed: 0.0018 }, // MUC → DXB
+    { route: [3, 5], t: 0.85, speed: 0.0015 }, // CDG → LAX
+  ];
 
   function size() {
     // Backing store must match the CSS box exactly — innerWidth includes the
@@ -1492,8 +1498,8 @@ function globeAnimation() {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Plane position
-      f.t = (f.t + f.speed) % 1;
+      // Plane position — frozen with reduced motion (loop keeps repainting)
+      if (!reducedMotion) f.t = (f.t + f.speed) % 1;
       const pos = slerp(from, to, f.t);
       const p = project(pos[0], pos[1]);
 
