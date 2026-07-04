@@ -344,10 +344,10 @@ async function run() {
       </div>`;
     } else if (mode === 'skiplag') {
       userMsg = `<div class="card skiplag-empty">
-        <div class="skiplag-empty-header">Hidden City Analysis</div>
+        <div class="skiplag-empty-header">Hidden Opportunities Analysis</div>
         <div class="skiplag-empty-title">Analysis could not be completed.</div>
-        <p class="skiplag-empty-reason">No viable hidden-city candidates found for this route and date.</p>
-        <button class="cross-btn" onclick="switchTabAndRun('cheap')">Compare Cash Fares</button>
+        <p class="skiplag-empty-reason">No viable overlooked routing opportunities found for this route and date.</p>
+        <button class="cross-btn" onclick="switchTabAndRun('cheap')">Compare Fare Context</button>
       </div>`;
     } else {
       userMsg = `<div class="card skiplag-empty">
@@ -480,9 +480,9 @@ function switchTabAndRun(targetMode) {
 
 function relatedAnalysesHtml(currentMode) {
   const others = {
-    cheap:   [{ tab: 'awards', label: 'Evaluate Award Redemptions' }, { tab: 'skiplag', label: 'Check Hidden-City Candidates' }],
-    awards:  [{ tab: 'cheap',  label: 'Compare Cash Fares' },         { tab: 'skiplag', label: 'Check Hidden-City Candidates' }],
-    skiplag: [{ tab: 'cheap',  label: 'Compare Standard Fares' },     { tab: 'awards',  label: 'Evaluate Award Redemptions' }],
+    cheap:   [{ tab: 'awards', label: 'Evaluate Award Redemptions' }, { tab: 'skiplag', label: 'Check Hidden Opportunities' }],
+    awards:  [{ tab: 'cheap',  label: 'Compare Fare Context' },         { tab: 'skiplag', label: 'Check Hidden Opportunities' }],
+    skiplag: [{ tab: 'cheap',  label: 'Compare Standard Fare Context' },     { tab: 'awards',  label: 'Evaluate Award Redemptions' }],
   }[currentMode] || [];
   const links = others.map(o =>
     `<button class="cross-link" onclick="switchTabAndRun('${o.tab}')">${esc(o.label)}</button>`
@@ -564,15 +564,15 @@ function render(data) {
       const dest   = ($('dest').value   || '').trim().toUpperCase().slice(0,3);
       const routeLabel = (origin && dest) ? `${origin} → ${dest}` : 'this route';
       const providerNote = data.provider_available === false
-        ? `<p class="tiny muted-note">Hidden-city verification was unavailable for this search.</p>`
-        : `<p class="tiny muted-note">Hidden-city candidates are only shown when route structure and fare difference meet validation criteria.</p>`;
+        ? `<p class="tiny muted-note">Verification context was unavailable for this search.</p>`
+        : `<p class="tiny muted-note">Overlooked routing opportunities are shown only when routing structure and fare context meet validation criteria.</p>`;
       html += `<div class="card skiplag-empty">
-        <div class="skiplag-empty-header">Hidden City Analysis</div>
+        <div class="skiplag-empty-header">Hidden Opportunities Analysis</div>
         <div class="skiplag-empty-route">${esc(routeLabel)}</div>
-        <div class="skiplag-empty-title">No viable hidden-city candidates found.</div>
-        <p class="skiplag-empty-reason">No cheaper through-ticket was identified for the selected route and date.</p>
-        <p class="skiplag-empty-rec">Recommendation: compare standard cash fares instead.</p>
-        <button class="cross-btn" onclick="switchTabAndRun('cheap')">Show Cash Fares</button>
+        <div class="skiplag-empty-title">No viable overlooked routing opportunities found.</div>
+        <p class="skiplag-empty-reason">No stronger overlooked routing pattern was identified for the selected route and date.</p>
+        <p class="skiplag-empty-rec">Recommendation: compare standard cash fare context instead.</p>
+        <button class="cross-btn" onclick="switchTabAndRun('cheap')">Show Fare Context</button>
         ${providerNote}
       </div>`;
     }
@@ -747,7 +747,7 @@ function render(data) {
       html += `<div class="card cross-nudge">
         <div class="cross-nudge-msg">No strong award opportunities were identified for this route.</div>
         <div class="cross-nudge-sub">View available cash fares instead.</div>
-        <button class="cross-btn" onclick="switchTabAndRun('cheap')">Show Cash Fares</button>
+        <button class="cross-btn" onclick="switchTabAndRun('cheap')">Show Fare Context</button>
       </div>`;
     }
   }
