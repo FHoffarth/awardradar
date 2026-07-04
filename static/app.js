@@ -1110,6 +1110,9 @@ function globeAnimation() {
     [41.9, -87.6, 'ORD', 'Chicago'], [25.8, -80.3, 'MIA', 'Miami'], [-23.4, -46.5, 'GRU', 'São Paulo'],
     [47.5, 19.0, 'BUD', 'Budapest'], [48.2, 16.4, 'VIE', 'Vienna'], [59.6, 17.9, 'ARN', 'Stockholm'],
     [-26.1, 28.2, 'JNB', 'Johannesburg'], [19.4, -99.1, 'MEX', 'Mexico City'],
+    [30.1, 31.4, 'CAI', 'Cairo'], [-1.3, 36.9, 'NBO', 'Nairobi'], [6.6, 3.3, 'LOS', 'Lagos'],
+    [-33.9, 18.6, 'CPT', 'Cape Town'], [28.6, 77.1, 'DEL', 'Delhi'], [19.1, 72.9, 'BOM', 'Mumbai'],
+    [-31.9, 116.0, 'PER', 'Perth'],
     // NRT bewusst nicht gelistet: liegt neben HND, Labels würden kollidieren
   ];
 
