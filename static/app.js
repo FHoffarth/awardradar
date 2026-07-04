@@ -1109,7 +1109,8 @@ function globeAnimation() {
     [52.3, 4.8, 'AMS', 'Amsterdam'], [37.5, 126.5, 'ICN', 'Seoul'], [55.6, 12.6, 'CPH', 'Copenhagen'],
     [41.9, -87.6, 'ORD', 'Chicago'], [25.8, -80.3, 'MIA', 'Miami'], [-23.4, -46.5, 'GRU', 'São Paulo'],
     [47.5, 19.0, 'BUD', 'Budapest'], [48.2, 16.4, 'VIE', 'Vienna'], [59.6, 17.9, 'ARN', 'Stockholm'],
-    [35.7, 139.8, 'NRT', 'Tokyo'], [-26.1, 28.2, 'JNB', 'Johannesburg'], [19.4, -99.1, 'MEX', 'Mexico City'],
+    [-26.1, 28.2, 'JNB', 'Johannesburg'], [19.4, -99.1, 'MEX', 'Mexico City'],
+    // NRT bewusst nicht gelistet: liegt neben HND, Labels würden kollidieren
   ];
 
   // Always-on showcase routes: index pairs into airports[], t staggered so the
@@ -1298,43 +1299,6 @@ function globeAnimation() {
     [-33.9,151.2],[-37.8,145.0],[-27.5,153.0],[-31.9,115.9],
   ];
 
-  // Land as a precomputed dot grid instead of filled polygons: filling a
-  // partially hidden ring on a sphere needs true horizon clipping — every
-  // cheaper approximation produces chord lines or rim blobs while rotating.
-  // Dots cannot: each one is independently z-culled at the horizon.
-  const LAND_DOTS = (() => {
-    const dots = [];
-    if (!LAND_POLYS.length) return dots;
-    const boxes = LAND_POLYS.map(poly => {
-      let latMin = 90, latMax = -90, lonMin = 180, lonMax = -180;
-      for (const [lat, lon] of poly) {
-        if (lat < latMin) latMin = lat; if (lat > latMax) latMax = lat;
-        if (lon < lonMin) lonMin = lon; if (lon > lonMax) lonMax = lon;
-      }
-      return [latMin, latMax, lonMin, lonMax];
-    });
-    const inPoly = (lat, lon, poly) => {
-      let inside = false;
-      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const yi = poly[i][0], xi = poly[i][1], yj = poly[j][0], xj = poly[j][1];
-        if ((yi > lat) !== (yj > lat) && lon < (xj - xi) * (lat - yi) / (yj - yi) + xi) inside = !inside;
-      }
-      return inside;
-    };
-    const STEP = 2.3;
-    for (let lat = -55; lat <= 82; lat += STEP) {
-      const lonStep = STEP / Math.max(0.35, Math.cos(lat * Math.PI / 180));
-      for (let lon = -180; lon < 180; lon += lonStep) {
-        for (let k = 0; k < LAND_POLYS.length; k++) {
-          const b = boxes[k];
-          if (lat < b[0] || lat > b[1] || lon < b[2] || lon > b[3]) continue;
-          if (inPoly(lat, lon, LAND_POLYS[k])) { dots.push([lat, lon]); break; }
-        }
-      }
-    }
-    return dots;
-  })();
-
   function frame() {
     // FPS tracking for adaptive quality
     const now = performance.now();
@@ -1420,20 +1384,99 @@ function globeAnimation() {
     ctx.lineWidth = (isLight ? 1.6 : 1.4) * devicePixelRatio;
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
 
-    // Continents as dotted land — z-culled per dot, no fill clipping needed
-    const dotRGB = isLight ? '52,96,70' : '110,180,240';
-    const dotMaxA = isLight ? 0.78 : 0.60;
-    const landStyles = [];
-    for (let i = 0; i <= 10; i++) landStyles.push(`rgba(${dotRGB},${(dotMaxA * i / 10).toFixed(3)})`);
-    const dotS = 1.7 * devicePixelRatio;
-    const dotSkip = lowPerf() ? 2 : 1;
-    for (let di = 0; di < LAND_DOTS.length; di += dotSkip) {
-      const p = project(LAND_DOTS[di][0], LAND_DOTS[di][1]);
-      if (p.z <= 0.02) continue;
-      const ai = Math.min(10, Math.round(p.z * 2.4 * 10));
-      ctx.fillStyle = landStyles[ai];
-      ctx.fillRect(p.x - dotS / 2, p.y - dotS / 2, dotS, dotS);
-    }
+    // Continent fills with true horizon clipping: hidden stretches of a ring
+    // are replaced by arcs along the limb circle, connected in rim order.
+    // This is the only fill approach that produces neither straight chords
+    // nor rim blobs while the globe rotates.
+    const landFill    = isLight ? 'rgba(148,188,128,0.46)' : 'rgba(6,16,34,0.90)';
+    const coastStroke = isLight ? 'rgba(70,120,70,0.45)'  : 'rgba(50,110,170,0.50)';
+    const TAU = Math.PI * 2;
+
+    const buildLandFillPath = (poly) => {
+      const pts = [];
+      let anyVis = false, anyHid = false;
+      for (const [lat, lon] of poly) {
+        const p = project(lat, lon);
+        pts.push(p);
+        if (p.z > 0) anyVis = true; else anyHid = true;
+      }
+      if (!anyVis) return false;
+      ctx.beginPath();
+      if (!anyHid) {
+        for (let i = 0; i < pts.length; i++) i ? ctx.lineTo(pts[i].x, pts[i].y) : ctx.moveTo(pts[i].x, pts[i].y);
+        ctx.closePath();
+        return true;
+      }
+      // Visible runs with rim crossing points at both ends
+      const n = pts.length;
+      const rimPoint = (pVis, pHid) => {
+        const t = pVis.z / (pVis.z - pHid.z);
+        let x = pVis.x + (pHid.x - pVis.x) * t, y = pVis.y + (pHid.y - pVis.y) * t;
+        const dx = x - cx, dy = y - cy, len = Math.sqrt(dx * dx + dy * dy) || 1;
+        x = cx + dx / len * R; y = cy + dy / len * R;
+        return { x, y, ang: Math.atan2(y - cy, x - cx) };
+      };
+      const runs = [];
+      for (let i = 0; i < n; i++) {
+        if (pts[i].z > 0 && pts[(i + n - 1) % n].z <= 0) {
+          const idx = [];
+          let j = i;
+          while (pts[j].z > 0) { idx.push(j); j = (j + 1) % n; }
+          runs.push({
+            idx,
+            entry: rimPoint(pts[i], pts[(i + n - 1) % n]),
+            exit:  rimPoint(pts[idx[idx.length - 1]], pts[j]),
+            used: false,
+          });
+        }
+      }
+      if (!runs.length) return false;
+      // Stitch runs: leave each exit along the rim (canvas-clockwise) to the
+      // nearest entry — matches the ring winding of the Natural Earth data.
+      for (const start of runs) {
+        if (start.used) continue;
+        let r = start;
+        ctx.moveTo(r.entry.x, r.entry.y);
+        for (;;) {
+          r.used = true;
+          for (const i of r.idx) ctx.lineTo(pts[i].x, pts[i].y);
+          let best = null, bestD = Infinity;
+          for (const q of runs) {
+            let d = ((q.entry.ang - r.exit.ang) % TAU + TAU) % TAU;
+            if (d < 1e-9) d = TAU;
+            if (d < bestD) { bestD = d; best = q; }
+          }
+          ctx.arc(cx, cy, R, r.exit.ang, r.exit.ang + bestD, false);
+          if (best === start || best.used) { ctx.closePath(); break; }
+          r = best;
+        }
+      }
+      return true;
+    };
+
+    // Coast stroke: visible segments only, never closed — no chords, no rim trace
+    const strokeCoast = (poly) => {
+      ctx.beginPath();
+      let wasVis = false;
+      for (const [lat, lon] of poly) {
+        const p = project(lat, lon);
+        if (p.z > 0) {
+          if (!wasVis) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+          wasVis = true;
+        } else wasVis = false;
+      }
+      ctx.stroke();
+    };
+
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, R - 0.5 * devicePixelRatio, 0, TAU); ctx.clip();
+    LAND_POLYS.forEach(poly => {
+      if (buildLandFillPath(poly)) { ctx.fillStyle = landFill; ctx.fill(); }
+      ctx.strokeStyle = coastStroke;
+      ctx.lineWidth = 0.75 * devicePixelRatio;
+      strokeCoast(poly);
+    });
+    ctx.restore();
 
     // Lat lines (reduced step on low-perf mobile)
     const gridStep = lowPerf() ? 6 : 3;
