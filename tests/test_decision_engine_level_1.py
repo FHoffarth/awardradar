@@ -174,6 +174,72 @@ class DecisionSignalsLevel1(unittest.TestCase):
         self.assertEqual(d["evaluated_miles"], best["miles"])
         self.assertEqual(d["evaluated_surcharge"], best["surcharge"])
 
+    def test_real_oneway_payload_keeps_cash_and_award_basis_compatible(self):
+        old_award_source = app.AWARD_SOURCE
+        old_seatsaero_key = app.SEATSAERO_KEY
+        old_fetch_cash_details = app.fetch_cash_details
+        old_fetch_seatsaero = app.fetch_seatsaero
+        try:
+            app.AWARD_SOURCE = "seatsaero"
+            app.SEATSAERO_KEY = "test-key"
+
+            def fake_cash_details(origin, dest, dep, cabin, currency="EUR"):
+                self.assertEqual((origin, dest, cabin), ("FRA", "JFK", "Economy"))
+                return {
+                    "price": 620.0,
+                    "typical_range": [500, 800],
+                    "cash_trip_type": "one_way",
+                }
+
+            def fake_seatsaero(origin, dest, cabin, dep):
+                self.assertEqual((origin, dest, cabin), ("FRA", "JFK", "Economy"))
+                return [{
+                    "Source": "united",
+                    "Date": dep.isoformat(),
+                    "YAvailable": True,
+                    "YMileageCost": 55000,
+                    "YDirect": True,
+                    "YAirlines": "LH",
+                    "YRemainingSeats": 1,
+                }]
+
+            app.fetch_cash_details = fake_cash_details
+            app.fetch_seatsaero = fake_seatsaero
+
+            client = app.app.test_client()
+            response = client.post("/api/awards", json={
+                "origin": "FRA",
+                "dest": "JFK",
+                "date": "2026-08-15",
+                "cabin": "Economy",
+                "oneWay": True,
+            })
+            self.assertEqual(response.status_code, 200)
+            payload = response.get_json()
+            decision = payload["results"][0]["decision"]
+            self.assertTrue(decision["trip_basis_compatible"])
+            self.assertEqual(decision["cash_trip_type"], "one_way")
+            self.assertEqual(decision["award_trip_type"], "one_way")
+            self.assertNotEqual(decision["verdict"], "insufficient_data")
+            self.assertNotEqual(decision["signal"], "insufficient_data")
+            self.assertNotIn("could not be normalized", decision["explanation"])
+        finally:
+            app.AWARD_SOURCE = old_award_source
+            app.SEATSAERO_KEY = old_seatsaero_key
+            app.fetch_cash_details = old_fetch_cash_details
+            app.fetch_seatsaero = old_fetch_seatsaero
+
+    def test_real_trip_basis_mismatch_still_blocks_value_signal(self):
+        d = app.build_decision(_award(1.5, trip_type="round_trip"),
+                               cash_eur=620,
+                               cash_is_real=True,
+                               cash_level="within_typical",
+                               requested_trip_type="one_way",
+                               cash_trip_type="one_way")
+        self.assertFalse(d["trip_basis_compatible"])
+        self.assertEqual(d["verdict"], "insufficient_data")
+        self.assertEqual(d["signal"], "insufficient_data")
+
 
 if __name__ == "__main__":
     unittest.main()

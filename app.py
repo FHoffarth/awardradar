@@ -1232,6 +1232,7 @@ def fetch_seatsaero(origin: str, dest: str, cabin: str, dep: dt.date, window_day
 def build_seatsaero_programs(
     origin: str, dest: str, cabin: str, dep: dt.date,
     cash_eur: float | None, sa_rows: list[dict],
+    requested_trip_type: str = "one_way",
 ) -> list[dict]:
     """Build program comparison rows from seats.aero live data."""
     avail_field, miles_field, direct_field, airlines_field, seats_field = SEATSAERO_CABIN_FIELDS.get(
@@ -1282,6 +1283,8 @@ def build_seatsaero_programs(
             "verification_note": program_verify_note(prog_name),
             "verification_level": "manual_program_search",
             "data_source":    "live",
+            "trip_type":      "one_way",
+            "requested_trip_type": requested_trip_type,
             "available_date": best["date"],
             "direct":         best["direct"],
             "airlines":       best["airlines"],
@@ -1594,14 +1597,15 @@ def _freshness_label(is_live_award: bool, cash_is_real: bool) -> str:
 
 
 def build_decision(best: dict | None, cash_eur, cash_is_real: bool,
-                   cash_level: str, requested_trip_type: str) -> dict:
+                   cash_level: str, requested_trip_type: str,
+                   cash_trip_type: str | None = None) -> dict:
     """Assemble the Level-1 decision block for the best program on a route.
 
     Additive shape (existing keys preserved): also emits `signal`, `label`,
     `estimated_value`, `confidence_reason`, `freshness_label`,
     `verification_guidance`. Consumes the trusted cash input; never recomputes it.
     """
-    cash_trip = "one_way" if cash_eur else "unknown"   # fetch_cash_details always one-way
+    cash_trip = cash_trip_type or ("one_way" if cash_eur else "unknown")
     award_trip = (best or {}).get("trip_type", "unknown")
     basis = normalize_trip_basis(cash_trip, award_trip, requested_trip_type)
     is_live = bool(best) and best.get("data_source") == "live"
@@ -2125,7 +2129,7 @@ def _awards_inner():
             # Live availability from seats.aero (if configured)
             if use_seatsaero:
                 sa_rows = fetch_seatsaero(origin, dest, cabin, dep)
-                live_programs = build_seatsaero_programs(origin, dest, cabin, dep, cash_eur, sa_rows)
+                live_programs = build_seatsaero_programs(origin, dest, cabin, dep, cash_eur, sa_rows, requested_trip_type=trip_type)
             else:
                 live_programs = []
 
@@ -2143,7 +2147,14 @@ def _awards_inner():
             # Decision Engine Level 1 — trip-basis-safe verdict on the top program.
             top = combined[0] if combined else None
             cash_level = assess_cash_level(cash_eur, cash_details.get("typical_range"))
-            decision = build_decision(top, cash_eur, bool(cash_eur), cash_level, trip_type)
+            decision = build_decision(
+                top,
+                cash_eur,
+                bool(cash_eur),
+                cash_level,
+                trip_type,
+                cash_trip_type=cash_details.get("cash_trip_type"),
+            )
 
             results.append({
                 "route":          f"{origin} → {dest}",
