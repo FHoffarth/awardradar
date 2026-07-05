@@ -1554,13 +1554,12 @@ def normalize_trip_basis(cash_trip_type, award_trip_type, requested_trip_type) -
         return out
     if ct == at:
         out["normalized_trip_type"] = ct
-        out["trip_basis_compatible"] = True
         if requested_trip_type and requested_trip_type != ct:
-            # We computed on one direction while the search asked for round-trip.
-            out["confidence_penalty"] = 1
-            out["note"] = ("Bewertung auf Basis einer Richtung (one-way), "
-                           "die Suche war round-trip – Werte gelten pro Richtung.")
+            out["trip_basis_compatible"] = False
+            out["note"] = ("Requested trip basis differs from available cash and award basis "
+                           "- no safe value comparison is shown.")
         else:
+            out["trip_basis_compatible"] = True
             out["note"] = f"Cash und Meilen auf {ct.replace('_', ' ')}-Basis verglichen."
         return out
     # e.g. round-trip cash vs one-way award — not safely normalizable here.
@@ -1706,13 +1705,14 @@ def _fmt_duration(minutes: int | None) -> str | None:
     return f"{h}h {m:02d}m" if m else f"{h}h"
 
 
-def fetch_cash_details(origin: str, dest: str, dep: dt.date, cabin: str, currency: str = "EUR") -> dict:
+def fetch_cash_details(origin: str, dest: str, dep: dt.date, cabin: str, currency: str = "EUR",
+                       ret: dt.date | None = None) -> dict:
     """Quick SerpApi lookup — returns {price, dep_time, arr_time, duration, stops, flight_number} for cheapest flight."""
     empty: dict = {}
     if not SERPAPI_TOKEN:
         return empty
     try:
-        data = serpapi_search(origin, dest, dep, None, cabin, currency)
+        data = serpapi_search(origin, dest, dep, ret, cabin, currency)
         items = (data.get("best_flights") or []) + (data.get("other_flights") or [])
         if not items:
             return empty
@@ -1766,7 +1766,7 @@ def fetch_cash_details(origin: str, dest: str, dep: dt.date, cabin: str, currenc
             "segments":      segments,
             "layovers":      layovers,
             "typical_range": typical_range,
-            "cash_trip_type": "one_way",
+            "cash_trip_type": "round_trip" if ret else "one_way",
         }
     except QuotaError:
         raise
@@ -2121,7 +2121,7 @@ def _awards_inner():
             if origin == dest:
                 continue
             try:
-                cash_details = fetch_cash_details(origin, dest, dep, cabin)
+                cash_details = fetch_cash_details(origin, dest, dep, cabin, ret=ret)
             except QuotaError:
                 cash_details = {}   # SerpApi quota empty — use zone fallback, don't abort
             cash_eur = cash_details.get("price")

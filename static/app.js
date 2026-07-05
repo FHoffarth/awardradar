@@ -727,13 +727,15 @@ function render(data) {
         const nfmt = n => Number(n).toLocaleString();
 
         const best = sorted[0];
+        const d = r.decision || {};
+        const incompatibleBasis = d.trip_basis_compatible === false;
 
         const programCardHtml = (p, idx, isEvaluated = false) => {
           const g = p.grade || {};
-          const gm = GRADE_MAP[g.tier] || null;
+          const gm = incompatibleBasis ? null : (GRADE_MAP[g.tier] || null);
           const isLive = p.data_source === 'live';
-          const isBest = idx === 0 && (g.tier === 'exceptional' || g.tier === 'great');
-          const cpmStr = p.cpm ? `${p.cpm.toFixed(1)} ct/mi` : null;
+          const isBest = !incompatibleBasis && idx === 0 && (g.tier === 'exceptional' || g.tier === 'great');
+          const cpmStr = (!incompatibleBasis && p.cpm) ? `${p.cpm.toFixed(1)} ct/mi` : null;
           const verifyContext = [r.route, r.date, r.cabin, p.program]
             .filter(Boolean)
             .map(esc)
@@ -788,17 +790,20 @@ function render(data) {
           </div>`;
         };
 
-        const d = r.decision || {};
         const evalProgramName = d.evaluated_program || (best && best.program) || '';
         const evaluated = sorted.find(p => p.program === evalProgramName) || best;
 
         // Header (route + date + cash badge) — position 1 in the hierarchy.
+        const requestedTripLabel = r.returnDate ? 'Round trip' : 'One-way';
+        const dateContext = r.returnDate ? `${r.date} -> ${r.returnDate}` : r.date;
+        const cashBadgeLabel = d.cash_trip_type === 'round_trip' ? 'Round-trip cash fare' : 'Cash fare';
         const headerHtml = `
           <div class="aw-result-header">
             <h3 class="aw-result-route">${esc(r.route)} <span class="aw-dot" aria-hidden="true">·</span> ${esc(r.cabin)}</h3>
             <div class="aw-result-meta">
-              <span>${esc(r.date)}</span>
-              ${cashStr ? `<span class="badge">Cash: ${cashStr}</span>` : ''}
+              <span>${esc(requestedTripLabel)}</span>
+              <span>${esc(dateContext)}</span>
+              ${cashStr ? `<span class="badge">${esc(cashBadgeLabel)}: ${cashStr}</span>` : ''}
             </div>
           </div>`;
 
@@ -819,7 +824,11 @@ function render(data) {
         const sig  = d.signal || 'insufficient_data';
         const st   = stateOf(sig);
         const cb   = confBucket(d.confidence);
-        const [hl, sup] = (HEADLINE[sig] || HEADLINE.insufficient_data)[cb];
+        const [baseHl, baseSup] = (HEADLINE[sig] || HEADLINE.insufficient_data)[cb];
+        const hl = incompatibleBasis ? 'A round-trip comparison is not available yet.' : baseHl;
+        const sup = incompatibleBasis
+          ? 'The cash fare covers the full return trip, while the available award estimate covers the outbound journey only.'
+          : baseSup;
         const cash = (r.cash_eur != null) ? Math.round(r.cash_eur) : null;
         const evalMiles = (d.evaluated_miles != null ? d.evaluated_miles : (evaluated.miles || 0));
         const evalSurcharge = (d.evaluated_surcharge != null ? d.evaluated_surcharge : (evaluated.surcharge || 0));
@@ -839,15 +848,23 @@ function render(data) {
         const metricCell = (label, val, sub, subCls) =>
           `<div class="aw-metric"><div class="aw-metric-label">${esc(label)}</div><div class="aw-metric-val">${esc(val)}</div>${sub ? `<div class="aw-metric-sub${subCls ? ' ' + subCls : ''}">${esc(sub)}</div>` : ''}</div>`;
         const metrics = [];
-        metrics.push(metricCell('Cash fare', cash != null ? `€${cash}` : 'Not available'));
-        metrics.push(metricCell('Award cost', `${nfmt(evalMiles)} miles + €${evalSurcharge}`));
-        if (netSaved != null && netSaved > 0) metrics.push(metricCell('Net cash saved', `€${netSaved}`));
-        if (cpm != null) metrics.push(metricCell('Value per mile', `${cpm.toFixed(1)} ct`, valueWord, tier ? `aw-vw-${tier}` : ''));
+        if (incompatibleBasis) {
+          metrics.push(metricCell('Round-trip cash fare', cash != null ? `€${cash}` : 'Not available'));
+          metrics.push(metricCell('Outbound one-way award estimate', `${nfmt(evalMiles)} miles + €${evalSurcharge}`));
+        } else {
+          metrics.push(metricCell('Cash fare', cash != null ? `€${cash}` : 'Not available'));
+          metrics.push(metricCell('Award cost', `${nfmt(evalMiles)} miles + €${evalSurcharge}`));
+          if (netSaved != null && netSaved > 0) metrics.push(metricCell('Net cash saved', `€${netSaved}`));
+          if (cpm != null) metrics.push(metricCell('Value per mile', `${cpm.toFixed(1)} ct`, valueWord, tier ? `aw-vw-${tier}` : ''));
+        }
         const metricsHtml = `<div class="aw-metrics">${metrics.join('')}</div>`;
 
         // 4 — Plain-language trade-off explanation
         const exLines = [];
-        if (st === 'insufficient') {
+        if (incompatibleBasis) {
+          exLines.push('The cash fare covers the full return trip, while the available award estimate covers the outbound journey only.');
+          exLines.push('Next step: Review the outbound award signals below and verify the full return-trip cost with the official program.');
+        } else if (st === 'insufficient') {
           exLines.push(d.explanation || 'We could not reliably compare cash and miles for this option.');
           exLines.push('Verify the current cash fare and award availability before deciding.');
         } else {
@@ -910,7 +927,7 @@ function render(data) {
           </details>` : '';
         const programsHtml = `
           <div class="aw-programs">
-            <div class="aw-section-kicker">Evaluated redemption</div>
+            <div class="aw-section-kicker">${incompatibleBasis ? 'One-way award signals for the outbound journey' : 'Evaluated redemption'}</div>
             <div class="aw-cards-grid">${evaluatedCard}</div>
             ${alternatives.length ? `
               <div class="aw-cards-caption">Other program options · raw estimates, not AwardRadar's final judgment</div>
