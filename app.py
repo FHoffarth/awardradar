@@ -51,6 +51,7 @@ SEATSAERO_KEY  = os.environ.get("SEATSAERO_API_KEY", "")
 SEATSAERO_BASE = "https://seats.aero/partnerapi"
 SEATSAERO_DAILY_BUDGET = 500        # soft cap: reserve half of 1000/day for user searches
 _seatsaero_remaining: int | None = None  # updated from X-RateLimit-Remaining header
+_serpapi_paid_calls: int = 0  # billed SerpApi calls this process — cache hits excluded
 SERPAPI_TTL = int(os.environ.get("SERPAPI_TTL", "21600"))      # Cache-Lebensdauer in Sekunden (default 6h)
 SERPAPI_MAX_PAIRS = int(os.environ.get("SERPAPI_MAX_PAIRS", "2"))  # max. Origin/Dest-Paare pro Klick (= Anzahl bezahlter Suchen)
 SERPAPI_DEEP = (os.environ.get("SERPAPI_DEEP", "0") == "1")    # exakt wie im Browser, aber langsamer
@@ -977,6 +978,9 @@ def serpapi_search(origin: str, dest: str, dep: dt.date, ret: dt.date | None, ca
         params["return_date"] = ret.isoformat()
     if SERPAPI_DEEP:
         params["deep_search"] = "true"
+    # Observability: count only billed calls (cache misses reach this point).
+    global _serpapi_paid_calls
+    _serpapi_paid_calls += 1
     r = HTTP.get(SERPAPI_BASE, params=params, timeout=30)
     if r.status_code in (402, 429):
         raise QuotaError("Search quota exhausted.")
@@ -1303,26 +1307,39 @@ def calc_cpm(cash_eur: float, miles: int, surcharge_eur: float) -> float:
     return round(net / miles * 100, 2)
 
 
+# --- Value tier calibration (single source of truth) ---
+# Provisional product calibration by the founder — NOT a universally valid or
+# market-standard Miles & More valuation. `sweet_spot_grade()` is the ONLY
+# consumer of these boundaries; do not introduce a second CPM/threshold ladder.
+# TODO: calibrate with real Miles & More redemption data and founder review
+VALUE_TIER_THRESHOLDS: list[tuple[float, str]] = [
+    (2.5, "exceptional"),
+    (1.8, "great"),
+    (1.2, "good"),
+    (0.7, "fair"),
+]  # cpm below the lowest boundary → "poor"
+
+_TIER_META: dict[str, dict] = {
+    "exceptional": {"grade": "A+", "label": "Exceptional Value", "recommendation": "book_miles",
+                    "reasoning": "Sehr hoher Meilenwert – weit über dem M&M-Durchschnitt. Meilen-Buchung klar die bessere Wahl."},
+    "great":       {"grade": "A",  "label": "Great Value",       "recommendation": "book_miles",
+                    "reasoning": "Guter Meilenwert gegenüber dem Cash-Preis. Meilen-Buchung empfohlen."},
+    "good":        {"grade": "B",  "label": "Good Value",        "recommendation": "lean_miles",
+                    "reasoning": "Solider Meilenwert – Meilen haben leichten Vorteil. Lohnt sich bei ausreichend Meilen."},
+    "fair":        {"grade": "C",  "label": "Fair",              "recommendation": "consider",
+                    "reasoning": "Knapper Meilenwert – Cash-Alternativen prüfen, bevor du buchst."},
+    "poor":        {"grade": "D",  "label": "Weak",              "recommendation": "pay_cash",
+                    "reasoning": "Meilenwert zu niedrig – Cash-Buchung ist bei diesem Preis die günstigere Option."},
+}
+
+
 def sweet_spot_grade(cpm: float) -> dict:
-    if cpm >= 2.5:
-        return {"grade": "A+", "tier": "exceptional", "label": "Exceptional Value",
-                "recommendation": "book_miles",
-                "reasoning": "Sehr hoher Meilenwert – weit über dem M&M-Durchschnitt. Meilen-Buchung klar die bessere Wahl."}
-    if cpm >= 1.8:
-        return {"grade": "A",  "tier": "great",       "label": "Great Value",
-                "recommendation": "book_miles",
-                "reasoning": "Guter Meilenwert gegenüber dem Cash-Preis. Meilen-Buchung empfohlen."}
-    if cpm >= 1.2:
-        return {"grade": "B",  "tier": "good",        "label": "Good Value",
-                "recommendation": "lean_miles",
-                "reasoning": "Solider Meilenwert – Meilen haben leichten Vorteil. Lohnt sich bei ausreichend Meilen."}
-    if cpm >= 0.7:
-        return {"grade": "C",  "tier": "fair",        "label": "Fair",
-                "recommendation": "consider",
-                "reasoning": "Knapper Meilenwert – Cash-Alternativen prüfen, bevor du buchst."}
-    return         {"grade": "D",  "tier": "poor",        "label": "Weak",
-                "recommendation": "pay_cash",
-                "reasoning": "Meilenwert zu niedrig – Cash-Buchung ist bei diesem Preis die günstigere Option."}
+    tier = "poor"
+    for min_cpm, tier_name in VALUE_TIER_THRESHOLDS:
+        if cpm >= min_cpm:
+            tier = tier_name
+            break
+    return {"tier": tier, **_TIER_META[tier]}
 
 
 _PROG_HOMEPAGES: dict[str, str] = {
@@ -1482,6 +1499,130 @@ def award_source_metadata() -> dict:
     }
 
 
+# ===== Decision Engine Level 1 =====
+# Turns external cash-fare context + award estimate into ONE trip-basis-safe
+# verdict. Reuses calc_cpm() + sweet_spot_grade() as the only valuation logic —
+# no parallel score/CPM ladder (Guardrail B).
+
+def cash_source_metadata() -> dict:
+    """Provider metadata for the current CashFareSource, mirroring award_source_metadata()."""
+    has_serp = bool(SERPAPI_TOKEN)
+    return {
+        "provider": "serpapi" if has_serp else "none",
+        "source": "Google Flights (SerpApi)" if has_serp else "zone_estimate",
+        "source_type": "external_cash_context",
+        "plan_hint": "serpapi_starter_1000_per_month" if has_serp else None,
+    }
+
+
+def assess_cash_level(price, typical_range) -> str:
+    """Relative cash assessment: fare below / within / above the typical range."""
+    if not price or not typical_range or len(typical_range) != 2:
+        return "unknown"
+    low, high = float(typical_range[0] or 0), float(typical_range[1] or 0)
+    if low <= 0 or high <= 0:
+        return "unknown"
+    if price < low:
+        return "below_typical"
+    if price > high:
+        return "above_typical"
+    return "within_typical"
+
+
+def normalize_trip_basis(cash_trip_type, award_trip_type, requested_trip_type) -> dict:
+    """Guardrail A: cash and award must describe the same direction before any CPM use.
+
+    Never allow a round-trip cash price to be divided by a one-way mileage number.
+    When a safe normalization is not possible, no value score is faked.
+    """
+    ct = cash_trip_type or "unknown"
+    at = award_trip_type or "unknown"
+    out = {
+        "cash_trip_type": ct,
+        "award_trip_type": at,
+        "normalized_trip_type": None,
+        "trip_basis_compatible": False,
+        "confidence_penalty": 0,
+        "note": None,
+    }
+    if ct == "unknown" or at == "unknown":
+        out["note"] = "Trip-Basis nicht eindeutig vergleichbar – kein belastbarer Meilenwert."
+        return out
+    if ct == at:
+        out["normalized_trip_type"] = ct
+        out["trip_basis_compatible"] = True
+        if requested_trip_type and requested_trip_type != ct:
+            # We computed on one direction while the search asked for round-trip.
+            out["confidence_penalty"] = 1
+            out["note"] = ("Bewertung auf Basis einer Richtung (one-way), "
+                           "die Suche war round-trip – Werte gelten pro Richtung.")
+        else:
+            out["note"] = f"Cash und Meilen auf {ct.replace('_', ' ')}-Basis verglichen."
+        return out
+    # e.g. round-trip cash vs one-way award — not safely normalizable here.
+    out["note"] = ("Cash- und Meilen-Basis unterschiedlich (round-trip vs. one-way) – "
+                   "keine sichere Normalisierung, daher kein Meilenwert ausgewiesen.")
+    return out
+
+
+def build_decision(best: dict | None, cash_eur, cash_is_real: bool,
+                   cash_level: str, requested_trip_type: str) -> dict:
+    """Assemble the Level-1 decision block for the best program on a route."""
+    cash_trip = "one_way" if cash_eur else "unknown"   # fetch_cash_details always one-way
+    award_trip = (best or {}).get("trip_type", "unknown")
+    basis = normalize_trip_basis(cash_trip, award_trip, requested_trip_type)
+
+    decision = {
+        "verdict": "insufficient_data",
+        "tier": None,
+        "confidence": "low",
+        "explanation": "",
+        "cash_trip_type": basis["cash_trip_type"],
+        "award_trip_type": basis["award_trip_type"],
+        "normalized_trip_type": basis["normalized_trip_type"],
+        "trip_basis_compatible": basis["trip_basis_compatible"],
+        "cash_source": cash_source_metadata()["source"],
+        "cash_level": cash_level,
+        "cash_freshness": "live_query" if cash_is_real else ("estimate" if cash_eur else "none"),
+    }
+
+    if not best:
+        decision["explanation"] = "Keine Award-Option gefunden."
+        return decision
+
+    is_live = best.get("data_source") == "live"
+
+    # No observed cash context → availability-only, never a value verdict.
+    if not cash_eur or best.get("cpm") is None:
+        decision["verdict"] = "availability_only"
+        decision["explanation"] = ("Award-Verfügbarkeit sichtbar, aber kein Cash-Kontext – "
+                                   "Meilenwert nicht berechenbar.")
+        return decision
+
+    # Trip basis not safely comparable → no value signal (Guardrail A).
+    if not basis["trip_basis_compatible"]:
+        decision["verdict"] = "insufficient_data"
+        decision["explanation"] = basis["note"]
+        return decision
+
+    # Compatible basis → reuse the single valuation ladder.
+    grade = best.get("grade") or sweet_spot_grade(best["cpm"])
+    decision["tier"] = grade["tier"]
+    decision["verdict"] = grade["recommendation"]
+
+    # Confidence: award liveness + real cash − trip-basis penalty.
+    score = (2 if is_live else 1) + (1 if cash_is_real else 0) - basis["confidence_penalty"]
+    decision["confidence"] = "high" if score >= 3 else ("medium" if score == 2 else "low")
+
+    parts = [f"{best['cpm']:.1f} ct/Meile", basis["note"]]
+    if cash_level == "below_typical":
+        parts.append("Cash-Preis unter dem typischen Bereich.")
+    elif cash_level == "above_typical":
+        parts.append("Cash-Preis über dem typischen Bereich.")
+    decision["explanation"] = " · ".join(p for p in parts if p)
+    return decision
+
+
 def _fmt_duration(minutes: int | None) -> str | None:
     if not minutes:
         return None
@@ -1534,6 +1675,9 @@ def fetch_cash_details(origin: str, dest: str, dep: dt.date, cabin: str, currenc
             {"iata": l.get("id"), "duration_min": l.get("duration"), "overnight": l.get("overnight", False)}
             for l in (best.get("layovers") or [])
         ]
+        # Relative cash context — same response, no extra provider call.
+        insights = data.get("price_insights") or {}
+        typical_range = insights.get("typical_price_range")
         return {
             "price":         float(best["price"]),
             "dep_time":      dep_time,
@@ -1545,6 +1689,8 @@ def fetch_cash_details(origin: str, dest: str, dep: dt.date, cabin: str, currenc
             "flight_number": flight_number,
             "segments":      segments,
             "layovers":      layovers,
+            "typical_range": typical_range,
+            "cash_trip_type": "one_way",
         }
     except QuotaError:
         raise
@@ -1921,6 +2067,12 @@ def _awards_inner():
 
             best = next((p for p in combined if p.get("grade") and p["grade"]["tier"] in ("exceptional", "great")), None)
             flight_info = {k: v for k, v in cash_details.items() if k != "price"} if cash_details else None
+
+            # Decision Engine Level 1 — trip-basis-safe verdict on the top program.
+            top = combined[0] if combined else None
+            cash_level = assess_cash_level(cash_eur, cash_details.get("typical_range"))
+            decision = build_decision(top, cash_eur, bool(cash_eur), cash_level, trip_type)
+
             results.append({
                 "route":          f"{origin} → {dest}",
                 "origin":         origin,
@@ -1929,11 +2081,14 @@ def _awards_inner():
                 "returnDate":     ret.isoformat() if ret else None,
                 "cabin":          cabin,
                 "cash_eur":       round(cash_eur, 0) if cash_eur else None,
+                "cash_level":     cash_level,
+                "cash_source":    cash_source_metadata(),
                 "flight":         flight_info,
                 "programs":       combined,
                 "best_program":   best["program"] if best else None,
                 "has_live_data":  bool(live_programs),
                 "award_source":   award_source_meta,
+                "decision":       decision,
                 "links":          award_links(origin, dest, dep.isoformat(), ret.isoformat() if ret else None, cabin),
             })
 
@@ -2100,7 +2255,7 @@ def top_opportunities():
 
 @app.route("/health")
 def health():
-    return jsonify({"ok": True, "app": APP_NAME, "version": "6.1", "price_source": PRICE_SOURCE, "serpapi_token": bool(SERPAPI_TOKEN), "tp_token": bool(TP_TOKEN), "api_guard": bool(APP_TOKEN), "award_source": AWARD_SOURCE, "seatsaero_key": bool(SEATSAERO_KEY), "seatsaero_remaining": _seatsaero_remaining})
+    return jsonify({"ok": True, "app": APP_NAME, "version": "6.1", "price_source": PRICE_SOURCE, "serpapi_token": bool(SERPAPI_TOKEN), "tp_token": bool(TP_TOKEN), "api_guard": bool(APP_TOKEN), "award_source": AWARD_SOURCE, "seatsaero_key": bool(SEATSAERO_KEY), "seatsaero_remaining": _seatsaero_remaining, "serpapi_paid_calls": _serpapi_paid_calls, "serpapi_max_pairs": SERPAPI_MAX_PAIRS})
 
 
 def _serve_png(filename: str, fallback_svg: str = "icon.svg"):

@@ -635,56 +635,67 @@ function render(data) {
           return (a.cpm || 99) - (b.cpm || 99);
         });
 
-        // --- Booking Decision Card ---
+        // --- Booking Decision Card (Decision Engine Level 1) ---
         const best = sorted[0];
         let decisionCard = '';
         if (best) {
-          const g        = best.grade || {};
-          const tier     = g.tier || 'fair';
-          const hasCash  = !!(r.cash_eur && best.cpm);
-          const isLive   = best.data_source === 'live';
-          const allEst   = sorted.every(p => p.data_source !== 'live');
+          const d        = r.decision || {};
+          const verdict  = d.verdict || 'insufficient_data';
           const seatsStr = best.seats > 0 ? `, ${best.seats} seat${best.seats !== 1 ? 's' : ''} available` : '';
+          const compatible = d.trip_basis_compatible === true;
+          const hasValue = compatible && verdict !== 'insufficient_data'
+                                      && verdict !== 'availability_only'
+                                      && best.cpm != null && r.cash_eur;
 
-          // Action headline — only when we have a proper economic verdict
+          // Verdict → cautious action headline
           const ACTION = {
-            book_miles: 'May make sense: Verify miles option',
-            lean_miles: 'Miles may make sense',
-            consider:   'Compare your options',
-            pay_cash:   'Cash fare may make sense',
+            book_miles:        'May make sense: Verify miles option',
+            lean_miles:        'Miles may make sense',
+            consider:          'Compare your options',
+            pay_cash:          'Cash fare may make sense',
+            availability_only: 'Best award redemption signal',
+            insufficient_data: 'Not enough comparable data',
           };
-          const headline = hasCash
-            ? (ACTION[g.recommendation] || 'Award redemption value signal found')
-            : 'Best award redemption signal';
+          const headline = ACTION[verdict] || 'Award redemption value signal';
 
           // Subline: program + miles + fees + seats
-          const subline = hasCash
-            ? `${esc(best.program)} — ${best.miles.toLocaleString()} miles + €${best.surcharge}${seatsStr}.`
-            : `${esc(best.program)} shows ${isLive ? 'live availability' : 'availability (estimated)'} — ${best.miles.toLocaleString()} miles + €${best.surcharge}${seatsStr}.`;
+          const isLive = best.data_source === 'live';
+          const subline = `${esc(best.program)} — ${best.miles.toLocaleString()} miles + €${best.surcharge}${seatsStr}` +
+            (verdict === 'availability_only' ? ` (${isLive ? 'live' : 'estimated'} availability).` : '.');
 
-          // Supporting metric row (only when CPM exists)
-          const metricRow = hasCash ? `
+          // Supporting metric row — only on a safely comparable basis
+          const metricRow = hasValue ? `
             <div class="bdc-metric-row">
               <span class="bdc-cpp">${best.cpm.toFixed(1)} <small>ct/mi</small></span>
               <span class="bdc-cash-vs">vs. <strong>€${Math.round(r.cash_eur)}</strong> cash · save <strong>€${Math.round(r.cash_eur - best.surcharge)}</strong></span>
             </div>` : '';
 
-          // Footer note — confidence level
-          let footerNote;
-          if (!hasCash) {
-            footerNote = `<span class="bdc-conf bdc-conf-nodata">Cash fare context will update when fare data is available.</span>`;
-          } else if (allEst) {
-            footerNote = `<span class="bdc-conf bdc-conf-est">Estimated values - verify before transferring points or purchase.</span>`;
-          } else {
-            footerNote = `<span class="bdc-conf bdc-conf-live">Current data signal - final availability may change.</span>`;
+          // Trip-basis transparency line (visible, English, from structured fields)
+          let basisLine = '';
+          if (!compatible && (verdict === 'insufficient_data')) {
+            basisLine = `<div class="bdc-basis">Cash and miles could not be normalized to the same trip direction — no mileage value shown.</div>`;
+          } else if (compatible && d.normalized_trip_type) {
+            const perDir = r.returnDate && d.normalized_trip_type === 'one_way';
+            basisLine = `<div class="bdc-basis">Compared on a ${d.normalized_trip_type.replace('_', ' ')} basis${perDir ? ' (per direction; search was round-trip)' : ''}.</div>`;
           }
 
-          const bdcTier = hasCash ? tier : 'availability';
+          // Confidence footer — driven by the decision block, drops on assumptions
+          const CONF = {
+            high:   ['bdc-conf-live', 'Higher confidence · verify before booking'],
+            medium: ['bdc-conf-est',  'Moderate confidence · verify before booking'],
+            low:    ['bdc-conf-nodata','Lower confidence · treat as a starting point'],
+          };
+          const [confCls, confTxt] = CONF[d.confidence] || CONF.low;
+          const footerNote = `<span class="bdc-conf ${confCls}">${confTxt}</span>`;
+
+          const bdcTier = hasValue ? (d.tier || 'fair')
+                        : (verdict === 'availability_only' ? 'availability' : 'insufficient');
           decisionCard = `
           <div class="bdc bdc-${bdcTier}">
             <div class="bdc-headline">${headline}</div>
             <div class="bdc-subline">${subline}</div>
             ${metricRow}
+            ${basisLine}
             <div class="bdc-footer">${footerNote}</div>
           </div>`;
         }
