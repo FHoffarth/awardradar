@@ -1074,6 +1074,7 @@ span.flatpickr-weekday{
 .bdc-fair         {--bdc-accent:var(--muted); --bdc-bg:rgba(122,154,184,.04);--bdc-hl:var(--text)}
 .bdc-poor         {--bdc-accent:var(--bad);   --bdc-bg:rgba(255,157,157,.05);--bdc-hl:var(--bad)}
 .bdc-availability {--bdc-accent:var(--cyan);  --bdc-bg:rgba(106,215,255,.05);--bdc-hl:var(--cyan)}
+.bdc-insufficient {--bdc-accent:var(--muted); --bdc-bg:rgba(122,154,184,.04);--bdc-hl:var(--muted)}
 
 /* Headline: the action statement — this is the hero */
 .bdc-headline{
@@ -1098,6 +1099,14 @@ span.flatpickr-weekday{
 .bdc-cash-vs{font-size:13px;color:var(--muted)}
 .bdc-cash-vs strong{color:var(--text)}
 /* Footer confidence note */
+.bdc-basis{font-size:12px;color:var(--muted);margin:4px 0 2px;line-height:1.35}
+.bdc-meta-row{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline;margin-top:6px}
+.bdc-fresh{font-size:11.5px;color:var(--muted)}
+.bdc-why,.bdc-verify{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.4}
+.bdc-k{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--bdc-hl,var(--text));margin-right:5px}
+.bdc-eval-k{font-weight:700;color:var(--bdc-hl,var(--text))}
+.aw-itin-label{font-size:10.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);margin:8px 0 4px}
+.aw-cards-caption{font-size:11.5px;color:var(--muted);margin:14px 0 8px;line-height:1.35}
 .bdc-footer{margin-top:2px}
 .bdc-conf{font-size:12px}
 .bdc-conf-live{color:var(--green)}

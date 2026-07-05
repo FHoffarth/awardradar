@@ -635,57 +635,59 @@ function render(data) {
           return (a.cpm || 99) - (b.cpm || 99);
         });
 
-        // --- Booking Decision Card ---
+        // --- Decision Card (Decision Engine Level 1) ---
         const best = sorted[0];
         let decisionCard = '';
         if (best) {
-          const g        = best.grade || {};
-          const tier     = g.tier || 'fair';
-          const hasCash  = !!(r.cash_eur && best.cpm);
-          const isLive   = best.data_source === 'live';
-          const allEst   = sorted.every(p => p.data_source !== 'live');
+          const d        = r.decision || {};
+          const signal   = d.signal || 'insufficient_data';
           const seatsStr = best.seats > 0 ? `, ${best.seats} seat${best.seats !== 1 ? 's' : ''} available` : '';
+          const hasValue = d.estimated_value != null && r.cash_eur;
 
-          // Action headline — only when we have a proper economic verdict
-          const ACTION = {
-            book_miles: 'May make sense: Verify miles option',
-            lean_miles: 'Miles may make sense',
-            consider:   'Compare your options',
-            pay_cash:   'Cash fare may make sense',
-          };
-          const headline = hasCash
-            ? (ACTION[g.recommendation] || 'Award redemption value signal found')
-            : 'Best award redemption signal';
+          // signal → cautious visible headline (backend supplies the copy)
+          const headline = d.label || 'Award redemption value signal';
 
-          // Subline: program + miles + fees + seats
-          const subline = hasCash
-            ? `${esc(best.program)} — ${best.miles.toLocaleString()} miles + €${best.surcharge}${seatsStr}.`
-            : `${esc(best.program)} shows ${isLive ? 'live availability' : 'availability (estimated)'} — ${best.miles.toLocaleString()} miles + €${best.surcharge}${seatsStr}.`;
+          // Subline: name the exact option the backend evaluated (authoritative),
+          // so it is never confused with the cash itinerary or another program card.
+          const evalProgram = d.evaluated_program || best.program;
+          const evalMiles = (d.evaluated_miles != null ? d.evaluated_miles : best.miles);
+          const evalSurcharge = (d.evaluated_surcharge != null ? d.evaluated_surcharge : best.surcharge);
+          const isLive = (d.evaluated_data_source || best.data_source) === 'live';
+          const availTxt = (d.verdict === 'availability_only') ? ` (${isLive ? 'live' : 'estimated'} availability)` : '';
+          const subline = `<span class="bdc-eval-k">Evaluated redemption:</span> ${esc(evalProgram)} — ${Number(evalMiles).toLocaleString()} miles + €${evalSurcharge}${seatsStr}${availTxt}.`;
 
-          // Supporting metric row (only when CPM exists)
-          const metricRow = hasCash ? `
+          // Estimated value metric — only on a safely comparable basis
+          const metricRow = hasValue ? `
             <div class="bdc-metric-row">
-              <span class="bdc-cpp">${best.cpm.toFixed(1)} <small>ct/mi</small></span>
-              <span class="bdc-cash-vs">vs. <strong>€${Math.round(r.cash_eur)}</strong> cash · save <strong>€${Math.round(r.cash_eur - best.surcharge)}</strong></span>
+              <span class="bdc-cpp">${Number(d.estimated_value).toFixed(1)} <small>ct/mi</small></span>
+              <span class="bdc-cash-vs">vs. <strong>€${Math.round(r.cash_eur)}</strong> cash · save <strong>€${Math.round(r.cash_eur - evalSurcharge)}</strong></span>
             </div>` : '';
 
-          // Footer note — confidence level
-          let footerNote;
-          if (!hasCash) {
-            footerNote = `<span class="bdc-conf bdc-conf-nodata">Cash fare context will update when fare data is available.</span>`;
-          } else if (allEst) {
-            footerNote = `<span class="bdc-conf bdc-conf-est">Estimated values - verify before transferring points or purchase.</span>`;
-          } else {
-            footerNote = `<span class="bdc-conf bdc-conf-live">Current data signal - final availability may change.</span>`;
-          }
+          // Confidence + freshness row
+          const CONF = { high: ['bdc-conf-live', 'High'], medium: ['bdc-conf-est', 'Medium'], low: ['bdc-conf-nodata', 'Low'] };
+          const [confCls, confTxt] = CONF[d.confidence] || CONF.low;
+          const confRow = `
+            <div class="bdc-meta-row">
+              <span class="bdc-conf ${confCls}"${d.confidence_reason ? ` title="${esc(d.confidence_reason)}"` : ''}>Confidence: ${confTxt}</span>
+              ${d.freshness_label ? `<span class="bdc-fresh">Freshness: ${esc(d.freshness_label)}</span>` : ''}
+            </div>`;
 
-          const bdcTier = hasCash ? tier : 'availability';
+          const whyRow = d.explanation ? `<div class="bdc-why"><span class="bdc-k">Why</span> ${esc(d.explanation)}</div>` : '';
+          const verifyRow = d.verification_guidance ? `<div class="bdc-verify"><span class="bdc-k">Verify</span> ${esc(d.verification_guidance)}</div>` : '';
+
+          const SIGNAL_TIER = {
+            strong_miles_value: 'great', promising_miles_value: 'good',
+            mixed_value: 'fair', cash_may_be_stronger: 'fair', insufficient_data: 'insufficient',
+          };
+          const bdcTier = (d.verdict === 'availability_only') ? 'availability' : (SIGNAL_TIER[signal] || 'insufficient');
           decisionCard = `
           <div class="bdc bdc-${bdcTier}">
             <div class="bdc-headline">${headline}</div>
             <div class="bdc-subline">${subline}</div>
             ${metricRow}
-            <div class="bdc-footer">${footerNote}</div>
+            ${confRow}
+            ${whyRow}
+            ${verifyRow}
           </div>`;
         }
 
@@ -729,7 +731,7 @@ function render(data) {
                 <a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.program)}</a>
                 ${isLive ? '<span class="aw-source-live">Live</span>' : '<span class="aw-source-est">Est.</span>'}
               </div>
-              ${gm ? `<span class="aw-grade-pill ${gm.cls}">${gm.label}</span>` : ''}
+              ${gm ? `<span class="aw-grade-pill ${gm.cls}" title="Program-level redemption signal — see the summary card above for AwardRadar's assessment">${gm.label}</span>` : ''}
             </div>
             <div class="aw-card-cost">
               <span class="aw-card-miles">${p.miles.toLocaleString()}</span>
@@ -756,12 +758,13 @@ function render(data) {
                 <span>${esc(r.date)}</span>
                 ${cashStr ? `<span class="badge">Cash: ${cashStr}</span>` : ''}
               </div>
-              ${itineraryHtml}
+              ${itineraryHtml ? `<div class="aw-itin-label">Cash fare routing · for price context only</div>${itineraryHtml}` : ''}
               ${scheduleFallback}
             </div>
           </div>
           ${liveNote}
           ${decisionCard}
+          <div class="aw-cards-caption">Individual program redemption signals · raw estimates, not AwardRadar's final judgment</div>
           <div class="aw-cards-grid">${cards}</div>
           <p class="legend-note">Final availability, mileage prices, taxes, fees and rules must be confirmed with the airline or loyalty program before any transfer or purchase.</p>
           ${actionLinksHtml(r.links)}
