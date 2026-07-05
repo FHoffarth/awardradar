@@ -112,6 +112,153 @@ function awardTrustMetaHtml(p) {
 }
 
 // Consent state — Phase 1: necessary only. Extend when analytics/affiliate added.
+// Shared airport coordinates for the animated globe and Award Results journey map.
+// [latitude, longitude, IATA, city]
+const AWARDRADAR_AIRPORTS = [
+  [33.64, -84.43, 'ATL', 'Atlanta'], [25.25, 55.36, 'DXB', 'Dubai'], [35.55, 139.78, 'HND', 'Tokyo'],
+  [35.77, 140.39, 'NRT', 'Tokyo Narita'],
+  [32.90, -97.04, 'DFW', 'Dallas'], [31.14, 121.81, 'PVG', 'Shanghai'], [40.08, 116.58, 'PEK', 'Beijing'],
+  [51.47, -0.45, 'LHR', 'London'], [41.26, 28.74, 'IST', 'Istanbul'], [23.39, 113.30, 'CAN', 'Guangzhou'],
+  [41.97, -87.90, 'ORD', 'Chicago'], [50.03, 8.56, 'FRA', 'Frankfurt'], [52.31, 4.76, 'AMS', 'Amsterdam'],
+  [49.01, 2.55, 'CDG', 'Paris'], [22.31, 113.91, 'HKG', 'Hong Kong'], [25.27, 51.61, 'DOH', 'Doha'],
+  [39.86, -104.67, 'DEN', 'Denver'], [33.94, -118.41, 'LAX', 'Los Angeles'], [40.64, -73.78, 'JFK', 'New York'],
+  [1.36, 103.99, 'SIN', 'Singapore'], [37.46, 126.44, 'ICN', 'Seoul'], [13.69, 100.75, 'BKK', 'Bangkok'],
+  [2.75, 101.71, 'KUL', 'Kuala Lumpur'], [-6.13, 106.66, 'CGK', 'Jakarta'], [28.57, 77.10, 'DEL', 'Delhi'],
+  [19.09, 72.87, 'BOM', 'Mumbai'], [40.47, -3.56, 'MAD', 'Madrid'], [41.30, 2.08, 'BCN', 'Barcelona'],
+  [48.35, 11.79, 'MUC', 'Munich'], [47.46, 8.55, 'ZRH', 'Zurich'], [48.11, 16.57, 'VIE', 'Vienna'],
+  [50.90, 4.48, 'BRU', 'Brussels'], [55.62, 12.66, 'CPH', 'Copenhagen'], [60.19, 11.10, 'OSL', 'Oslo'],
+  [59.65, 17.92, 'ARN', 'Stockholm'], [41.80, 12.24, 'FCO', 'Rome'], [45.63, 8.72, 'MXP', 'Milan'],
+  [38.77, -9.13, 'LIS', 'Lisbon'], [53.43, -6.24, 'DUB', 'Dublin'], [53.35, -2.27, 'MAN', 'Manchester'],
+  [25.79, -80.29, 'MIA', 'Miami'], [37.62, -122.38, 'SFO', 'San Francisco'], [47.45, -122.31, 'SEA', 'Seattle'],
+  [43.68, -79.63, 'YYZ', 'Toronto'], [19.44, -99.07, 'MEX', 'Mexico City'], [-23.43, -46.47, 'GRU', 'Sao Paulo'],
+  [4.70, -74.15, 'BOG', 'Bogota'], [-26.14, 28.25, 'JNB', 'Johannesburg'], [30.12, 31.41, 'CAI', 'Cairo'],
+  [-33.95, 151.18, 'SYD', 'Sydney'], [24.96, 46.70, 'RUH', 'Riyadh'], [-31.94, 115.97, 'PER', 'Perth'],
+];
+const AWARDRADAR_AIRPORT_COORDS = AWARDRADAR_AIRPORTS.reduce((acc, [lat, lon, code, city]) => {
+  acc[code] = { lat, lon, city };
+  return acc;
+}, {});
+let _journeySeq = 0;
+
+function awardJourneyRouteNodes(r) {
+  const flight = r.flight || {};
+  const segs = Array.isArray(flight.segments) ? flight.segments : [];
+  const nodes = [];
+  const push = code => {
+    const c = String(code || '').trim().toUpperCase();
+    if (/^[A-Z0-9]{3}$/.test(c) && nodes[nodes.length - 1] !== c) nodes.push(c);
+  };
+  if (segs.length) {
+    push(segs[0].dep_iata || r.origin);
+    segs.forEach(seg => push(seg.arr_iata));
+  } else {
+    push(r.origin);
+    (flight.via || []).forEach(push);
+    push(r.dest);
+  }
+  return nodes;
+}
+
+function awardJourneyMapHtml(r) {
+  const nodes = awardJourneyRouteNodes(r);
+  if (nodes.length < 2) return { html: '', trustNote: '' };
+
+  const flight = r.flight || {};
+  const incompatibleBasis = (r.decision || {}).trip_basis_compatible === false;
+  const coordsKnown = nodes.every(code => AWARDRADAR_AIRPORT_COORDS[code]);
+  const width = 720, height = 126, padX = 54, baseline = 54;
+  const airportMeta = code => AWARDRADAR_AIRPORT_COORDS[code] || null;
+  const segmentDistance = (from, to) => {
+    const a = airportMeta(from), b = airportMeta(to);
+    if (!a || !b) return 1;
+    const dLat = b.lat - a.lat;
+    let dLon = Math.abs(b.lon - a.lon);
+    if (dLon > 180) dLon = 360 - dLon;
+    return Math.max(1, Math.sqrt(dLat * dLat + dLon * dLon));
+  };
+  const rawDistances = nodes.slice(0, -1).map((code, i) => segmentDistance(code, nodes[i + 1]));
+  const avgDistance = rawDistances.reduce((sum, n) => sum + n, 0) / Math.max(rawDistances.length, 1);
+  const weights = coordsKnown
+    ? rawDistances.map(d => Math.max(0.8, Math.min(1.55, d / Math.max(avgDistance, 1))))
+    : rawDistances.map(() => 1);
+  const totalWeight = weights.reduce((sum, n) => sum + n, 0) || 1;
+  const pts = [{ code: nodes[0], x: padX, y: baseline }];
+  let cursor = padX;
+  weights.forEach((w, i) => {
+    cursor += ((width - padX * 2) * w) / totalWeight;
+    pts.push({ code: nodes[i + 1], x: cursor, y: baseline });
+  });
+
+  const segs = Array.isArray(flight.segments) ? flight.segments : [];
+  const stopCount = Math.max(nodes.length - 2, 0);
+  const stopText = stopCount === 0 ? 'Nonstop' : `${stopCount} stop${stopCount > 1 ? 's' : ''}`;
+  const layoverByIata = {};
+  (flight.layovers || []).forEach(l => {
+    if (l && l.iata) layoverByIata[String(l.iata).toUpperCase()] = l;
+  });
+  const layovers = Object.values(layoverByIata)
+    .filter(l => l && (l.iata || l.duration_min))
+    .map(l => `${l.iata ? l.iata + ' ' : ''}${l.duration_min ? fmtDur(l.duration_min) : ''}`.trim())
+    .filter(Boolean);
+  const facts = [
+    r.returnDate ? 'Round trip' : 'One-way',
+    r.date,
+    r.returnDate,
+    r.cabin,
+    flight.duration,
+    stopText,
+    layovers.length ? `Layover ${layovers.join(' / ')}` : '',
+  ].filter(Boolean);
+  const displayRoute = nodes.join(' \u2192 ');
+  const summary = `${displayRoute}. ${facts.join('. ')}.`;
+  const hasReturnJourney = Array.isArray(flight.return_segments) && flight.return_segments.length > 0;
+  const showsOutboundOnly = !!r.returnDate && !hasReturnJourney;
+  const kicker = incompatibleBasis ? 'Outbound award journey shown' : (showsOutboundOnly ? 'Outbound journey shown' : 'Journey intelligence route');
+  const fallbackNote = coordsKnown ? '' : 'Route visualization simplified because location data is incomplete.';
+  const routeLines = pts.slice(0, -1).map((a, i) => {
+    const b = pts[i + 1];
+    const d = `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} L ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+    return `<path class="aw-journey-path${i === 0 ? ' aw-journey-path-active' : ''}" d="${d}"/>`;
+  }).join('');
+  const nodeEls = pts.map((p, i) => {
+    const role = i === 0 ? 'origin' : i === pts.length - 1 ? 'destination' : 'stop';
+    const city = airportMeta(p.code)?.city || '';
+    const seg = role === 'origin' ? segs[0] : segs[i - 1];
+    const time = role === 'origin' ? seg?.dep_time : seg?.arr_time;
+    const layover = role === 'stop' ? layoverByIata[p.code] : null;
+    const secondary = city || 'Airport';
+    const layoverText = layover?.duration_min ? `${fmtDur(layover.duration_min)} layover` : '';
+    const secondaryY = p.y + 27;
+    const timeY = p.y + 40;
+    const layoverY = p.y + 54;
+    return `<g class="aw-journey-node aw-journey-node-${role}">
+      <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${role === 'stop' ? 3.5 : 4.25}"/>
+      <text class="aw-journey-code" x="${p.x.toFixed(1)}" y="${(p.y - 12).toFixed(1)}" text-anchor="middle">${esc(p.code)}</text>
+      <text class="aw-journey-city" x="${p.x.toFixed(1)}" y="${secondaryY.toFixed(1)}" text-anchor="middle">${esc(secondary)}</text>
+      ${time ? `<text class="aw-journey-time" x="${p.x.toFixed(1)}" y="${timeY.toFixed(1)}" text-anchor="middle">${esc(time)}</text>` : ''}
+      ${layoverText ? `<text class="aw-journey-layover" x="${p.x.toFixed(1)}" y="${layoverY.toFixed(1)}" text-anchor="middle">${esc(layoverText)}</text>` : ''}
+    </g>`;
+  }).join('');
+  const essentialFacts = [r.returnDate ? 'Round trip' : 'One-way', r.cabin, r.date].filter(Boolean);
+  const factEls = essentialFacts.map(f => `<span>${esc(f)}</span>`).join('');
+
+  const html = `<section class="aw-journey-map" role="group" aria-label="${esc(summary)}">
+    <div class="aw-journey-head">
+      <div>
+        <div class="aw-section-kicker">${esc(kicker)}</div>
+      </div>
+    </div>
+    <svg class="aw-journey-svg" viewBox="0 0 ${width} ${height}" aria-hidden="true" focusable="false">
+      <rect class="aw-journey-grid" x="18" y="18" width="${width - 36}" height="${height - 36}" rx="10"/>
+      <g class="aw-journey-routes">${routeLines}</g>
+      <g class="aw-journey-nodes">${nodeEls}</g>
+    </svg>
+    <p class="sr-only">${esc(summary)}</p>
+    <div class="aw-journey-facts">${factEls}</div>
+  </section>`;
+  return { html, trustNote: fallbackNote };
+}
+
 const consent = {
   necessary: true,   // always true — theme, lang, ar_key session cookie
   analytics: false,  // set true only after explicit user consent
@@ -909,11 +1056,16 @@ function render(data) {
         const ctaHtml = `<div class="aw-cta-row">${ctaBtn(CTA.p[0], CTA.p[1], true)}${ctaBtn(CTA.s[0], CTA.s[1], false)}</div>`;
 
         // 6 — Trust metadata (subordinate)
+        const journeyMap = awardJourneyMapHtml(r);
+        const trustNotes = [
+          d.verification_guidance || 'Final availability, prices, taxes and program rules must be confirmed with the official provider.',
+          journeyMap.trustNote,
+        ].filter(Boolean);
         const trustHtml = `
           <div class="aw-trust">
             <div class="aw-trust-item"><span class="aw-trust-k">Confidence</span><span class="aw-trust-v aw-conf-${d.confidence || 'low'}"${d.confidence_reason ? ` title="${esc(d.confidence_reason)}"` : ''}>${CONF_WORD[d.confidence] || 'Low'}</span></div>
             ${d.freshness_label ? `<div class="aw-trust-item"><span class="aw-trust-k">Freshness</span><span class="aw-trust-v">${esc(d.freshness_label)}</span></div>` : ''}
-            <div class="aw-trust-note">${esc(d.verification_guidance || 'Final availability, prices, taxes and program rules must be confirmed with the official provider.')}</div>
+            <div class="aw-trust-note">${trustNotes.map(esc).join('<br>')}</div>
           </div>`;
 
         // 7 — Flight details drawer
@@ -945,13 +1097,13 @@ function render(data) {
         return `<div class="card${r.best_program ? ' top-card' : ''}">
           <div class="aw-result-shell">
             ${headerHtml}
-            <!-- AWARDRADAR_JOURNEY_MAP_SLOT -->
             ${verdictHtml}
             ${meansHtml}
             ${nextHtml}
             ${ctaHtml}
             ${metricsHtml}
             ${trustHtml}
+            ${journeyMap.html}
             ${flightHtml}
             ${programsHtml}
             <p class="legend-note">Final availability, mileage prices, taxes, fees and rules must be confirmed with the airline or loyalty program before any transfer or purchase.</p>
@@ -1320,26 +1472,7 @@ function globeAnimation() {
 
   // Top-50 Airports nach ACI-Passagieraufkommen, in Rang-Reihenfolge —
   // die Reihenfolge ist zugleich die Label-Priorität bei Kollisionen.
-  const airports = [
-    [33.64, -84.43, 'ATL', 'Atlanta'], [25.25, 55.36, 'DXB', 'Dubai'], [35.55, 139.78, 'HND', 'Tokyo'],
-    [32.90, -97.04, 'DFW', 'Dallas'], [31.14, 121.81, 'PVG', 'Shanghai'], [40.08, 116.58, 'PEK', 'Beijing'],
-    [51.47, -0.45, 'LHR', 'London'], [41.26, 28.74, 'IST', 'Istanbul'], [23.39, 113.30, 'CAN', 'Guangzhou'],
-    [41.97, -87.90, 'ORD', 'Chicago'], [50.03, 8.56, 'FRA', 'Frankfurt'], [52.31, 4.76, 'AMS', 'Amsterdam'],
-    [49.01, 2.55, 'CDG', 'Paris'], [22.31, 113.91, 'HKG', 'Hong Kong'], [25.27, 51.61, 'DOH', 'Doha'],
-    [39.86, -104.67, 'DEN', 'Denver'], [33.94, -118.41, 'LAX', 'Los Angeles'], [40.64, -73.78, 'JFK', 'New York'],
-    [1.36, 103.99, 'SIN', 'Singapore'], [37.46, 126.44, 'ICN', 'Seoul'], [13.69, 100.75, 'BKK', 'Bangkok'],
-    [2.75, 101.71, 'KUL', 'Kuala Lumpur'], [-6.13, 106.66, 'CGK', 'Jakarta'], [28.57, 77.10, 'DEL', 'Delhi'],
-    [19.09, 72.87, 'BOM', 'Mumbai'], [40.47, -3.56, 'MAD', 'Madrid'], [41.30, 2.08, 'BCN', 'Barcelona'],
-    [48.35, 11.79, 'MUC', 'Munich'], [47.46, 8.55, 'ZRH', 'Zurich'], [48.11, 16.57, 'VIE', 'Vienna'],
-    [50.90, 4.48, 'BRU', 'Brussels'], [55.62, 12.66, 'CPH', 'Copenhagen'], [60.19, 11.10, 'OSL', 'Oslo'],
-    [59.65, 17.92, 'ARN', 'Stockholm'], [41.80, 12.24, 'FCO', 'Rome'], [45.63, 8.72, 'MXP', 'Milan'],
-    [38.77, -9.13, 'LIS', 'Lisbon'], [53.43, -6.24, 'DUB', 'Dublin'], [53.35, -2.27, 'MAN', 'Manchester'],
-    [25.79, -80.29, 'MIA', 'Miami'], [37.62, -122.38, 'SFO', 'San Francisco'], [47.45, -122.31, 'SEA', 'Seattle'],
-    [43.68, -79.63, 'YYZ', 'Toronto'], [19.44, -99.07, 'MEX', 'Mexico City'], [-23.43, -46.47, 'GRU', 'São Paulo'],
-    [4.70, -74.15, 'BOG', 'Bogotá'], [-26.14, 28.25, 'JNB', 'Johannesburg'], [30.12, 31.41, 'CAI', 'Cairo'],
-    [-33.95, 151.18, 'SYD', 'Sydney'], [24.96, 46.70, 'RUH', 'Riyadh'],
-    [-31.94, 115.97, 'PER', 'Perth'],
-  ];
+  const airports = AWARDRADAR_AIRPORTS;
   const AP_IDX = {};
   airports.forEach((a, i) => { AP_IDX[a[2]] = i; });
 
