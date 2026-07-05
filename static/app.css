@@ -570,6 +570,47 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .aw-trust-note{flex-basis:100%;font-size:.8rem;color:var(--muted);line-height:1.4;margin-top:2px}
 [data-theme="light"] .aw-trust{background:rgba(0,0,0,.015)}
 
+.sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+
+.aw-journey-map{position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:rgba(4,13,27,.72);padding:10px 12px 9px;box-shadow:none}
+.aw-journey-map::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.025) 0 1px,transparent 1px 96px);opacity:.28;pointer-events:none}
+.aw-journey-map .aw-section-kicker{text-transform:none;letter-spacing:.08em;font-size:.68rem;font-weight:500;color:var(--muted)}
+.aw-journey-head{position:relative;z-index:1;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:2px}
+.aw-journey-svg{position:relative;z-index:1;display:block;width:100%;height:auto}
+.aw-journey-grid{fill:rgba(255,255,255,.006);stroke:rgba(255,255,255,.04);stroke-width:1}
+.aw-journey-path{fill:none;stroke:rgba(166,185,199,.64);stroke-width:1.25;stroke-linecap:square}
+.aw-journey-path-active{stroke:rgba(106,215,255,.62);stroke-width:1.35}
+.aw-journey-node circle{fill:rgba(8,21,40,.96);stroke:rgba(190,203,213,.72);stroke-width:1.1}
+.aw-journey-node-origin circle,.aw-journey-node-destination circle{stroke:rgba(245,199,107,.72)}
+.aw-journey-node-stop circle{stroke:rgba(106,215,255,.62)}
+.aw-journey-code{font-size:13px;font-weight:500;letter-spacing:.02em;fill:rgba(235,241,246,.92)}
+.aw-journey-city,.aw-journey-time,.aw-journey-layover{font-size:9.5px;font-weight:400;letter-spacing:0;fill:rgba(166,185,199,.82)}
+.aw-journey-time{fill:rgba(210,219,226,.86);font-variant-numeric:tabular-nums}
+.aw-journey-layover{fill:rgba(202,211,218,.82)}
+.aw-journey-facts{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:5px;margin-top:1px}
+.aw-journey-facts span{font-size:.68rem;font-weight:400;color:var(--muted);border:1px solid rgba(255,255,255,.055);background:transparent;border-radius:999px;padding:3px 7px;line-height:1}
+[data-theme="light"] .aw-journey-map{background:#ffffff;border-color:rgba(7,18,36,.09);box-shadow:none}
+[data-theme="light"] .aw-journey-map::before{background:repeating-linear-gradient(90deg,rgba(7,18,36,.025) 0 1px,transparent 1px 96px)}
+[data-theme="light"] .aw-journey-grid{fill:rgba(7,18,36,.006);stroke:rgba(7,18,36,.045)}
+[data-theme="light"] .aw-journey-path{stroke:rgba(82,102,118,.54)}
+[data-theme="light"] .aw-journey-path-active{stroke:rgba(13,110,138,.55)}
+[data-theme="light"] .aw-journey-node circle{fill:#fff;stroke:rgba(82,102,118,.68)}
+[data-theme="light"] .aw-journey-node-origin circle,[data-theme="light"] .aw-journey-node-destination circle{stroke:rgba(160,113,31,.68)}
+[data-theme="light"] .aw-journey-node-stop circle{stroke:rgba(13,110,138,.58)}
+[data-theme="light"] .aw-journey-code{fill:rgba(7,18,36,.9)}
+[data-theme="light"] .aw-journey-city,[data-theme="light"] .aw-journey-time,[data-theme="light"] .aw-journey-layover{fill:rgba(69,85,98,.82)}
+[data-theme="light"] .aw-journey-facts span{background:rgba(7,18,36,.035)}
+@media(max-width:640px){
+  .aw-journey-map{padding:10px 10px 9px}
+  .aw-journey-head{align-items:flex-start}
+  .aw-journey-svg{min-height:128px}
+  .aw-journey-code{font-size:12px}
+  .aw-journey-city,.aw-journey-time,.aw-journey-layover{font-size:9px}
+  .aw-journey-facts{gap:5px}
+  .aw-journey-facts span{font-size:.7rem;padding:5px 7px}
+}
+@media(prefers-reduced-motion:reduce){.aw-journey-path{animation:none;filter:none}}
+
 .aw-flight-details{margin-top:2px}
 .aw-itin-label{font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
 .aw-programs{display:flex;flex-direction:column;gap:8px}
