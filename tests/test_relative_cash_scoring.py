@@ -96,6 +96,49 @@ class RelativeCashScoring(unittest.TestCase):
         o = app.rescore_offer_set([offer(0, 0)])  # no positive price
         self.assertEqual(o[0].get("dealScore", None) in (None, 0), True)
 
+    # --- Calibration review regression tests ---
+
+    def test_weak_field_cap_never_strong_or_exceptional(self):
+        # Req 1: an active expensive/weak-field cap must not reach Strong/Exceptional.
+        # (a) above-typical field
+        above = scored([offer(900, 0, dur=600, typical=[300, 500]),
+                        offer(1100, 1, dur=800, typical=[300, 500])])
+        top_above = max(above, key=lambda x: x["dealScore"])
+        self.assertLess(top_above["dealScore"], app.CASH_SCORE_CONFIG["expensive_field_cap"] + 1)
+        self.assertNotIn(top_above["tier"], ("great", "exceptional"))
+        self.assertEqual(top_above["label"], "Fair Value")  # capped exactly at Fair
+        # (b) no price-insight at all
+        notypical = scored([offer(200, 0), offer(230, 0)])
+        for x in notypical:
+            self.assertNotIn(x["tier"], ("great", "exceptional"))
+
+    def test_expensive_cap_below_strong_threshold(self):
+        # Structural guarantee: the cap can never land in the Strong band.
+        strong_min = next(t for t, tier, _g, _l in app.CASH_SCORE_CONFIG["grade_bands"]
+                          if tier == "great")
+        self.assertLess(app.CASH_SCORE_CONFIG["expensive_field_cap"], strong_min)
+        self.assertLess(app.CASH_SCORE_CONFIG["single_result_cap"], strong_min)
+
+    def test_exceptional_requires_below_typical_superiority_and_no_cap(self):
+        # Req 3: A+ only when superior in set, no cap active, and a real below-typical signal.
+        tr = [220, 400]
+        # (1) cheapest nonstop, below typical, multiple results → Exceptional allowed
+        good = scored([offer(174, 0, dur=600, typical=tr), offer(272, 1, dur=800, typical=tr)])
+        self.assertEqual(good[0]["tier"], "exceptional")
+        # (2) same offer but single result → limited-comparison cap blocks Exceptional
+        (single,) = scored([offer(174, 0, dur=600, typical=tr)])
+        self.assertNotEqual(single["tier"], "exceptional")
+        # (3) cheapest nonstop but NOT below typical (within range) → no Exceptional
+        within = scored([offer(320, 0, dur=600, typical=tr), offer(500, 1, dur=800, typical=tr)])
+        self.assertNotEqual(within[0]["tier"], "exceptional")
+        # (4) no price-insight signal at all → no Exceptional
+        noins = scored([offer(174, 0, dur=600), offer(272, 1, dur=800)])
+        self.assertNotEqual(max(noins, key=lambda x: x["dealScore"])["tier"], "exceptional")
+        # (5) below typical but NOT the cheapest (pricey) → no Exceptional
+        notcheapest = scored([offer(174, 0, dur=600, typical=tr), offer(210, 0, dur=620, typical=tr)])
+        pricey_below = notcheapest[1]
+        self.assertNotEqual(pricey_below["tier"], "exceptional")
+
 
 if __name__ == "__main__":
     unittest.main()

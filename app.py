@@ -764,8 +764,6 @@ CASH_SCORE_CONFIG = {
     "alliance_bonus": 3,            # minor modifier only
     "below_typical_bonus": 20,      # genuinely cheap vs Google's typical range
     "within_low_half_bonus": 8,     # cheaper half of the typical range
-    "expensive_field_cap": 82,      # no Exceptional unless an absolute check supports it
-    "single_result_cap": 78,        # only one option → limited comparison, never 100
     # score → (tier, grade, label). First threshold met wins. Exceptional is rare.
     "grade_bands": [
         (88, "exceptional", "A+", "Exceptional Value"),
@@ -775,6 +773,16 @@ CASH_SCORE_CONFIG = {
         (0,  "poor",        "D",  "Weak Relative Value"),
     ],
 }
+
+# Caps are derived from the bands so they can never contradict them:
+# an active weak/expensive-field cap must stay below Strong (→ max "Fair Value"),
+# and any limited-comparison cap must stay below Exceptional.
+_BAND_MIN = {tier: threshold for threshold, tier, _g, _l in CASH_SCORE_CONFIG["grade_bands"]}
+# Weak/expensive field → max Fair Value (one point below the Strong threshold).
+CASH_SCORE_CONFIG["expensive_field_cap"] = _BAND_MIN["great"] - 1   # 71
+# A single result is the weakest possible field (no comparison at all) → also
+# capped at Fair Value; this likewise keeps it below Exceptional.
+CASH_SCORE_CONFIG["single_result_cap"] = _BAND_MIN["great"] - 1     # 71
 
 
 def _cash_grade(score: int) -> dict:
