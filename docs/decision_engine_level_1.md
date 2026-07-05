@@ -178,6 +178,64 @@ extrahiert/zentralisiert werden, bleibt `sweet_spot_grade()` der einzige Konsume
 
 ---
 
+## Provider-Status & CashFareSource (Stand 2026-07-05)
+
+**SerpApi ist für Flugsuchen reaktiviert.** Aktueller Plan:
+
+- Starter
+- 1.000 Suchen/Monat
+- Google Flights API verfügbar
+- Nutzung aktuell zurückgesetzt / verfügbar
+
+### Rolle in Decision Engine Level 1
+
+- SerpApi ist der aktuelle **CashFareSource**-Input für Level 1.
+- SerpApi-Daten sind **externer Cash-Fare-Kontext**, keine unhinterfragte Wahrheit.
+- `source`, `freshness`, `trip_type` und `confidence` müssen erhalten bleiben und
+  in das Decision-Result durchgereicht werden.
+
+**Kernregel bleibt:** Provider-Daten sind Input. AwardRadars
+Entscheidungsunterstützung ist das Produkt.
+
+### Bestehende Infrastruktur zuerst wiederverwenden (nicht duplizieren)
+
+- **TTL-Cache gegen Doppelabrechnung existiert:** `serpapi_search()` cached über
+  `_SERP_CACHE` mit `SERPAPI_TTL` (default 6h), Key inkl. Trip-Type
+  (`"1"` = round trip, `"2"` = one way) — `app.py`. Kein Parallel-Cache einführen.
+- **Kostengrenze existiert:** `SERPAPI_MAX_PAIRS` (default 2) begrenzt bezahlte
+  Suchen pro Klick — `app.py`. Diese Grenze respektieren.
+- **Quota-Handling existiert:** `QuotaError` bei HTTP 402/429; Awards dürfen bei
+  leerer Quota **nicht** komplett sterben (Zone-Fallback) — `app.py`
+  `fetch_cash_details` / `_awards_inner`.
+
+### Konsequenzen für die Umsetzung
+
+- Cash-Input über die bestehende `serpapi_search()`/`fetch_cash_details()`-Kette
+  beziehen; **keine unnötigen Doppel-Calls**.
+- Bestehende Ergebnisse wiederverwenden, wo möglich (TTL-Cache greift bereits).
+- **Keine** neuen Provider-Calls für rein kosmetische UI-Änderungen auslösen.
+- **Trip-Basis-Hinweis (verweist auf Guardrail A):** `fetch_cash_details()` ruft
+  SerpApi mit `ret=None` → der Cash-Wert ist dort **deterministisch One-way**.
+  Der CashFareSource-Wrapper muss `cash_trip_type = "one_way"` daher **explizit
+  aus dem tatsächlichen Call** ableiten, nicht aus der angezeigten Sucheingabe.
+  Bei Round-trip-Sucheingabe entsteht sonst genau der Basis-Mismatch aus
+  Guardrail A.
+- **Metadaten ergänzen:** `fetch_cash_details()` liefert aktuell keine
+  `source` / `freshness` / `trip_type` / `confidence`. Der CashFareSource-Boundary
+  ergänzt sie — analog zum bestehenden `award_source_metadata()` (`app.py`) als
+  `cash_source_metadata()`, **kein** konkurrierendes zweites Schema.
+
+### Beobachtbarkeit (für spätere Volumen-Überwachung)
+
+- Provider-Nutzung so kapseln, dass das monatliche Suchvolumen später messbar ist
+  (z. B. ein Zählpunkt an der einen Stelle, an der ein **bezahlter** Call ausgeht —
+  nicht bei Cache-Treffern).
+- `/health` führt bereits Provider-Signale (`price_source`, `serpapi_token`,
+  `seatsaero_remaining`); Cash-Provider-Beobachtbarkeit dort andocken, kein neues
+  Telemetrie-System bauen.
+
+---
+
 ## Abnahmekriterien
 
 Ursprüngliche Level-1-Kriterien plus die folgenden verbindlichen Ergänzungen:
@@ -201,6 +259,18 @@ Ursprüngliche Level-1-Kriterien plus die folgenden verbindlichen Ergänzungen:
   (`normalized_trip_type` im Result und in der sichtbaren Erklärung).
 - Schwellen zentral, dokumentiert, als vorläufig markiert; keine zweite
   Schwellenlogik.
+
+### Kriterien (Provider / CashFareSource)
+
+- SerpApi-Cash-Werte tragen `source`, `freshness`, `trip_type`, `confidence` ins
+  Decision-Result.
+- Keine doppelten Provider-Calls: ein wiederholter identischer Request innerhalb
+  der TTL trifft den `_SERP_CACHE`, nicht das Netz.
+- Kosmetische UI-Änderungen (Theme, Layout, Re-Render) lösen **keinen** neuen
+  Provider-Call aus.
+- `SERPAPI_MAX_PAIRS` wird respektiert; bezahlte Calls sind an einem Punkt zählbar.
+- Bei `QuotaError` bleibt die Award-Bewertung funktionsfähig (Zone-Fallback),
+  Confidence sinkt entsprechend.
 
 ---
 
