@@ -806,10 +806,9 @@ function render(data) {
         if (!best) {
           return `<div class="card"><div class="aw-result-shell">
             ${headerHtml}
-            <div class="aw-rec aw-rec-insufficient">
-              <div class="aw-rec-headline">More information is needed before comparing.</div>
-              <div class="aw-rec-sub">No award options were returned for this route. Verify current availability with the official program.</div>
-            </div>
+            <div class="aw-verdict aw-verdict-insufficient"><h4 class="aw-verdict-h">More information is needed before comparing.</h4></div>
+            <div class="aw-means"><div class="aw-block-k">What this means</div><p>AwardRadar does not yet have enough compatible data to make a reliable comparison.</p></div>
+            <div class="aw-next"><div class="aw-block-k">Your next best step</div><p>No award options were returned for this route. Verify current availability with the official program.</p></div>
             <p class="legend-note">Final availability, mileage prices, taxes, fees and rules must be confirmed with the airline or loyalty program before any transfer or purchase.</p>
             ${actionLinksHtml(r.links)}
           </div></div>`;
@@ -819,7 +818,7 @@ function render(data) {
         const sig  = d.signal || 'insufficient_data';
         const st   = stateOf(sig);
         const cb   = confBucket(d.confidence);
-        const [hl, sup] = (HEADLINE[sig] || HEADLINE.insufficient_data)[cb];
+        const [hl] = (HEADLINE[sig] || HEADLINE.insufficient_data)[cb];
         const cash = (r.cash_eur != null) ? Math.round(r.cash_eur) : null;
         const evalMiles = (d.evaluated_miles != null ? d.evaluated_miles : (evaluated.miles || 0));
         const evalSurcharge = (d.evaluated_surcharge != null ? d.evaluated_surcharge : (evaluated.surcharge || 0));
@@ -828,51 +827,60 @@ function render(data) {
         const valueWord = tier ? VALUE_LABEL[tier] : null;
         const netSaved = (cash != null && evalSurcharge != null) ? Math.round(cash - evalSurcharge) : null;
 
-        // 2 — Plain-language recommendation
-        const recHtml = `
-          <div class="aw-rec aw-rec-${st}">
-            <div class="aw-rec-headline">${esc(hl)}</div>
-            ${sup ? `<div class="aw-rec-sub">${esc(sup)}</div>` : ''}
-          </div>`;
+        // Guided-decision derived values (from existing fields only — no new maths).
+        const milesAvailable = evalMiles != null && evalMiles > 0;
+        const valueAdj = valueWord ? valueWord.toLowerCase().replace(' value', '') : null;
 
-        // 3 — Metrics panel (omit metrics that have no real value)
+        // 1 — Verdict Layer (dominant, confidence-aware heading; readable without colour)
+        const verdictHtml = `<div class="aw-verdict aw-verdict-${st}"><h4 class="aw-verdict-h">${esc(hl)}</h4></div>`;
+
+        // 2 — What this means (plain language, safe fallbacks)
+        let meaning;
+        if (st === 'cash') {
+          meaning = (netSaved != null && netSaved > 0 && milesAvailable)
+            ? `You would use ${nfmt(evalMiles)} miles to save only €${netSaved}. That is weak value for your miles.`
+            : 'The current award option does not provide enough value compared with the cash fare.';
+        } else if (st === 'miles') {
+          meaning = (netSaved != null && netSaved > 0 && valueAdj)
+            ? `The award option saves about €${netSaved} while giving your miles ${valueAdj} value.`
+            : 'The current award option appears promising based on the available value signals.';
+        } else if (st === 'mixed') {
+          meaning = (netSaved != null && cpm != null)
+            ? `The award option saves €${netSaved}, but the value per mile is only ${cpm.toFixed(1)} ct. Neither option is clearly superior.`
+            : 'The available signals do not clearly favor either cash or miles.';
+        } else {
+          meaning = 'AwardRadar does not yet have enough compatible data to make a reliable comparison.';
+        }
+        const meansHtml = `<div class="aw-means"><div class="aw-block-k">What this means</div><p>${esc(meaning)}</p></div>`;
+
+        // 3 — Your next best step (calm expert guidance; not a warning, not a promo)
+        const NEXT = {
+          cash:         'Pay cash for this trip and keep your miles for a stronger redemption.',
+          miles:        'Verify current availability, taxes and booking rules with the official program before transferring points.',
+          mixed:        'Check the final cash fare first, then compare it with the confirmed award cost.',
+          insufficient: 'Review the available program signals and verify both cash and award pricing directly.',
+        };
+        const nextHtml = `<div class="aw-next"><div class="aw-block-k">Your next best step</div><p>${esc(NEXT[st])}</p></div>`;
+
+        // 5 — Metrics panel (evidence; omit anything without a real value)
         const metricCell = (label, val, sub, subCls) =>
           `<div class="aw-metric"><div class="aw-metric-label">${esc(label)}</div><div class="aw-metric-val">${esc(val)}</div>${sub ? `<div class="aw-metric-sub${subCls ? ' ' + subCls : ''}">${esc(sub)}</div>` : ''}</div>`;
         const metrics = [];
         metrics.push(metricCell('Cash fare', cash != null ? `€${cash}` : 'Not available'));
-        metrics.push(metricCell('Award cost', `${nfmt(evalMiles)} miles + €${evalSurcharge}`));
+        metrics.push(metricCell('Award cost', milesAvailable ? `${nfmt(evalMiles)} miles + €${evalSurcharge}` : 'Not available'));
         if (netSaved != null && netSaved > 0) metrics.push(metricCell('Net cash saved', `€${netSaved}`));
         if (cpm != null) metrics.push(metricCell('Value per mile', `${cpm.toFixed(1)} ct`, valueWord, tier ? `aw-vw-${tier}` : ''));
         const metricsHtml = `<div class="aw-metrics">${metrics.join('')}</div>`;
 
-        // 4 — Plain-language trade-off explanation
-        const exLines = [];
-        if (st === 'insufficient') {
-          exLines.push(d.explanation || 'We could not reliably compare cash and miles for this option.');
-          exLines.push('Verify the current cash fare and award availability before deciding.');
-        } else {
-          exLines.push(`The award option costs ${nfmt(evalMiles)} miles + €${evalSurcharge}.`);
-          if (cash != null) exLines.push(`A comparable cash fare costs about €${cash}.`);
-          if (st === 'cash') {
-            if (netSaved != null && netSaved > 0) exLines.push(`You would use ${nfmt(evalMiles)} miles to save only €${netSaved}.`);
-            if (cpm != null && valueWord) exLines.push(`Your miles are worth about ${cpm.toFixed(1)} cents each here — ${valueWord.toLowerCase()}.`);
-            exLines.push('Recommendation: pay cash and save your miles for a stronger redemption.');
-          } else if (st === 'miles') {
-            if (netSaved != null && netSaved > 0) exLines.push(`Using miles saves about €${netSaved} for ${nfmt(evalMiles)} miles.`);
-            if (cpm != null && valueWord) exLines.push(`Your miles are worth about ${cpm.toFixed(1)} cents each here — ${valueWord.toLowerCase()}.`);
-            exLines.push('Recommendation: consider using miles, then confirm availability and final costs.');
-          } else {
-            if (cpm != null && valueWord) exLines.push(`Your miles are worth about ${cpm.toFixed(1)} cents each here — ${valueWord.toLowerCase()}.`);
-            exLines.push('Recommendation: compare the final cash price and award availability before deciding.');
-          }
-        }
-        const explainHtml = `<div class="aw-explain">${exLines.map(l => `<p>${esc(l)}</p>`).join('')}</div>`;
-
-        // 5 — Dynamic CTA (existing URLs / tab-switch only; one dominant action)
-        const awardUrl = (evaluated && evaluated.url) ? evaluated.url : '#';
+        // 4 — Dynamic CTA (existing URLs / tab-switch only; one dominant action)
+        const hasAwardUrl = evaluated && evaluated.url && evaluated.url !== '#';
         const ctaBtn = (label, kind, primary) => {
           const cls = `aw-cta ${primary ? 'aw-cta-primary' : 'aw-cta-secondary'}`;
-          if (kind === 'award') return `<a class="${cls}" href="${esc(awardUrl)}" target="_blank" rel="noopener">${esc(label)}</a>`;
+          if (kind === 'award') {
+            return hasAwardUrl
+              ? `<a class="${cls}" href="${esc(evaluated.url)}" target="_blank" rel="noopener">${esc(label)}</a>`
+              : `<button type="button" class="${cls}" onclick="this.closest('.card').querySelector('.aw-programs').scrollIntoView({block:'start'})">${esc(label)}</button>`;
+          }
           if (kind === 'cash') return `<button type="button" class="${cls}" onclick="switchTabAndRun('cheap')">${esc(label)}</button>`;
           return `<button type="button" class="${cls}" onclick="this.closest('.card').querySelector('.aw-programs').scrollIntoView({block:'start'})">${esc(label)}</button>`;
         };
@@ -922,10 +930,11 @@ function render(data) {
           <div class="aw-result-shell">
             ${headerHtml}
             <!-- AWARDRADAR_JOURNEY_MAP_SLOT -->
-            ${recHtml}
-            ${metricsHtml}
-            ${explainHtml}
+            ${verdictHtml}
+            ${meansHtml}
+            ${nextHtml}
             ${ctaHtml}
+            ${metricsHtml}
             ${trustHtml}
             ${flightHtml}
             ${programsHtml}

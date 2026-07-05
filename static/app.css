@@ -513,17 +513,27 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .aw-result-route .aw-dot{color:var(--muted);font-weight:400;margin:0 2px}
 .aw-result-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.85rem;color:var(--muted)}
 
+/* ===== Guided Award Decision (Awards) ===== */
+/* 1 — Verdict: the dominant text element, readable without colour */
+.aw-verdict{border-left:4px solid var(--border);padding-left:14px}
+.aw-verdict-h{font-size:clamp(1.35rem,1.15rem + 0.9vw,1.8rem);font-weight:800;line-height:1.2;margin:0;color:var(--text)}
+.aw-verdict-cash{border-left-color:var(--cyan)}
+.aw-verdict-cash .aw-verdict-h{color:var(--cyan)}
+.aw-verdict-miles{border-left-color:var(--green)}
+.aw-verdict-miles .aw-verdict-h{color:var(--green)}
+.aw-verdict-mixed{border-left-color:var(--gold)}
+.aw-verdict-insufficient{border-left-color:var(--muted)}
+/* 2 — What this means: readable body copy */
+.aw-means{font-size:1rem;line-height:1.5;color:var(--text)}
+.aw-means p{margin:4px 0 0}
+/* 3 — Your next best step: calm expert guidance (not warning, not promo) */
+.aw-next{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;padding:13px 15px}
+.aw-next p{margin:4px 0 0;font-weight:600;color:var(--text);line-height:1.45}
+.aw-next .aw-block-k{color:var(--cyan)}
+.aw-block-k{font-size:.74rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+[data-theme="light"] .aw-next{background:rgba(0,0,0,.02)}
+
 /* ===== Intelligence Briefing (Awards) ===== */
-.aw-rec{border-radius:14px;padding:16px 18px;border:1px solid var(--border);border-left-width:4px;background:rgba(255,255,255,.03)}
-.aw-rec-headline{font-size:clamp(1.15rem,1rem + 0.7vw,1.5rem);font-weight:800;line-height:1.25;color:var(--text)}
-.aw-rec-sub{font-size:.95rem;color:var(--muted);margin-top:5px;line-height:1.4}
-.aw-rec-cash{border-left-color:var(--cyan)}
-.aw-rec-cash .aw-rec-headline{color:var(--cyan)}
-.aw-rec-miles{border-left-color:var(--green)}
-.aw-rec-miles .aw-rec-headline{color:var(--green)}
-.aw-rec-mixed{border-left-color:var(--gold)}
-.aw-rec-insufficient{border-left-color:var(--muted)}
-.aw-rec-insufficient .aw-rec-headline{color:var(--text)}
 
 .aw-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .aw-metric{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:3px;min-width:0}
@@ -547,7 +557,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .aw-cta-secondary{background:transparent;color:var(--text);border-color:var(--border);font-weight:600}
 .aw-cta-secondary:hover{background:rgba(255,255,255,.05)}
 .aw-cta:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
-.aw-rec-miles ~ .aw-cta-row .aw-cta-primary{background:var(--green);border-color:var(--green)}
+.aw-verdict-miles ~ .aw-cta-row .aw-cta-primary{background:var(--green);border-color:var(--green)}
 [data-theme="light"] .aw-cta-secondary:hover{background:rgba(0,0,0,.04)}
 
 .aw-trust{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 18px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,.02)}
