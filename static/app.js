@@ -20,11 +20,12 @@ function aircraftStub(aircraft) {
   }
   return null;
 }
+let _itinSeq = 0;
 function buildItinerary(f) {
   if (!f) return '';
+  const segs = f.segments || [];
   // Summary line
   const sumParts = [];
-  if (f.flight_number) sumParts.push(`<span class="aw-fs-fn">${esc(f.flight_number)}</span>`);
   if (f.dep_time && f.arr_time) sumParts.push(`<span class="aw-fs-times">${esc(f.dep_time)} → ${esc(f.arr_time)}</span>`);
   if (f.duration) sumParts.push(`<span class="aw-fs-dur">${esc(f.duration)}</span>`);
   if (f.stops === 0) sumParts.push('<span class="aw-fs-nonstop">Nonstop</span>');
@@ -33,48 +34,68 @@ function buildItinerary(f) {
     sumParts.push(`<span class="aw-fs-stops">${f.stops} stop${f.stops > 1 ? 's' : ''}${viaStr ? ' · ' + esc(viaStr) : ''}</span>`);
   }
 
-  // Badges (P3)
+  // Badges
   const badges = [];
   if (f.stops === 0) badges.push('<span class="aw-badge aw-badge-nonstop">Nonstop</span>');
   if ((f.layovers || []).some(l => l.duration_min > 0 && l.duration_min < 60)) badges.push('<span class="aw-badge aw-badge-warn">Short connection</span>');
   if ((f.segments || []).some(s => s.overnight)) badges.push('<span class="aw-badge aw-badge-warn">Overnight</span>');
   if ((f.layovers || []).some(l => l.duration_min >= 240)) badges.push('<span class="aw-badge aw-badge-muted">Long layover</span>');
 
-  // Segment detail (P2) — only for connecting flights
-  let detail = '';
-  if (f.stops > 0 && (f.segments || []).length > 1) {
-    const segsHtml = f.segments.map((seg, i) => {
-      const stub = aircraftStub(seg.aircraft);
+  // Structured segment cards — shown whenever segment data exists (incl. nonstop).
+  let detail = '', toggle = '';
+  if (segs.length) {
+    const segsHtml = segs.map((seg, i) => {
       const lay = f.layovers && f.layovers[i];
-      return `<div class="aw-seg">
-        <div class="aw-seg-header">
-          ${seg.flight_number ? `<span class="aw-seg-fn">${esc(seg.flight_number)}</span>` : ''}
-          ${seg.aircraft ? `<span class="aw-seg-aircraft">${esc(seg.aircraft)}${stub ? ` <span class="aw-seg-stub">${esc(stub)}</span>` : ''}</span>` : ''}
+      const head = [];
+      if (seg.flight_number) head.push(`<span class="aw-seg-fn">${esc(seg.flight_number)}</span>`);
+      if (seg.airline) head.push(`<span class="aw-seg-airline">${esc(seg.airline)}</span>`);
+      const meta = [];
+      if (seg.duration_min) meta.push(fmtDur(seg.duration_min));
+      if (seg.cabin) meta.push(esc(seg.cabin));
+      if (seg.aircraft) meta.push(esc(seg.aircraft));
+      const timeStr = (seg.dep_time || seg.arr_time)
+        ? `${esc(seg.dep_time || '')}${seg.dep_time && seg.arr_time ? '–' : ''}${esc(seg.arr_time || '')}`
+        : '';
+      const layStr = lay
+        ? `<li class="aw-layover"><span class="aw-layover-ic" aria-hidden="true">⏱</span><span>${esc(lay.iata || '')} layover${lay.duration_min ? ' · ' + fmtDur(lay.duration_min) : ''}${lay.overnight ? ' · overnight' : ''}</span></li>`
+        : '';
+      return `<li class="aw-seg">
+        <div class="aw-seg-line">
+          <span class="aw-seg-route"><span class="aw-seg-ap">${esc(seg.dep_iata || '')}</span><span class="aw-seg-arrow" aria-hidden="true">→</span><span class="aw-seg-ap">${esc(seg.arr_iata || '')}</span></span>
+          ${timeStr ? `<span class="aw-seg-times">${timeStr}</span>` : ''}
         </div>
-        <div class="aw-seg-route">
-          <span class="aw-seg-ap">${esc(seg.dep_iata || '')}</span>
-          <span class="aw-seg-t">${esc(seg.dep_time || '')}</span>
-          <span class="aw-seg-arr">→</span>
-          <span class="aw-seg-ap">${esc(seg.arr_iata || '')}</span>
-          <span class="aw-seg-t">${esc(seg.arr_time || '')}</span>
-          ${seg.duration_min ? `<span class="aw-seg-dur">${fmtDur(seg.duration_min)}</span>` : ''}
-        </div>
-        ${lay ? `<div class="aw-layover-row">${esc(lay.iata || '')} · ${fmtDur(lay.duration_min || 0)} layover${lay.overnight ? ' · overnight' : ''}</div>` : ''}
-      </div>`;
+        ${head.length ? `<div class="aw-seg-head">${head.join('')}</div>` : ''}
+        ${meta.length ? `<div class="aw-seg-meta">${meta.join('<span class="aw-seg-dot" aria-hidden="true">·</span>')}</div>` : ''}
+      </li>${layStr}`;
     }).join('');
-    detail = `<div class="aw-itin-detail" hidden>${segsHtml}</div>`;
+    const uid = 'aw-itin-' + (++_itinSeq);
+    detail = `<ul class="aw-itin-detail" id="${uid}" hidden>${segsHtml}</ul>`;
+    toggle = `<button type="button" class="aw-itin-toggle" aria-expanded="false" aria-controls="${uid}">
+      <span class="aw-itin-toggle-label">Show flight details</span>
+      <span class="aw-itin-chev" aria-hidden="true">▾</span>
+    </button>`;
   }
 
-  const toggle = detail
-    ? `<button class="aw-itin-toggle" onclick="(function(b){var d=b.closest('.aw-itin').querySelector('.aw-itin-detail');d.hidden=!d.hidden;b.textContent=d.hidden?'Show itinerary ▼':'Hide itinerary ▲';})(this)">Show itinerary ▼</button>`
-    : '';
-
   return `<div class="aw-itin">
-    <div class="aw-itin-sum">${sumParts.join('<span class="aw-fs-sep">·</span>')}</div>
+    ${sumParts.length ? `<div class="aw-itin-sum">${sumParts.join('<span class="aw-fs-sep">·</span>')}</div>` : ''}
     ${badges.length ? `<div class="aw-itin-badges">${badges.join('')}</div>` : ''}
     ${toggle}${detail}
   </div>`;
 }
+
+// Stable, delegated toggle for the flight-details drawer. Bound once at load, so it
+// survives every render() innerHTML replacement without duplicate or stale listeners.
+document.addEventListener('click', function (e) {
+  const btn = e.target.closest && e.target.closest('.aw-itin-toggle');
+  if (!btn) return;
+  const panel = document.getElementById(btn.getAttribute('aria-controls'));
+  if (!panel) return;
+  panel.hidden = !panel.hidden;
+  const open = !panel.hidden;
+  btn.setAttribute('aria-expanded', String(open));
+  const lbl = btn.querySelector('.aw-itin-toggle-label');
+  if (lbl) lbl.textContent = open ? 'Hide flight details' : 'Show flight details';
+});
 
 function awardTrustMetaHtml(p) {
   const items = [];
@@ -653,10 +674,6 @@ function render(data) {
       };
       html += awardResults.map(r => {
         const cashStr = r.cash_eur ? `${Math.round(r.cash_eur)} EUR` : null;
-        const hasLive = r.has_live_data;
-        const liveNote = hasLive
-          ? `<div class="aw-trust-bar"><span class="aw-trust-dot"></span>Award data signal - verify availability, price and rules with the official program</div>`
-          : `<div class="aw-trust-bar aw-trust-est">Estimate - verify timing, availability and mileage price with the official program</div>`;
         const itineraryHtml = buildItinerary(r.flight);
         const scheduleFallback = itineraryHtml
           ? ''
@@ -672,63 +689,44 @@ function render(data) {
           return (a.cpm || 99) - (b.cpm || 99);
         });
 
-        // --- Decision Card (Decision Engine Level 1) ---
+        // ===== Intelligence Briefing (presentation layer over the Decision Engine) =====
+        // Copy maps only — no scoring, thresholds or backend fields are recomputed.
+        const HEADLINE = {
+          cash_may_be_stronger: {
+            high:   ['Cash is the better choice.', 'Pay cash and save your miles.'],
+            medium: ['Cash looks like the better choice.', 'The current comparison favors paying cash.'],
+            low:    ['Cash may be the better choice.', 'Verify both options before deciding.'],
+          },
+          strong_miles_value: {
+            high:   ['Miles are worth using here.', 'This redemption offers strong value.'],
+            medium: ['Miles look worth using here.', 'This redemption appears promising.'],
+            low:    ['Miles may be worth checking.', 'Verify availability and final costs before transferring points.'],
+          },
+          promising_miles_value: {
+            high:   ['Miles may be worth using here.', 'This redemption looks promising.'],
+            medium: ['Miles may be worth using here.', 'This redemption looks promising.'],
+            low:    ['This award option may be worth checking.', 'Confirm availability, taxes and program rules first.'],
+          },
+          mixed_value: {
+            high:   ['Cash and miles are closely matched.', 'Compare the final price and award availability before deciding.'],
+            medium: ['Cash and miles are closely matched.', 'Compare the final price and award availability before deciding.'],
+            low:    ['Cash and miles are closely matched.', 'Compare the final price and award availability before deciding.'],
+          },
+          insufficient_data: {
+            high:   ['More information is needed before comparing.', 'Verify the current cash fare and award availability.'],
+            medium: ['More information is needed before comparing.', 'Verify the current cash fare and award availability.'],
+            low:    ['More information is needed before comparing.', 'Verify the current cash fare and award availability.'],
+          },
+        };
+        const VALUE_LABEL = { exceptional: 'Excellent value', great: 'Strong value', good: 'Good value', fair: 'Fair value', poor: 'Poor value' };
+        const CONF_WORD = { high: 'High', medium: 'Medium', low: 'Low' };
+        const confBucket = c => (c === 'high' ? 'high' : c === 'medium' ? 'medium' : 'low');
+        const stateOf = sig => sig === 'cash_may_be_stronger' ? 'cash'
+          : (sig === 'strong_miles_value' || sig === 'promising_miles_value') ? 'miles'
+          : sig === 'mixed_value' ? 'mixed' : 'insufficient';
+        const nfmt = n => Number(n).toLocaleString();
+
         const best = sorted[0];
-        let evaluatedProgramName = '';
-        let decisionCard = '';
-        if (best) {
-          const d        = r.decision || {};
-          const signal   = d.signal || 'insufficient_data';
-          const seatsStr = best.seats > 0 ? `, ${best.seats} seat${best.seats !== 1 ? 's' : ''} available` : '';
-          const hasValue = d.estimated_value != null && r.cash_eur;
-
-          // signal → cautious visible headline (backend supplies the copy)
-          const headline = d.label || 'Award redemption value signal';
-
-          // Subline: name the exact option the backend evaluated (authoritative),
-          // so it is never confused with the cash itinerary or another program card.
-          const evalProgram = d.evaluated_program || best.program;
-          evaluatedProgramName = evalProgram;
-          const evalMiles = (d.evaluated_miles != null ? d.evaluated_miles : best.miles);
-          const evalSurcharge = (d.evaluated_surcharge != null ? d.evaluated_surcharge : best.surcharge);
-          const isLive = (d.evaluated_data_source || best.data_source) === 'live';
-          const availTxt = (d.verdict === 'availability_only') ? ` (${isLive ? 'live' : 'estimated'} availability)` : '';
-          const subline = `<span class="bdc-eval-k">Evaluated redemption:</span> ${esc(evalProgram)} — ${Number(evalMiles).toLocaleString()} miles + €${evalSurcharge}${seatsStr}${availTxt}.`;
-
-          // Estimated value metric — only on a safely comparable basis
-          const metricRow = hasValue ? `
-            <div class="bdc-metric-row">
-              <span class="bdc-cpp">${Number(d.estimated_value).toFixed(1)} <small>ct/mi</small></span>
-              <span class="bdc-cash-vs">vs. <strong>€${Math.round(r.cash_eur)}</strong> cash · save <strong>€${Math.round(r.cash_eur - evalSurcharge)}</strong></span>
-            </div>` : '';
-
-          // Confidence + freshness row
-          const CONF = { high: ['bdc-conf-live', 'High'], medium: ['bdc-conf-est', 'Medium'], low: ['bdc-conf-nodata', 'Low'] };
-          const [confCls, confTxt] = CONF[d.confidence] || CONF.low;
-          const confRow = `
-            <div class="bdc-meta-row">
-              <span class="bdc-conf ${confCls}"${d.confidence_reason ? ` title="${esc(d.confidence_reason)}"` : ''}>Confidence: ${confTxt}</span>
-              ${d.freshness_label ? `<span class="bdc-fresh">Freshness: ${esc(d.freshness_label)}</span>` : ''}
-            </div>`;
-
-          const whyRow = d.explanation ? `<div class="bdc-why"><span class="bdc-k">Why</span> ${esc(d.explanation)}</div>` : '';
-          const verifyRow = d.verification_guidance ? `<div class="bdc-verify"><span class="bdc-k">Verify</span> ${esc(d.verification_guidance)}</div>` : '';
-
-          const SIGNAL_TIER = {
-            strong_miles_value: 'great', promising_miles_value: 'good',
-            mixed_value: 'fair', cash_may_be_stronger: 'fair', insufficient_data: 'insufficient',
-          };
-          const bdcTier = (d.verdict === 'availability_only') ? 'availability' : (SIGNAL_TIER[signal] || 'insufficient');
-          decisionCard = `
-          <div class="bdc bdc-${bdcTier}">
-            <div class="bdc-headline">${headline}</div>
-            <div class="bdc-subline">${subline}</div>
-            ${metricRow}
-            ${confRow}
-            ${whyRow}
-            ${verifyRow}
-          </div>`;
-        }
 
         const programCardHtml = (p, idx, isEvaluated = false) => {
           const g = p.grade || {};
@@ -790,59 +788,149 @@ function render(data) {
           </div>`;
         };
 
-        const evaluated = sorted.find(p => p.program === evaluatedProgramName) || sorted[0];
-        const visiblePrograms = [];
-        if (evaluated) visiblePrograms.push(evaluated);
-        for (const p of sorted) {
-          if (visiblePrograms.length >= 4) break;
-          if (!visiblePrograms.includes(p)) visiblePrograms.push(p);
+        const d = r.decision || {};
+        const evalProgramName = d.evaluated_program || (best && best.program) || '';
+        const evaluated = sorted.find(p => p.program === evalProgramName) || best;
+
+        // Header (route + date + cash badge) — position 1 in the hierarchy.
+        const headerHtml = `
+          <div class="aw-result-header">
+            <h3 class="aw-result-route">${esc(r.route)} <span class="aw-dot" aria-hidden="true">·</span> ${esc(r.cabin)}</h3>
+            <div class="aw-result-meta">
+              <span>${esc(r.date)}</span>
+              ${cashStr ? `<span class="badge">Cash: ${cashStr}</span>` : ''}
+            </div>
+          </div>`;
+
+        // Empty guard: a result with no programs cannot be compared.
+        if (!best) {
+          return `<div class="card"><div class="aw-result-shell">
+            ${headerHtml}
+            <div class="aw-rec aw-rec-insufficient">
+              <div class="aw-rec-headline">More information is needed before comparing.</div>
+              <div class="aw-rec-sub">No award options were returned for this route. Verify current availability with the official program.</div>
+            </div>
+            <p class="legend-note">Final availability, mileage prices, taxes, fees and rules must be confirmed with the airline or loyalty program before any transfer or purchase.</p>
+            ${actionLinksHtml(r.links)}
+          </div></div>`;
         }
-        const hiddenPrograms = sorted.filter(p => !visiblePrograms.includes(p));
-        const visibleCards = visiblePrograms
-          .map((p, idx) => programCardHtml(p, sorted.indexOf(p), idx === 0 && p === evaluated))
-          .join('');
-        const hiddenCards = hiddenPrograms
-          .map(p => programCardHtml(p, sorted.indexOf(p)))
-          .join('');
+
+        // Evaluated-option identity (authoritative, from the backend decision).
+        const sig  = d.signal || 'insufficient_data';
+        const st   = stateOf(sig);
+        const cb   = confBucket(d.confidence);
+        const [hl, sup] = (HEADLINE[sig] || HEADLINE.insufficient_data)[cb];
+        const cash = (r.cash_eur != null) ? Math.round(r.cash_eur) : null;
+        const evalMiles = (d.evaluated_miles != null ? d.evaluated_miles : (evaluated.miles || 0));
+        const evalSurcharge = (d.evaluated_surcharge != null ? d.evaluated_surcharge : (evaluated.surcharge || 0));
+        const cpm = (d.estimated_value != null) ? Number(d.estimated_value) : null;
+        const tier = d.tier || null;
+        const valueWord = tier ? VALUE_LABEL[tier] : null;
+        const netSaved = (cash != null && evalSurcharge != null) ? Math.round(cash - evalSurcharge) : null;
+
+        // 2 — Plain-language recommendation
+        const recHtml = `
+          <div class="aw-rec aw-rec-${st}">
+            <div class="aw-rec-headline">${esc(hl)}</div>
+            ${sup ? `<div class="aw-rec-sub">${esc(sup)}</div>` : ''}
+          </div>`;
+
+        // 3 — Metrics panel (omit metrics that have no real value)
+        const metricCell = (label, val, sub, subCls) =>
+          `<div class="aw-metric"><div class="aw-metric-label">${esc(label)}</div><div class="aw-metric-val">${esc(val)}</div>${sub ? `<div class="aw-metric-sub${subCls ? ' ' + subCls : ''}">${esc(sub)}</div>` : ''}</div>`;
+        const metrics = [];
+        metrics.push(metricCell('Cash fare', cash != null ? `€${cash}` : 'Not available'));
+        metrics.push(metricCell('Award cost', `${nfmt(evalMiles)} miles + €${evalSurcharge}`));
+        if (netSaved != null && netSaved > 0) metrics.push(metricCell('Net cash saved', `€${netSaved}`));
+        if (cpm != null) metrics.push(metricCell('Value per mile', `${cpm.toFixed(1)} ct`, valueWord, tier ? `aw-vw-${tier}` : ''));
+        const metricsHtml = `<div class="aw-metrics">${metrics.join('')}</div>`;
+
+        // 4 — Plain-language trade-off explanation
+        const exLines = [];
+        if (st === 'insufficient') {
+          exLines.push(d.explanation || 'We could not reliably compare cash and miles for this option.');
+          exLines.push('Verify the current cash fare and award availability before deciding.');
+        } else {
+          exLines.push(`The award option costs ${nfmt(evalMiles)} miles + €${evalSurcharge}.`);
+          if (cash != null) exLines.push(`A comparable cash fare costs about €${cash}.`);
+          if (st === 'cash') {
+            if (netSaved != null && netSaved > 0) exLines.push(`You would use ${nfmt(evalMiles)} miles to save only €${netSaved}.`);
+            if (cpm != null && valueWord) exLines.push(`Your miles are worth about ${cpm.toFixed(1)} cents each here — ${valueWord.toLowerCase()}.`);
+            exLines.push('Recommendation: pay cash and save your miles for a stronger redemption.');
+          } else if (st === 'miles') {
+            if (netSaved != null && netSaved > 0) exLines.push(`Using miles saves about €${netSaved} for ${nfmt(evalMiles)} miles.`);
+            if (cpm != null && valueWord) exLines.push(`Your miles are worth about ${cpm.toFixed(1)} cents each here — ${valueWord.toLowerCase()}.`);
+            exLines.push('Recommendation: consider using miles, then confirm availability and final costs.');
+          } else {
+            if (cpm != null && valueWord) exLines.push(`Your miles are worth about ${cpm.toFixed(1)} cents each here — ${valueWord.toLowerCase()}.`);
+            exLines.push('Recommendation: compare the final cash price and award availability before deciding.');
+          }
+        }
+        const explainHtml = `<div class="aw-explain">${exLines.map(l => `<p>${esc(l)}</p>`).join('')}</div>`;
+
+        // 5 — Dynamic CTA (existing URLs / tab-switch only; one dominant action)
+        const awardUrl = (evaluated && evaluated.url) ? evaluated.url : '#';
+        const ctaBtn = (label, kind, primary) => {
+          const cls = `aw-cta ${primary ? 'aw-cta-primary' : 'aw-cta-secondary'}`;
+          if (kind === 'award') return `<a class="${cls}" href="${esc(awardUrl)}" target="_blank" rel="noopener">${esc(label)}</a>`;
+          if (kind === 'cash') return `<button type="button" class="${cls}" onclick="switchTabAndRun('cheap')">${esc(label)}</button>`;
+          return `<button type="button" class="${cls}" onclick="this.closest('.card').querySelector('.aw-programs').scrollIntoView({block:'start'})">${esc(label)}</button>`;
+        };
+        const CTA = {
+          cash:         { p: ['Check cash fare', 'cash'],            s: ['View evaluated award', 'award'] },
+          miles:        { p: ['Verify with official program', 'award'], s: ['Compare cash alternative', 'cash'] },
+          mixed:        { p: ['Compare official options', 'award'], s: ['Review both alternatives', 'cash'] },
+          insufficient: { p: ['Verify current availability', 'award'], s: ['Review available signals', 'scroll'] },
+        }[st];
+        const ctaHtml = `<div class="aw-cta-row">${ctaBtn(CTA.p[0], CTA.p[1], true)}${ctaBtn(CTA.s[0], CTA.s[1], false)}</div>`;
+
+        // 6 — Trust metadata (subordinate)
+        const trustHtml = `
+          <div class="aw-trust">
+            <div class="aw-trust-item"><span class="aw-trust-k">Confidence</span><span class="aw-trust-v aw-conf-${d.confidence || 'low'}"${d.confidence_reason ? ` title="${esc(d.confidence_reason)}"` : ''}>${CONF_WORD[d.confidence] || 'Low'}</span></div>
+            ${d.freshness_label ? `<div class="aw-trust-item"><span class="aw-trust-k">Freshness</span><span class="aw-trust-v">${esc(d.freshness_label)}</span></div>` : ''}
+            <div class="aw-trust-note">${esc(d.verification_guidance || 'Final availability, prices, taxes and program rules must be confirmed with the official provider.')}</div>
+          </div>`;
+
+        // 7 — Flight details drawer
+        const flightHtml = itineraryHtml
+          ? `<div class="aw-flight-details"><div class="aw-itin-label">Cash fare routing · for price context only</div>${itineraryHtml}</div>`
+          : scheduleFallback;
+
+        // 8–11 — Evaluated redemption + top-3 alternatives + show-all
+        const alternatives = sorted.filter(p => p !== evaluated).slice(0, 3);
+        const hiddenPrograms = sorted.filter(p => p !== evaluated).slice(3);
+        const evaluatedCard = programCardHtml(evaluated, sorted.indexOf(evaluated), true);
+        const altCards = alternatives.map(p => programCardHtml(p, sorted.indexOf(p))).join('');
+        const hiddenCards = hiddenPrograms.map(p => programCardHtml(p, sorted.indexOf(p))).join('');
         const showAll = hiddenPrograms.length ? `
           <details class="aw-more-programs">
-            <summary>Show all programs <span>${hiddenPrograms.length} more</span></summary>
+            <summary><span class="aw-more-closed">Show all programs <span class="aw-more-count">${hiddenPrograms.length} more</span></span><span class="aw-more-open">Show fewer programs</span></summary>
             <div class="aw-cards-grid aw-cards-grid-secondary">${hiddenCards}</div>
           </details>` : '';
-        const primaryVerify = evaluated?.url
-          ? `<a href="${esc(evaluated.url)}" target="_blank" rel="noopener" class="aw-primary-verify">Verify with official program <span aria-hidden="true">-&gt;</span></a>`
-          : `<span class="aw-link-unavailable">Manual official-program verification required</span>`;
-        const evaluatedSummary = evaluated ? `
-          <div class="aw-evaluated">
-            <div>
-              <div class="aw-section-kicker">Evaluated Redemption</div>
-              <div class="aw-evaluated-title">${esc(evaluated.program)}</div>
-              <div class="aw-evaluated-meta">${Number(evaluated.miles || 0).toLocaleString()} miles + €${evaluated.surcharge || 0}${evaluated.cpm ? ` · ${Number(evaluated.cpm).toFixed(1)} ct/mi` : ''}</div>
-            </div>
-            ${primaryVerify}
-          </div>` : '';
+        const programsHtml = `
+          <div class="aw-programs">
+            <div class="aw-section-kicker">Evaluated redemption</div>
+            <div class="aw-cards-grid">${evaluatedCard}</div>
+            ${alternatives.length ? `
+              <div class="aw-cards-caption">Other program options · raw estimates, not AwardRadar's final judgment</div>
+              <div class="aw-cards-grid">${altCards}</div>` : ''}
+            ${showAll}
+          </div>`;
 
         return `<div class="card${r.best_program ? ' top-card' : ''}">
           <div class="aw-result-shell">
-          <div class="aw-result-header">
-            <div>
-              <h3>${esc(r.route)} <span class="route-arrow">·</span> ${esc(r.cabin)}</h3>
-              <div class="meta" style="margin-top:4px">
-                <span>${esc(r.date)}</span>
-                ${cashStr ? `<span class="badge">Cash: ${cashStr}</span>` : ''}
-              </div>
-              ${itineraryHtml ? `<div class="aw-itin-label">Cash fare routing · for price context only</div>${itineraryHtml}` : ''}
-              ${scheduleFallback}
-            </div>
-          </div>
-          ${liveNote}
-          ${decisionCard}
-          ${evaluatedSummary}
-          <div class="aw-cards-caption">Top program options for comparison</div>
-          <div class="aw-cards-grid">${visibleCards}</div>
-          ${showAll}
-          <p class="legend-note">Final availability, mileage prices, taxes, fees and rules must be confirmed with the airline or loyalty program before any transfer or purchase.</p>
-          ${actionLinksHtml(r.links)}
+            ${headerHtml}
+            <!-- AWARDRADAR_JOURNEY_MAP_SLOT -->
+            ${recHtml}
+            ${metricsHtml}
+            ${explainHtml}
+            ${ctaHtml}
+            ${trustHtml}
+            ${flightHtml}
+            ${programsHtml}
+            <p class="legend-note">Final availability, mileage prices, taxes, fees and rules must be confirmed with the airline or loyalty program before any transfer or purchase.</p>
+            ${actionLinksHtml(r.links)}
           </div>
         </div>`;
       }).join('');

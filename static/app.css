@@ -508,7 +508,65 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .c-tier{color:var(--muted)}
 .d-tier{color:var(--bad)}
 /* Award V2 cards */
-.aw-result-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
+.aw-result-header{display:flex;flex-direction:column;gap:6px;margin-bottom:2px}
+.aw-result-route{font-size:clamp(1.15rem,1rem + 0.6vw,1.45rem);font-weight:800;line-height:1.2;margin:0}
+.aw-result-route .aw-dot{color:var(--muted);font-weight:400;margin:0 2px}
+.aw-result-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.85rem;color:var(--muted)}
+
+/* ===== Intelligence Briefing (Awards) ===== */
+.aw-rec{border-radius:14px;padding:16px 18px;border:1px solid var(--border);border-left-width:4px;background:rgba(255,255,255,.03)}
+.aw-rec-headline{font-size:clamp(1.15rem,1rem + 0.7vw,1.5rem);font-weight:800;line-height:1.25;color:var(--text)}
+.aw-rec-sub{font-size:.95rem;color:var(--muted);margin-top:5px;line-height:1.4}
+.aw-rec-cash{border-left-color:var(--cyan)}
+.aw-rec-cash .aw-rec-headline{color:var(--cyan)}
+.aw-rec-miles{border-left-color:var(--green)}
+.aw-rec-miles .aw-rec-headline{color:var(--green)}
+.aw-rec-mixed{border-left-color:var(--gold)}
+.aw-rec-insufficient{border-left-color:var(--muted)}
+.aw-rec-insufficient .aw-rec-headline{color:var(--text)}
+
+.aw-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.aw-metric{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.aw-metric-label{font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.aw-metric-val{font-size:1.15rem;font-weight:800;color:var(--text);line-height:1.15;overflow-wrap:anywhere}
+.aw-metric-sub{font-size:.8rem;font-weight:600}
+.aw-vw-exceptional,.aw-vw-great{color:var(--green)}
+.aw-vw-good{color:var(--cyan)}
+.aw-vw-fair{color:var(--gold)}
+.aw-vw-poor{color:var(--bad)}
+[data-theme="light"] .aw-metric{background:rgba(0,0,0,.02)}
+
+.aw-explain{font-size:.95rem;line-height:1.5;color:var(--text)}
+.aw-explain p{margin:0 0 6px}
+.aw-explain p:last-child{margin-bottom:0;font-weight:600}
+
+.aw-cta-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.aw-cta{display:inline-flex;align-items:center;justify-content:center;font-size:.95rem;font-weight:700;border-radius:10px;padding:12px 20px;cursor:pointer;text-decoration:none;border:1px solid transparent;min-height:44px;line-height:1.1}
+.aw-cta-primary{background:var(--cyan);color:#04121f;border-color:var(--cyan)}
+.aw-cta-primary:hover{filter:brightness(1.06)}
+.aw-cta-secondary{background:transparent;color:var(--text);border-color:var(--border);font-weight:600}
+.aw-cta-secondary:hover{background:rgba(255,255,255,.05)}
+.aw-cta:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.aw-rec-miles ~ .aw-cta-row .aw-cta-primary{background:var(--green);border-color:var(--green)}
+[data-theme="light"] .aw-cta-secondary:hover{background:rgba(0,0,0,.04)}
+
+.aw-trust{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 18px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,.02)}
+.aw-trust-item{display:flex;align-items:baseline;gap:6px}
+.aw-trust-k{font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.aw-trust-v{font-size:.9rem;font-weight:700;color:var(--text)}
+.aw-conf-high{color:var(--green)}
+.aw-conf-medium{color:var(--gold)}
+.aw-conf-low{color:var(--muted)}
+.aw-trust-note{flex-basis:100%;font-size:.8rem;color:var(--muted);line-height:1.4;margin-top:2px}
+[data-theme="light"] .aw-trust{background:rgba(0,0,0,.015)}
+
+.aw-flight-details{margin-top:2px}
+.aw-itin-label{font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
+.aw-programs{display:flex;flex-direction:column;gap:8px}
+
+@media(max-width:900px){.aw-metrics{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:420px){.aw-metrics{grid-template-columns:1fr 1fr}}
+@media(max-width:340px){.aw-metrics{grid-template-columns:1fr}}
 /* Itinerary Intelligence V1 (Sprint 2B) */
 .aw-itin{margin-top:8px;font-size:12px;line-height:1.4}
 .aw-itin-sum{display:flex;flex-wrap:wrap;align-items:center;gap:4px;color:var(--muted)}
@@ -524,22 +582,31 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .aw-badge-nonstop{background:rgba(82,196,142,.15);color:var(--green);border:1px solid rgba(82,196,142,.3)}
 .aw-badge-warn{background:rgba(255,193,70,.12);color:var(--gold);border:1px solid rgba(255,193,70,.25)}
 .aw-badge-muted{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--border)}
-/* Toggle */
-.aw-itin-toggle{background:none;border:none;cursor:pointer;color:var(--cyan);font-size:11px;padding:4px 0;margin-top:4px;display:block}
-.aw-itin-toggle:hover{opacity:.8}
-/* Segment detail */
-.aw-itin-detail{margin-top:8px;border-top:1px solid var(--border);padding-top:8px;display:flex;flex-direction:column;gap:8px}
-.aw-seg{}
-.aw-seg-header{display:flex;align-items:center;gap:8px;margin-bottom:2px}
-.aw-seg-fn{font-weight:700;color:var(--text);font-size:12px}
-.aw-seg-aircraft{color:var(--muted);font-size:11px}
-.aw-seg-stub{color:var(--border);font-size:10px;font-style:italic}
-.aw-seg-route{display:flex;align-items:center;gap:5px;font-size:12px;font-variant-numeric:tabular-nums}
+/* Flight-details drawer (accessible toggle) */
+.aw-itin-toggle{display:inline-flex;align-items:center;gap:6px;background:none;border:1px solid var(--border);border-radius:8px;cursor:pointer;color:var(--cyan);font-size:.82rem;font-weight:600;padding:7px 12px;margin-top:6px}
+.aw-itin-toggle:hover{background:rgba(106,215,255,.06)}
+.aw-itin-toggle:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.aw-itin-chev{transition:transform .2s ease;font-size:.7rem}
+.aw-itin-toggle[aria-expanded="true"] .aw-itin-chev{transform:rotate(180deg)}
+@media(prefers-reduced-motion:reduce){.aw-itin-chev{transition:none}}
+/* CRITICAL: explicit [hidden] rule — the class sets display:flex, which alone
+   overrides the [hidden] UA display:none. This attribute rule restores hiding. */
+.aw-itin-detail[hidden]{display:none}
+.aw-itin-detail{list-style:none;margin:10px 0 0;padding:10px 0 0;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:2px}
+.aw-seg{padding:8px 0;display:flex;flex-direction:column;gap:3px}
+.aw-seg-line{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.aw-seg-route{display:flex;align-items:center;gap:6px;font-size:.95rem;font-weight:700;color:var(--text)}
 .aw-seg-ap{font-weight:700;color:var(--text)}
-.aw-seg-t{color:var(--text)}
-.aw-seg-arr{color:var(--muted)}
-.aw-seg-dur{color:var(--muted);font-size:11px;margin-left:4px}
-.aw-layover-row{font-size:11px;color:var(--muted);padding:4px 8px;background:rgba(255,255,255,.03);border-radius:4px;border-left:2px solid var(--border);margin-top:4px}
+.aw-seg-arrow{color:var(--muted);font-weight:400}
+.aw-seg-times{font-variant-numeric:tabular-nums;color:var(--text);font-size:.85rem;white-space:nowrap}
+.aw-seg-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.8rem}
+.aw-seg-fn{font-weight:700;color:var(--text)}
+.aw-seg-airline{color:var(--muted)}
+.aw-seg-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:.78rem;color:var(--muted)}
+.aw-seg-dot{color:var(--border)}
+.aw-layover{list-style:none;display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--muted);padding:6px 10px;background:rgba(255,255,255,.03);border-radius:6px;border-left:3px solid var(--gold)}
+.aw-layover-ic{font-size:.8rem}
+[data-theme="light"] .aw-layover{background:rgba(0,0,0,.03)}
 /* ===== Award Cards V2 ===== */
 .aw-result-shell{display:flex;flex-direction:column;gap:12px}
 .aw-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-bottom:10px}
@@ -684,12 +751,16 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
   border:1px solid var(--border);
   border-radius:8px;
   color:var(--text);
-  font-size:12px;
-  font-weight:800;
+  font-size:.85rem;
+  font-weight:700;
   background:rgba(255,255,255,.025);
 }
 .aw-more-programs summary::-webkit-details-marker{display:none}
-.aw-more-programs summary span{font-weight:700;color:var(--muted)}
+.aw-more-programs summary:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.aw-more-count{font-weight:700;color:var(--muted)}
+.aw-more-programs .aw-more-open{display:none}
+.aw-more-programs[open] .aw-more-closed{display:none}
+.aw-more-programs[open] .aw-more-open{display:inline}
 .aw-more-programs[open] summary{border-color:rgba(106,215,255,.24);background:rgba(106,215,255,.045)}
 [data-theme="light"] .aw-action-link{color:#0d6d8a;border-color:rgba(13,110,138,.25)}
 [data-theme="light"] .aw-action-cash{color:#6b7280;border-color:#d1d5db}
