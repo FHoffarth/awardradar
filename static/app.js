@@ -1101,30 +1101,42 @@ function globeAnimation() {
   const isMobile = () => innerWidth <= 640;
   const MOBILE_GLOBE_H = 260; // fallback only — matches CSS !important height
 
+  // Top-50 Airports nach ACI-Passagieraufkommen, in Rang-Reihenfolge —
+  // die Reihenfolge ist zugleich die Label-Priorität bei Kollisionen.
   const airports = [
-    [50.0, 8.6, 'FRA', 'Frankfurt'], [48.4, 11.8, 'MUC', 'Munich'], [51.5, -0.5, 'LHR', 'London'],
-    [49.0, 2.6, 'CDG', 'Paris'], [40.6, -73.8, 'JFK', 'New York'], [33.9, -118.4, 'LAX', 'Los Angeles'],
-    [1.4, 103.9, 'SIN', 'Singapore'], [35.5, 139.8, 'HND', 'Tokyo'], [25.3, 55.4, 'DXB', 'Dubai'],
-    [-33.9, 151.2, 'SYD', 'Sydney'], [22.3, 113.9, 'HKG', 'Hong Kong'], [13.7, 100.7, 'BKK', 'Bangkok'],
-    [52.3, 4.8, 'AMS', 'Amsterdam'], [37.5, 126.5, 'ICN', 'Seoul'], [55.6, 12.6, 'CPH', 'Copenhagen'],
-    [41.9, -87.6, 'ORD', 'Chicago'], [25.8, -80.3, 'MIA', 'Miami'], [-23.4, -46.5, 'GRU', 'São Paulo'],
-    [47.5, 19.0, 'BUD', 'Budapest'], [48.2, 16.4, 'VIE', 'Vienna'], [59.6, 17.9, 'ARN', 'Stockholm'],
-    [-26.1, 28.2, 'JNB', 'Johannesburg'], [19.4, -99.1, 'MEX', 'Mexico City'],
-    [30.1, 31.4, 'CAI', 'Cairo'], [-1.3, 36.9, 'NBO', 'Nairobi'], [6.6, 3.3, 'LOS', 'Lagos'],
-    [-33.9, 18.6, 'CPT', 'Cape Town'], [28.6, 77.1, 'DEL', 'Delhi'], [19.1, 72.9, 'BOM', 'Mumbai'],
-    [-31.9, 116.0, 'PER', 'Perth'],
-    // NRT bewusst nicht gelistet: liegt neben HND, Labels würden kollidieren
+    [33.64, -84.43, 'ATL', 'Atlanta'], [25.25, 55.36, 'DXB', 'Dubai'], [35.55, 139.78, 'HND', 'Tokyo'],
+    [32.90, -97.04, 'DFW', 'Dallas'], [31.14, 121.81, 'PVG', 'Shanghai'], [40.08, 116.58, 'PEK', 'Beijing'],
+    [51.47, -0.45, 'LHR', 'London'], [41.26, 28.74, 'IST', 'Istanbul'], [23.39, 113.30, 'CAN', 'Guangzhou'],
+    [41.97, -87.90, 'ORD', 'Chicago'], [50.03, 8.56, 'FRA', 'Frankfurt'], [52.31, 4.76, 'AMS', 'Amsterdam'],
+    [49.01, 2.55, 'CDG', 'Paris'], [22.31, 113.91, 'HKG', 'Hong Kong'], [25.27, 51.61, 'DOH', 'Doha'],
+    [39.86, -104.67, 'DEN', 'Denver'], [33.94, -118.41, 'LAX', 'Los Angeles'], [40.64, -73.78, 'JFK', 'New York'],
+    [1.36, 103.99, 'SIN', 'Singapore'], [37.46, 126.44, 'ICN', 'Seoul'], [13.69, 100.75, 'BKK', 'Bangkok'],
+    [2.75, 101.71, 'KUL', 'Kuala Lumpur'], [-6.13, 106.66, 'CGK', 'Jakarta'], [28.57, 77.10, 'DEL', 'Delhi'],
+    [19.09, 72.87, 'BOM', 'Mumbai'], [40.47, -3.56, 'MAD', 'Madrid'], [41.30, 2.08, 'BCN', 'Barcelona'],
+    [48.35, 11.79, 'MUC', 'Munich'], [47.46, 8.55, 'ZRH', 'Zurich'], [48.11, 16.57, 'VIE', 'Vienna'],
+    [50.90, 4.48, 'BRU', 'Brussels'], [55.62, 12.66, 'CPH', 'Copenhagen'], [60.19, 11.10, 'OSL', 'Oslo'],
+    [59.65, 17.92, 'ARN', 'Stockholm'], [41.80, 12.24, 'FCO', 'Rome'], [45.63, 8.72, 'MXP', 'Milan'],
+    [38.77, -9.13, 'LIS', 'Lisbon'], [53.43, -6.24, 'DUB', 'Dublin'], [53.35, -2.27, 'MAN', 'Manchester'],
+    [25.79, -80.29, 'MIA', 'Miami'], [37.62, -122.38, 'SFO', 'San Francisco'], [47.45, -122.31, 'SEA', 'Seattle'],
+    [43.68, -79.63, 'YYZ', 'Toronto'], [19.44, -99.07, 'MEX', 'Mexico City'], [-23.43, -46.47, 'GRU', 'São Paulo'],
+    [4.70, -74.15, 'BOG', 'Bogotá'], [-26.14, 28.25, 'JNB', 'Johannesburg'], [30.12, 31.41, 'CAI', 'Cairo'],
+    [-33.95, 151.18, 'SYD', 'Sydney'], [24.96, 46.70, 'RUH', 'Riyadh'],
+    [-31.94, 115.97, 'PER', 'Perth'],
   ];
+  const AP_IDX = {};
+  airports.forEach((a, i) => { AP_IDX[a[2]] = i; });
 
-  // Always-on showcase routes: index pairs into airports[], t staggered so the
+  // Always-on showcase routes by IATA (index-independent), t staggered so the
   // planes are spread along their arcs instead of departing simultaneously.
   const flights = [
-    { route: [0, 4], t: 0.10, speed: 0.0016 }, // FRA → JFK
-    { route: [2, 7], t: 0.45, speed: 0.0013 }, // LHR → HND
-    { route: [0, 6], t: 0.70, speed: 0.0014 }, // FRA → SIN
-    { route: [1, 8], t: 0.25, speed: 0.0018 }, // MUC → DXB
-    { route: [3, 5], t: 0.85, speed: 0.0015 }, // CDG → LAX
-  ];
+    ['FRA', 'JFK', 0.10, 0.0016],
+    ['LHR', 'HND', 0.45, 0.0013],
+    ['FRA', 'SIN', 0.70, 0.0014],
+    ['MUC', 'DXB', 0.25, 0.0018],
+    ['CDG', 'LAX', 0.85, 0.0015],
+    ['DXB', 'SYD', 0.55, 0.0011],
+    ['JFK', 'GRU', 0.30, 0.0015],
+  ].map(([from, to, t, speed]) => ({ route: [AP_IDX[from], AP_IDX[to]], t, speed }));
 
   function size() {
     // Backing store must match the CSS box exactly — innerWidth includes the
@@ -1655,6 +1667,11 @@ function globeAnimation() {
     ctx.font = `600 ${Math.round(9.5 * devicePixelRatio)}px Inter,ui-sans-serif,sans-serif`;
     const hitR = 14 * devicePixelRatio;
     hoveredAirport = null;
+    // Dots always draw; labels are placed in airport-priority order (array
+    // order = ACI rank) and a lower-ranked label is suppressed when it would
+    // collide with one already placed — the dot and hover tooltip remain.
+    const placedLabels = [];
+    const labW = 26 * devicePixelRatio, labH = 12 * devicePixelRatio;
     airports.forEach(([lat, lon, iata, city]) => {
       const p = project(lat, lon);
       if (p.z <= 0) return;
@@ -1679,9 +1696,15 @@ function globeAnimation() {
       ctx.fillStyle = `rgba(${dotColor},${(hovered ? 1 : dotAlpha) * a})`;
       ctx.beginPath(); ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2); ctx.fill();
 
-      // Label
-      ctx.fillStyle = `rgba(${lblColor},${0.7 * a})`;
-      ctx.fillText(iata, p.x + 5 * devicePixelRatio, p.y - 4 * devicePixelRatio);
+      // Label — skip if it would overlap a higher-priority one already placed
+      const lx = p.x + 5 * devicePixelRatio, ly = p.y - 4 * devicePixelRatio;
+      const collides = placedLabels.some(r =>
+        lx < r.x + r.w && lx + labW > r.x && ly - labH < r.y + r.h && ly > r.y);
+      if (hovered || !collides) {
+        placedLabels.push({ x: lx, y: ly - labH, w: labW, h: labH });
+        ctx.fillStyle = `rgba(${lblColor},${0.7 * a})`;
+        ctx.fillText(iata, lx, ly);
+      }
     });
 
     // Tooltip
