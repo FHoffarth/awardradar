@@ -95,6 +95,74 @@ class CashContext(unittest.TestCase):
         for k in ("provider", "source", "source_type"):
             self.assertIn(k, meta)
 
+    def test_assess_cash_level_delegates_to_below_typical(self):
+        # No independent recomputation: must agree with the cash foundation.
+        for price in (150, 360, 700):
+            band = app._below_typical(price, [300, 500])
+            level = app.assess_cash_level(price, [300, 500])
+            expected = {"below": "below_typical", "low_half": "within_typical",
+                        "within": "within_typical", "above": "above_typical",
+                        "unknown": "unknown"}[band]
+            self.assertEqual(level, expected)
+
+
+class DecisionSignalsLevel1(unittest.TestCase):
+    """STEP 9 cases A–H against the new signal/label/confidence shape."""
+
+    def _d(self, cpm=None, cash=300, real=True, level="within_typical",
+           tt="one_way", trip="one_way", ds="estimated"):
+        best = _award(cpm, trip_type=trip, data_source=ds) if cpm is not None else None
+        return app.build_decision(best, cash_eur=cash, cash_is_real=real,
+                                  cash_level=level, requested_trip_type=tt)
+
+    def test_A_high_cash_low_award_miles_make_sense(self):
+        d = self._d(cpm=2.6)                       # high cash vs low miles → high cpm
+        self.assertEqual(d["signal"], "strong_miles_value")
+        self.assertEqual(d["label"], "Miles may make sense here")
+        self.assertEqual(d["estimated_value"], 2.6)
+
+    def test_B_low_cash_high_award_cash_stronger(self):
+        d = self._d(cpm=0.4)                        # low cpm → cash may be stronger
+        self.assertEqual(d["signal"], "cash_may_be_stronger")
+        self.assertIn("Cash may be stronger", d["label"])
+
+    def test_C_missing_cash_insufficient_low_conf(self):
+        d = self._d(cpm=1.5, cash=None, real=False, level="unknown")
+        self.assertEqual(d["signal"], "insufficient_data")
+        self.assertEqual(d["confidence"], "low")
+        self.assertTrue(d["verification_guidance"])   # guidance still provided
+
+    def test_D_static_estimate_confidence_not_overstated(self):
+        d = self._d(cpm=1.5, ds="estimated")
+        self.assertNotEqual(d["confidence"], "high")
+        self.assertIn("static award estimate", d["confidence_reason"])
+
+    def test_E_estimate_freshness_acknowledged(self):
+        d = self._d(cpm=1.5, ds="estimated")
+        self.assertIn("estimate", d["freshness_label"].lower())
+
+    def test_F_roundtrip_cash_vs_oneway_award_no_value(self):
+        basis = app.normalize_trip_basis("round_trip", "one_way", "round_trip")
+        self.assertFalse(basis["trip_basis_compatible"])
+
+    def test_G_oneway_vs_oneway_valid(self):
+        d = self._d(cpm=1.5)
+        self.assertTrue(d["trip_basis_compatible"])
+        self.assertIsNotNone(d["estimated_value"])
+
+    def test_H_unclear_basis_insufficient(self):
+        d = self._d(cpm=1.5, trip="round_trip", tt="round_trip")
+        self.assertFalse(d["trip_basis_compatible"])
+        self.assertEqual(d["signal"], "insufficient_data")
+
+    def test_additive_keys_present(self):
+        d = self._d(cpm=1.5)
+        for k in ("signal", "label", "estimated_value", "confidence", "confidence_reason",
+                  "freshness_label", "explanation", "verification_guidance",
+                  "cash_trip_type", "award_trip_type", "normalized_trip_type",
+                  "trip_basis_compatible", "verdict", "tier"):
+            self.assertIn(k, d)
+
 
 if __name__ == "__main__":
     unittest.main()

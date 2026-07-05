@@ -635,68 +635,55 @@ function render(data) {
           return (a.cpm || 99) - (b.cpm || 99);
         });
 
-        // --- Booking Decision Card (Decision Engine Level 1) ---
+        // --- Decision Card (Decision Engine Level 1) ---
         const best = sorted[0];
         let decisionCard = '';
         if (best) {
           const d        = r.decision || {};
-          const verdict  = d.verdict || 'insufficient_data';
+          const signal   = d.signal || 'insufficient_data';
           const seatsStr = best.seats > 0 ? `, ${best.seats} seat${best.seats !== 1 ? 's' : ''} available` : '';
-          const compatible = d.trip_basis_compatible === true;
-          const hasValue = compatible && verdict !== 'insufficient_data'
-                                      && verdict !== 'availability_only'
-                                      && best.cpm != null && r.cash_eur;
+          const hasValue = d.estimated_value != null && r.cash_eur;
 
-          // Verdict → cautious action headline
-          const ACTION = {
-            book_miles:        'May make sense: Verify miles option',
-            lean_miles:        'Miles may make sense',
-            consider:          'Compare your options',
-            pay_cash:          'Cash fare may make sense',
-            availability_only: 'Best award redemption signal',
-            insufficient_data: 'Not enough comparable data',
-          };
-          const headline = ACTION[verdict] || 'Award redemption value signal';
+          // signal → cautious visible headline (backend supplies the copy)
+          const headline = d.label || 'Award redemption value signal';
 
           // Subline: program + miles + fees + seats
           const isLive = best.data_source === 'live';
-          const subline = `${esc(best.program)} — ${best.miles.toLocaleString()} miles + €${best.surcharge}${seatsStr}` +
-            (verdict === 'availability_only' ? ` (${isLive ? 'live' : 'estimated'} availability).` : '.');
+          const availTxt = (d.verdict === 'availability_only') ? ` (${isLive ? 'live' : 'estimated'} availability)` : '';
+          const subline = `${esc(best.program)} — ${best.miles.toLocaleString()} miles + €${best.surcharge}${seatsStr}${availTxt}.`;
 
-          // Supporting metric row — only on a safely comparable basis
+          // Estimated value metric — only on a safely comparable basis
           const metricRow = hasValue ? `
             <div class="bdc-metric-row">
-              <span class="bdc-cpp">${best.cpm.toFixed(1)} <small>ct/mi</small></span>
+              <span class="bdc-cpp">${Number(d.estimated_value).toFixed(1)} <small>ct/mi</small></span>
               <span class="bdc-cash-vs">vs. <strong>€${Math.round(r.cash_eur)}</strong> cash · save <strong>€${Math.round(r.cash_eur - best.surcharge)}</strong></span>
             </div>` : '';
 
-          // Trip-basis transparency line (visible, English, from structured fields)
-          let basisLine = '';
-          if (!compatible && (verdict === 'insufficient_data')) {
-            basisLine = `<div class="bdc-basis">Cash and miles could not be normalized to the same trip direction — no mileage value shown.</div>`;
-          } else if (compatible && d.normalized_trip_type) {
-            const perDir = r.returnDate && d.normalized_trip_type === 'one_way';
-            basisLine = `<div class="bdc-basis">Compared on a ${d.normalized_trip_type.replace('_', ' ')} basis${perDir ? ' (per direction; search was round-trip)' : ''}.</div>`;
-          }
-
-          // Confidence footer — driven by the decision block, drops on assumptions
-          const CONF = {
-            high:   ['bdc-conf-live', 'Higher confidence · verify before booking'],
-            medium: ['bdc-conf-est',  'Moderate confidence · verify before booking'],
-            low:    ['bdc-conf-nodata','Lower confidence · treat as a starting point'],
-          };
+          // Confidence + freshness row
+          const CONF = { high: ['bdc-conf-live', 'High'], medium: ['bdc-conf-est', 'Medium'], low: ['bdc-conf-nodata', 'Low'] };
           const [confCls, confTxt] = CONF[d.confidence] || CONF.low;
-          const footerNote = `<span class="bdc-conf ${confCls}">${confTxt}</span>`;
+          const confRow = `
+            <div class="bdc-meta-row">
+              <span class="bdc-conf ${confCls}"${d.confidence_reason ? ` title="${esc(d.confidence_reason)}"` : ''}>Confidence: ${confTxt}</span>
+              ${d.freshness_label ? `<span class="bdc-fresh">${esc(d.freshness_label)}</span>` : ''}
+            </div>`;
 
-          const bdcTier = hasValue ? (d.tier || 'fair')
-                        : (verdict === 'availability_only' ? 'availability' : 'insufficient');
+          const whyRow = d.explanation ? `<div class="bdc-why"><span class="bdc-k">Why</span> ${esc(d.explanation)}</div>` : '';
+          const verifyRow = d.verification_guidance ? `<div class="bdc-verify"><span class="bdc-k">Verify</span> ${esc(d.verification_guidance)}</div>` : '';
+
+          const SIGNAL_TIER = {
+            strong_miles_value: 'great', promising_miles_value: 'good',
+            mixed_value: 'fair', cash_may_be_stronger: 'fair', insufficient_data: 'insufficient',
+          };
+          const bdcTier = (d.verdict === 'availability_only') ? 'availability' : (SIGNAL_TIER[signal] || 'insufficient');
           decisionCard = `
           <div class="bdc bdc-${bdcTier}">
             <div class="bdc-headline">${headline}</div>
             <div class="bdc-subline">${subline}</div>
             ${metricRow}
-            ${basisLine}
-            <div class="bdc-footer">${footerNote}</div>
+            ${confRow}
+            ${whyRow}
+            ${verifyRow}
           </div>`;
         }
 

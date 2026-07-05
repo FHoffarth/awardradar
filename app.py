@@ -1516,17 +1516,18 @@ def cash_source_metadata() -> dict:
 
 
 def assess_cash_level(price, typical_range) -> str:
-    """Relative cash assessment: fare below / within / above the typical range."""
-    if not price or not typical_range or len(typical_range) != 2:
-        return "unknown"
-    low, high = float(typical_range[0] or 0), float(typical_range[1] or 0)
-    if low <= 0 or high <= 0:
-        return "unknown"
-    if price < low:
-        return "below_typical"
-    if price > high:
-        return "above_typical"
-    return "within_typical"
+    """Decision-Engine view of the cash fare's position vs the typical range.
+
+    Reuses the relative-cash foundation `_below_typical()` — the single source of
+    the price-vs-typical assessment — instead of recomputing it independently.
+    """
+    return {
+        "below": "below_typical",
+        "low_half": "within_typical",
+        "within": "within_typical",
+        "above": "above_typical",
+        "unknown": "unknown",
+    }[_below_typical(price, typical_range)]
 
 
 def normalize_trip_basis(cash_trip_type, award_trip_type, requested_trip_type) -> dict:
@@ -1565,14 +1566,48 @@ def normalize_trip_basis(cash_trip_type, award_trip_type, requested_trip_type) -
     return out
 
 
+# Cautious internal value signals → visible, non-committal English labels.
+_SIGNAL_LABEL = {
+    "strong_miles_value":   "Miles may make sense here",
+    "promising_miles_value": "Estimated value looks promising",
+    "mixed_value":          "The comparison is currently mixed",
+    "cash_may_be_stronger": "Cash may be stronger here",
+    "insufficient_data":    "Not enough data for a reliable comparison",
+}
+# Award value tier (from sweet_spot_grade) → decision signal. Cash side is trusted
+# input; the Decision Engine never recomputes the cash score itself.
+_TIER_SIGNAL = {
+    "exceptional": "strong_miles_value",
+    "great":       "strong_miles_value",
+    "good":        "promising_miles_value",
+    "fair":        "mixed_value",
+    "poor":        "cash_may_be_stronger",
+}
+_VERIFY_GUIDANCE = ("Confirm final availability, mileage price, taxes and fees with "
+                    "the official airline or loyalty program.")
+
+
+def _freshness_label(is_live_award: bool, cash_is_real: bool) -> str:
+    award = "Award data signal" if is_live_award else "Award estimate"
+    cash = "cash context checked recently" if cash_is_real else "no live cash context"
+    return f"{award} · {cash.capitalize()}"
+
+
 def build_decision(best: dict | None, cash_eur, cash_is_real: bool,
                    cash_level: str, requested_trip_type: str) -> dict:
-    """Assemble the Level-1 decision block for the best program on a route."""
+    """Assemble the Level-1 decision block for the best program on a route.
+
+    Additive shape (existing keys preserved): also emits `signal`, `label`,
+    `estimated_value`, `confidence_reason`, `freshness_label`,
+    `verification_guidance`. Consumes the trusted cash input; never recomputes it.
+    """
     cash_trip = "one_way" if cash_eur else "unknown"   # fetch_cash_details always one-way
     award_trip = (best or {}).get("trip_type", "unknown")
     basis = normalize_trip_basis(cash_trip, award_trip, requested_trip_type)
+    is_live = bool(best) and best.get("data_source") == "live"
 
     decision = {
+        # existing keys (unchanged, additive contract)
         "verdict": "insufficient_data",
         "tier": None,
         "confidence": "low",
@@ -1584,42 +1619,73 @@ def build_decision(best: dict | None, cash_eur, cash_is_real: bool,
         "cash_source": cash_source_metadata()["source"],
         "cash_level": cash_level,
         "cash_freshness": "live_query" if cash_is_real else ("estimate" if cash_eur else "none"),
+        # new Level-1 fields
+        "signal": "insufficient_data",
+        "label": _SIGNAL_LABEL["insufficient_data"],
+        "estimated_value": None,
+        "confidence_reason": "",
+        "freshness_label": _freshness_label(is_live, cash_is_real),
+        "verification_guidance": _VERIFY_GUIDANCE,
     }
 
     if not best:
-        decision["explanation"] = "Keine Award-Option gefunden."
+        decision["explanation"] = "No award option was found for this route."
+        decision["confidence_reason"] = "No award availability or estimate to compare."
         return decision
 
-    is_live = best.get("data_source") == "live"
-
-    # No observed cash context → availability-only, never a value verdict.
+    # No observed cash context → cannot compare; availability only.
     if not cash_eur or best.get("cpm") is None:
         decision["verdict"] = "availability_only"
-        decision["explanation"] = ("Award-Verfügbarkeit sichtbar, aber kein Cash-Kontext – "
-                                   "Meilenwert nicht berechenbar.")
+        decision["explanation"] = ("Award availability is visible, but there is no cash "
+                                   "context to compare against, so no mileage value is shown.")
+        decision["confidence_reason"] = "Missing cash fare context for this route."
         return decision
 
     # Trip basis not safely comparable → no value signal (Guardrail A).
     if not basis["trip_basis_compatible"]:
-        decision["verdict"] = "insufficient_data"
-        decision["explanation"] = basis["note"]
+        decision["explanation"] = ("Cash and miles could not be normalized to the same "
+                                   "trip direction, so no mileage value is shown.")
+        decision["confidence_reason"] = "Incompatible or unclear trip basis (cash vs award)."
         return decision
 
-    # Compatible basis → reuse the single valuation ladder.
+    # Compatible basis → reuse the single award valuation ladder (sweet_spot_grade).
     grade = best.get("grade") or sweet_spot_grade(best["cpm"])
+    signal = _TIER_SIGNAL.get(grade["tier"], "mixed_value")
     decision["tier"] = grade["tier"]
-    decision["verdict"] = grade["recommendation"]
+    decision["verdict"] = grade["recommendation"]   # legacy key kept
+    decision["signal"] = signal
+    decision["label"] = _SIGNAL_LABEL[signal]
+    decision["estimated_value"] = round(best["cpm"], 1)
 
-    # Confidence: award liveness + real cash − trip-basis penalty.
+    # Confidence reflects input quality: award liveness + real cash − basis assumption.
     score = (2 if is_live else 1) + (1 if cash_is_real else 0) - basis["confidence_penalty"]
     decision["confidence"] = "high" if score >= 3 else ("medium" if score == 2 else "low")
+    reasons = []
+    reasons.append("live award data" if is_live else "static award estimate")
+    reasons.append("recent cash context" if cash_is_real else "no live cash context")
+    if basis["confidence_penalty"]:
+        reasons.append("per-direction trip-basis assumption")
+    reasons.append("official availability not yet confirmed")
+    decision["confidence_reason"] = "; ".join(reasons)
 
-    parts = [f"{best['cpm']:.1f} ct/Meile", basis["note"]]
+    # Visible "why" — cautious English, names the trip basis.
+    why = {
+        "strong_miles_value":   "The estimated cash fare is relatively high compared with the estimated mileage requirement.",
+        "promising_miles_value": "The estimated mileage requirement compares reasonably well with the estimated cash fare.",
+        "mixed_value":          "Cash and miles are currently close in estimated value.",
+        "cash_may_be_stronger": "The mileage requirement is high relative to the estimated cash fare, so cash may be the simpler choice.",
+    }[signal]
+    extra = ""
     if cash_level == "below_typical":
-        parts.append("Cash-Preis unter dem typischen Bereich.")
+        extra = " The cash fare is already low for this search."
     elif cash_level == "above_typical":
-        parts.append("Cash-Preis über dem typischen Bereich.")
-    decision["explanation"] = " · ".join(p for p in parts if p)
+        extra = " The cash fare is high for this search."
+    perdir = ""
+    if basis["confidence_penalty"]:
+        perdir = " Values are compared per direction (one-way) while the search was round-trip."
+    decision["explanation"] = (
+        f"About {best['cpm']:.1f} cents per mile. " + why + extra + perdir
+    )
     return decision
 
 
