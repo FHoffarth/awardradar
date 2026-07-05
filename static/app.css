@@ -406,6 +406,8 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .score-denom{font-size:13px;font-weight:600;color:var(--muted)}
 .score-lbl{font-size:11px;font-weight:700;margin-top:3px}
 .score-grade{font-weight:800;margin-right:2px}
+.score-context{font-size:10.5px;font-weight:500;color:var(--muted);margin-top:3px;max-width:220px;margin-left:auto;line-height:1.35}
+.score-conf{font-size:10px;font-weight:600;color:var(--muted);margin-top:2px;opacity:.85}
 .s-gold .score-num,.s-gold .score-lbl{color:var(--gold)}
 .s-green .score-num,.s-green .score-lbl{color:var(--green)}
 .s-cyan .score-num,.s-cyan .score-lbl{color:var(--cyan)}

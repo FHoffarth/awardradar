@@ -360,25 +360,50 @@ async function run() {
   }
 }
 
+// Backend value tier → CSS class + fallback label. The backend (rescore_offer_set)
+// is the single source of grade/label; this only maps to visuals.
+const CASH_TIER_CSS = {
+  exceptional: { css: 's-gold',  grade: 'A+', label: 'Exceptional Value' },
+  great:       { css: 's-green', grade: 'A',  label: 'Strong Value' },
+  good:        { css: 's-cyan',  grade: 'B',  label: 'Fair Value' },
+  fair:        { css: 's-muted', grade: 'C',  label: 'Pricey for This Search' },
+  poor:        { css: 's-muted', grade: 'D',  label: 'Weak Relative Value' },
+};
+// Numeric fallback only when backend tier is absent (e.g. legacy/TP offers).
 function scoreInfo(s) {
-  if (s >= 90) return { tier: 's-gold', grade: 'A+', label: 'Exceptional', desc: 'Top-tier price, often nonstop or Star Alliance' };
-  if (s >= 75) return { tier: 's-green', grade: 'A', label: 'Great Value', desc: 'Well below average, good routing' };
-  if (s >= 60) return { tier: 's-cyan', grade: 'B', label: 'Good Value', desc: 'Solid value for this route' };
-  if (s >= 40) return { tier: 's-muted', grade: 'C', label: 'Fair', desc: 'Average price for this route' };
-  return { tier: 's-muted', grade: 'D', label: 'Weak', desc: 'Above-average price' };
+  if (s >= 88) return { tier: 'exceptional', ...CASH_TIER_CSS.exceptional };
+  if (s >= 72) return { tier: 'great', ...CASH_TIER_CSS.great };
+  if (s >= 56) return { tier: 'good', ...CASH_TIER_CSS.good };
+  if (s >= 38) return { tier: 'fair', ...CASH_TIER_CSS.fair };
+  return { tier: 'poor', ...CASH_TIER_CSS.poor };
 }
-function scoreHtml(s, reason) {
+const CASH_CONTEXT_NOTE = {
+  best_available_not_cheap: 'Best available in this search, but the fare remains high.',
+  limited_comparison: 'Only one option found — limited comparison.',
+};
+function scoreHtml(o) {
+  const s = o.dealScore;
   if (s == null) return '';
-  const { tier, grade, label, desc } = scoreInfo(s);
-  const tooltip = reason ? esc(reason) : esc(desc);
-  return `<div class="score-block ${tier}" title="${tooltip}" aria-label="Value Signal ${s} out of 100: ${label}">
+  const info = o.tier && CASH_TIER_CSS[o.tier] ? CASH_TIER_CSS[o.tier] : scoreInfo(s);
+  const grade = o.grade || info.grade;
+  const label = o.label || info.label;
+  const tooltip = o.scoreReason ? esc(o.scoreReason) : esc(label);
+  const note = CASH_CONTEXT_NOTE[o.scoreContext] || '';
+  const conf = o.scoreConfidence && o.scoreConfidence !== 'high'
+    ? `<div class="score-conf">${o.scoreConfidence === 'low' ? 'Limited confidence' : 'Moderate confidence'}</div>` : '';
+  return `<div class="score-block ${info.css}" title="${tooltip}" aria-label="Value Signal ${s} out of 100: ${esc(label)}">
     <span class="score-num">${s}</span><span class="score-denom">/100</span>
-    <div class="score-lbl"><span class="score-grade">${grade}</span> ${label}</div>
+    <div class="score-lbl"><span class="score-grade">${grade}</span> ${esc(label)}</div>
+    ${note ? `<div class="score-context">${esc(note)}</div>` : ''}
+    ${conf}
   </div>`;
 }
-function bestBadgeHtml(s) {
-  if (s >= 90) return '<div class="best-badge">A+ · Exceptional</div>';
-  if (s >= 75) return '<div class="best-badge">A · Great Value</div>';
+function bestBadgeHtml(o) {
+  const tier = o.tier || scoreInfo(o.dealScore).tier;
+  if (o.scoreContext === 'best_available_not_cheap') return '<div class="best-badge">Best Available</div>';
+  if (o.scoreContext === 'limited_comparison') return '<div class="best-badge">Only Option</div>';
+  if (tier === 'exceptional') return '<div class="best-badge">A+ · Exceptional Value</div>';
+  if (tier === 'great') return '<div class="best-badge">A · Strong Value</div>';
   return '<div class="best-badge">Best Match</div>';
 }
 
@@ -386,13 +411,13 @@ function scoreLegendHtml() {
   return `<details class="score-legend">
     <summary>What is the Value Signal? <span class="legend-hint">tap to expand</span></summary>
     <div class="legend-grid">
-      <span class="s-gold score-num" style="font-size:15px">A+</span><span><strong>Exceptional</strong> — top-tier price, often nonstop or Star Alliance (90+)</span>
-      <span class="s-green score-num" style="font-size:15px">A</span><span><strong>Great Value</strong> — well below average, good routing (75+)</span>
-      <span class="s-cyan score-num" style="font-size:15px">B</span><span><strong>Good Value</strong> — solid value for this route (60+)</span>
-      <span class="s-muted score-num" style="font-size:15px">C</span><span><strong>Fair</strong> — average price (40+)</span>
-      <span class="s-muted score-num" style="font-size:15px">D</span><span><strong>Weak</strong> — above-average price</span>
+      <span class="s-gold score-num" style="font-size:15px">A+</span><span><strong>Exceptional Value</strong> — cheapest, nonstop and genuinely below typical (rare)</span>
+      <span class="s-green score-num" style="font-size:15px">A</span><span><strong>Strong Value</strong> — near the best option in this search</span>
+      <span class="s-cyan score-num" style="font-size:15px">B</span><span><strong>Fair Value</strong> — reasonable relative to the cheapest</span>
+      <span class="s-muted score-num" style="font-size:15px">C</span><span><strong>Pricey for This Search</strong> — materially costlier or worse routing</span>
+      <span class="s-muted score-num" style="font-size:15px">D</span><span><strong>Weak Relative Value</strong> — far from the best in this search</span>
     </div>
-    <p class="legend-note">Value Signal factors: fare context, routing quality, Star Alliance relevance and price insight signals.</p>
+    <p class="legend-note">Value Signal is relative to the cheapest comparable result in this search, adjusted for routing quality and a price reality check. Best available is not always cheap.</p>
   </details>`;
 }
 
@@ -445,7 +470,7 @@ function cheapCardsHtml(offers, sortKey) {
     const logoUrl = o.airlineCode ? `https://content.airhex.com/content/logos/airlines_${esc(o.airlineCode)}_200_200_s.png` : '';
     const logoImg = logoUrl ? `<img src="${logoUrl}" class="airline-logo" alt="" onerror="this.style.display='none'">` : '';
     return `<div class="card${isTop ? ' top-card' : ''}">
-      ${isTop ? bestBadgeHtml(o.dealScore) : ''}
+      ${isTop ? bestBadgeHtml(o) : ''}
       <div class="card-row">
         <div class="card-main">
           <h3>${esc(o.origin)}<span class="route-arrow">→</span>${esc(o.dest)}</h3>
@@ -456,7 +481,7 @@ function cheapCardsHtml(offers, sortKey) {
         <div class="card-price">
           <div class="price">${Math.round(o.price)} <span class="price-currency">${esc(o.currency)}</span></div>
           <div class="price-sub">per person</div>
-          ${scoreHtml(o.dealScore, o.scoreReason)}
+          ${scoreHtml(o)}
           ${o.scoreReason ? `<div class="score-reason-pills">${o.scoreReason.split(' · ').map(p => `<span class="srp">${esc(p)}</span>`).join('')}</div>` : ''}
         </div>
       </div>

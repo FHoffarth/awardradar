@@ -745,6 +745,156 @@ def score_reason(price: float, stops: int, airline_code: str, typical_range: lis
     return " · ".join(parts)
 
 
+# ===== Relative Cash Result Intelligence =====
+# A cash result is only valuable RELATIVE to the best comparable alternative in
+# the same search. Relative ranking finds the best option; an absolute reality
+# check decides whether that best option is actually good value. Top labels stay
+# scarce. Airline/alliance is a minor modifier, never a dominant factor.
+#
+# Founder calibration — NOT universal or market-standard truth.
+# TODO: calibrate with real route data and founder review
+CASH_SCORE_CONFIG = {
+    "base": 62,                     # anchor for the cheapest, itinerary-neutral result
+    "premium_penalty_per_100pct": 55,  # points removed per +100% price over cheapest
+    "premium_penalty_cap": 60,      # max points a price premium can remove
+    "stop_penalty": {0: 0, 1: 12, 2: 26},  # 2 == "2 or more"
+    "nonstop_bonus": 10,            # meaningful advantage for a true nonstop
+    "duration_penalty_per_hour": 2.0,  # per hour longer than the fastest in the set
+    "duration_penalty_cap": 14,
+    "alliance_bonus": 3,            # minor modifier only
+    "below_typical_bonus": 20,      # genuinely cheap vs Google's typical range
+    "within_low_half_bonus": 8,     # cheaper half of the typical range
+    "expensive_field_cap": 82,      # no Exceptional unless an absolute check supports it
+    "single_result_cap": 78,        # only one option → limited comparison, never 100
+    # score → (tier, grade, label). First threshold met wins. Exceptional is rare.
+    "grade_bands": [
+        (88, "exceptional", "A+", "Exceptional Value"),
+        (72, "great",       "A",  "Strong Value"),
+        (56, "good",        "B",  "Fair Value"),
+        (38, "fair",        "C",  "Pricey for This Search"),
+        (0,  "poor",        "D",  "Weak Relative Value"),
+    ],
+}
+
+
+def _cash_grade(score: int) -> dict:
+    for threshold, tier, grade, label in CASH_SCORE_CONFIG["grade_bands"]:
+        if score >= threshold:
+            return {"tier": tier, "grade": grade, "label": label}
+    return {"tier": "poor", "grade": "D", "label": "Weak Relative Value"}
+
+
+def _below_typical(price, typical_range) -> str:
+    """Absolute reality check against Google's typical price range."""
+    if not price or not typical_range or len(typical_range) != 2:
+        return "unknown"
+    low, high = float(typical_range[0] or 0), float(typical_range[1] or 0)
+    if low <= 0 or high <= 0:
+        return "unknown"
+    if price <= low:
+        return "below"
+    if price <= (low + high) / 2:
+        return "low_half"
+    if price >= high:
+        return "above"
+    return "within"
+
+
+def rescore_offer_set(offers: list[dict]) -> list[dict]:
+    """Recompute each offer's value score RELATIVE to the set (single source of
+    truth for result-card scoring). Sets dealScore, grade, label, tier, plus a
+    scoreContext and scoreConfidence. Leaves the flex calendar's own dots alone.
+    """
+    priced = [o for o in offers if (o.get("price") or 0) > 0]
+    if not priced:
+        return offers
+    cfg = CASH_SCORE_CONFIG
+    cheapest = min(o["price"] for o in priced)
+    durations = [o.get("durationMin") for o in priced if o.get("durationMin")]
+    best_dur = min(durations) if durations else None
+    n = len(priced)
+    any_below_typical = False
+
+    for o in priced:
+        price = float(o["price"])
+        try:
+            stops = int(o.get("stops") or 0)
+        except Exception:
+            stops = 0
+
+        score = float(cfg["base"])
+        reasons = []
+
+        # 1) Relative price position — the dominant factor.
+        premium = (price / cheapest) - 1.0 if cheapest else 0.0
+        if premium > 0:
+            penalty = min(cfg["premium_penalty_cap"], premium * cfg["premium_penalty_per_100pct"])
+            score -= penalty
+            if premium >= 0.5:
+                reasons.append(f"{round(premium * 100)}% pricier than cheapest")
+            elif premium >= 0.12:
+                reasons.append("higher than cheapest")
+        else:
+            reasons.append("cheapest in this search")
+
+        # 2) Itinerary quality.
+        score -= cfg["stop_penalty"].get(min(stops, 2), cfg["stop_penalty"][2])
+        if stops == 0:
+            score += cfg["nonstop_bonus"]
+            reasons.append("nonstop")
+        elif stops == 1:
+            reasons.append("1 stop")
+        else:
+            reasons.append(f"{stops} stops")
+
+        confidence = "high"
+        dur = o.get("durationMin")
+        if dur and best_dur:
+            over_h = max(0.0, (dur - best_dur) / 60.0)
+            if over_h > 0:
+                score -= min(cfg["duration_penalty_cap"], over_h * cfg["duration_penalty_per_hour"])
+        elif not dur:
+            confidence = "medium"  # incomplete itinerary data → degrade gracefully
+
+        # 3) Airline/alliance — minor modifier only.
+        if (o.get("airlineCode") or "") in MM_AIRLINES:
+            score += cfg["alliance_bonus"]
+
+        # 4) Absolute reality check.
+        band = _below_typical(price, o.get("typicalRange"))
+        context = None
+        if band == "below":
+            score += cfg["below_typical_bonus"]
+            any_below_typical = True
+        elif band == "low_half":
+            score += cfg["within_low_half_bonus"]
+        else:
+            # Not demonstrably cheap → cannot be Exceptional.
+            score = min(score, cfg["expensive_field_cap"])
+
+        # Single-result / weak-field handling.
+        if n == 1:
+            score = min(score, cfg["single_result_cap"])
+            context = "limited_comparison"
+            confidence = "low"
+
+        score = int(max(0, min(100, round(score))))
+        o["dealScore"] = score
+        o["scoreReason"] = " · ".join(reasons)
+        o["scoreConfidence"] = confidence
+        grade = _cash_grade(score)
+        o.update(grade)
+        o["scoreContext"] = context
+
+    # Field-wide reality note: best option that is still not actually cheap.
+    if n > 1 and not any_below_typical:
+        top = max(priced, key=lambda x: x.get("dealScore") or 0)
+        if not top.get("scoreContext"):
+            top["scoreContext"] = "best_available_not_cheap"
+
+    return offers
+
+
 def dedup_offers(offers: list[dict]) -> list[dict]:
     seen: dict[tuple, dict] = {}
     for o in offers:
@@ -860,6 +1010,8 @@ def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, m
         "airlineCode": airline_code,
         "stops": stops,
         "via": [v for v in via_airports if v],
+        "durationMin": item.get("total_duration"),
+        "typicalRange": typical_range,
         "bookUrl": links_for(origin, dest, dep_date).get("Google Flights"),
         "dealScore": deal_score(price, stops, airline_code, typical_range),
         "scoreReason": score_reason(price, stops, airline_code, typical_range),
@@ -1537,8 +1689,10 @@ def cheap():
                     offers.append(offer_from_tp(row, currency))
         note_key = "cheap_note"
 
-    # Deduplizieren (gleiche Airline + Ziel), dann nach Deal-Score sortieren
+    # Deduplizieren (gleiche Airline + Ziel), dann relativ zum Ergebnis-Set
+    # bewerten (zentrale Cash Result Intelligence), dann sortieren.
     offers = dedup_offers(offers)
+    offers = rescore_offer_set(offers)
     offers.sort(key=lambda x: (-(x.get("dealScore") or 0), x.get("price") or 10**9))
     fallback = [{"route": f"{o} → {d}", "links": links_for(o, d, dep.isoformat(), ret.isoformat() if ret else None)} for o in origins[:2] for d in dests[:3] if o != d]
     return jsonify({
