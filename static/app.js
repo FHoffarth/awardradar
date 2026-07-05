@@ -200,29 +200,46 @@ function payload() {
 
 function setStatus(t) { $('status').textContent = t; }
 
-const RADAR_STAGES = [
-  'Resolving airports',
-  'Checking live fares',
-  'Scanning flexible dates',
-  'Calculating value',
-  'Ranking results',
-];
+const RADAR_STAGES = {
+  cheap: [
+    'Resolving airports',
+    'Comparing cash context',
+    'Checking route quality',
+    'Preparing value signals',
+  ],
+  awards: [
+    'Comparing cash fare context',
+    'Checking award program signals',
+    'Aligning trip basis',
+    'Evaluating redemption value',
+    'Preparing verification guidance',
+  ],
+  skiplag: [
+    'Resolving airports',
+    'Checking routing patterns',
+    'Reviewing risk context',
+    'Preparing verification context',
+  ],
+};
 
 let _progressTimer = null;
+let _progressTimers = [];
+let _stageCycleTimer = null;
 let _elapsedTimer = null;
 let _radarStage = 0;
 let _searchStart = 0;
 
-function radarHtml(origin, dest) {
+function radarHtml(origin, dest, currentMode = mode) {
   const route = (origin && dest) ? `${origin} → ${dest}` : '';
+  const stagesForMode = RADAR_STAGES[currentMode] || RADAR_STAGES.cheap;
   const dots = [
     [48, 2], [95, 48], [48, 95], [2, 48],
     [82, 14], [82, 82], [14, 82], [14, 14],
   ].map(([x, y]) => `<div class="radar-ring-dot" style="left:${x}%;top:${y}%"></div>`).join('');
-  const stages = RADAR_STAGES.map((s, i) =>
+  const stages = stagesForMode.map((s, i) =>
     `<div class="radar-stage" id="rs${i}"><span class="radar-stage-dot"></span>${s}</div>`
   ).join('');
-  return `<div class="radar-state" role="status" aria-live="polite" aria-label="Searching for flights">
+  return `<div class="radar-state" role="status" aria-live="polite" aria-label="AwardRadar is analyzing flight value">
     ${route ? `<div class="radar-route"><strong>${esc(route)}</strong></div>` : ''}
     <div class="radar-ring-wrap" aria-hidden="true">
       <div class="radar-ring radar-ring-outer"></div>
@@ -233,46 +250,66 @@ function radarHtml(origin, dest) {
       <div class="radar-center"></div>
     </div>
     <div class="radar-stages">${stages}</div>
-    <div class="radar-elapsed" id="radarElapsed">Scanning…</div>
+    <div class="radar-elapsed" id="radarElapsed">AwardRadar is analyzing</div>
   </div>`;
 }
 
 function startProgress(origin, dest) {
+  _progressTimers.forEach(clearTimeout);
+  _progressTimers = [];
+  clearInterval(_stageCycleTimer);
+  clearInterval(_elapsedTimer);
   const bar = $('progress-bar'), fill = $('progress-fill'), go = $('go');
   bar.classList.add('active');
-  fill.style.width = '0%';
+  fill.classList.add('indeterminate');
+  fill.style.width = '100%';
   go.classList.add('loading');
   go.disabled = true;
   _radarStage = 0;
   _searchStart = Date.now();
 
-  $('results').innerHTML = radarHtml(origin, dest);
+  $('results').innerHTML = radarHtml(origin, dest, mode);
+  $('results').focus({ preventScroll: true });
+  $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  const stageTiming = [0, 1200, 2800, 4800, 7000];
-  const barSteps = [[300, 18], [1200, 38], [2800, 58], [4800, 74], [7000, 85]];
+  const stagesForMode = RADAR_STAGES[mode] || RADAR_STAGES.cheap;
+  const stageTiming = stagesForMode.map((_, i) => i * 1400);
+  const setRadarStage = (activeIndex) => {
+    stagesForMode.forEach((_, idx) => {
+      const el = $('rs' + idx);
+      if (!el) return;
+      el.classList.toggle('active', idx === activeIndex);
+      el.classList.toggle('done', idx < activeIndex);
+      el.classList.toggle('pending', idx > activeIndex);
+    });
+  };
 
   stageTiming.forEach((delay, i) => {
-    setTimeout(() => {
-      const el = $('rs' + i);
-      if (!el) return;
-      if (i > 0) { const prev = $('rs' + (i - 1)); if (prev) { prev.classList.remove('active'); prev.classList.add('done'); } }
-      el.classList.add('active');
+    const timer = setTimeout(() => {
+      setRadarStage(i);
     }, delay);
+    _progressTimers.push(timer);
   });
 
-  barSteps.forEach(([delay, pct]) => {
-    setTimeout(() => { fill.style.width = pct + '%'; }, delay);
-  });
+  const cycleDelay = Math.max(stagesForMode.length * 1400, 1800);
+  _stageCycleTimer = setInterval(() => {
+    _radarStage = (_radarStage + 1) % stagesForMode.length;
+    setRadarStage(_radarStage);
+  }, cycleDelay);
 
   _elapsedTimer = setInterval(() => {
     const el = $('radarElapsed');
-    if (el) el.textContent = ((Date.now() - _searchStart) / 1000).toFixed(1) + ' s';
-  }, 100);
+    if (el) el.textContent = 'AwardRadar is analyzing';
+  }, 1200);
 }
 
 function stopProgress(ok) {
+  _progressTimers.forEach(clearTimeout);
+  _progressTimers = [];
+  clearInterval(_stageCycleTimer);
   clearInterval(_elapsedTimer);
   const bar = $('progress-bar'), fill = $('progress-fill'), go = $('go');
+  fill.classList.remove('indeterminate');
   fill.style.width = ok ? '100%' : '0%';
   go.classList.remove('loading');
   go.disabled = false;
@@ -637,6 +674,7 @@ function render(data) {
 
         // --- Decision Card (Decision Engine Level 1) ---
         const best = sorted[0];
+        let evaluatedProgramName = '';
         let decisionCard = '';
         if (best) {
           const d        = r.decision || {};
@@ -650,6 +688,7 @@ function render(data) {
           // Subline: name the exact option the backend evaluated (authoritative),
           // so it is never confused with the cash itinerary or another program card.
           const evalProgram = d.evaluated_program || best.program;
+          evaluatedProgramName = evalProgram;
           const evalMiles = (d.evaluated_miles != null ? d.evaluated_miles : best.miles);
           const evalSurcharge = (d.evaluated_surcharge != null ? d.evaluated_surcharge : best.surcharge);
           const isLive = (d.evaluated_data_source || best.data_source) === 'live';
@@ -691,7 +730,7 @@ function render(data) {
           </div>`;
         }
 
-        const cards = sorted.map((p, idx) => {
+        const programCardHtml = (p, idx, isEvaluated = false) => {
           const g = p.grade || {};
           const gm = GRADE_MAP[g.tier] || null;
           const isLive = p.data_source === 'live';
@@ -724,6 +763,7 @@ function render(data) {
           const cardClasses = ['aw-card'];
           if (isLive) cardClasses.push('aw-card-live');
           if (isBest) cardClasses.push('aw-card-best');
+          if (isEvaluated) cardClasses.push('aw-card-evaluated');
 
           return `<div class="${cardClasses.join(' ')}">
             <div class="aw-card-header">
@@ -748,9 +788,42 @@ function render(data) {
               ${verifyLink}
             </div>
           </div>`;
-        }).join('');
+        };
+
+        const evaluated = sorted.find(p => p.program === evaluatedProgramName) || sorted[0];
+        const visiblePrograms = [];
+        if (evaluated) visiblePrograms.push(evaluated);
+        for (const p of sorted) {
+          if (visiblePrograms.length >= 4) break;
+          if (!visiblePrograms.includes(p)) visiblePrograms.push(p);
+        }
+        const hiddenPrograms = sorted.filter(p => !visiblePrograms.includes(p));
+        const visibleCards = visiblePrograms
+          .map((p, idx) => programCardHtml(p, sorted.indexOf(p), idx === 0 && p === evaluated))
+          .join('');
+        const hiddenCards = hiddenPrograms
+          .map(p => programCardHtml(p, sorted.indexOf(p)))
+          .join('');
+        const showAll = hiddenPrograms.length ? `
+          <details class="aw-more-programs">
+            <summary>Show all programs <span>${hiddenPrograms.length} more</span></summary>
+            <div class="aw-cards-grid aw-cards-grid-secondary">${hiddenCards}</div>
+          </details>` : '';
+        const primaryVerify = evaluated?.url
+          ? `<a href="${esc(evaluated.url)}" target="_blank" rel="noopener" class="aw-primary-verify">Verify with official program <span aria-hidden="true">-&gt;</span></a>`
+          : `<span class="aw-link-unavailable">Manual official-program verification required</span>`;
+        const evaluatedSummary = evaluated ? `
+          <div class="aw-evaluated">
+            <div>
+              <div class="aw-section-kicker">Evaluated Redemption</div>
+              <div class="aw-evaluated-title">${esc(evaluated.program)}</div>
+              <div class="aw-evaluated-meta">${Number(evaluated.miles || 0).toLocaleString()} miles + €${evaluated.surcharge || 0}${evaluated.cpm ? ` · ${Number(evaluated.cpm).toFixed(1)} ct/mi` : ''}</div>
+            </div>
+            ${primaryVerify}
+          </div>` : '';
 
         return `<div class="card${r.best_program ? ' top-card' : ''}">
+          <div class="aw-result-shell">
           <div class="aw-result-header">
             <div>
               <h3>${esc(r.route)} <span class="route-arrow">·</span> ${esc(r.cabin)}</h3>
@@ -764,10 +837,13 @@ function render(data) {
           </div>
           ${liveNote}
           ${decisionCard}
-          <div class="aw-cards-caption">Individual program redemption signals · raw estimates, not AwardRadar's final judgment</div>
-          <div class="aw-cards-grid">${cards}</div>
+          ${evaluatedSummary}
+          <div class="aw-cards-caption">Top program options for comparison</div>
+          <div class="aw-cards-grid">${visibleCards}</div>
+          ${showAll}
           <p class="legend-note">Final availability, mileage prices, taxes, fees and rules must be confirmed with the airline or loyalty program before any transfer or purchase.</p>
           ${actionLinksHtml(r.links)}
+          </div>
         </div>`;
       }).join('');
       html += relatedAnalysesHtml('awards');
