@@ -297,10 +297,29 @@ class DecisionSignalsLevel1(unittest.TestCase):
             self.assertFalse(decision["trip_basis_compatible"])
             self.assertEqual(decision["signal"], "insufficient_data")
             self.assertEqual(decision["verdict"], "insufficient_data")
+            self.assertIsNone(decision["estimated_value"])
+            self.assertIsNone(decision["tier"])
+            self.assertNotIn("net_cash_saved", decision)
+            self.assertNotIn("cpm", decision)
         finally:
             app.AWARD_SOURCE = old_award_source
             app.SEATSAERO_KEY = old_seatsaero_key
             app.fetch_cash_details = old_fetch_cash_details
+
+    def test_incompatible_trip_basis_exposes_no_value_metrics_or_verdict(self):
+        d = app.build_decision(_award(1.5, trip_type="one_way"),
+                               cash_eur=300,
+                               cash_is_real=True,
+                               cash_level="within_typical",
+                               requested_trip_type="round_trip",
+                               cash_trip_type="round_trip")
+        self.assertFalse(d["trip_basis_compatible"])
+        self.assertEqual(d["signal"], "insufficient_data")
+        self.assertEqual(d["verdict"], "insufficient_data")
+        self.assertIsNone(d["estimated_value"])
+        self.assertIsNone(d["tier"])
+        self.assertNotIn("net_cash_saved", d)
+        self.assertNotIn("cpm", d)
 
     def test_compatible_roundtrip_cash_and_award_basis_compares_normally(self):
         d = app.build_decision(_award(1.5, trip_type="round_trip"),
