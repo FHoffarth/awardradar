@@ -51,16 +51,16 @@ class TripBasisNormalization(unittest.TestCase):
         self.assertEqual(d["verdict"], "lean_miles")   # cpm 1.5 → good → lean_miles
         self.assertEqual(d["confidence"], "medium")
 
-    def test_case_1_roundtrip_search_oneway_award_confidence_drops(self):
+    def test_case_1_roundtrip_search_oneway_award_is_blocked(self):
         base = app.build_decision(_award(1.5), cash_eur=300, cash_is_real=True,
                                   cash_level="within_typical", requested_trip_type="one_way")
         rt = app.build_decision(_award(1.5), cash_eur=300, cash_is_real=True,
                                 cash_level="within_typical", requested_trip_type="round_trip")
-        self.assertTrue(rt["trip_basis_compatible"])          # normalized to one-way
+        self.assertTrue(base["trip_basis_compatible"])
+        self.assertFalse(rt["trip_basis_compatible"])
         self.assertEqual(rt["normalized_trip_type"], "one_way")
-        # Confidence must SINK when we assume/normalize vs the clean OW/OW case.
-        order = {"low": 0, "medium": 1, "high": 2}
-        self.assertLess(order[rt["confidence"]], order[base["confidence"]])
+        self.assertEqual(rt["signal"], "insufficient_data")
+        self.assertEqual(rt["verdict"], "insufficient_data")
 
     def test_case_3_incompatible_basis_no_value_signal(self):
         # round-trip award vs one-way cash → not safely normalizable
@@ -183,8 +183,9 @@ class DecisionSignalsLevel1(unittest.TestCase):
             app.AWARD_SOURCE = "seatsaero"
             app.SEATSAERO_KEY = "test-key"
 
-            def fake_cash_details(origin, dest, dep, cabin, currency="EUR"):
+            def fake_cash_details(origin, dest, dep, cabin, currency="EUR", ret=None):
                 self.assertEqual((origin, dest, cabin), ("FRA", "JFK", "Economy"))
+                self.assertIsNone(ret)
                 return {
                     "price": 620.0,
                     "typical_range": [500, 800],
@@ -239,6 +240,78 @@ class DecisionSignalsLevel1(unittest.TestCase):
         self.assertFalse(d["trip_basis_compatible"])
         self.assertEqual(d["verdict"], "insufficient_data")
         self.assertEqual(d["signal"], "insufficient_data")
+
+    def test_roundtrip_request_passes_return_date_and_blocks_oneway_estimate(self):
+        old_award_source = app.AWARD_SOURCE
+        old_seatsaero_key = app.SEATSAERO_KEY
+        old_fetch_cash_details = app.fetch_cash_details
+        try:
+            app.AWARD_SOURCE = "estimated"
+            app.SEATSAERO_KEY = None
+            seen = {}
+
+            def fake_cash_details(origin, dest, dep, cabin, currency="EUR", ret=None):
+                seen["args"] = {
+                    "origin": origin,
+                    "dest": dest,
+                    "dep": dep.isoformat(),
+                    "ret": ret.isoformat() if ret else None,
+                    "cabin": cabin,
+                }
+                return {
+                    "price": 220.0,
+                    "typical_range": [180, 320],
+                    "cash_trip_type": "round_trip",
+                }
+
+            app.fetch_cash_details = fake_cash_details
+            client = app.app.test_client()
+            response = client.post("/api/awards", json={
+                "origin": "MUC",
+                "dest": "CDG",
+                "date": "2026-07-07",
+                "returnDate": "2026-07-09",
+                "oneWay": False,
+                "cabin": "Economy",
+            })
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.get_json()
+            result = payload["results"][0]
+            program = result["programs"][0]
+            decision = result["decision"]
+
+            self.assertEqual(seen["args"], {
+                "origin": "MUC",
+                "dest": "CDG",
+                "dep": "2026-07-07",
+                "ret": "2026-07-09",
+                "cabin": "Economy",
+            })
+            self.assertEqual(result["returnDate"], "2026-07-09")
+            self.assertEqual(program["return_date"], "2026-07-09")
+            self.assertEqual(program["requested_trip_type"], "round_trip")
+            self.assertEqual(program["trip_type"], "one_way")
+            self.assertEqual(decision["cash_trip_type"], "round_trip")
+            self.assertEqual(decision["award_trip_type"], "one_way")
+            self.assertFalse(decision["trip_basis_compatible"])
+            self.assertEqual(decision["signal"], "insufficient_data")
+            self.assertEqual(decision["verdict"], "insufficient_data")
+        finally:
+            app.AWARD_SOURCE = old_award_source
+            app.SEATSAERO_KEY = old_seatsaero_key
+            app.fetch_cash_details = old_fetch_cash_details
+
+    def test_compatible_roundtrip_cash_and_award_basis_compares_normally(self):
+        d = app.build_decision(_award(1.5, trip_type="round_trip"),
+                               cash_eur=300,
+                               cash_is_real=True,
+                               cash_level="within_typical",
+                               requested_trip_type="round_trip",
+                               cash_trip_type="round_trip")
+        self.assertTrue(d["trip_basis_compatible"])
+        self.assertEqual(d["normalized_trip_type"], "round_trip")
+        self.assertNotEqual(d["signal"], "insufficient_data")
 
 
 if __name__ == "__main__":
