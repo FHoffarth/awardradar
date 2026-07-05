@@ -647,16 +647,20 @@ function render(data) {
           // signal → cautious visible headline (backend supplies the copy)
           const headline = d.label || 'Award redemption value signal';
 
-          // Subline: program + miles + fees + seats
-          const isLive = best.data_source === 'live';
+          // Subline: name the exact option the backend evaluated (authoritative),
+          // so it is never confused with the cash itinerary or another program card.
+          const evalProgram = d.evaluated_program || best.program;
+          const evalMiles = (d.evaluated_miles != null ? d.evaluated_miles : best.miles);
+          const evalSurcharge = (d.evaluated_surcharge != null ? d.evaluated_surcharge : best.surcharge);
+          const isLive = (d.evaluated_data_source || best.data_source) === 'live';
           const availTxt = (d.verdict === 'availability_only') ? ` (${isLive ? 'live' : 'estimated'} availability)` : '';
-          const subline = `${esc(best.program)} — ${best.miles.toLocaleString()} miles + €${best.surcharge}${seatsStr}${availTxt}.`;
+          const subline = `<span class="bdc-eval-k">Evaluated redemption:</span> ${esc(evalProgram)} — ${Number(evalMiles).toLocaleString()} miles + €${evalSurcharge}${seatsStr}${availTxt}.`;
 
           // Estimated value metric — only on a safely comparable basis
           const metricRow = hasValue ? `
             <div class="bdc-metric-row">
               <span class="bdc-cpp">${Number(d.estimated_value).toFixed(1)} <small>ct/mi</small></span>
-              <span class="bdc-cash-vs">vs. <strong>€${Math.round(r.cash_eur)}</strong> cash · save <strong>€${Math.round(r.cash_eur - best.surcharge)}</strong></span>
+              <span class="bdc-cash-vs">vs. <strong>€${Math.round(r.cash_eur)}</strong> cash · save <strong>€${Math.round(r.cash_eur - evalSurcharge)}</strong></span>
             </div>` : '';
 
           // Confidence + freshness row
@@ -665,7 +669,7 @@ function render(data) {
           const confRow = `
             <div class="bdc-meta-row">
               <span class="bdc-conf ${confCls}"${d.confidence_reason ? ` title="${esc(d.confidence_reason)}"` : ''}>Confidence: ${confTxt}</span>
-              ${d.freshness_label ? `<span class="bdc-fresh">${esc(d.freshness_label)}</span>` : ''}
+              ${d.freshness_label ? `<span class="bdc-fresh">Freshness: ${esc(d.freshness_label)}</span>` : ''}
             </div>`;
 
           const whyRow = d.explanation ? `<div class="bdc-why"><span class="bdc-k">Why</span> ${esc(d.explanation)}</div>` : '';
@@ -727,7 +731,7 @@ function render(data) {
                 <a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.program)}</a>
                 ${isLive ? '<span class="aw-source-live">Live</span>' : '<span class="aw-source-est">Est.</span>'}
               </div>
-              ${gm ? `<span class="aw-grade-pill ${gm.cls}">${gm.label}</span>` : ''}
+              ${gm ? `<span class="aw-grade-pill ${gm.cls}" title="Program-level redemption signal — see the summary card above for AwardRadar's assessment">${gm.label}</span>` : ''}
             </div>
             <div class="aw-card-cost">
               <span class="aw-card-miles">${p.miles.toLocaleString()}</span>
@@ -754,12 +758,13 @@ function render(data) {
                 <span>${esc(r.date)}</span>
                 ${cashStr ? `<span class="badge">Cash: ${cashStr}</span>` : ''}
               </div>
-              ${itineraryHtml}
+              ${itineraryHtml ? `<div class="aw-itin-label">Cash fare routing · for price context only</div>${itineraryHtml}` : ''}
               ${scheduleFallback}
             </div>
           </div>
           ${liveNote}
           ${decisionCard}
+          <div class="aw-cards-caption">Individual program redemption signals · raw estimates, not AwardRadar's final judgment</div>
           <div class="aw-cards-grid">${cards}</div>
           <p class="legend-note">Final availability, mileage prices, taxes, fees and rules must be confirmed with the airline or loyalty program before any transfer or purchase.</p>
           ${actionLinksHtml(r.links)}

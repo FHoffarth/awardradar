@@ -160,8 +160,19 @@ class DecisionSignalsLevel1(unittest.TestCase):
         for k in ("signal", "label", "estimated_value", "confidence", "confidence_reason",
                   "freshness_label", "explanation", "verification_guidance",
                   "cash_trip_type", "award_trip_type", "normalized_trip_type",
-                  "trip_basis_compatible", "verdict", "tier"):
+                  "trip_basis_compatible", "verdict", "tier",
+                  "evaluated_program", "evaluated_miles", "evaluated_surcharge",
+                  "evaluated_data_source"):
             self.assertIn(k, d)
+
+    def test_evaluated_option_identity_matches_input(self):
+        # The card must be able to name exactly the option that was judged.
+        best = _award(1.5)
+        d = app.build_decision(best, cash_eur=300, cash_is_real=True,
+                               cash_level="within_typical", requested_trip_type="one_way")
+        self.assertEqual(d["evaluated_program"], best["program"])
+        self.assertEqual(d["evaluated_miles"], best["miles"])
+        self.assertEqual(d["evaluated_surcharge"], best["surcharge"])
 
 
 if __name__ == "__main__":

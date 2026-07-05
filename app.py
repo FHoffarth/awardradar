@@ -1619,6 +1619,12 @@ def build_decision(best: dict | None, cash_eur, cash_is_real: bool,
         "cash_source": cash_source_metadata()["source"],
         "cash_level": cash_level,
         "cash_freshness": "live_query" if cash_is_real else ("estimate" if cash_eur else "none"),
+        # identity of the exact option this decision evaluated (so the card can
+        # name it unambiguously instead of re-deriving a possibly different one)
+        "evaluated_program": (best or {}).get("program"),
+        "evaluated_miles": (best or {}).get("miles"),
+        "evaluated_surcharge": (best or {}).get("surcharge"),
+        "evaluated_data_source": (best or {}).get("data_source"),
         # new Level-1 fields
         "signal": "insufficient_data",
         "label": _SIGNAL_LABEL["insufficient_data"],
