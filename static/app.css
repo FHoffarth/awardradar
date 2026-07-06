@@ -576,6 +576,8 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .aw-journey-map::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.025) 0 1px,transparent 1px 96px);opacity:.28;pointer-events:none}
 .aw-journey-map .aw-section-kicker{text-transform:none;letter-spacing:.08em;font-size:.68rem;font-weight:500;color:var(--muted)}
 .aw-journey-head{position:relative;z-index:1;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:2px}
+.aw-journey-note{margin:2px 0 0;font-size:.76rem;line-height:1.35;color:var(--muted)}
+.aw-journey-map-partial{padding:12px}
 .aw-journey-svg{position:relative;z-index:1;display:block;width:100%;height:auto}
 .aw-journey-grid{fill:rgba(255,255,255,.006);stroke:rgba(255,255,255,.04);stroke-width:1}
 .aw-journey-path{fill:none;stroke:rgba(166,185,199,.64);stroke-width:1.25;stroke-linecap:square}
@@ -601,6 +603,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 [data-theme="light"] .aw-journey-city,[data-theme="light"] .aw-journey-time,[data-theme="light"] .aw-journey-layover{fill:rgba(69,85,98,.82)}
 [data-theme="light"] .aw-journey-facts span{background:rgba(7,18,36,.035)}
 @media(max-width:640px){
+  .shell{width:calc(100% - 28px)}
   .aw-journey-map{padding:10px 10px 9px}
   .aw-journey-head{align-items:flex-start}
   .aw-journey-svg{min-height:128px}

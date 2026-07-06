@@ -53,8 +53,9 @@ function buildItinerary(f) {
       if (seg.duration_min) meta.push(fmtDur(seg.duration_min));
       if (seg.cabin) meta.push(esc(seg.cabin));
       if (seg.aircraft) meta.push(esc(seg.aircraft));
+      const arrSuffix = segmentArrivalSuffix(seg);
       const timeStr = (seg.dep_time || seg.arr_time)
-        ? `${esc(seg.dep_time || '')}${seg.dep_time && seg.arr_time ? '–' : ''}${esc(seg.arr_time || '')}`
+        ? `${esc(seg.dep_time || '')}${seg.dep_time && seg.arr_time ? '–' : ''}${esc(seg.arr_time || '')}${esc(arrSuffix)}`
         : '';
       const layStr = lay
         ? `<li class="aw-layover"><span class="aw-layover-ic" aria-hidden="true">⏱</span><span>${esc(lay.iata || '')} layover${lay.duration_min ? ' · ' + fmtDur(lay.duration_min) : ''}${lay.overnight ? ' · overnight' : ''}</span></li>`
@@ -159,7 +160,50 @@ function awardJourneyRouteNodes(r) {
   return nodes;
 }
 
+function segmentArrivalSuffix(seg) {
+  if (!seg) return '';
+  if (Number.isFinite(seg.arrival_day_offset) && seg.arrival_day_offset > 0) return ` +${seg.arrival_day_offset} day`;
+  if (seg.overnight) return ' Overnight';
+  return '';
+}
+
+function itineraryTimeDataStatus(flight) {
+  const segs = Array.isArray(flight?.segments) ? flight.segments : [];
+  if (!segs.length) return 'unavailable';
+  if (segs.some(s => s.departure_date || s.arrival_date)) return 'cash_outbound_dated';
+  if (segs.some(s => s.dep_time || s.arr_time)) return 'cash_outbound_partial';
+  return 'unavailable';
+}
+
+function normalizeItineraryOwnership(r) {
+  const d = r.decision || {};
+  const source = r.journey_route_source || (r.flight?.segments?.length ? 'cash_context' : 'search_fallback');
+  const verified = r.verified_identical_routing === true;
+  return {
+    journeyRouteSource: source,
+    awardRoutingStatus: r.award_routing_status || 'not_available',
+    verifiedIdenticalRouting: verified,
+    displayedItinerary: r.displayed_itinerary || (source === 'cash_context' ? 'cash' : 'none'),
+    canComparePriceSignals: d.trip_basis_compatible === true && r.cash_eur != null,
+    canCompareRoutingQuality: verified,
+    timeDataStatus: itineraryTimeDataStatus(r.flight),
+  };
+}
+
 function awardJourneyMapHtml(r) {
+  const ownership = normalizeItineraryOwnership(r);
+  if (ownership.journeyRouteSource === 'search_fallback' || ownership.displayedItinerary === 'none') {
+    const html = `<section class="aw-journey-map aw-journey-map-partial" role="group" aria-label="Confirmed itinerary routing is not available.">
+      <div class="aw-journey-head">
+        <div>
+          <div class="aw-section-kicker">Itinerary routing unavailable</div>
+          <p class="aw-journey-note">Confirmed itinerary routing is not available.</p>
+        </div>
+      </div>
+    </section>`;
+    return { html, trustNote: 'Confirmed itinerary routing is not available.' };
+  }
+
   const nodes = awardJourneyRouteNodes(r);
   if (nodes.length < 2) return { html: '', trustNote: '' };
 
@@ -213,7 +257,10 @@ function awardJourneyMapHtml(r) {
   const summary = `${displayRoute}. ${facts.join('. ')}.`;
   const hasReturnJourney = Array.isArray(flight.return_segments) && flight.return_segments.length > 0;
   const showsOutboundOnly = !!r.returnDate && !hasReturnJourney;
-  const kicker = incompatibleBasis ? 'Outbound award journey shown' : (showsOutboundOnly ? 'Outbound journey shown' : 'Journey intelligence route');
+  const kicker = showsOutboundOnly ? 'Outbound cash itinerary shown' : 'Cash itinerary shown';
+  const ownershipNote = showsOutboundOnly
+    ? 'Return routing and award routing must be verified.'
+    : 'Award routing must be verified before comparing travel time, stops and convenience.';
   const fallbackNote = coordsKnown ? '' : 'Route visualization simplified because location data is incomplete.';
   const routeLines = pts.slice(0, -1).map((a, i) => {
     const b = pts[i + 1];
@@ -223,19 +270,30 @@ function awardJourneyMapHtml(r) {
   const nodeEls = pts.map((p, i) => {
     const role = i === 0 ? 'origin' : i === pts.length - 1 ? 'destination' : 'stop';
     const city = airportMeta(p.code)?.city || '';
-    const seg = role === 'origin' ? segs[0] : segs[i - 1];
-    const time = role === 'origin' ? seg?.dep_time : seg?.arr_time;
+    const inboundSeg = i > 0 ? segs[i - 1] : null;
+    const outboundSeg = i < segs.length ? segs[i] : null;
     const layover = role === 'stop' ? layoverByIata[p.code] : null;
     const secondary = city || 'Airport';
     const layoverText = layover?.duration_min ? `${fmtDur(layover.duration_min)} layover` : '';
+    const timeLines = [];
+    if (role === 'origin' && outboundSeg?.dep_time) timeLines.push(`Dep ${outboundSeg.dep_time}`);
+    if (role === 'destination' && inboundSeg?.arr_time) {
+      timeLines.push(`Arr ${inboundSeg.arr_time}${segmentArrivalSuffix(inboundSeg)}`);
+    }
+    if (role === 'stop') {
+      if (inboundSeg?.arr_time) timeLines.push(`Arr ${inboundSeg.arr_time}${segmentArrivalSuffix(inboundSeg)}`);
+      if (outboundSeg?.dep_time) timeLines.push(`Dep ${outboundSeg.dep_time}`);
+    }
     const secondaryY = p.y + 27;
     const timeY = p.y + 40;
-    const layoverY = p.y + 54;
+    const secondTimeY = p.y + 52;
+    const layoverY = timeLines.length > 1 ? p.y + 64 : p.y + 54;
     return `<g class="aw-journey-node aw-journey-node-${role}">
       <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${role === 'stop' ? 3.5 : 4.25}"/>
       <text class="aw-journey-code" x="${p.x.toFixed(1)}" y="${(p.y - 12).toFixed(1)}" text-anchor="middle">${esc(p.code)}</text>
       <text class="aw-journey-city" x="${p.x.toFixed(1)}" y="${secondaryY.toFixed(1)}" text-anchor="middle">${esc(secondary)}</text>
-      ${time ? `<text class="aw-journey-time" x="${p.x.toFixed(1)}" y="${timeY.toFixed(1)}" text-anchor="middle">${esc(time)}</text>` : ''}
+      ${timeLines[0] ? `<text class="aw-journey-time" x="${p.x.toFixed(1)}" y="${timeY.toFixed(1)}" text-anchor="middle">${esc(timeLines[0])}</text>` : ''}
+      ${timeLines[1] ? `<text class="aw-journey-time" x="${p.x.toFixed(1)}" y="${secondTimeY.toFixed(1)}" text-anchor="middle">${esc(timeLines[1])}</text>` : ''}
       ${layoverText ? `<text class="aw-journey-layover" x="${p.x.toFixed(1)}" y="${layoverY.toFixed(1)}" text-anchor="middle">${esc(layoverText)}</text>` : ''}
     </g>`;
   }).join('');
@@ -246,6 +304,7 @@ function awardJourneyMapHtml(r) {
     <div class="aw-journey-head">
       <div>
         <div class="aw-section-kicker">${esc(kicker)}</div>
+        <p class="aw-journey-note">${esc(ownershipNote)}</p>
       </div>
     </div>
     <svg class="aw-journey-svg" viewBox="0 0 ${width} ${height}" aria-hidden="true" focusable="false">
@@ -876,6 +935,8 @@ function render(data) {
         const best = sorted[0];
         const d = r.decision || {};
         const incompatibleBasis = d.trip_basis_compatible === false;
+        const ownership = normalizeItineraryOwnership(r);
+        const routingVerified = ownership.verifiedIdenticalRouting === true;
 
         const programCardHtml = (p, idx, isEvaluated = false) => {
           const g = p.grade || {};
@@ -897,9 +958,9 @@ function render(data) {
             ? `<a href="${esc(p.url)}" target="_blank" rel="noopener" class="aw-book-link">Verify with official program <span aria-hidden="true">-&gt;</span></a>`
             : `<span class="aw-link-unavailable">Manual official-program verification required</span>`;
 
-          // Compact meta row: nonstop · seats · cpm
+          // Compact meta row: provider direct signal · seats · cpm
           const metaParts = [];
-          if (p.direct) metaParts.push('<span class="aw-meta-nonstop">✓ Nonstop</span>');
+          if (p.direct) metaParts.push('<span class="aw-meta-nonstop">Provider reports direct availability</span>');
           if (p.seats > 0 && p.seats <= 2) metaParts.push(`<span class="aw-meta-seats aw-meta-seats-low">${p.seats} seat${p.seats > 1 ? 's' : ''} left</span>`);
           else if (p.seats >= 3) metaParts.push(`<span class="aw-meta-seats">${p.seats} seats</span>`);
           if (cpmStr) metaParts.push(`<span class="aw-meta-cpm">${cpmStr}</span>`);
@@ -971,7 +1032,15 @@ function render(data) {
         const st   = stateOf(sig);
         const cb   = confBucket(d.confidence);
         const [baseHl] = (HEADLINE[sig] || HEADLINE.insufficient_data)[cb];
-        const hl = incompatibleBasis ? 'A round-trip comparison is not available yet.' : baseHl;
+        const unverifiedHeadline = {
+          cash_may_be_stronger: 'Cash offers the stronger price signal.',
+          strong_miles_value: 'The award shows a strong redemption value.',
+          promising_miles_value: 'The award shows promising redemption value.',
+          mixed_value: 'The price signals are closely matched.',
+        }[sig];
+        const hl = incompatibleBasis
+          ? 'A round-trip comparison is not available yet.'
+          : (!routingVerified && unverifiedHeadline ? unverifiedHeadline : baseHl);
         const cash = (r.cash_eur != null) ? Math.round(r.cash_eur) : null;
         const evalMiles = (d.evaluated_miles != null ? d.evaluated_miles : (evaluated.miles || 0));
         const evalSurcharge = (d.evaluated_surcharge != null ? d.evaluated_surcharge : (evaluated.surcharge || 0));
@@ -1005,6 +1074,9 @@ function render(data) {
             : 'The available signals do not clearly favor either cash or miles.';
         } else {
           meaning = 'AwardRadar does not yet have enough compatible data to make a reliable comparison.';
+        }
+        if (!incompatibleBasis && !routingVerified && ownership.journeyRouteSource === 'cash_context') {
+          meaning += ' Cash routing is shown. Award routing must be verified before comparing travel time, stops and convenience.';
         }
         const meansHtml = `<div class="aw-means"><div class="aw-block-k">What this means</div><p>${esc(meaning)}</p></div>`;
 
@@ -1069,8 +1141,11 @@ function render(data) {
           </div>`;
 
         // 7 — Flight details drawer
+        const cashRoutingLabel = r.returnDate && !(Array.isArray(r.flight?.return_segments) && r.flight.return_segments.length)
+          ? 'Outbound cash fare routing · for price context only'
+          : 'Cash fare routing · for price context only';
         const flightHtml = itineraryHtml
-          ? `<div class="aw-flight-details"><div class="aw-itin-label">Cash fare routing · for price context only</div>${itineraryHtml}</div>`
+          ? `<div class="aw-flight-details"><div class="aw-itin-label">${esc(cashRoutingLabel)}</div>${itineraryHtml}</div>`
           : scheduleFallback;
 
         // 8–11 — Evaluated redemption + top-3 alternatives + show-all
