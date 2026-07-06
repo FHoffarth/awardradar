@@ -333,5 +333,144 @@ class DecisionSignalsLevel1(unittest.TestCase):
         self.assertNotEqual(d["signal"], "insufficient_data")
 
 
+class ItineraryOwnershipIntegrity(unittest.TestCase):
+    def test_award_result_with_cash_segments_declares_cash_itinerary_ownership(self):
+        old_award_source = app.AWARD_SOURCE
+        old_seatsaero_key = app.SEATSAERO_KEY
+        old_fetch_cash_details = app.fetch_cash_details
+        try:
+            app.AWARD_SOURCE = "estimated"
+            app.SEATSAERO_KEY = None
+
+            def fake_cash_details(origin, dest, dep, cabin, currency="EUR", ret=None):
+                return {
+                    "price": 620.0,
+                    "typical_range": [500, 800],
+                    "cash_trip_type": "one_way",
+                    "segments": [{
+                        "dep_iata": "FRA",
+                        "arr_iata": "JFK",
+                        "departure_datetime_raw": "2026-08-15 10:45",
+                        "arrival_datetime_raw": "2026-08-15 13:15",
+                        "departure_date": "2026-08-15",
+                        "arrival_date": "2026-08-15",
+                        "dep_time": "10:45",
+                        "arr_time": "13:15",
+                        "arrival_day_offset": 0,
+                        "duration_min": 510,
+                        "overnight": False,
+                    }],
+                }
+
+            app.fetch_cash_details = fake_cash_details
+            response = app.app.test_client().post("/api/awards", json={
+                "origin": "FRA", "dest": "JFK", "date": "2026-08-15",
+                "cabin": "Economy", "oneWay": True,
+            })
+            self.assertEqual(response.status_code, 200)
+            result = response.get_json()["results"][0]
+            self.assertEqual(result["journey_route_source"], "cash_context")
+            self.assertEqual(result["displayed_itinerary"], "cash")
+            self.assertEqual(result["award_routing_status"], "not_available")
+            self.assertFalse(result["verified_identical_routing"])
+        finally:
+            app.AWARD_SOURCE = old_award_source
+            app.SEATSAERO_KEY = old_seatsaero_key
+            app.fetch_cash_details = old_fetch_cash_details
+
+    def test_award_result_without_cash_segments_declares_search_fallback(self):
+        old_award_source = app.AWARD_SOURCE
+        old_seatsaero_key = app.SEATSAERO_KEY
+        old_fetch_cash_details = app.fetch_cash_details
+        try:
+            app.AWARD_SOURCE = "estimated"
+            app.SEATSAERO_KEY = None
+            app.fetch_cash_details = lambda *a, **k: {
+                "price": 300.0,
+                "typical_range": [250, 450],
+                "cash_trip_type": "one_way",
+            }
+            response = app.app.test_client().post("/api/awards", json={
+                "origin": "FRA", "dest": "JFK", "date": "2026-08-15",
+                "cabin": "Economy", "oneWay": True,
+            })
+            self.assertEqual(response.status_code, 200)
+            result = response.get_json()["results"][0]
+            self.assertEqual(result["journey_route_source"], "search_fallback")
+            self.assertEqual(result["displayed_itinerary"], "none")
+        finally:
+            app.AWARD_SOURCE = old_award_source
+            app.SEATSAERO_KEY = old_seatsaero_key
+            app.fetch_cash_details = old_fetch_cash_details
+
+    def test_full_provider_datetime_survives_cash_normalization(self):
+        old_serpapi_search = app.serpapi_search
+        old_token = app.SERPAPI_TOKEN
+        try:
+            app.SERPAPI_TOKEN = "test"
+
+            def fake_serpapi_search(*_args, **_kwargs):
+                return {"best_flights": [{
+                    "price": 620,
+                    "total_duration": 510,
+                    "flights": [{
+                        "departure_airport": {"id": "FRA", "time": "2026-08-15 10:45"},
+                        "arrival_airport": {"id": "JFK", "time": "2026-08-15 13:15"},
+                        "duration": 510,
+                        "flight_number": "LH 400",
+                        "airline": "Lufthansa",
+                    }],
+                }]}
+
+            app.serpapi_search = fake_serpapi_search
+            details = app.fetch_cash_details("FRA", "JFK", app.dt.date(2026, 8, 15), "Economy")
+            seg = details["segments"][0]
+            self.assertEqual(seg["departure_datetime_raw"], "2026-08-15 10:45")
+            self.assertEqual(seg["arrival_datetime_raw"], "2026-08-15 13:15")
+            self.assertEqual(seg["dep_time"], "10:45")
+            self.assertEqual(seg["arr_time"], "13:15")
+            self.assertEqual(seg["departure_date"], "2026-08-15")
+            self.assertEqual(seg["arrival_date"], "2026-08-15")
+            self.assertEqual(seg["arrival_day_offset"], 0)
+        finally:
+            app.serpapi_search = old_serpapi_search
+            app.SERPAPI_TOKEN = old_token
+
+    def test_overnight_offset_requires_reliable_evidence(self):
+        self.assertEqual(app._arrival_day_offset("2026-08-15", "2026-08-16", False), 1)
+        self.assertEqual(app._arrival_day_offset(None, None, True), 1)
+        self.assertIsNone(app._arrival_day_offset(None, None, False))
+
+    def test_roundtrip_with_outbound_cash_segments_is_not_full_return_itinerary(self):
+        meta = app.itinerary_ownership_metadata({"segments": [{"dep_iata": "MUC", "arr_iata": "CDG"}]})
+        self.assertEqual(meta["journey_route_source"], "cash_context")
+        self.assertEqual(meta["displayed_itinerary"], "cash")
+        self.assertFalse(meta["verified_identical_routing"])
+
+    def test_normal_cash_search_offers_are_cash_owned_without_times(self):
+        offer = app._serp_item_to_offer({
+            "price": 200,
+            "total_duration": 90,
+            "flights": [{
+                "departure_airport": {"id": "MUC", "time": "2026-07-07 08:10"},
+                "arrival_airport": {"id": "CDG", "time": "2026-07-07 09:40"},
+                "flight_number": "LH 2226",
+            }],
+        }, "EUR", None, False)
+        self.assertEqual(offer["itinerary_source"], "cash_offer")
+        self.assertEqual(offer["displayed_itinerary"], "cash")
+        self.assertEqual(offer["time_data_status"], "unavailable")
+        self.assertNotIn("dep_time", offer)
+
+    def test_frontend_copy_qualifies_unverified_routing_and_direct_signal(self):
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(root, "static", "app.js"), encoding="utf-8") as f:
+            js = f.read()
+        self.assertIn("Cash routing is shown. Award routing must be verified", js)
+        self.assertIn("Provider reports direct availability", js)
+        self.assertIn("Confirmed itinerary routing is not available.", js)
+        self.assertIn("The price signals are closely matched.", js)
+
+
 if __name__ == "__main__":
     unittest.main()

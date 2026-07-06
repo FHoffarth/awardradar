@@ -923,6 +923,9 @@ def offer_from_tp(row: dict, currency: str) -> dict:
     link = row.get("link")
     return {
         "source": "Travelpayouts",
+        "itinerary_source": "cash_offer",
+        "displayed_itinerary": "cash",
+        "time_data_status": "unavailable",
         "price": float(row.get("price") or 0),
         "currency": currency.upper(),
         "origin": origin,
@@ -1012,6 +1015,9 @@ def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, m
     via_airports = [(s.get("arrival_airport") or {}).get("id", "") for s in segs[:-1]] if stops > 0 else []
     return {
         "source": "Google Flights (SerpApi)",
+        "itinerary_source": "cash_offer",
+        "displayed_itinerary": "cash",
+        "time_data_status": "unavailable",
         "price": price,
         "currency": currency.upper(),
         "origin": origin,
@@ -1391,6 +1397,56 @@ def _date_iso(value) -> str | None:
     return str(value) if value else None
 
 
+def _provider_datetime_parts(value) -> dict:
+    """Parse only the stable SerpApi Google Flights format we currently observe.
+
+    SerpApi flight segments expose airport times as strings like
+    ``YYYY-MM-DD HH:MM``. They do not include timezone names or UTC offsets in
+    the consumed fixture/response shape, so the raw string is the authority and
+    timezone fields stay absent.
+    """
+    raw = str(value or "").strip()
+    out = {"raw": raw or None, "date": None, "time": None, "has_offset": False}
+    if len(raw) >= 16 and re.match(r"^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}", raw):
+        out["date"] = raw[:10]
+        out["time"] = raw[11:16]
+        tail = raw[16:].strip()
+        out["has_offset"] = bool(re.search(r"(Z|[+-]\d{2}:?\d{2})$", tail))
+    elif len(raw) >= 5 and re.match(r"^\d{2}:\d{2}$", raw[:5]):
+        out["time"] = raw[:5]
+    return out
+
+
+def _arrival_day_offset(dep_date: str | None, arr_date: str | None, overnight: bool | None):
+    if dep_date and arr_date:
+        try:
+            dep = dt.date.fromisoformat(dep_date)
+            arr = dt.date.fromisoformat(arr_date)
+            return (arr - dep).days
+        except ValueError:
+            pass
+    if overnight is True:
+        return 1
+    return None
+
+
+def itinerary_ownership_metadata(cash_details: dict | None) -> dict:
+    segments = (cash_details or {}).get("segments") or []
+    if segments:
+        return {
+            "journey_route_source": "cash_context",
+            "award_routing_status": "not_available",
+            "verified_identical_routing": False,
+            "displayed_itinerary": "cash",
+        }
+    return {
+        "journey_route_source": "search_fallback",
+        "award_routing_status": "not_available",
+        "verified_identical_routing": False,
+        "displayed_itinerary": "none",
+    }
+
+
 def _award_source_mode() -> str:
     mode = (AWARD_SOURCE or "estimated").strip().lower()
     if mode in {"estimated", "estimate", "static", "static_estimate"}:
@@ -1724,8 +1780,10 @@ def fetch_cash_details(origin: str, dest: str, dep: dt.date, cabin: str, currenc
         last  = segs[-1] if segs else {}
         dep_time_raw = ((first.get("departure_airport") or {}).get("time") or "")
         arr_time_raw = ((last.get("arrival_airport")  or {}).get("time") or "")
-        dep_time = dep_time_raw[11:16] if len(dep_time_raw) > 10 else None
-        arr_time = arr_time_raw[11:16] if len(arr_time_raw) > 10 else None
+        dep_parts = _provider_datetime_parts(dep_time_raw)
+        arr_parts = _provider_datetime_parts(arr_time_raw)
+        dep_time = dep_parts["time"]
+        arr_time = arr_parts["time"]
         stops = max(0, len(segs) - 1)
         flight_number = first.get("flight_number") or None
         via = [((s.get("arrival_airport") or {}).get("id") or "") for s in segs[:-1]] if stops > 0 else []
@@ -1736,16 +1794,24 @@ def fetch_cash_details(origin: str, dest: str, dep: dt.date, cabin: str, currenc
             aa = seg.get("arrival_airport") or {}
             dt_raw = da.get("time") or ""
             at_raw = aa.get("time") or ""
+            seg_dep = _provider_datetime_parts(dt_raw)
+            seg_arr = _provider_datetime_parts(at_raw)
+            overnight = seg.get("overnight", False)
             segments.append({
                 "flight_number": seg.get("flight_number"),
                 "airline":       seg.get("airline"),
                 "aircraft":      seg.get("airplane"),
                 "dep_iata":      da.get("id"),
-                "dep_time":      dt_raw[11:16] if len(dt_raw) > 10 else None,
+                "departure_datetime_raw": seg_dep["raw"],
+                "departure_date": seg_dep["date"],
+                "dep_time":      seg_dep["time"],
                 "arr_iata":      aa.get("id"),
-                "arr_time":      at_raw[11:16] if len(at_raw) > 10 else None,
+                "arrival_datetime_raw": seg_arr["raw"],
+                "arrival_date":  seg_arr["date"],
+                "arr_time":      seg_arr["time"],
+                "arrival_day_offset": _arrival_day_offset(seg_dep["date"], seg_arr["date"], overnight),
                 "duration_min":  seg.get("duration"),
-                "overnight":     seg.get("overnight", False),
+                "overnight":     overnight,
             })
         layovers = [
             {"iata": l.get("id"), "duration_min": l.get("duration"), "overnight": l.get("overnight", False)}
@@ -1756,6 +1822,11 @@ def fetch_cash_details(origin: str, dest: str, dep: dt.date, cabin: str, currenc
         typical_range = insights.get("typical_price_range")
         return {
             "price":         float(best["price"]),
+            "departure_datetime_raw": dep_parts["raw"],
+            "arrival_datetime_raw": arr_parts["raw"],
+            "departure_date": dep_parts["date"],
+            "arrival_date":  arr_parts["date"],
+            "arrival_day_offset": _arrival_day_offset(dep_parts["date"], arr_parts["date"], any(s.get("overnight") for s in segments)),
             "dep_time":      dep_time,
             "arr_time":      arr_time,
             "duration":      _fmt_duration(best.get("total_duration")),
@@ -2143,6 +2214,7 @@ def _awards_inner():
 
             best = next((p for p in combined if p.get("grade") and p["grade"]["tier"] in ("exceptional", "great")), None)
             flight_info = {k: v for k, v in cash_details.items() if k != "price"} if cash_details else None
+            ownership = itinerary_ownership_metadata(cash_details)
 
             # Decision Engine Level 1 — trip-basis-safe verdict on the top program.
             top = combined[0] if combined else None
@@ -2167,6 +2239,10 @@ def _awards_inner():
                 "cash_level":     cash_level,
                 "cash_source":    cash_source_metadata(),
                 "flight":         flight_info,
+                "journey_route_source": ownership["journey_route_source"],
+                "award_routing_status": ownership["award_routing_status"],
+                "verified_identical_routing": ownership["verified_identical_routing"],
+                "displayed_itinerary": ownership["displayed_itinerary"],
                 "programs":       combined,
                 "best_program":   best["program"] if best else None,
                 "has_live_data":  bool(live_programs),
