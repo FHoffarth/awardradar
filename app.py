@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import concurrent.futures as cf
 import datetime as dt
+import mimetypes
 import os
 import re
 import time
@@ -57,6 +58,10 @@ SERPAPI_TTL = int(os.environ.get("SERPAPI_TTL", "21600"))      # Cache-Lebensdau
 SERPAPI_MAX_PAIRS = int(os.environ.get("SERPAPI_MAX_PAIRS", "2"))  # max. Origin/Dest-Paare pro Klick (= Anzahl bezahlter Suchen)
 SERPAPI_DEEP = (os.environ.get("SERPAPI_DEEP", "0") == "1")    # exakt wie im Browser, aber langsamer
 FLEX_MAX_DAYS = int(os.environ.get("FLEX_MAX_DAYS", "3"))       # max. Flex-Tage (±N) für Datums-Kalender
+
+# Ensure self-hosted WOFF2 fonts are served as font/woff2 (not application/
+# octet-stream) — some Linux hosts (e.g. Railway) lack the .woff2 mimetype.
+mimetypes.add_type("font/woff2", ".woff2")
 
 app = Flask(__name__)
 
@@ -556,10 +561,10 @@ def set_security_headers(response):
         "Content-Security-Policy",
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; "
-        "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net fonts.googleapis.com; "
+        "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net; "
         "img-src 'self' data: content.airhex.com; "
         "connect-src 'self'; "
-        "font-src 'self' cdn.jsdelivr.net fonts.gstatic.com; "
+        "font-src 'self' cdn.jsdelivr.net; "
         "frame-ancestors 'none';"
     )
     return response

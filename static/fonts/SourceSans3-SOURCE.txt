@@ -1,0 +1,9 @@
+Source Sans 3
+
+Source: Adobe Fonts GitHub repository
+Release: 3.052R
+Release URL: https://github.com/adobe-fonts/source-sans/releases/tag/3.052R
+Files used: WOFF2/TTF static webfonts for Regular 400, Medium 500, Semibold 600, Bold 700
+License: SIL Open Font License 1.1
+
+Only the upright WOFF2 files required by AwardRadar are bundled.
