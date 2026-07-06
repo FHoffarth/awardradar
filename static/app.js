@@ -736,8 +736,7 @@ function cheapCardsHtml(offers, sortKey) {
     const viaText = o.via && o.via.length ? ` via ${o.via.join(', ')}` : '';
     const stopsLabel = stops === 0 ? 'Nonstop' : stops === 1 ? `1 Stop${viaText}` : `${stops} Stops${viaText}`;
     const airlineLabel = o.airline || 'Airline';
-    const logoUrl = o.airlineCode ? `https://content.airhex.com/content/logos/airlines_${esc(o.airlineCode)}_200_200_s.png` : '';
-    const logoImg = logoUrl ? `<img src="${logoUrl}" class="airline-logo" alt="" onerror="this.style.display='none'">` : '';
+    const logoImg = airlineMarkHtml(airlineLabel, o.airlineCode);
     return `<div class="card${isTop ? ' top-card' : ''}">
       ${isTop ? bestBadgeHtml(o) : ''}
       <div class="card-row">
@@ -757,6 +756,20 @@ function cheapCardsHtml(offers, sortKey) {
       ${linksHtml(o.links)}
     </div>`;
   }).join('');
+}
+
+function airlineMarkHtml(airlineName, airlineCode) {
+  const code = String(airlineCode || '').trim().toUpperCase();
+  const name = String(airlineName || '').trim();
+  const fallback = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0])
+    .join('')
+    .toUpperCase();
+  const label = (code || fallback || 'AR').slice(0, 2);
+  return `<span class="airline-mark" aria-hidden="true">${esc(label)}</span>`;
 }
 
 function applySort(key) {
@@ -821,8 +834,7 @@ function render(data) {
     if (skipResults.length) {
       html += skipResults.map(r => {
         const isVerified = r.verified === true;
-        const logoUrl = r.airlineCode ? `https://content.airhex.com/content/logos/airlines_${esc(r.airlineCode)}_200_200_s.png` : '';
-        const logoImg = logoUrl ? `<img src="${logoUrl}" class="airline-logo" alt="" onerror="this.style.display='none'">` : '';
+        const logoImg = airlineMarkHtml(r.airline, r.airlineCode);
         const verifiedBadge = isVerified
           ? `<div class="verified-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Segment context available</div>`
           : `<div class="unverified-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Risk context — verify routing</div>`;
