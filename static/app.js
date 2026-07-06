@@ -231,8 +231,8 @@ function awardJourneyMapHtml(r) {
     const outSeg = i < segs.length ? segs[i] : null;
     const times = [];
     // Chronological at each airport: arrival (inbound) before departure (outbound).
-    if ((role === 'destination' || role === 'stop') && inSeg && inSeg.arr_time) times.push(`Arr ${esc(inSeg.arr_time)}${esc(segmentArrivalSuffix(inSeg))}`);
-    if ((role === 'origin' || role === 'stop') && outSeg && outSeg.dep_time) times.push(`Dep ${esc(outSeg.dep_time)}`);
+    if ((role === 'destination' || role === 'stop') && inSeg && inSeg.arr_time) times.push(`<span class="aw-route-time">Arr ${esc(inSeg.arr_time)}${esc(segmentArrivalSuffix(inSeg))}</span>`);
+    if ((role === 'origin' || role === 'stop') && outSeg && outSeg.dep_time) times.push(`<span class="aw-route-time">Dep ${esc(outSeg.dep_time)}</span>`);
     const lay = role === 'stop' ? layoverByIata[code] : null;
     const layStr = lay && lay.duration_min ? `Layover ${fmtDur(lay.duration_min)}${lay.overnight ? ' \u00b7 overnight' : ''}` : '';
     rows.push(`<li class="aw-route-node aw-route-node-${role}">
@@ -1093,7 +1093,7 @@ function render(data) {
           meaning = 'AwardRadar does not yet have enough compatible data to make a reliable comparison.';
         }
         if (!incompatibleBasis && !routingVerified && ownership.journeyRouteSource === 'cash_context') {
-          meaning += ' Cash routing is shown. Award routing must be verified before comparing travel time, stops and convenience.';
+          meaning += ' The itinerary context below is cash-based.';
         }
         const meansHtml = `<div class="aw-means"><div class="aw-block-k">What this means</div><p>${esc(meaning)}</p></div>`;
 
