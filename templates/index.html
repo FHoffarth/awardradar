@@ -9,6 +9,17 @@
       ga4Id: 'G-MGN0MCDQKB'
     };
   </script>
+  <script>
+    (function () {
+      var allowed = { small: true, default: true, large: true };
+      var value = 'default';
+      try {
+        var stored = localStorage.getItem('awardradar_text_size');
+        if (allowed[stored]) value = stored;
+      } catch (e) {}
+      document.documentElement.dataset.textSize = value;
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>AwardRadar – Find where your miles go further.</title>
   <meta name="description" content="Travel intelligence platform for award flights. Discover award opportunities, compare cash and miles, and uncover hidden travel value — worldwide.">
@@ -63,7 +74,7 @@
   <link rel="icon" href="/static/favicon-48x48.png" type="image/png" sizes="48x48">
   <link rel="icon" href="/static/favicon-96x96.png" type="image/png" sizes="96x96">
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" sizes="180x180">
-  <link rel="stylesheet" href="/static/app.css?v=132">
+  <link rel="stylesheet" href="/static/app.css?v=134">
   <link rel="stylesheet" href="/static/consent.css?v=1">
   <link rel="stylesheet" href="/static/saved_searches.css?v=1">
   <link rel="stylesheet" href="/static/flatpickr.min.css">
@@ -139,11 +150,17 @@
         </div>
       </a>
       <div class="nav-right">
+        <div class="text-size-control" role="group" aria-label="Text size">
+          <button type="button" class="text-size-btn" data-text-size-option="small" aria-label="Use small text size" title="Small text" aria-pressed="false">A&minus;</button>
+          <button type="button" class="text-size-btn" data-text-size-option="default" aria-label="Use default text size" title="Default text" aria-pressed="true">A</button>
+          <button type="button" class="text-size-btn" data-text-size-option="large" aria-label="Use large text size" title="Large text" aria-pressed="false">A+</button>
+        </div>
         <button class="theme-btn" id="themeBtn" aria-label="Toggle light/dark mode">
           <svg id="themeIconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg id="themeIconSun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
         </button>
         <div class="status" id="status" role="status" aria-live="polite" aria-atomic="true">ready</div>
+        <span class="sr-only" id="textSizeStatus" aria-live="polite" aria-atomic="true">Text size Default</span>
       </div>
     </div>
   </nav>
@@ -528,7 +545,7 @@
 
   <script src="/static/flatpickr.min.js"></script>
   <script src="/static/world-land.js"></script>
-  <script src="/static/app.js?v=140"></script>
+  <script src="/static/app.js?v=141"></script>
   <script src="/static/saved_searches.js?v=1"></script>
 </body>
 </html>
