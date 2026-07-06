@@ -466,10 +466,22 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         with open(os.path.join(root, "static", "app.js"), encoding="utf-8") as f:
             js = f.read()
+        with open(os.path.join(root, "templates", "index.html"), encoding="utf-8") as f:
+            html = f.read()
+        self.assertIn("Cash itinerary shown", js)
         self.assertIn("Cash routing is shown. Award routing must be verified", js)
+        self.assertIn("Award routing must be verified before comparing travel time, stops and convenience.", js)
+        self.assertIn("The award shows a strong redemption value.", js)
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
+        self.assertIn("app.js?v=137", html)
+        self.assertNotIn("Miles are worth using here.", js)
+        self.assertNotIn("Miles look worth using here.", js)
+        self.assertNotIn("Miles may be worth using here.", js)
+        self.assertNotIn("Cash and miles are closely matched.", js)
+        self.assertNotIn("Journey intelligence route", js)
+        self.assertNotIn("o.direct ? 'Nonstop' : ''", js)
 
 
 if __name__ == "__main__":

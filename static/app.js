@@ -899,24 +899,24 @@ function render(data) {
         // Copy maps only — no scoring, thresholds or backend fields are recomputed.
         const HEADLINE = {
           cash_may_be_stronger: {
-            high:   ['Cash is the better choice.', 'Pay cash and save your miles.'],
-            medium: ['Cash looks like the better choice.', 'The current comparison favors paying cash.'],
-            low:    ['Cash may be the better choice.', 'Verify both options before deciding.'],
+            high:   ['Cash offers the stronger price signal.', 'Pay cash and save your miles.'],
+            medium: ['Cash offers the stronger price signal.', 'The current comparison favors paying cash.'],
+            low:    ['Cash may offer the stronger price signal.', 'Verify both options before deciding.'],
           },
           strong_miles_value: {
-            high:   ['Miles are worth using here.', 'This redemption offers strong value.'],
-            medium: ['Miles look worth using here.', 'This redemption appears promising.'],
-            low:    ['Miles may be worth checking.', 'Verify availability and final costs before transferring points.'],
+            high:   ['The award shows a strong redemption value.', 'This redemption offers strong value.'],
+            medium: ['The award shows a strong redemption value.', 'This redemption appears promising.'],
+            low:    ['The award shows a promising value signal.', 'Verify availability and final costs before transferring points.'],
           },
           promising_miles_value: {
-            high:   ['Miles may be worth using here.', 'This redemption looks promising.'],
-            medium: ['Miles may be worth using here.', 'This redemption looks promising.'],
+            high:   ['The award shows promising redemption value.', 'This redemption looks promising.'],
+            medium: ['The award shows promising redemption value.', 'This redemption looks promising.'],
             low:    ['This award option may be worth checking.', 'Confirm availability, taxes and program rules first.'],
           },
           mixed_value: {
-            high:   ['Cash and miles are closely matched.', 'Compare the final price and award availability before deciding.'],
-            medium: ['Cash and miles are closely matched.', 'Compare the final price and award availability before deciding.'],
-            low:    ['Cash and miles are closely matched.', 'Compare the final price and award availability before deciding.'],
+            high:   ['The price signals are closely matched.', 'Compare the final price and award availability before deciding.'],
+            medium: ['The price signals are closely matched.', 'Compare the final price and award availability before deciding.'],
+            low:    ['The price signals are closely matched.', 'Compare the final price and award availability before deciding.'],
           },
           insufficient_data: {
             high:   ['More information is needed before comparing.', 'Verify the current cash fare and award availability.'],
@@ -2230,7 +2230,7 @@ if (innerWidth <= 640) {
       const recLbl  = REC_LABEL[o.recommendation] || 'Verify miles option';
       const reason  = discReason(o);
       const seatsLbl = o.seats > 0 ? `${o.seats} seat${o.seats !== 1 ? 's' : ''} available` : '';
-      const metaLine = [o.direct ? 'Nonstop' : '', seatsLbl].filter(Boolean).join(' · ');
+      const metaLine = [o.direct ? 'Provider reports direct availability' : '', seatsLbl].filter(Boolean).join(' · ');
 
       // CTA: prefill search form fields then switch to awards tab
       const ctaClick = `(function(){` +
