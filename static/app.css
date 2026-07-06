@@ -462,6 +462,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .badge{background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:5px;padding:2px 7px}
 .card-airline{display:flex;align-items:center;gap:7px;margin:6px 0 4px;font-size:14px;font-weight:600;color:var(--text)}
 .airline-logo{width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.1);object-fit:contain;flex-shrink:0}
+.airline-mark{width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--chip-bg);border:1px solid var(--border);color:var(--muted);font-size:9px;font-weight:700;letter-spacing:.03em;line-height:1}
 .airline-name{}
 .card-detail{font-size:13px;color:var(--muted);margin-bottom:2px}
 .card-source{font-size:12px;color:var(--muted);margin-top:2px}
