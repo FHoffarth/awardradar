@@ -475,7 +475,7 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.js?v=137", html)
+        self.assertIn("app.js?v=138", html)
         self.assertNotIn("Miles are worth using here.", js)
         self.assertNotIn("Miles look worth using here.", js)
         self.assertNotIn("Miles may be worth using here.", js)
