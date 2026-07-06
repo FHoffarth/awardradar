@@ -556,10 +556,10 @@ def set_security_headers(response):
         "Content-Security-Policy",
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; "
-        "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net fonts.googleapis.com; "
+        "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net; "
         "img-src 'self' data: content.airhex.com; "
         "connect-src 'self'; "
-        "font-src 'self' cdn.jsdelivr.net fonts.gstatic.com; "
+        "font-src 'self' cdn.jsdelivr.net; "
         "frame-ancestors 'none';"
     )
     return response
