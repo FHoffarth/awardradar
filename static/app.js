@@ -288,6 +288,47 @@ function applyTheme(t) {
 }
 applyTheme(theme);
 
+const TEXT_SIZE_KEY = 'awardradar_text_size';
+const TEXT_SIZE_LABELS = { small: 'Small', default: 'Default', large: 'Large' };
+const TEXT_SIZE_VALUES = Object.keys(TEXT_SIZE_LABELS);
+
+function normalizeTextSize(value) {
+  return TEXT_SIZE_VALUES.includes(value) ? value : 'default';
+}
+
+function storedTextSize() {
+  try {
+    return localStorage.getItem(TEXT_SIZE_KEY);
+  } catch (e) {
+    return '';
+  }
+}
+
+let textSize = normalizeTextSize(document.documentElement.dataset.textSize || storedTextSize());
+
+function applyTextSize(value) {
+  textSize = normalizeTextSize(value);
+  document.documentElement.dataset.textSize = textSize;
+  try {
+    localStorage.setItem(TEXT_SIZE_KEY, textSize);
+  } catch (e) {}
+  document.querySelectorAll('[data-text-size-option]').forEach(btn => {
+    const active = btn.dataset.textSizeOption === textSize;
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  const statusEl = $('textSizeStatus');
+  if (statusEl) statusEl.textContent = `Text size ${TEXT_SIZE_LABELS[textSize]}`;
+}
+
+function initTextSizeControls() {
+  applyTextSize(textSize);
+  document.querySelectorAll('[data-text-size-option]').forEach(btn => {
+    btn.addEventListener('click', () => applyTextSize(btn.dataset.textSizeOption));
+  });
+}
+
+initTextSizeControls();
+
 
 function iso(d) { return d.toISOString().slice(0, 10); }
 
