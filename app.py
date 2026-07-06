@@ -18,6 +18,7 @@ from functools import lru_cache
 from urllib.parse import quote_plus
 
 import requests
+from werkzeug.exceptions import BadRequest
 
 
 class QuotaError(RuntimeError):
@@ -86,6 +87,15 @@ def lang_from_payload(data: dict | None = None) -> str:
     else:
         lang = (request.args.get("lang") or request.headers.get("X-Lang") or "").lower()
     return "en" if lang.startswith("en") else "de"
+
+
+def api_error(error: str, message: str, status: int, retryable: bool = False):
+    return jsonify({
+        "ok": False,
+        "error": error,
+        "message": message,
+        "retryable": retryable,
+    }), status
 
 
 TEXT = {
@@ -525,7 +535,7 @@ def api_guard():
     if request.path in public_paths or request.path.startswith(public_prefixes):
         return None
     if request.path.startswith("/api/") and not wants_access():
-        return jsonify({"ok": False, "error": tx("api_guard", lang_from_payload())}), 401
+        return api_error("unauthorized", "API authentication is required.", 401, retryable=False)
     return None
 
 
@@ -2163,24 +2173,55 @@ def awards():
     try:
         return _awards_inner()
     except QuotaError:
-        # Cash quota exhausted AND somehow not caught inside — return 503 only as last resort
-        return jsonify({"ok": False, "error": "quota_exhausted"}), 503
+        return api_error("quota_exhausted", "Search quota is exhausted. Please try again later.", 429, retryable=True)
+    except requests.Timeout as exc:
+        app.logger.warning("awards provider timeout: %s", exc)
+        return api_error("provider_timeout", "Award analysis timed out. Please try again shortly.", 504, retryable=True)
+    except requests.RequestException as exc:
+        app.logger.warning("awards provider unavailable: %s", exc)
+        return api_error("provider_unavailable", "Award analysis is temporarily unavailable. Please try again shortly.", 503, retryable=True)
+    except BadRequest as exc:
+        app.logger.info("awards invalid json: %s", exc)
+        return api_error("invalid_json", "Request body must be valid JSON.", 400, retryable=False)
     except Exception as exc:
         app.logger.error("awards unhandled: %s", exc, exc_info=True)
-        return jsonify({"ok": False, "error": "analysis_unavailable"}), 500
+        return api_error("internal_error", "Award analysis failed unexpectedly.", 500, retryable=True)
 
 
 def _awards_inner():
-    data = request.get_json(force=True) or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return api_error("invalid_json", "Request body must be valid JSON.", 400, retryable=False)
     lang = lang_from_payload(data)
+    missing = []
+    if not str(data.get("origin") or "").strip():
+        missing.append("origin")
+    if not str(data.get("dest") or "").strip():
+        missing.append("destination")
+    if not str(data.get("date") or "").strip():
+        missing.append("departure date")
+    if missing:
+        return api_error("invalid_request", "Origin, destination and departure date are required.", 400, retryable=False)
     origins = resolve_codes(data.get("origin", ""))
     dests   = resolve_codes(data.get("dest",   ""))
-    dep     = parse_date(data.get("date", ""), 60)
+    try:
+        dep = dt.date.fromisoformat(str(data.get("date")))
+    except (TypeError, ValueError):
+        return api_error("invalid_date", "Departure date must use YYYY-MM-DD.", 400, retryable=False)
     one_way = bool(data.get("oneWay", True))
-    ret     = None if one_way else parse_date(data.get("returnDate", ""), 67)
+    ret = None
+    if not one_way:
+        if not str(data.get("returnDate") or "").strip():
+            return api_error("invalid_request", "Return date is required for round-trip searches.", 400, retryable=False)
+        try:
+            ret = dt.date.fromisoformat(str(data.get("returnDate")))
+        except (TypeError, ValueError):
+            return api_error("invalid_date", "Return date must use YYYY-MM-DD.", 400, retryable=False)
     cabin   = data.get("cabin") or (data.get("cabins") or ["Economy"])[0]
     if not origins or not dests:
-        return jsonify({"ok": False, "error": tx("missing_origin_dest", lang)}), 400
+        return api_error("invalid_request", tx("missing_origin_dest", lang), 400, retryable=False)
+    if not any(origin != dest for origin in origins[:4] for dest in dests[:3]):
+        return api_error("unsupported_route", "Origin and destination must be different.", 422, retryable=False)
 
     trip_type = "one_way" if one_way else "round_trip"
     award_source_meta = award_source_metadata()

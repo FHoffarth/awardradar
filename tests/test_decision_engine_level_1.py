@@ -484,5 +484,105 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertNotIn("o.direct ? 'Nonstop' : ''", js)
 
 
+class AwardsApiErrorHandling(unittest.TestCase):
+    def setUp(self):
+        self.client = app.app.test_client()
+        self.old_app_token = app.APP_TOKEN
+        self.old_fetch_cash_details = app.fetch_cash_details
+        self.old_static_search = app.STATIC_AWARD_SOURCE.search
+        self.old_award_source_metadata = app.award_source_metadata
+        app.APP_TOKEN = ""
+
+    def tearDown(self):
+        app.APP_TOKEN = self.old_app_token
+        app.fetch_cash_details = self.old_fetch_cash_details
+        app.STATIC_AWARD_SOURCE.search = self.old_static_search
+        app.award_source_metadata = self.old_award_source_metadata
+
+    def post_awards(self, payload):
+        return self.client.post("/api/awards", json=payload)
+
+    def assert_error(self, response, status, code, retryable):
+        self.assertEqual(response.status_code, status)
+        data = response.get_json()
+        self.assertEqual(data["ok"], False)
+        self.assertEqual(data["error"], code)
+        self.assertIn("message", data)
+        self.assertEqual(data["retryable"], retryable)
+        body = response.get_data(as_text=True).lower()
+        self.assertNotIn("traceback", body)
+        self.assertNotIn("serpapi", body)
+        self.assertNotIn("token", body)
+
+    def test_missing_json_body_is_400(self):
+        response = self.client.post("/api/awards", data=b"", content_type="application/json")
+        self.assert_error(response, 400, "invalid_json", False)
+
+    def test_invalid_json_is_400(self):
+        response = self.client.post("/api/awards", data="{bad", content_type="application/json")
+        self.assert_error(response, 400, "invalid_json", False)
+
+    def test_missing_origin_is_400(self):
+        response = self.post_awards({"dest": "CDG", "date": "2026-07-07", "oneWay": True})
+        self.assert_error(response, 400, "invalid_request", False)
+
+    def test_missing_destination_is_400(self):
+        response = self.post_awards({"origin": "FRA", "date": "2026-07-07", "oneWay": True})
+        self.assert_error(response, 400, "invalid_request", False)
+
+    def test_missing_departure_date_is_400(self):
+        response = self.post_awards({"origin": "FRA", "dest": "CDG", "oneWay": True})
+        self.assert_error(response, 400, "invalid_request", False)
+
+    def test_invalid_departure_date_is_400(self):
+        response = self.post_awards({"origin": "FRA", "dest": "CDG", "date": "bad", "oneWay": True})
+        self.assert_error(response, 400, "invalid_date", False)
+
+    def test_same_origin_destination_is_422(self):
+        response = self.post_awards({"origin": "FRA", "dest": "FRA", "date": "2026-07-07", "oneWay": True})
+        self.assert_error(response, 422, "unsupported_route", False)
+
+    def test_provider_unavailable_is_503(self):
+        app.STATIC_AWARD_SOURCE.search = lambda *a, **k: (_ for _ in ()).throw(app.requests.ConnectionError("provider down"))
+        response = self.post_awards({"origin": "FRA", "dest": "CDG", "date": "2026-07-07", "oneWay": True})
+        self.assert_error(response, 503, "provider_unavailable", True)
+
+    def test_provider_timeout_is_504(self):
+        app.STATIC_AWARD_SOURCE.search = lambda *a, **k: (_ for _ in ()).throw(app.requests.Timeout("provider timeout"))
+        response = self.post_awards({"origin": "FRA", "dest": "CDG", "date": "2026-07-07", "oneWay": True})
+        self.assert_error(response, 504, "provider_timeout", True)
+
+    def test_empty_valid_result_is_200_not_500(self):
+        app.STATIC_AWARD_SOURCE.search = lambda *a, **k: []
+        response = self.post_awards({"origin": "FRA", "dest": "CDG", "date": "2026-07-07", "oneWay": True})
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["results"][0]["programs"], [])
+
+    def test_unexpected_internal_exception_is_500(self):
+        app.award_source_metadata = lambda: (_ for _ in ()).throw(RuntimeError("internal boom"))
+        response = self.post_awards({"origin": "FRA", "dest": "CDG", "date": "2026-07-07", "oneWay": True})
+        self.assert_error(response, 500, "internal_error", True)
+        self.assertNotIn("internal boom", response.get_data(as_text=True))
+
+    def test_success_contract_remains_unchanged(self):
+        response = self.post_awards({"origin": "FRA", "dest": "CDG", "date": "2026-07-07", "cabin": "Economy", "oneWay": True})
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertTrue(data["ok"])
+        self.assertIn("results", data)
+        self.assertIn("award_source", data)
+        result = data["results"][0]
+        self.assertIn("decision", result)
+        self.assertIn("programs", result)
+        self.assertIn("journey_route_source", result)
+
+    def test_unauthenticated_request_returns_401_when_guard_enabled(self):
+        app.APP_TOKEN = "secret-test-token"
+        response = self.post_awards({"origin": "FRA", "dest": "CDG", "date": "2026-07-07", "oneWay": True})
+        self.assert_error(response, 401, "unauthorized", False)
+
+
 if __name__ == "__main__":
     unittest.main()
