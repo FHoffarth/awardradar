@@ -24,15 +24,6 @@ let _itinSeq = 0;
 function buildItinerary(f) {
   if (!f) return '';
   const segs = f.segments || [];
-  // Summary line
-  const sumParts = [];
-  if (f.dep_time && f.arr_time) sumParts.push(`<span class="aw-fs-times">${esc(f.dep_time)} → ${esc(f.arr_time)}</span>`);
-  if (f.duration) sumParts.push(`<span class="aw-fs-dur">${esc(f.duration)}</span>`);
-  if (f.stops === 0) sumParts.push('<span class="aw-fs-nonstop">Nonstop</span>');
-  else if (f.stops > 0) {
-    const viaStr = (f.via || []).join(' · ');
-    sumParts.push(`<span class="aw-fs-stops">${f.stops} stop${f.stops > 1 ? 's' : ''}${viaStr ? ' · ' + esc(viaStr) : ''}</span>`);
-  }
 
   // Badges
   const badges = [];
@@ -77,8 +68,9 @@ function buildItinerary(f) {
     </button>`;
   }
 
+  // Route/times/duration now live in the compact itinerary summary (node timeline);
+  // this drawer carries only warning badges + the deep per-segment details.
   return `<div class="aw-itin">
-    ${sumParts.length ? `<div class="aw-itin-sum">${sumParts.join('<span class="aw-fs-sep">·</span>')}</div>` : ''}
     ${badges.length ? `<div class="aw-itin-badges">${badges.join('')}</div>` : ''}
     ${toggle}${detail}
   </div>`;
@@ -208,53 +200,16 @@ function awardJourneyMapHtml(r) {
   if (nodes.length < 2) return { html: '', trustNote: '' };
 
   const flight = r.flight || {};
-  const incompatibleBasis = (r.decision || {}).trip_basis_compatible === false;
-  const coordsKnown = nodes.every(code => AWARDRADAR_AIRPORT_COORDS[code]);
-  const width = 720, height = 126, padX = 54, baseline = 54;
-  const airportMeta = code => AWARDRADAR_AIRPORT_COORDS[code] || null;
-  const segmentDistance = (from, to) => {
-    const a = airportMeta(from), b = airportMeta(to);
-    if (!a || !b) return 1;
-    const dLat = b.lat - a.lat;
-    let dLon = Math.abs(b.lon - a.lon);
-    if (dLon > 180) dLon = 360 - dLon;
-    return Math.max(1, Math.sqrt(dLat * dLat + dLon * dLon));
-  };
-  const rawDistances = nodes.slice(0, -1).map((code, i) => segmentDistance(code, nodes[i + 1]));
-  const avgDistance = rawDistances.reduce((sum, n) => sum + n, 0) / Math.max(rawDistances.length, 1);
-  const weights = coordsKnown
-    ? rawDistances.map(d => Math.max(0.8, Math.min(1.55, d / Math.max(avgDistance, 1))))
-    : rawDistances.map(() => 1);
-  const totalWeight = weights.reduce((sum, n) => sum + n, 0) || 1;
-  const pts = [{ code: nodes[0], x: padX, y: baseline }];
-  let cursor = padX;
-  weights.forEach((w, i) => {
-    cursor += ((width - padX * 2) * w) / totalWeight;
-    pts.push({ code: nodes[i + 1], x: cursor, y: baseline });
-  });
-
   const segs = Array.isArray(flight.segments) ? flight.segments : [];
-  const stopCount = Math.max(nodes.length - 2, 0);
-  const stopText = stopCount === 0 ? 'Nonstop' : `${stopCount} stop${stopCount > 1 ? 's' : ''}`;
+  const coordsKnown = nodes.every(code => AWARDRADAR_AIRPORT_COORDS[code]);
+  const cityOf = code => (AWARDRADAR_AIRPORT_COORDS[code] || {}).city || '';
   const layoverByIata = {};
   (flight.layovers || []).forEach(l => {
     if (l && l.iata) layoverByIata[String(l.iata).toUpperCase()] = l;
   });
-  const layovers = Object.values(layoverByIata)
-    .filter(l => l && (l.iata || l.duration_min))
-    .map(l => `${l.iata ? l.iata + ' ' : ''}${l.duration_min ? fmtDur(l.duration_min) : ''}`.trim())
-    .filter(Boolean);
-  const facts = [
-    r.returnDate ? 'Round trip' : 'One-way',
-    r.date,
-    r.returnDate,
-    r.cabin,
-    flight.duration,
-    stopText,
-    layovers.length ? `Layover ${layovers.join(' / ')}` : '',
-  ].filter(Boolean);
-  const displayRoute = nodes.join(' \u2192 ');
-  const summary = `${displayRoute}. ${facts.join('. ')}.`;
+  const stopCount = Math.max(nodes.length - 2, 0);
+  const stopText = stopCount === 0 ? 'Nonstop' : `${stopCount} stop${stopCount > 1 ? 's' : ''}`;
+
   const hasReturnJourney = Array.isArray(flight.return_segments) && flight.return_segments.length > 0;
   const showsOutboundOnly = !!r.returnDate && !hasReturnJourney;
   const kicker = showsOutboundOnly ? 'Outbound cash itinerary shown' : 'Cash itinerary shown';
@@ -262,58 +217,47 @@ function awardJourneyMapHtml(r) {
     ? 'Return routing and award routing must be verified.'
     : 'Award routing must be verified before comparing travel time, stops and convenience.';
   const fallbackNote = coordsKnown ? '' : 'Route visualization simplified because location data is incomplete.';
-  const routeLines = pts.slice(0, -1).map((a, i) => {
-    const b = pts[i + 1];
-    const d = `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} L ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
-    return `<path class="aw-journey-path${i === 0 ? ' aw-journey-path-active' : ''}" d="${d}"/>`;
-  }).join('');
-  const nodeEls = pts.map((p, i) => {
-    const role = i === 0 ? 'origin' : i === pts.length - 1 ? 'destination' : 'stop';
-    const city = airportMeta(p.code)?.city || '';
-    const inboundSeg = i > 0 ? segs[i - 1] : null;
-    const outboundSeg = i < segs.length ? segs[i] : null;
-    const layover = role === 'stop' ? layoverByIata[p.code] : null;
-    const secondary = city || 'Airport';
-    const layoverText = layover?.duration_min ? `${fmtDur(layover.duration_min)} layover` : '';
-    const timeLines = [];
-    if (role === 'origin' && outboundSeg?.dep_time) timeLines.push(`Dep ${outboundSeg.dep_time}`);
-    if (role === 'destination' && inboundSeg?.arr_time) {
-      timeLines.push(`Arr ${inboundSeg.arr_time}${segmentArrivalSuffix(inboundSeg)}`);
-    }
-    if (role === 'stop') {
-      if (inboundSeg?.arr_time) timeLines.push(`Arr ${inboundSeg.arr_time}${segmentArrivalSuffix(inboundSeg)}`);
-      if (outboundSeg?.dep_time) timeLines.push(`Dep ${outboundSeg.dep_time}`);
-    }
-    const secondaryY = p.y + 27;
-    const timeY = p.y + 40;
-    const secondTimeY = p.y + 52;
-    const layoverY = timeLines.length > 1 ? p.y + 64 : p.y + 54;
-    return `<g class="aw-journey-node aw-journey-node-${role}">
-      <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${role === 'stop' ? 3.5 : 4.25}"/>
-      <text class="aw-journey-code" x="${p.x.toFixed(1)}" y="${(p.y - 12).toFixed(1)}" text-anchor="middle">${esc(p.code)}</text>
-      <text class="aw-journey-city" x="${p.x.toFixed(1)}" y="${secondaryY.toFixed(1)}" text-anchor="middle">${esc(secondary)}</text>
-      ${timeLines[0] ? `<text class="aw-journey-time" x="${p.x.toFixed(1)}" y="${timeY.toFixed(1)}" text-anchor="middle">${esc(timeLines[0])}</text>` : ''}
-      ${timeLines[1] ? `<text class="aw-journey-time" x="${p.x.toFixed(1)}" y="${secondTimeY.toFixed(1)}" text-anchor="middle">${esc(timeLines[1])}</text>` : ''}
-      ${layoverText ? `<text class="aw-journey-layover" x="${p.x.toFixed(1)}" y="${layoverY.toFixed(1)}" text-anchor="middle">${esc(layoverText)}</text>` : ''}
-    </g>`;
-  }).join('');
-  const essentialFacts = [r.returnDate ? 'Round trip' : 'One-way', r.cabin, r.date].filter(Boolean);
-  const factEls = essentialFacts.map(f => `<span>${esc(f)}</span>`).join('');
 
-  const html = `<section class="aw-journey-map" role="group" aria-label="${esc(summary)}">
-    <div class="aw-journey-head">
-      <div>
-        <div class="aw-section-kicker">${esc(kicker)}</div>
-        <p class="aw-journey-note">${esc(ownershipNote)}</p>
-      </div>
+  const facts = [r.returnDate ? 'Round trip' : 'One-way', r.cabin, r.date, flight.duration, stopText].filter(Boolean);
+  const summary = `${nodes.join(' \u2192 ')}. ${facts.join('. ')}.`;
+
+  // Compact chronological timeline: origin \u2192 [stops] \u2192 destination, alternating
+  // node/leg rows. Horizontal on desktop, vertical on mobile (CSS only). No SVG,
+  // no decorative framing \u2014 nodes clustered around content.
+  const rows = [];
+  nodes.forEach((code, i) => {
+    const role = i === 0 ? 'origin' : i === nodes.length - 1 ? 'destination' : 'stop';
+    const inSeg = i > 0 ? segs[i - 1] : null;
+    const outSeg = i < segs.length ? segs[i] : null;
+    const times = [];
+    // Chronological at each airport: arrival (inbound) before departure (outbound).
+    if ((role === 'destination' || role === 'stop') && inSeg && inSeg.arr_time) times.push(`Arr ${esc(inSeg.arr_time)}${esc(segmentArrivalSuffix(inSeg))}`);
+    if ((role === 'origin' || role === 'stop') && outSeg && outSeg.dep_time) times.push(`Dep ${esc(outSeg.dep_time)}`);
+    const lay = role === 'stop' ? layoverByIata[code] : null;
+    const layStr = lay && lay.duration_min ? `Layover ${fmtDur(lay.duration_min)}${lay.overnight ? ' \u00b7 overnight' : ''}` : '';
+    rows.push(`<li class="aw-route-node aw-route-node-${role}">
+      <span class="aw-route-dot" aria-hidden="true"></span>
+      <span class="aw-route-code">${esc(code)}</span>
+      ${cityOf(code) ? `<span class="aw-route-city">${esc(cityOf(code))}</span>` : ''}
+      ${times.length ? `<span class="aw-route-times">${times.join('<span class="aw-route-tdot" aria-hidden="true"> \u00b7 </span>')}</span>` : ''}
+      ${layStr ? `<span class="aw-route-layover">${esc(layStr)}</span>` : ''}
+    </li>`);
+    if (i < nodes.length - 1) {
+      const seg = segs[i];
+      const dur = seg && seg.duration_min ? fmtDur(seg.duration_min) : '';
+      rows.push(`<li class="aw-route-leg" aria-hidden="true"><span class="aw-route-legline"></span>${dur ? `<span class="aw-route-legdur">${esc(dur)}</span>` : ''}</li>`);
+    }
+  });
+
+  const factEls = facts.map(f => `<span>${esc(f)}</span>`).join('');
+  const html = `<section class="aw-itin-summary${coordsKnown ? '' : ' aw-itin-summary-partial'}" role="group" aria-label="${esc(summary)}">
+    <div class="aw-itin-sum-head">
+      <div class="aw-section-kicker">${esc(kicker)}</div>
+      <p class="aw-itin-own-note">${esc(ownershipNote)}</p>
     </div>
-    <svg class="aw-journey-svg" viewBox="0 0 ${width} ${height}" aria-hidden="true" focusable="false">
-      <rect class="aw-journey-grid" x="18" y="18" width="${width - 36}" height="${height - 36}" rx="10"/>
-      <g class="aw-journey-routes">${routeLines}</g>
-      <g class="aw-journey-nodes">${nodeEls}</g>
-    </svg>
+    <ol class="aw-route">${rows.join('')}</ol>
+    <div class="aw-itin-facts">${factEls}</div>
     <p class="sr-only">${esc(summary)}</p>
-    <div class="aw-journey-facts">${factEls}</div>
   </section>`;
   return { html, trustNote: fallbackNote };
 }
@@ -594,11 +538,13 @@ async function run() {
     stopProgress(true);
     if (typeof globePulseRoute === 'function') globePulseRoute(_origin, _dest);
     render(data);
+    collapseSearch();               // compact editable summary — only on success
     setStatus('ready');
     $('results').focus({ preventScroll: false });
   } catch (e) {
     stopProgress(false);
-    console.error('[AwardRadar]', e.message);
+    if ($('panelForm') && $('panelForm').hidden) expandSearch();  // keep form usable on error
+    console.debug('[AwardRadar]', e.message);
     let userMsg;
     if (e.isQuota) {
       userMsg = `<div class="card skiplag-empty">
@@ -622,6 +568,65 @@ async function run() {
     $('results').innerHTML = userMsg;
     setStatus('error');
   }
+}
+
+// ===== Compact editable Search Summary (Change A) =====
+// Collapses the full search form into a one-line summary after a successful
+// search, with an accessible "Edit search" restore. Values live in the existing
+// inputs/globals, so nothing is destroyed — only visibility toggled via `hidden`.
+const SEARCH_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function parseIsoDateParts(value) {
+  const m = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d) return null;
+  return { y, m: mo, d };
+}
+function formatSearchDate(value) {
+  const p = parseIsoDateParts(value);
+  return p ? `${p.d} ${SEARCH_MONTHS[p.m - 1]} ${p.y}` : '';
+}
+function formatSearchDateRange(depValue, retValue) {
+  const dep = parseIsoDateParts(depValue);
+  const ret = parseIsoDateParts(retValue);
+  if (!dep && !ret) return '';
+  if (!dep) return formatSearchDate(retValue);
+  if (!ret) return formatSearchDate(depValue);
+  if (dep.y === ret.y && dep.m === ret.m) return `${dep.d}–${ret.d} ${SEARCH_MONTHS[dep.m - 1]} ${dep.y}`;
+  if (dep.y === ret.y) return `${dep.d} ${SEARCH_MONTHS[dep.m - 1]}–${ret.d} ${SEARCH_MONTHS[ret.m - 1]} ${dep.y}`;
+  return `${formatSearchDate(depValue)}–${formatSearchDate(retValue)}`;
+}
+function _searchSummaryText() {
+  const o = ($('origin').value || '').trim().toUpperCase().slice(0, 3);
+  const d = ($('dest').value || '').trim().toUpperCase().slice(0, 3);
+  const date = ($('date').value || '').trim();
+  const cabin = activeCabin();
+  const oneWay = $('oneWay').checked;
+  const ret = ($('returnDate').value || '').trim();
+  const parts = [`${o || '—'} → ${d || '—'}`];
+  const dateText = oneWay ? formatSearchDate(date) : formatSearchDateRange(date, ret);
+  if (dateText) parts.push(dateText);
+  if (cabin) parts.push(cabin);
+  parts.push(oneWay ? 'One-way' : 'Round trip');
+  return parts.join(' · ');
+}
+function collapseSearch() {
+  const pf = $('panelForm'), ss = $('searchSummary'), st = $('searchSummaryText'), eb = $('editSearchBtn');
+  if (!pf || !ss || !st) return;
+  st.textContent = _searchSummaryText();
+  pf.hidden = true;
+  ss.hidden = false;
+  if (eb) eb.setAttribute('aria-expanded', 'false');
+}
+function expandSearch() {
+  const pf = $('panelForm'), ss = $('searchSummary'), eb = $('editSearchBtn');
+  if (!pf || !ss) return;
+  ss.hidden = true;
+  pf.hidden = false;
+  if (eb) eb.setAttribute('aria-expanded', 'true');
+  const origin = $('origin');
+  if (origin) origin.focus();
 }
 
 // Backend value tier → CSS class + fallback label. The backend (rescore_offer_set)
@@ -1140,12 +1145,10 @@ function render(data) {
             <div class="aw-trust-note">${trustNotes.map(esc).join('<br>')}</div>
           </div>`;
 
-        // 7 — Flight details drawer
-        const cashRoutingLabel = r.returnDate && !(Array.isArray(r.flight?.return_segments) && r.flight.return_segments.length)
-          ? 'Outbound cash fare routing · for price context only'
-          : 'Cash fare routing · for price context only';
+        // 7 — Flight details drawer (deep per-segment detail). Ownership label now
+        // lives once on the compact itinerary summary above (journeyMap).
         const flightHtml = itineraryHtml
-          ? `<div class="aw-flight-details"><div class="aw-itin-label">${esc(cashRoutingLabel)}</div>${itineraryHtml}</div>`
+          ? `<div class="aw-flight-details">${itineraryHtml}</div>`
           : scheduleFallback;
 
         // 8–11 — Evaluated redemption + top-3 alternatives + show-all
@@ -1172,11 +1175,16 @@ function render(data) {
         return `<div class="card${r.best_program ? ' top-card' : ''}">
           <div class="aw-result-shell">
             ${headerHtml}
-            ${verdictHtml}
-            ${meansHtml}
-            ${nextHtml}
-            ${ctaHtml}
-            ${metricsHtml}
+            <div class="aw-recommendation">
+              ${verdictHtml}
+              ${meansHtml}
+              ${nextHtml}
+              ${ctaHtml}
+            </div>
+            <div class="aw-tradeoffs">
+              <div class="aw-section-kicker aw-tradeoffs-kicker">Key trade-offs</div>
+              ${metricsHtml}
+            </div>
             ${trustHtml}
             ${journeyMap.html}
             ${flightHtml}
@@ -1371,6 +1379,7 @@ document.querySelectorAll('[data-fill-dest]').forEach(b => b.onclick = () => {
 const addOriginBtn = document.getElementById('addOriginBtn');
 if (addOriginBtn) addOriginBtn.addEventListener('click', addOrigin);
 $('go').onclick = run;
+{ const _eb = $('editSearchBtn'); if (_eb) _eb.onclick = expandSearch; }
 $('oneWay').onchange = toggleReturn;
 $('themeBtn').onclick = () => applyTheme(theme === 'dark' ? 'light' : 'dark');
 
