@@ -16,12 +16,13 @@
   <link rel="stylesheet" href="/static/consent.css?v=1">
   <script src="/static/consent.js?v=1" defer></script>
   <style>
-    .legal { max-width: 680px; margin: 0 auto; padding: 48px 20px 80px; }
-    .legal h1 { font-size: 36px; margin-bottom: 8px; }
+    .legal { max-width: 760px; margin: 0 auto; padding: 48px 20px 80px; min-width: 0; overflow-wrap: break-word; }
+    .legal h1 { font-size: clamp(24px, 8vw, 36px); line-height: 1.15; margin-bottom: 8px; overflow-wrap: anywhere; hyphens: auto; }
     .legal h2 { color: var(--gold); font-size: 16px; margin: 32px 0 6px; }
     .legal p, .legal ul { color: var(--muted); line-height: 1.7; }
     .legal ul { padding-left: 20px; }
     .legal a { color: var(--cyan); }
+    .legal code { color: var(--cyan); }
     .back { display: inline-block; margin-bottom: 32px; color: var(--cyan); text-decoration: none; font-size: 14px; }
   </style>
 </head>
@@ -29,45 +30,62 @@
   <div class="legal">
     <a href="/" class="back">← Zurück zu AwardRadar</a>
     <h1>Datenschutzerklärung</h1>
+    <p>Diese deutsche Fassung ist die rechtlich maßgebliche Version. Eine englische Übersetzung kann später zusätzlich als unverbindliche Information bereitgestellt werden.</p>
+    <p>AwardRadar befindet sich weiterhin in der technischen und rechtlichen Vorbereitung. Einzelne vertragliche Details zu Anbietern, Aufbewahrungsfristen und internationalen Übermittlungen werden noch geprüft.</p>
 
     <h2>1. Verantwortlicher</h2>
-    <p>Florian Hoffarth, hello@awardradar.app</p>
+    <p>Florian Hoffarth, hello@awardradar.app. Weitere Angaben finden Sie im <a href="/impressum">Impressum</a>.</p>
 
-    <h2>2. Erhobene Daten</h2>
-    <p>AwardRadar erhebt keine personenbezogenen Daten aktiv. Beim Besuch der Website werden durch den Hosting-Anbieter (Railway, San Francisco, CA, USA) automatisch Server-Logfiles gespeichert, darunter IP-Adresse, Browsertyp, Betriebssystem, Referrer-URL, Datum und Uhrzeit des Zugriffs. Diese Daten sind technisch notwendig und werden nicht zur Identifizierung von Personen genutzt.</p>
+    <h2>2. Zugriffsdaten und Hosting</h2>
+    <p>AwardRadar wird bei Railway gehostet. Die bestätigte Produktionsregion ist derzeit US West, USA. Beim Aufruf der Website und ihrer Schnittstellen können technisch notwendige Zugriffsdaten verarbeitet werden, insbesondere IP-Adresse, Datum und Uhrzeit des Zugriffs, aufgerufener Pfad, Statuscode, Browser- und Geräteinformationen, Referrer sowie ähnliche technische Metadaten.</p>
+    <p>Railway kann Server- und Access-Logs erzeugen. Die genaue Log-Aufbewahrungsdauer, die vertragliche Einordnung, Unterauftragsverarbeiter und die anwendbaren Übermittlungsmechanismen werden noch mit dem Anbieter bzw. rechtlich geprüft.</p>
 
-    <h2>3. Suchanfragen und serverseitiges Caching</h2>
-    <p>Suchanfragen (Abflug, Ziel, Datum) werden serverseitig im Arbeitsspeicher zwischengespeichert (TTL: bis zu 24 Stunden während der Beta-Phase), um externe API-Anfragen zu reduzieren. Gecachte Daten enthalten ausschließlich Flugpreisdaten ohne Personenbezug. Es werden keine Nutzerprofile angelegt.</p>
+    <h2>3. Suchanfragen und Verarbeitungszwecke</h2>
+    <p>Wenn Sie AwardRadar aktiv nutzen, verarbeitet die Anwendung die von Ihnen eingegebenen Suchparameter, um Flugpreis-, Award- und Routing-Kontext bereitzustellen. Je nach Funktion können dazu Abflug- und Zielort, Reisedatum, Rückreisedatum, Reiseart, Kabine, Filter, Programmauswahl und ähnliche Suchparameter gehören.</p>
+    <p>Die Flughafen-Autovervollständigung verwendet eine Anfrage wie <code>/api/airports?q=...</code>. Dadurch kann der eingegebene Suchbegriff als URL-Parameter in technischen Logs erscheinen. Cash-Suchen, Award-Suchen und Hidden-Opportunity-/Skiplag-Suchen werden als Anfrageinhalt an AwardRadar gesendet und dort serverseitig verarbeitet.</p>
+    <p>Für die eigentliche Auswertung können Suchparameter an externe Datenanbieter übermittelt werden, soweit dies zur Erbringung der jeweiligen Funktion erforderlich ist. AwardRadar legt dabei kein Nutzerkonto und kein personenbezogenes Reiseprofil an. Suchdaten können jedoch Rückschlüsse auf Reiseinteressen zulassen und werden deshalb transparent beschrieben.</p>
 
-    <h2>4. Drittanbieter</h2>
-    <p>AwardRadar verwendet folgende externe Dienste:</p>
+    <h2>4. Zwischenspeicherung und Aufbewahrung</h2>
+    <p>Einzelne technische Ergebnisse können vorübergehend im Arbeitsspeicher oder in temporären Cache-Dateien gespeichert werden, um wiederholte Anbieterabfragen zu reduzieren und die Anwendung stabil zu halten. Diese technische Zwischenspeicherung ist von Server-Logs und von Speicherungen externer Anbieter zu unterscheiden.</p>
+    <p>Lokale Browser-Einstellungen bleiben grundsätzlich gespeichert, bis Sie sie löschen, der Browser sie entfernt oder AwardRadar die Funktion ändert. Die Aufbewahrungsfristen von Railway und externen Anbietern sind noch nicht abschließend bestätigt und werden nicht pauschal zugesichert.</p>
+
+    <h2>5. Externe Anbieter</h2>
+    <p>AwardRadar kann je nach Funktion und technischer Konfiguration folgende externe Dienste einbeziehen:</p>
     <ul>
-      <li><strong>SerpApi</strong> (serpapi.com) – Abfrage von Google-Flights-Marktdaten. Anfragen enthalten Abflug- und Zielort sowie Datum, keine personenbezogenen Daten. Datenschutzerklärung: <a href="https://serpapi.com/privacy" target="_blank" rel="noopener">serpapi.com/privacy</a></li>
-      <li><strong>Travelpayouts / Aviasales</strong> – Cache-basierte Flugpreise als Fallback. Datenschutzerklärung: <a href="https://www.travelpayouts.com/en/legal/privacy" target="_blank" rel="noopener">travelpayouts.com</a></li>
-      <li><strong>Railway</strong> – Hosting-Anbieter (San Francisco, CA, USA). Server-Logfiles (IP, Browser, Zeitstempel) werden durch Railway erhoben. Datenschutzerklärung: <a href="https://railway.app/legal/privacy" target="_blank" rel="noopener">railway.app/legal/privacy</a></li>
-      <li><strong>jsDelivr CDN</strong> – Auslieferung von Schrift- und Bibliotheksdateien (Flatpickr). Datenschutzerklärung: <a href="https://www.jsdelivr.com/privacy-policy-jsdelivr-net" target="_blank" rel="noopener">jsdelivr.com</a></li>
-      <li><strong>Google Tag Manager / Google Analytics</strong> – Einbindung von Tag-Management und Webanalyse nach Ihrer Einwilligung zur technischen Erfolgsmessung und Produktverbesserung. Dabei können Nutzungsdaten wie Seitenaufrufe, Browserinformationen und gekürzte IP-Adressen verarbeitet werden. Datenschutzerklärung: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a></li>
+      <li><strong>Railway</strong> – Hosting der Website und Verarbeitung technischer Zugriffs- und Serverdaten. Produktionsregion: US West, USA. Datenschutzerklärung: <a href="https://railway.app/legal/privacy" target="_blank" rel="noopener">railway.app/legal/privacy</a></li>
+      <li><strong>SerpApi</strong> – Abfrage von Google-Flights-Marktdaten und Cash-Fare-Kontext. Dabei können Suchparameter wie Abflug, Ziel, Datum, Kabine, Sprache und Währung serverseitig übermittelt werden. Datenschutzerklärung: <a href="https://serpapi.com/privacy" target="_blank" rel="noopener">serpapi.com/privacy</a></li>
+      <li><strong>Seats.aero</strong> – Abfrage von Award-Verfügbarkeits- und Programmsignalen, sofern diese Datenquelle aktiv ist. Dabei können insbesondere Route, Datumsspanne und Kabinenklasse übermittelt werden. Datenschutzerklärung: <a href="https://seats.aero/privacy" target="_blank" rel="noopener">seats.aero/privacy</a></li>
+      <li><strong>Travelpayouts / Aviasales</strong> – Flughafen-Autovervollständigung sowie fallback- oder cachebasierte Flugdaten, soweit technisch genutzt. Dabei können Suchbegriffe oder Flug-Suchparameter serverseitig übermittelt werden. Datenschutzerklärung: <a href="https://www.travelpayouts.com/en/legal/privacy" target="_blank" rel="noopener">travelpayouts.com</a></li>
+      <li><strong>Google Tag Manager / Google Analytics</strong> – Analyse und Tag-Management nur nach Ihrer Einwilligung in Analytics. Datenschutzerklärung: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a></li>
     </ul>
+    <p>Die Anbieter werden nicht bei jeder Suche zwingend genutzt. Welche Anbieter beteiligt sind, hängt von Suchmodus, technischer Konfiguration, Verfügbarkeit und Cache-Zustand ab. Anbieterbezogene Aufbewahrungsfristen, Unterauftragsverarbeiter und internationale Übermittlungsmechanismen werden noch geprüft.</p>
 
-    <h2>5. Lokale Speicherung (localStorage) und Cookies</h2>
-    <p>AwardRadar speichert ausschließlich technisch notwendige Daten im Browser:</p>
+    <h2>6. Externe Verifikations- und Buchungslinks</h2>
+    <p>AwardRadar kann Links zu externen Websites anzeigen, zum Beispiel zu Flug- und Buchungsseiten, Suchanbietern, Airlines oder Vielfliegerprogrammen. Wenn Sie einen solchen Link anklicken, verlassen Sie AwardRadar. Der jeweilige Anbieter kann dann eigene Zugriffsdaten, Referrer-Informationen und gegebenenfalls im Link enthaltene Reisedaten wie Route oder Datum verarbeiten.</p>
+
+    <h2>7. Lokale Speicherung im Browser</h2>
+    <p>AwardRadar verwendet lokale Speicherung im Browser für Funktionen, die direkt auf Ihrem Gerät bleiben:</p>
     <ul>
-      <li><strong><code>awardradar_theme</code></strong> (localStorage) – Anzeigeeinstellung Hell/Dunkel. Kein Ablaufdatum, jederzeit über die Browser-Einstellungen löschbar.</li>
-      <li><strong><code>awardradar_lang</code></strong> (localStorage) – Spracheinstellung DE/EN. Kein Ablaufdatum, jederzeit löschbar.</li>
-      <li><strong><code>awardradar_consent</code></strong> (localStorage) – Speichert Ihre Auswahl zu notwendigen und optionalen Analyse-Technologien. Sie können die Auswahl über „Privacy settings” ändern oder widerrufen.</li>
-      <li><strong><code>awardradar_saved_searches</code></strong> (localStorage) – Optional gespeicherte Suchparameter wie Route, Datum und Kabine. Diese Daten bleiben im Browser, werden nicht an ein Benutzerkonto gebunden und können über die Saved-Searches-Funktion gelöscht werden.</li>
-      <li><strong><code>ar_key</code></strong> (Cookie, Session) – Nur gesetzt, wenn ein optionaler Beta-Zugangscode verwendet wird. Dient ausschließlich der Sitzungsauthentifizierung. Kein Tracking-Zweck.</li>
+      <li><strong><code>awardradar_theme</code></strong> (localStorage) – Anzeigeeinstellung für Hell-/Dunkelmodus.</li>
+      <li><strong><code>awardradar_text_size</code></strong> (localStorage) – Textgrößen-Einstellung für bessere Lesbarkeit.</li>
+      <li><strong><code>awardradar_consent</code></strong> (localStorage) – Ihre Auswahl zu notwendigen Funktionen und optionaler Analyse. Sie können diese Auswahl über „Privacy settings” ändern oder widerrufen.</li>
+      <li><strong><code>awardradar_saved_searches</code></strong> (localStorage) – Optional gespeicherte Suchparameter wie Route, Datum, Kabine, Suchmodus und Filter. Diese Daten bleiben im Browser, werden nicht an ein Nutzerkonto gebunden und können über die Saved-Searches-Funktion gelöscht werden.</li>
     </ul>
-    <p>Darüber hinaus können Analyse- und Tag-Management-Dienste eigene Cookies oder vergleichbare Technologien erst setzen, wenn Sie der Kategorie „Analytics” zustimmen.</p>
+    <p>Diese Browserdaten sind nicht automatisch mit einem serverseitigen Nutzerkonto verbunden. Sie können sie über die Browser-Einstellungen oder die jeweiligen Funktionen löschen.</p>
 
-    <h2>6. Einwilligung, Analyse und Tag Management</h2>
-    <p>AwardRadar lädt Google Tag Manager und Google Analytics erst nach Ihrer ausdrücklichen Einwilligung in Analytics. Ohne Einwilligung werden diese Analyse-Tags nicht geladen. Eine erteilte Einwilligung kann jederzeit über „Privacy settings” geändert oder widerrufen werden. Microsoft Clarity ist vorbereitet, wird aber ebenfalls nur nach Analytics-Einwilligung über Google Tag Manager aktiviert. Es werden keine Werbenetzwerke oder Meta Pixel eingesetzt.</p>
+    <h2>8. Einwilligung, Analyse und Tag Management</h2>
+    <p>Google Tag Manager und Google Analytics werden in der Produktion erst nach Ihrer ausdrücklichen Einwilligung in Analytics geladen. Vor Ihrer Auswahl ist die Analytics-Speicherung standardmäßig deaktiviert. Eine erteilte Einwilligung kann jederzeit über „Privacy settings” geändert oder widerrufen werden.</p>
+    <p>Nach Einwilligung können technische Nutzungsdaten wie Seitenaufrufe, Browser- und Geräteinformationen, Referrer, Seiten-URLs und Ereignisdaten verarbeitet werden. Die genaue Verarbeitung von vollständigen URLs, Query-Strings, Referrern, IP-bezogenen Daten und Ereignissen hängt von der Google- und Tag-Manager-Konfiguration ab und wird noch gesondert geprüft. Eine vollständige Anonymisierung wird hier nicht zugesichert.</p>
+    <p>Analyse- und Tag-Management-Dienste können eigene Cookies oder vergleichbare Technologien erst setzen, wenn Sie der Kategorie „Analytics” zustimmen. Bei Widerruf versucht AwardRadar, bekannte Analytics-Cookies im Browser zu entfernen.</p>
 
-    <h2>7. Ihre Rechte</h2>
-    <p>Sie haben nach DSGVO das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung sowie das Recht auf Datenübertragbarkeit. Beschwerden können bei der zuständigen Datenschutzbehörde eingereicht werden. Kontakt: <a href="mailto:hello@awardradar.app">hello@awardradar.app</a></p>
+    <h2>9. Internationale Übermittlungen</h2>
+    <p>Da AwardRadar bei Railway in den USA gehostet wird und einzelne Anbieter international tätig sind, kann eine Verarbeitung außerhalb der EU bzw. des EWR stattfinden. Die jeweils anwendbaren vertraglichen Schutzmaßnahmen, Unterauftragsverarbeiter und Übermittlungsmechanismen werden anbieterbezogen und rechtlich geprüft. Diese Datenschutzerklärung trifft dazu keine abschließende rechtliche Bewertung.</p>
 
-    <h2>8. Änderungen</h2>
-    <p>Diese Datenschutzerklärung kann aktualisiert werden. Stand: Juni 2026.</p>
+    <h2>10. Ihre Rechte</h2>
+    <p>Sie haben nach Maßgabe der DSGVO insbesondere Rechte auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung und Datenübertragbarkeit. Zudem können Sie sich bei einer zuständigen Datenschutzaufsichtsbehörde beschweren. Kontakt: <a href="mailto:hello@awardradar.app">hello@awardradar.app</a></p>
+
+    <h2>11. Änderungen</h2>
+    <p>Diese Datenschutzerklärung kann aktualisiert werden, wenn sich Funktionen, Anbieter oder rechtliche Bewertungen ändern. Stand: Juli 2026.</p>
   </div>
 </body>
 </html>
