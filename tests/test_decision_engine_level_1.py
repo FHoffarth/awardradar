@@ -6,6 +6,10 @@ Covers the mandatory guardrails from docs/decision_engine_level_1.md:
 - Guardrail B single threshold source (sweet_spot_grade reuses VALUE_TIER_THRESHOLDS)
 """
 import os
+import json
+import pathlib
+import shutil
+import subprocess
 import sys
 import unittest
 
@@ -478,7 +482,7 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
         self.assertIn("app.css?v=136", html)
-        self.assertIn("app.js?v=143", html)
+        self.assertIn("app.js?v=144", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
         self.assertIn("data-text-size-option=\"large\"", html)
@@ -516,7 +520,7 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("Independence and commercial links", html)
         self.assertIn("Limitations", html)
         self.assertIn("app.css?v=136", html)
-        self.assertNotIn("app.js?v=143", html)
+        self.assertNotIn("app.js?v=144", html)
 
     def test_about_navigation_exists_on_main_page(self):
         response = self.client.get("/")
@@ -525,7 +529,7 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
         self.assertIn("app.css?v=136", html)
-        self.assertIn("app.js?v=143", html)
+        self.assertIn("app.js?v=144", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -697,6 +701,153 @@ class AwardsApiErrorHandling(unittest.TestCase):
         data = self.client.get("/health").get_json()
         self.assertTrue(data["ok"])
         self.assertNotIn("api_guard", data)
+
+
+class TopOpportunitiesFrontendRendering(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.repo_root = pathlib.Path(__file__).resolve().parents[1]
+        cls.app_js = cls.repo_root / "static" / "app.js"
+        bundled_node = pathlib.Path(
+            r"C:\Users\Flo\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
+        )
+        cls.node = shutil.which("node") or (str(bundled_node) if bundled_node.exists() else None)
+
+    def render_fixture(self, opportunities):
+        if not self.node:
+            self.skipTest("Node.js is required for frontend rendering regression tests")
+        js = self.app_js.read_text(encoding="utf-8")
+        helper_block = js.split("// ===== Discovery Widget helpers =====", 1)[1].split(
+            "// ===== Discovery Widget =====", 1
+        )[0]
+        render_tail = js.split("  function renderCards(opps) {\n    const cards = [];", 1)[1].split(
+            "\n\n  function renderError()", 1
+        )[0]
+        render_cards = "function renderCards(opps) {\n    const cards = [];" + render_tail
+        script = f"""
+const warnings = [];
+const console = {{ warn: (...args) => warnings.push(args.join(' ')) }};
+const window = {{ location: {{ origin: 'https://awardradar.app' }} }};
+function esc(s) {{
+  return String(s ?? '').replace(/[&<>"]/g, c => ({{ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }}[c]));
+}}
+const STARS_MAP = {{ exceptional: '*****', great: '****' }};
+const REC_LABEL = {{
+  book_miles: 'Verify miles option',
+  lean_miles: 'Lean towards Miles',
+  consider: 'Compare options',
+  pay_cash: 'Pay Cash',
+}};
+const container = {{ innerHTML: '' }};
+{helper_block}
+{render_cards}
+renderCards({json.dumps(opportunities)});
+process.stdout.write(JSON.stringify({{ html: container.innerHTML, warnings }}));
+"""
+        result = subprocess.run([self.node, "-e", script], text=True, capture_output=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)
+
+    def valid_opportunity(self, **overrides):
+        item = {
+            "origin": "FRA",
+            "dest": "JFK",
+            "available_date": "2026-07-08",
+            "cabin": "First",
+            "cash_eur": None,
+            "cpm": 4.2,
+            "direct": True,
+            "grade_label": "Exceptional value",
+            "grade_tier": "exceptional",
+            "miles": 85000,
+            "program": "Miles & More",
+            "reasoning": "Estimated value looks promising.",
+            "recommendation": "book_miles",
+            "seats": 2,
+            "surcharge": 310,
+            "airlines": "2L",
+            "url": "https://example.com/verify",
+        }
+        item.update(overrides)
+        return item
+
+    def test_live_shape_with_nullable_cash_and_unknown_airline_renders_cards(self):
+        result = self.render_fixture(
+            [
+                self.valid_opportunity(),
+                self.valid_opportunity(
+                    origin="MUC",
+                    dest="SIN",
+                    cabin="Business",
+                    cpm=2.7,
+                    direct=False,
+                    seats=1,
+                    surcharge=180,
+                    airlines="UNKNOWN",
+                    grade_tier="great",
+                ),
+            ]
+        )
+        html = result["html"]
+        self.assertIn("disc-card", html)
+        self.assertIn("FRA", html)
+        self.assertIn("JFK", html)
+        self.assertIn("2L", html)
+        self.assertIn("UNKNOWN", html)
+        self.assertIn("Provider reports direct availability", html)
+        self.assertNotIn("disc-error", html)
+        self.assertEqual(result["warnings"], [])
+
+    def test_nullable_optional_numbers_degrade_without_crashing(self):
+        result = self.render_fixture(
+            [self.valid_opportunity(miles=None, cpm=None, surcharge=None, cash_eur=None)]
+        )
+        html = result["html"]
+        self.assertIn("Miles unavailable", html)
+        self.assertNotIn("ct/mi", html)
+        self.assertNotIn("undefined", html)
+
+    def test_empty_success_response_uses_neutral_empty_state(self):
+        result = self.render_fixture([])
+        self.assertIn("No exceptional opportunities detected today.", result["html"])
+        self.assertNotIn("temporarily unavailable", result["html"])
+
+    def test_malformed_item_does_not_suppress_valid_cards(self):
+        result = self.render_fixture(
+            [
+                {"origin": "", "dest": "CDG", "miles": 1},
+                self.valid_opportunity(origin="CDG", dest="NRT", airlines="NH"),
+            ]
+        )
+        html = result["html"]
+        self.assertIn("CDG", html)
+        self.assertIn("NRT", html)
+        self.assertIn("NH", html)
+        self.assertEqual(html.count('role="article"'), 1)
+
+    def test_text_fields_are_escaped_and_unsafe_urls_are_not_rendered(self):
+        result = self.render_fixture(
+            [
+                self.valid_opportunity(
+                    program="<b>Bad Program</b>",
+                    cpm=None,
+                    reasoning="<script>alert(1)</script>",
+                    url="javascript:alert(1)",
+                )
+            ]
+        )
+        html = result["html"]
+        self.assertNotIn("<script", html.lower())
+        self.assertNotIn("<b>Bad Program</b>", html)
+        self.assertNotIn("javascript:", html)
+        self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", html)
+        self.assertIn("&lt;b&gt;Bad Program&lt;/b&gt;", html)
+
+    def test_failed_api_response_still_uses_degraded_state(self):
+        js = self.app_js.read_text(encoding="utf-8")
+        self.assertIn("if (d && d.ok === true) renderCards(d.opportunities || []);", js)
+        self.assertIn("else renderError();", js)
+        self.assertIn("Top opportunities unavailable.", js)
 
 
 if __name__ == "__main__":
