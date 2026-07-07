@@ -31,7 +31,6 @@
     <a href="/" class="back">← Zurück zu AwardRadar</a>
     <h1>Datenschutzerklärung</h1>
     <p>Diese deutsche Fassung ist die rechtlich maßgebliche Version. Eine englische Übersetzung kann später zusätzlich als unverbindliche Information bereitgestellt werden.</p>
-    <p>AwardRadar befindet sich weiterhin in der technischen und rechtlichen Vorbereitung. Einzelne vertragliche Details zu Anbietern, Aufbewahrungsfristen und internationalen Übermittlungen werden noch geprüft.</p>
 
     <h2>1. Verantwortlicher</h2>
     <p>Florian Hoffarth, hello@awardradar.app. Weitere Angaben finden Sie im <a href="/impressum">Impressum</a>.</p>
@@ -47,9 +46,25 @@
 
     <h2>4. Zwischenspeicherung und Aufbewahrung</h2>
     <p>Einzelne technische Ergebnisse können vorübergehend im Arbeitsspeicher oder in temporären Cache-Dateien gespeichert werden, um wiederholte Anbieterabfragen zu reduzieren und die Anwendung stabil zu halten. Diese technische Zwischenspeicherung ist von Server-Logs und von Speicherungen externer Anbieter zu unterscheiden.</p>
+    <ul>
+      <li>SerpApi-Ergebnis-Cache: aktueller technischer Standardwert von etwa 6 Stunden.</li>
+      <li>Top-Opportunities-Cache: aktueller technischer Standardwert von etwa 4 Stunden.</li>
+      <li>Weitere kurzlebige Zwischenspeicher im Arbeitsspeicher oder in temporären Dateien: bis zum Ablauf, bis zu einem Neustart oder bis zur technischen Löschung.</li>
+      <li>Browser-Einstellungen und gespeicherte Suchen: bis zur Löschung durch Sie, bis zur Bereinigung durch den Browser oder bis zu einer Änderung der Funktion.</li>
+      <li>Server- und Zugriffs-Logs sowie Speicherungen externer Anbieter: anbieterabhängig und noch nicht abschließend bestätigt.</li>
+    </ul>
+    <p>Die genannten Cache-Dauern sind aktuelle technische Standardwerte und keine zugesicherten rechtlichen Aufbewahrungsfristen.</p>
     <p>Lokale Browser-Einstellungen bleiben grundsätzlich gespeichert, bis Sie sie löschen, der Browser sie entfernt oder AwardRadar die Funktion ändert. Die Aufbewahrungsfristen von Railway und externen Anbietern sind noch nicht abschließend bestätigt und werden nicht pauschal zugesichert.</p>
 
-    <h2>5. Externe Anbieter</h2>
+    <h2>5. Rechtsgrundlagen der Verarbeitung</h2>
+    <p>Die folgenden Angaben beschreiben die aus heutiger Sicht einschlägigen Rechtsgrundlagen. Sie stellen eine sorgfältige eigene Einordnung dar und werden fortlaufend überprüft.</p>
+    <ul>
+      <li><strong>Bereitstellung der Website, technische Zugriffs-Logs, Sicherheit, Fehlerdiagnose und Missbrauchsvermeidung:</strong> Art. 6 Abs. 1 lit. f DSGVO. Berechtigte Interessen sind der Betrieb und die Absicherung des Dienstes, die Vermeidung von Missbrauch und die Diagnose technischer Störungen.</li>
+      <li><strong>Verarbeitung aktiv abgesendeter Suchanfragen</strong> – Flughafen-Autovervollständigung, Cash-Suchen, Award-Suchen, Hidden-Opportunity-Suchen, Top Opportunities sowie die technisch notwendige, kurzzeitige Zwischenspeicherung: Art. 6 Abs. 1 lit. f DSGVO. Berechtigte Interessen sind die Beantwortung der von Ihnen angeforderten Suche und die Reduzierung unnötiger Anbieterabfragen durch kurzlebige Zwischenspeicher.</li>
+    </ul>
+    <p>Für Analyse- und Tag-Management-Dienste gilt eine gesonderte Rechtsgrundlage; siehe Abschnitt „Einwilligung, Analyse und Tag Management”.</p>
+
+    <h2>6. Externe Anbieter</h2>
     <p>AwardRadar kann je nach Funktion und technischer Konfiguration folgende externe Dienste einbeziehen:</p>
     <ul>
       <li><strong>Railway</strong> – Hosting der Website und Verarbeitung technischer Zugriffs- und Serverdaten. Produktionsregion: EU West (Amsterdam, Niederlande). Datenschutzerklärung: <a href="https://railway.app/legal/privacy" target="_blank" rel="noopener">railway.app/legal/privacy</a></li>
@@ -60,10 +75,10 @@
     </ul>
     <p>Die Anbieter werden nicht bei jeder Suche zwingend genutzt. Welche Anbieter beteiligt sind, hängt von Suchmodus, technischer Konfiguration, Verfügbarkeit und Cache-Zustand ab. Anbieterbezogene Aufbewahrungsfristen, Unterauftragsverarbeiter und internationale Übermittlungsmechanismen werden noch geprüft.</p>
 
-    <h2>6. Externe Verifikations- und Buchungslinks</h2>
+    <h2>7. Externe Verifikations- und Buchungslinks</h2>
     <p>AwardRadar kann Links zu externen Websites anzeigen, zum Beispiel zu Flug- und Buchungsseiten, Suchanbietern, Airlines oder Vielfliegerprogrammen. Wenn Sie einen solchen Link anklicken, verlassen Sie AwardRadar. Der jeweilige Anbieter kann dann eigene Zugriffsdaten, Referrer-Informationen und gegebenenfalls im Link enthaltene Reisedaten wie Route oder Datum verarbeiten.</p>
 
-    <h2>7. Lokale Speicherung im Browser</h2>
+    <h2>8. Lokale Speicherung im Browser</h2>
     <p>AwardRadar verwendet lokale Speicherung im Browser für Funktionen, die direkt auf Ihrem Gerät bleiben:</p>
     <ul>
       <li><strong><code>awardradar_theme</code></strong> (localStorage) – Anzeigeeinstellung für Hell-/Dunkelmodus.</li>
@@ -72,19 +87,21 @@
       <li><strong><code>awardradar_saved_searches</code></strong> (localStorage) – Optional gespeicherte Suchparameter wie Route, Datum, Kabine, Suchmodus und Filter. Diese Daten bleiben im Browser, werden nicht an ein Nutzerkonto gebunden und können über die Saved-Searches-Funktion gelöscht werden.</li>
     </ul>
     <p>Diese Browserdaten sind nicht automatisch mit einem serverseitigen Nutzerkonto verbunden. Sie können sie über die Browser-Einstellungen oder die jeweiligen Funktionen löschen.</p>
+    <p>Rechtlich ist dabei zu unterscheiden: Für eine etwaige Verarbeitung personenbezogener Daten, die aus diesen Funktionen resultiert, gilt die jeweils einschlägige Rechtsgrundlage der DSGVO. Das Speichern von Informationen auf Ihrem Endgerät und der Zugriff darauf richten sich zusätzlich nach § 25 TDDDG. Notwendige Einstellungen können sich auf § 25 Abs. 2 TDDDG stützen, soweit dessen gesetzliche Voraussetzungen erfüllt sind; das Speichern oder Auslesen für Analysezwecke setzt Ihre Einwilligung voraus.</p>
 
-    <h2>8. Einwilligung, Analyse und Tag Management</h2>
+    <h2>9. Einwilligung, Analyse und Tag Management</h2>
     <p>Google Tag Manager und Google Analytics werden in der Produktion erst nach Ihrer ausdrücklichen Einwilligung in Analytics geladen. Vor Ihrer Auswahl ist die Analytics-Speicherung standardmäßig deaktiviert. Eine erteilte Einwilligung kann jederzeit über „Privacy settings” geändert oder widerrufen werden.</p>
+    <p>Rechtsgrundlage für die analytische Verarbeitung personenbezogener Daten ist Ihre Einwilligung nach Art. 6 Abs. 1 lit. a DSGVO. Das Speichern von Informationen auf Ihrem Endgerät und der Zugriff darauf werden gesondert nach § 25 TDDDG beurteilt. Sie können eine erteilte Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen; die Rechtmäßigkeit der bis zum Widerruf erfolgten Verarbeitung bleibt davon unberührt.</p>
     <p>Nach Einwilligung können technische Nutzungsdaten wie Seitenaufrufe, Browser- und Geräteinformationen, Referrer, Seiten-URLs und Ereignisdaten verarbeitet werden. Die genaue Verarbeitung von vollständigen URLs, Query-Strings, Referrern, IP-bezogenen Daten und Ereignissen hängt von der Google- und Tag-Manager-Konfiguration ab und wird noch gesondert geprüft. Eine vollständige Anonymisierung wird hier nicht zugesichert.</p>
     <p>Analyse- und Tag-Management-Dienste können eigene Cookies oder vergleichbare Technologien erst setzen, wenn Sie der Kategorie „Analytics” zustimmen. Bei Widerruf versucht AwardRadar, bekannte Analytics-Cookies im Browser zu entfernen.</p>
 
-    <h2>9. Internationale Übermittlungen</h2>
+    <h2>10. Internationale Übermittlungen</h2>
     <p>AwardRadar wird bei Railway in der Region EU West (Amsterdam, Niederlande) gehostet. Da jedoch einzelne externe Anbieter wie Google, SerpApi, Seats.aero, Travelpayouts oder andere international tätige Dienstleister eingebunden sind, kann weiterhin eine Verarbeitung außerhalb der EU bzw. des EWR stattfinden. Die jeweils anwendbaren vertraglichen Schutzmaßnahmen, Unterauftragsverarbeiter und Übermittlungsmechanismen werden anbieterbezogen und rechtlich geprüft. Diese Datenschutzerklärung trifft dazu keine abschließende rechtliche Bewertung.</p>
 
-    <h2>10. Ihre Rechte</h2>
-    <p>Sie haben nach Maßgabe der DSGVO insbesondere Rechte auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung und Datenübertragbarkeit. Zudem können Sie sich bei einer zuständigen Datenschutzaufsichtsbehörde beschweren. Kontakt: <a href="mailto:hello@awardradar.app">hello@awardradar.app</a></p>
+    <h2>11. Ihre Rechte</h2>
+    <p>Sie haben nach Maßgabe der DSGVO insbesondere Rechte auf Auskunft, Berichtigung, Löschung und Einschränkung der Verarbeitung sowie, soweit anwendbar, auf Datenübertragbarkeit. Sie haben zudem das Recht, aus Gründen, die sich aus Ihrer besonderen Situation ergeben, jederzeit gegen eine Verarbeitung Widerspruch einzulegen, die auf Art. 6 Abs. 1 lit. f DSGVO beruht (Art. 21 DSGVO). Soweit eine Verarbeitung auf Ihrer Einwilligung beruht, können Sie diese jederzeit mit Wirkung für die Zukunft nach Art. 7 Abs. 3 DSGVO widerrufen; die Rechtmäßigkeit der bis zum Widerruf erfolgten Verarbeitung bleibt davon unberührt. Zudem können Sie sich bei einer zuständigen Datenschutzaufsichtsbehörde beschweren. Kontakt: <a href="mailto:hello@awardradar.app">hello@awardradar.app</a></p>
 
-    <h2>11. Änderungen</h2>
+    <h2>12. Änderungen</h2>
     <p>Diese Datenschutzerklärung kann aktualisiert werden, wenn sich Funktionen, Anbieter oder rechtliche Bewertungen ändern. Stand: Juli 2026.</p>
   </div>
 </body>
