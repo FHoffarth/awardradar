@@ -336,8 +336,6 @@ function initDates() {
   toggleReturn();
 }
 
-function appKey() { return new URLSearchParams(location.search).get('key') || ''; }
-
 function activeCabin() {
   const seg = document.querySelector('.seg.active');
   return seg ? seg.dataset.cabin : 'Economy';
@@ -568,7 +566,6 @@ async function run() {
   const endpoint = mode === 'cheap' ? '/api/cheap' : mode === 'skiplag' ? '/api/skiplag' : '/api/awards';
   try {
     const headers = { 'Content-Type': 'application/json' };
-    if (appKey()) headers['X-App-Token'] = appKey();
     const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(payload()) });
     let data;
     try { data = await res.json(); } catch (_) { throw new Error(res.status + ' ' + res.statusText); }

@@ -478,7 +478,7 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
         self.assertIn("app.css?v=136", html)
-        self.assertIn("app.js?v=142", html)
+        self.assertIn("app.js?v=143", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
         self.assertIn("data-text-size-option=\"large\"", html)
@@ -516,7 +516,7 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("Independence and commercial links", html)
         self.assertIn("Limitations", html)
         self.assertIn("app.css?v=136", html)
-        self.assertNotIn("app.js?v=142", html)
+        self.assertNotIn("app.js?v=143", html)
 
     def test_about_navigation_exists_on_main_page(self):
         response = self.client.get("/")
@@ -525,7 +525,7 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
         self.assertIn("app.css?v=136", html)
-        self.assertIn("app.js?v=142", html)
+        self.assertIn("app.js?v=143", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -550,20 +550,20 @@ class AboutMethodologyPage(unittest.TestCase):
 class AwardsApiErrorHandling(unittest.TestCase):
     def setUp(self):
         self.client = app.app.test_client()
-        self.old_app_token = app.APP_TOKEN
         self.old_fetch_cash_details = app.fetch_cash_details
         self.old_static_search = app.STATIC_AWARD_SOURCE.search
         self.old_award_source_metadata = app.award_source_metadata
-        app.APP_TOKEN = ""
 
     def tearDown(self):
-        app.APP_TOKEN = self.old_app_token
         app.fetch_cash_details = self.old_fetch_cash_details
         app.STATIC_AWARD_SOURCE.search = self.old_static_search
         app.award_source_metadata = self.old_award_source_metadata
 
-    def post_awards(self, payload):
-        return self.client.post("/api/awards", json=payload)
+    def post_awards(self, payload, headers=None, path="/api/awards"):
+        return self.client.post(path, json=payload, headers=headers or {})
+
+    def valid_awards_payload(self):
+        return {"origin": "FRA", "dest": "CDG", "date": "2026-07-07", "oneWay": True}
 
     def assert_error(self, response, status, code, retryable):
         self.assertEqual(response.status_code, status)
@@ -641,10 +641,62 @@ class AwardsApiErrorHandling(unittest.TestCase):
         self.assertIn("programs", result)
         self.assertIn("journey_route_source", result)
 
-    def test_unauthenticated_request_returns_401_when_guard_enabled(self):
-        app.APP_TOKEN = "secret-test-token"
-        response = self.post_awards({"origin": "FRA", "dest": "CDG", "date": "2026-07-07", "oneWay": True})
-        self.assert_error(response, 401, "unauthorized", False)
+    def test_public_awards_api_requires_no_app_token(self):
+        app.STATIC_AWARD_SOURCE.search = lambda *a, **k: []
+        response = self.post_awards(self.valid_awards_payload())
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()["ok"])
+
+    def test_public_product_api_routes_are_not_app_token_guarded(self):
+        endpoints = [
+            ("POST", "/api/cheap"),
+            ("POST", "/api/skiplag"),
+            ("POST", "/api/awards"),
+            ("GET", "/api/top-opportunities"),
+        ]
+        payload = self.valid_awards_payload()
+        for method, path in endpoints:
+            with self.subTest(path=path):
+                if method == "GET":
+                    response = self.client.get(path)
+                else:
+                    response = self.client.post(path, json=payload)
+                self.assertNotEqual(response.status_code, 401)
+
+    def test_authorization_header_has_no_authentication_effect(self):
+        app.STATIC_AWARD_SOURCE.search = lambda *a, **k: []
+        response = self.post_awards(self.valid_awards_payload(), headers={"Authorization": "Token secret-test-token"})
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()["ok"])
+
+    def test_query_key_has_no_authentication_effect(self):
+        app.STATIC_AWARD_SOURCE.search = lambda *a, **k: []
+        response = self.post_awards(self.valid_awards_payload(), path="/api/awards?key=secret-test-token")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()["ok"])
+
+    def test_legacy_app_token_header_has_no_authentication_effect(self):
+        app.STATIC_AWARD_SOURCE.search = lambda *a, **k: []
+        response = self.post_awards(self.valid_awards_payload(), headers={"X-App-Token": "secret-test-token"})
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()["ok"])
+
+    def test_app_token_cookie_has_no_authentication_effect(self):
+        app.STATIC_AWARD_SOURCE.search = lambda *a, **k: []
+        self.client.set_cookie("app_token", "secret-test-token")
+        response = self.post_awards(self.valid_awards_payload())
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()["ok"])
+
+    def test_key_query_does_not_set_token_cookie(self):
+        response = self.client.get("/?key=secret-test-token")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("app_token", response.headers.get("Set-Cookie", ""))
+
+    def test_health_no_longer_reports_api_guard(self):
+        data = self.client.get("/health").get_json()
+        self.assertTrue(data["ok"])
+        self.assertNotIn("api_guard", data)
 
 
 if __name__ == "__main__":
