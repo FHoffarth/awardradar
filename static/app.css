@@ -316,6 +316,9 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .fields input:focus{border-color:rgba(106,215,255,.65);box-shadow:0 0 0 3px rgba(106,215,255,.12)}
 .fields input:focus + .field-icon-right{opacity:.8}
 .fields input::placeholder{color:rgba(122,154,184,.42);font-weight:400}
+.fields input.field-invalid{border-color:rgba(255,120,120,.65);box-shadow:0 0 0 3px rgba(255,120,120,.1)}
+.field-error{min-height:16px;margin-top:5px;color:#ff9c9c;font-size:12px;line-height:1.25}
+[data-theme="light"] .field-error{color:#a93838}
 /* Date field: right-pad for chevron */
 #date,#returnDate{padding-right:38px}
 /* flatpickr alt-input inherits full-width layout */
@@ -355,6 +358,8 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .seg.active{background:linear-gradient(135deg,rgba(245,199,107,.22),rgba(106,215,255,.14));color:var(--text);border:1px solid rgba(245,199,107,.3)}
 .go{border:none;border-radius:14px;padding:0 22px;height:64px;cursor:pointer;color:#ffffff;background:linear-gradient(135deg,#163a6e 0%,#1857c4 100%);display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;box-shadow:0 4px 20px rgba(16,58,110,.45),0 1px 0 rgba(255,255,255,.08) inset;transition:transform .15s,box-shadow .15s,background .15s;font-family:inherit}
 .go:hover{background:linear-gradient(135deg,#1a4480 0%,#1f6be0 100%);box-shadow:0 8px 28px rgba(16,58,110,.55);transform:translateY(-1px)}
+.go:disabled,.go[aria-disabled="true"]{cursor:not-allowed;opacity:.58;transform:none;box-shadow:none;filter:saturate(.6)}
+.go:disabled:hover,.go[aria-disabled="true"]:hover{background:linear-gradient(135deg,#163a6e 0%,#1857c4 100%);box-shadow:none;transform:none}
 .go:active{transform:translateY(0);box-shadow:0 2px 10px rgba(16,58,110,.35)}
 .go:focus-visible{outline:2px solid rgba(106,215,255,.7);outline-offset:3px}
 .go-icon-wrap{width:36px;height:36px;background:rgba(255,255,255,.12);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -365,6 +370,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .go-arrow{flex-shrink:0;opacity:.75;transition:transform .15s}
 .go:hover .go-arrow{transform:translateX(3px);opacity:1}
 .go.loading .go-radar-svg{animation:spin .8s linear infinite}
+.search-validation-status{margin-top:8px;color:var(--muted);font-size:12px;line-height:1.35}
 [data-theme="light"] .go{background:linear-gradient(135deg,#0b2a4e 0%,#1651b6 100%);box-shadow:0 4px 20px rgba(11,42,78,.35),0 1px 0 rgba(255,255,255,.12) inset}
 [data-theme="light"] .go:hover{background:linear-gradient(135deg,#0e3460 0%,#1a5fd4 100%);box-shadow:0 8px 28px rgba(11,42,78,.45)}
 

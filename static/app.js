@@ -333,7 +333,7 @@ initTextSizeControls();
 function iso(d) { return d.toISOString().slice(0, 10); }
 
 function initDates() {
-  toggleReturn();
+  toggleReturn(true);
 }
 
 function activeCabin() {
@@ -344,6 +344,116 @@ function activeCabin() {
 function activeFlexDays() {
   const p = document.querySelector('.flex-opt.on');
   return p ? parseInt(p.dataset.flex) : 0;
+}
+
+const SEARCH_FIELD_IDS = ['origin', 'dest', 'date', 'returnDate'];
+const airportResolution = { origin: null, dest: null };
+const searchTouched = { origin: false, dest: false, date: false, returnDate: false };
+let searchSubmitAttempted = false;
+
+function normalizeIata(value) {
+  const code = String(value || '').trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(code) ? code : '';
+}
+
+function setResolvedAirport(inputId, value) {
+  const code = normalizeIata(value);
+  if (inputId === 'origin' || inputId === 'dest') airportResolution[inputId] = code || null;
+}
+
+function airportCodeFor(inputId) {
+  const input = $(inputId);
+  const code = normalizeIata(input && input.value);
+  return code && airportResolution[inputId] === code ? code : '';
+}
+
+function localDateString(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function parseLocalDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || '').trim());
+  if (!match) return null;
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  const d = Number(match[3]);
+  const date = new Date(y, m - 1, d);
+  return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d ? date : null;
+}
+
+function visibleInputFor(inputId) {
+  const input = $(inputId);
+  return (input && input._flatpickr && input._flatpickr.altInput) ? input._flatpickr.altInput : input;
+}
+
+function setFieldMessage(inputId, message, show) {
+  const err = $(`${inputId}Error`);
+  const input = $(inputId);
+  const visible = visibleInputFor(inputId);
+  const text = show ? message : '';
+  if (err) err.textContent = text;
+  [input, visible].forEach(el => {
+    if (!el) return;
+    el.classList.toggle('field-invalid', !!text);
+    if (text) el.setAttribute('aria-invalid', 'true');
+    else el.removeAttribute('aria-invalid');
+  });
+}
+
+function validateSearchForm(options = {}) {
+  if (options.submit) searchSubmitAttempted = true;
+  (options.touch || []).forEach(id => { if (id in searchTouched) searchTouched[id] = true; });
+
+  const oneWay = !!($('oneWay') && $('oneWay').checked);
+  const origin = airportCodeFor('origin');
+  const dest = airportCodeFor('dest');
+  const dep = parseLocalDate($('date') && $('date').value);
+  const ret = parseLocalDate($('returnDate') && $('returnDate').value);
+  const errors = {};
+
+  if (!origin) errors.origin = 'Select an origin airport.';
+  if (!dest) errors.dest = 'Select a destination airport.';
+  if (origin && dest && origin === dest) errors.dest = 'Origin and destination must be different.';
+  if (!dep) errors.date = 'Select a departure date.';
+  if (!oneWay) {
+    if (!ret) errors.returnDate = 'Select a return date.';
+    else if (dep && ret < dep) errors.returnDate = 'Return date must not be before the departure date.';
+  }
+
+  const valid = Object.keys(errors).length === 0;
+  SEARCH_FIELD_IDS.forEach(id => {
+    const shouldShow = !!errors[id] && (searchSubmitAttempted || searchTouched[id] || (options.show || []).includes(id));
+    setFieldMessage(id, errors[id] || '', shouldShow);
+  });
+
+  const go = $('go');
+  if (go) {
+    go.disabled = !valid;
+    go.setAttribute('aria-disabled', valid ? 'false' : 'true');
+  }
+  const status = $('searchValidationStatus');
+  if (status) {
+    status.textContent = valid
+      ? 'Ready to search.'
+      : (searchSubmitAttempted ? (Object.values(errors)[0] || 'Complete the required fields to search.') : 'Select origin, destination and departure date to search.');
+  }
+  return { valid, errors, firstInvalid: Object.keys(errors)[0] || null };
+}
+
+function markSearchFieldTouched(inputId, options = {}) {
+  if (inputId in searchTouched) searchTouched[inputId] = true;
+  if ((inputId === 'origin' || inputId === 'dest') && options.resolved !== true) {
+    const input = $(inputId);
+    if (airportResolution[inputId] !== normalizeIata(input && input.value)) airportResolution[inputId] = null;
+  }
+  return validateSearchForm(options);
+}
+
+function runIfSearchValid() {
+  if (validateSearchForm().valid) run();
 }
 
 let extraOrigins = [];
@@ -392,13 +502,14 @@ function updateAddOriginBtn() {
 
 function payload() {
   const allOrigins = [$('origin').value, ...extraOrigins].map(v => v.trim().toUpperCase().slice(0,3)).filter(Boolean);
+  const isOneWay = $('oneWay').checked;
   return {
     lang: 'en',
     origin: allOrigins.join(','),
     dest: $('dest').value,
     date: $('date').value,
-    returnDate: $('returnDate').value,
-    oneWay: $('oneWay').checked,
+    returnDate: isOneWay ? '' : $('returnDate').value,
+    oneWay: isOneWay,
     direct: $('direct').checked,
     mmOnly: $('mmOnly').checked,
     currency: 'eur',
@@ -475,6 +586,7 @@ function startProgress(origin, dest) {
   fill.style.width = '100%';
   go.classList.add('loading');
   go.disabled = true;
+  go.setAttribute('aria-disabled', 'true');
   _radarStage = 0;
   _searchStart = Date.now();
 
@@ -522,7 +634,7 @@ function stopProgress(ok) {
   fill.classList.remove('indeterminate');
   fill.style.width = ok ? '100%' : '0%';
   go.classList.remove('loading');
-  go.disabled = false;
+  validateSearchForm();
   setTimeout(() => { bar.classList.remove('active'); fill.style.width = '0%'; }, 400);
 }
 
@@ -557,6 +669,13 @@ function actionLinksHtml(links) {
 }
 
 async function run() {
+  const validation = validateSearchForm({ submit: true });
+  if (!validation.valid) {
+    const first = visibleInputFor(validation.firstInvalid);
+    if (first && typeof first.focus === 'function') first.focus();
+    setStatus('ready');
+    return;
+  }
   setStatus('searching…');
   $('results').innerHTML = '';
   document.querySelector('.shell').classList.add('has-results');
@@ -759,7 +878,8 @@ function calendarStripHtml(calendar) {
 
 function jumpToDate(date) {
   $('date').value = date;
-  run();
+  markSearchFieldTouched('date');
+  runIfSearchValid();
 }
 
 function cheapCardsHtml(offers, sortKey) {
@@ -1257,13 +1377,15 @@ function render(data) {
   $('results').innerHTML = html;
 }
 
-function toggleReturn() {
+function toggleReturn(initial = false) {
   const on = $('oneWay').checked;
   const fields = document.querySelector('.fields');
   const wrap = $('returnFieldWrap');
   if (fields) fields.classList.toggle('no-return', on);
   if (wrap) wrap.style.display = on ? 'none' : '';
   $('returnDate').disabled = on;
+  if (initial) validateSearchForm();
+  else markSearchFieldTouched('returnDate', { show: on ? [] : ['returnDate'] });
 }
 
 function updateCalendarPrices(calendar) {
@@ -1284,27 +1406,20 @@ function updateCalendarPrices(calendar) {
 
 function applyDatePreset(preset) {
   const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  const day = now.getDay();
   let d;
   if (preset === 'today') {
     d = new Date(now);
-  } else if (preset === 'weekend') {
-    const toSat = day === 6 ? 7 : (6 - day || 7);
-    d = new Date(now); d.setDate(now.getDate() + toSat);
-  } else if (preset === 'nextweek') {
-    const toMon = (8 - day) % 7 || 7;
-    d = new Date(now); d.setDate(now.getDate() + toMon);
-  } else if (preset === 'christmas') {
-    const xmasYear = (m === 11 && now.getDate() > 23) ? y + 1 : y;
-    d = new Date(xmasYear, 11, 24);
-  } else if (preset === 'newyear') {
-    d = new Date(y + 1, 0, 1);
-  } else if (preset === 'summer') {
-    d = new Date(m >= 8 ? y + 1 : y, 6, 15);
+  } else if (preset === 'tomorrow') {
+    d = new Date(now);
+    d.setDate(now.getDate() + 1);
   }
-  if (d && fpDep) fpDep.setDate(d, true);
+  if (!d) return;
+  const value = localDateString(d);
+  if (fpDep) fpDep.setDate(value, true);
+  else $('date').value = value;
+  const show = ['date'];
+  if (!$('oneWay').checked && $('returnDate').value && validateSearchForm().errors.returnDate) show.push('returnDate');
+  markSearchFieldTouched('date', { show });
 }
 
 // Flatpickr: replace native month <select> + year input with custom "‹ June 2026 ›" label
@@ -1354,11 +1469,22 @@ function initDatepickers() {
     onYearChange(_d, _s, fp)  { if (fp._arLabel) fp._arLabel.textContent = arMonthYear(fp); },
   };
 
-  fpDep = flatpickr('#date', { ...baseConfig, onDayCreate: dayCreateHook });
+  fpDep = flatpickr('#date', {
+    ...baseConfig,
+    onDayCreate: dayCreateHook,
+    onChange() {
+      const show = ['date'];
+      if (!$('oneWay').checked && $('returnDate').value && validateSearchForm().errors.returnDate) show.push('returnDate');
+      markSearchFieldTouched('date', { show });
+    }
+  });
   fpDep.altInput.placeholder = 'Select date';
   fpDep.altInput.setAttribute('aria-label', 'Departure date');
 
-  fpRet = flatpickr('#returnDate', { ...baseConfig });
+  fpRet = flatpickr('#returnDate', {
+    ...baseConfig,
+    onChange() { markSearchFieldTouched('returnDate', { show: ['returnDate'] }); }
+  });
   fpRet.altInput.placeholder = 'Select date';
   fpRet.altInput.setAttribute('aria-label', 'Return date');
 }
@@ -1368,7 +1494,7 @@ document.querySelectorAll('.seg').forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll('.seg').forEach(s => s.classList.remove('active'));
     btn.classList.add('active');
-    if ($('results').children.length && $('origin').value && $('dest').value) run();
+    if ($('results').children.length) runIfSearchValid();
   };
 });
 
@@ -1402,6 +1528,7 @@ function activateTab(tabEl) {
   tabEl.setAttribute('aria-selected', 'true');
   tabEl.setAttribute('tabindex', '0');
   mode = tabEl.dataset.tab;
+  validateSearchForm();
 }
 
 // Event bindings
@@ -1430,14 +1557,20 @@ const addOriginBtn = document.getElementById('addOriginBtn');
 if (addOriginBtn) addOriginBtn.addEventListener('click', addOrigin);
 $('go').onclick = run;
 { const _eb = $('editSearchBtn'); if (_eb) _eb.onclick = expandSearch; }
-$('oneWay').onchange = toggleReturn;
+$('oneWay').onchange = () => toggleReturn(false);
 $('themeBtn').onclick = () => applyTheme(theme === 'dark' ? 'light' : 'dark');
 
 // Swap origin ⇄ destination
 $('swapBtn').onclick = () => {
   const o = $('origin').value, d = $('dest').value;
+  const ro = airportResolution.origin, rd = airportResolution.dest;
   $('origin').value = d; $('dest').value = o;
+  airportResolution.origin = rd;
+  airportResolution.dest = ro;
+  searchTouched.origin = true;
+  searchTouched.dest = true;
   updatePaCodes();
+  validateSearchForm({ show: ['origin', 'dest'] });
 };
 
 // FROM / TO toggle — explicit target for airport chips
@@ -1457,6 +1590,8 @@ function setAirportInputValue(inputId, value) {
   const input = $(inputId);
   if (!input) return;
   input.value = normalizeAirportValue(value);
+  setResolvedAirport(inputId, input.value);
+  markSearchFieldTouched(inputId, { resolved: true, show: [inputId] });
   updatePaCodes();
 }
 
@@ -1465,9 +1600,13 @@ function bindAirportTarget(inputId, target) {
   if (!input) return;
   input.addEventListener('focus', () => setPaTarget(target));
   input.addEventListener('click', () => setPaTarget(target));
-  input.addEventListener('input', updatePaCodes);
+  input.addEventListener('input', () => {
+    markSearchFieldTouched(inputId, { show: [inputId] });
+    updatePaCodes();
+  });
   input.addEventListener('blur', () => {
     input.value = normalizeAirportValue(input.value);
+    markSearchFieldTouched(inputId, { show: [inputId] });
     updatePaCodes();
   });
 }
@@ -1510,7 +1649,7 @@ document.querySelectorAll('.flex-opt').forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll('.flex-opt').forEach(b => b.classList.remove('on'));
     btn.classList.add('on');
-    if ($('results').children.length && $('origin').value && $('dest').value) run();
+    if ($('results').children.length) runIfSearchValid();
   };
 });
 
@@ -1522,7 +1661,8 @@ document.querySelectorAll('.date-chip').forEach(btn => {
 // Init Flatpickr
 initDatepickers();
 // Init return field visibility
-toggleReturn();
+toggleReturn(true);
+validateSearchForm();
 
 // Airport autocomplete
 const debounce = (fn, ms = 250) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; };
