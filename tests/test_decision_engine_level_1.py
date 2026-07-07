@@ -477,7 +477,7 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=135", html)
+        self.assertIn("app.css?v=136", html)
         self.assertIn("app.js?v=142", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
@@ -498,6 +498,53 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertNotIn("Cash and miles are closely matched.", js)
         self.assertNotIn("Journey intelligence route", js)
         self.assertNotIn("o.direct ? 'Nonstop' : ''", js)
+
+
+class AboutMethodologyPage(unittest.TestCase):
+    def setUp(self):
+        self.client = app.app.test_client()
+
+    def test_about_route_returns_methodology_page(self):
+        response = self.client.get("/about")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("About AwardRadar", html)
+        self.assertIn("How the Decision Layer works", html)
+        self.assertIn("Data status and freshness", html)
+        self.assertIn("What confidence means", html)
+        self.assertIn("What to verify before booking", html)
+        self.assertIn("Independence and commercial links", html)
+        self.assertIn("Limitations", html)
+        self.assertIn("app.css?v=136", html)
+        self.assertNotIn("app.js?v=142", html)
+
+    def test_about_navigation_exists_on_main_page(self):
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn('class="nav-link" href="/about"', html)
+        self.assertIn('<a href="/about">About</a>', html)
+        self.assertIn("app.css?v=136", html)
+        self.assertIn("app.js?v=142", html)
+
+    def test_about_copy_avoids_overclaiming(self):
+        html = self.client.get("/about").get_data(as_text=True).lower()
+        forbidden = [
+            "guaranteed availability",
+            "100% live",
+            "always accurate",
+            "fully live inventory",
+            "official airline or loyalty-program service",
+        ]
+        for phrase in forbidden:
+            self.assertNotIn(phrase, html)
+        self.assertIn("official airline, booking-site and loyalty-program sources are the final verification point", html)
+        self.assertIn("commercial placement", html)
+
+    def test_about_appears_in_sitemap(self):
+        response = self.client.get("/sitemap.xml")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("https://awardradar.app/about", response.get_data(as_text=True))
 
 
 class AwardsApiErrorHandling(unittest.TestCase):
