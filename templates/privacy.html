@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script>
+    window.AWARDRADAR_ANALYTICS = {
+      production: {{ "true" if request.host in ["awardradar.app", "www.awardradar.app"] else "false" }},
+      gtmId: 'GTM-TBBPLXGV',
+      ga4Id: 'G-MGN0MCDQKB'
+    };
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Notice – AwardRadar</title>
+  <meta name="robots" content="noindex, follow">
+  <link rel="stylesheet" href="/static/app.css?v=94">
+  <link rel="stylesheet" href="/static/consent.css?v=1">
+  <script src="/static/consent.js?v=1" defer></script>
+  <style>
+    .legal { max-width: 760px; margin: 0 auto; padding: 48px 20px 80px; min-width: 0; overflow-wrap: break-word; }
+    .legal h1 { font-size: clamp(24px, 8vw, 36px); line-height: 1.15; margin-bottom: 8px; overflow-wrap: anywhere; hyphens: auto; }
+    .legal h2 { color: var(--gold); font-size: 16px; margin: 32px 0 6px; }
+    .legal p, .legal ul { color: var(--muted); line-height: 1.7; }
+    .legal ul { padding-left: 20px; }
+    .legal a { color: var(--cyan); }
+    .legal code { color: var(--cyan); }
+    .back { display: inline-block; margin-bottom: 32px; color: var(--cyan); text-decoration: none; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="legal">
+    <a href="/" class="back">← Back to AwardRadar</a>
+    <h1>Privacy Notice</h1>
+    <p>This English version is provided for information only. The German version is legally controlling.</p>
+    <p>Legally controlling German version: <a href="/datenschutz">Datenschutzerklärung</a></p>
+
+    <h2>1. Controller</h2>
+    <p>Florian Hoffarth, hello@awardradar.app. Further details are available in the <a href="/impressum">Imprint</a>.</p>
+
+    <h2>2. Access data and hosting</h2>
+    <p>AwardRadar is hosted with Railway. The confirmed production region is currently EU West (Amsterdam, Netherlands). When the website and its interfaces are accessed, technically necessary access data may be processed, in particular the IP address, the date and time of access, the requested path, the status code, browser and device information, the referrer and similar technical metadata.</p>
+    <p>Railway may generate server and access logs. The exact log-retention period, the contractual classification, sub-processors and the applicable transfer mechanisms are still being reviewed with the provider and legally.</p>
+
+    <h2>3. Search requests and processing purposes</h2>
+    <p>When you actively use AwardRadar, the application processes the search parameters you enter in order to provide flight-price, award and routing context. Depending on the function, these may include origin and destination, travel date, return date, trip type, cabin, filters, program selection and similar search parameters.</p>
+    <p>The airport autocomplete uses a request such as <code>/api/airports?q=...</code>. As a result, the entered search term may appear as a URL parameter in technical logs. Cash searches, award searches and hidden-opportunity/skiplag searches are sent to AwardRadar as request content and processed there on the server side.</p>
+    <p>For the actual evaluation, search parameters may be transmitted to external data providers to the extent necessary to deliver the respective function. AwardRadar does not create a user account or a personal travel profile in doing so. However, search data can allow conclusions to be drawn about travel interests and is therefore described transparently.</p>
+
+    <h2>4. Temporary caching and retention</h2>
+    <p>Individual technical results may be stored temporarily in memory or in temporary cache files in order to reduce repeated provider requests and to keep the application stable. This technical caching is to be distinguished from server logs and from storage by external providers.</p>
+    <ul>
+      <li>SerpApi result cache: current technical default of approximately 6 hours.</li>
+      <li>Top Opportunities cache: current technical default of approximately 4 hours.</li>
+      <li>Other short-lived caches in memory or in temporary files: until expiry, until a restart or until technical deletion.</li>
+      <li>Browser settings and saved searches: until you delete them, until they are cleared by the browser or until a change to the function.</li>
+      <li>Server and access logs as well as storage by external providers: provider-dependent and not yet conclusively confirmed.</li>
+    </ul>
+    <p>The cache durations mentioned are current technical defaults and not guaranteed legal retention periods.</p>
+    <p>Local browser settings generally remain stored until you delete them, until the browser removes them or until AwardRadar changes the function. The retention periods of Railway and external providers are not yet conclusively confirmed and are not guaranteed on a blanket basis.</p>
+
+    <h2>5. Legal bases for processing</h2>
+    <p>The following information describes the legal bases that are relevant from today's perspective. It represents a careful own assessment and is kept under ongoing review.</p>
+    <ul>
+      <li><strong>Provision of the website, technical access logs, security, fault diagnosis and abuse prevention:</strong> Article 6(1)(f) GDPR. The legitimate interests are the operation and safeguarding of the service, the prevention of abuse and the diagnosis of technical faults.</li>
+      <li><strong>Processing of actively submitted search requests</strong> – airport autocomplete, cash searches, award searches, hidden-opportunity searches, Top Opportunities as well as the technically necessary, short-term caching: Article 6(1)(f) GDPR. The legitimate interests are responding to the search you requested and reducing unnecessary provider requests through short-lived caching.</li>
+    </ul>
+    <p>A separate legal basis applies to analytics and tag-management services; see the section “Consent, analytics and tag management”.</p>
+
+    <h2>6. External providers</h2>
+    <p>Depending on the function and technical configuration, AwardRadar may involve the following external services:</p>
+    <ul>
+      <li><strong>Railway</strong> – hosting of the website and processing of technical access and server data. Production region: EU West (Amsterdam, Netherlands). Privacy policy: <a href="https://railway.app/legal/privacy" target="_blank" rel="noopener">railway.app/legal/privacy</a></li>
+      <li><strong>SerpApi</strong> – retrieval of Google Flights market data and cash-fare context. Search parameters such as origin, destination, date, cabin, language and currency may be transmitted on the server side. Privacy policy: <a href="https://serpapi.com/privacy" target="_blank" rel="noopener">serpapi.com/privacy</a></li>
+      <li><strong>Seats.aero</strong> – retrieval of award-availability and program signals, where this data source is active. In particular, route, date range and cabin class may be transmitted. Privacy policy: <a href="https://seats.aero/privacy" target="_blank" rel="noopener">seats.aero/privacy</a></li>
+      <li><strong>Travelpayouts / Aviasales</strong> – airport autocomplete as well as fallback or cache-based flight data, where technically used. Search terms or flight search parameters may be transmitted on the server side. Privacy policy: <a href="https://www.travelpayouts.com/en/legal/privacy" target="_blank" rel="noopener">travelpayouts.com</a></li>
+      <li><strong>Google Tag Manager / Google Analytics</strong> – analytics and tag management only after your consent to Analytics. Privacy policy: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a></li>
+    </ul>
+    <p>The providers are not necessarily used for every search. Which providers are involved depends on the search mode, technical configuration, availability and cache state. Provider-specific retention periods, sub-processors and international transfer mechanisms are still being reviewed.</p>
+
+    <h2>7. External verification and booking links</h2>
+    <p>AwardRadar may display links to external websites, for example to flight and booking sites, search providers, airlines or frequent-flyer programs. When you click such a link, you leave AwardRadar. The respective provider may then process its own access data, referrer information and, where applicable, travel data contained in the link, such as route or date.</p>
+
+    <h2>8. Local browser storage</h2>
+    <p>AwardRadar uses local browser storage for functions that remain directly on your device:</p>
+    <ul>
+      <li><strong><code>awardradar_theme</code></strong> (localStorage) – display setting for light/dark mode.</li>
+      <li><strong><code>awardradar_text_size</code></strong> (localStorage) – text-size setting for better readability.</li>
+      <li><strong><code>awardradar_consent</code></strong> (localStorage) – your choice regarding necessary functions and optional analytics. You can change or withdraw this choice via “Privacy settings”.</li>
+      <li><strong><code>awardradar_saved_searches</code></strong> (localStorage) – optionally saved search parameters such as route, date, cabin, search mode and filters. This data remains in the browser, is not tied to a user account and can be deleted via the Saved Searches function.</li>
+    </ul>
+    <p>This browser data is not automatically linked to a server-side user account. You can delete it via your browser settings or the respective functions.</p>
+    <p>A legal distinction applies here: for any processing of personal data that results from these functions, the respective applicable legal basis under the GDPR applies. The storing of information on your device and access to it are additionally governed by Section 25 TDDDG. Necessary settings may rely on Section 25(2) TDDDG where its statutory requirements are met; storing or reading for analytics purposes requires your consent.</p>
+
+    <h2>9. Consent, analytics and tag management</h2>
+    <p>Google Tag Manager and Google Analytics are loaded in production only after your explicit consent to Analytics. Before your selection, analytics storage is disabled by default. Consent that has been given can be changed or withdrawn at any time via “Privacy settings”.</p>
+    <p>The legal basis for the analytical processing of personal data is your consent pursuant to Article 6(1)(a) GDPR. The storing of information on your device and access to it are assessed separately under Section 25 TDDDG. You can withdraw consent that has been given at any time with effect for the future; the lawfulness of the processing carried out before the withdrawal remains unaffected.</p>
+    <p>After consent, technical usage data such as page views, browser and device information, referrer, page URLs and event data may be processed. The exact processing of full URLs, query strings, referrers, IP-related data and events depends on the Google and Tag Manager configuration and is still being reviewed separately. Full anonymisation is not guaranteed here.</p>
+    <p>Analytics and tag-management services may set their own cookies or comparable technologies only once you agree to the “Analytics” category. Upon withdrawal, AwardRadar attempts to remove known analytics cookies in the browser.</p>
+
+    <h2>10. International transfers</h2>
+    <p>AwardRadar is hosted with Railway in the EU West (Amsterdam, Netherlands) region. However, because individual external providers such as Google, SerpApi, Seats.aero, Travelpayouts or other internationally active service providers are involved, processing outside the EU or the EEA may still take place. The respectively applicable contractual safeguards, sub-processors and transfer mechanisms are being reviewed on a provider-specific and legal basis. This privacy notice makes no conclusive legal assessment in this regard.</p>
+
+    <h2>11. Your rights</h2>
+    <p>Under the GDPR you have, in particular, rights to access, rectification, erasure and restriction of processing as well as, where applicable, to data portability. You also have the right, on grounds relating to your particular situation, to object at any time to processing that is based on Article 6(1)(f) GDPR (Article 21 GDPR). Where processing is based on your consent, you can withdraw it at any time with effect for the future pursuant to Article 7(3) GDPR; the lawfulness of the processing carried out before the withdrawal remains unaffected. You can also lodge a complaint with a competent data protection supervisory authority. Contact: <a href="mailto:hello@awardradar.app">hello@awardradar.app</a></p>
+
+    <h2>12. Changes</h2>
+    <p>This privacy notice may be updated if functions, providers or legal assessments change. Last updated: July 2026.</p>
+  </div>
+</body>
+</html>

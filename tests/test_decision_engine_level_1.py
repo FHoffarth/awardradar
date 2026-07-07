@@ -935,5 +935,78 @@ process.stdout.write(JSON.stringify({{ html: container.innerHTML, warnings }}));
         self.assertIn("Top opportunities unavailable.", js)
 
 
+class EnglishPrivacyNotice(unittest.TestCase):
+    def setUp(self):
+        self.client = app.app.test_client()
+
+    def test_privacy_route_returns_english_informational_notice(self):
+        response = self.client.get("/privacy")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        # Informational-only disclaimer and controlling-version statement
+        self.assertIn(
+            "This English version is provided for information only. "
+            "The German version is legally controlling.",
+            html,
+        )
+        self.assertIn('href="/datenschutz"', html)
+        self.assertIn("Datenschutzerklärung", html)
+        # Substantive facts mirrored from the German source
+        self.assertIn("EU West (Amsterdam, Netherlands)", html)
+        self.assertIn("Article 6(1)(f) GDPR", html)
+        self.assertIn("Article 6(1)(a) GDPR", html)
+        self.assertIn("Article 21 GDPR", html)
+        self.assertIn("Article 7(3) GDPR", html)
+        self.assertIn("Section 25 TDDDG", html)
+        self.assertIn("Seats.aero", html)
+        self.assertIn("awardradar_text_size", html)
+        self.assertIn("approximately 6 hours", html)
+        self.assertIn("approximately 4 hours", html)
+        self.assertIn("where applicable", html)
+        self.assertIn("July 2026", html)
+
+    def test_privacy_avoids_forbidden_and_overclaiming_wording(self):
+        html = self.client.get("/privacy").get_data(as_text=True)
+        self.assertNotIn("Article 6(1)(b) GDPR", html)
+        self.assertNotIn("TTDSG", html)
+        forbidden = [
+            "ar_key",
+            "Beta-Zugangscode",
+            "Beta access code",
+            "session authentication",
+            "Sitzungsauthentifizierung",
+            "fully compliant",
+            "GDPR-compliant",
+            "Standard Contractual Clauses",
+            "Data Privacy Framework",
+            "adequacy decision",
+        ]
+        for phrase in forbidden:
+            self.assertNotIn(phrase, html)
+
+    def test_german_page_links_to_english_privacy(self):
+        response = self.client.get("/datenschutz")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn('href="/privacy"', html)
+        # German legal substance remains intact
+        self.assertIn("Art. 6 Abs. 1 lit. f DSGVO", html)
+        self.assertIn("§ 25 TDDDG", html)
+
+    def test_footers_link_to_english_privacy(self):
+        for path in ("/", "/about"):
+            html = self.client.get(path).get_data(as_text=True)
+            self.assertIn('<a href="/privacy">English privacy</a>', html)
+
+    def test_sitemap_includes_privacy(self):
+        response = self.client.get("/sitemap.xml")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("https://awardradar.app/privacy", response.get_data(as_text=True))
+
+    def test_related_legal_and_core_routes_remain_healthy(self):
+        for path in ("/datenschutz", "/impressum", "/about", "/"):
+            self.assertEqual(self.client.get(path).status_code, 200)
+
+
 if __name__ == "__main__":
     unittest.main()

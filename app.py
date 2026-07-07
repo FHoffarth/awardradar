@@ -1857,6 +1857,11 @@ def datenschutz():
     return render_template("datenschutz.html")
 
 
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html")
+
+
 @app.route("/robots.txt")
 def robots():
     body = "User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: https://awardradar.app/sitemap.xml\n"
@@ -1872,6 +1877,7 @@ def sitemap():
   <url><loc>https://awardradar.app/about</loc><lastmod>{today}</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://awardradar.app/impressum</loc><lastmod>{today}</lastmod><changefreq>yearly</changefreq><priority>0.2</priority></url>
   <url><loc>https://awardradar.app/datenschutz</loc><lastmod>{today}</lastmod><changefreq>yearly</changefreq><priority>0.2</priority></url>
+  <url><loc>https://awardradar.app/privacy</loc><lastmod>{today}</lastmod><changefreq>yearly</changefreq><priority>0.2</priority></url>
 </urlset>"""
     return make_response(body, 200, {"Content-Type": "application/xml"})
 
