@@ -1817,7 +1817,7 @@ function globeAnimation() {
       rot += velX;
       velX *= 0.88; // friction
     } else if (autoSpin) {
-      rot += isMobile() ? 0.0014 : 0.0022;
+      rot += isMobile() ? 0.0009 : 0.0014;
     }
     ctx.clearRect(0, 0, w, h);
 
