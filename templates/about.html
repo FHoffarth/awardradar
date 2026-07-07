@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+  <meta charset="utf-8">
+  <script>
+    window.AWARDRADAR_ANALYTICS = {
+      production: {{ "true" if request.host in ["awardradar.app", "www.awardradar.app"] else "false" }},
+      gtmId: 'GTM-TBBPLXGV',
+      ga4Id: 'G-MGN0MCDQKB'
+    };
+  </script>
+  <script>
+    (function () {
+      var allowed = { small: true, default: true, large: true };
+      var value = 'default';
+      try {
+        var stored = localStorage.getItem('awardradar_text_size');
+        if (allowed[stored]) value = stored;
+      } catch (e) {}
+      document.documentElement.dataset.textSize = value;
+      try {
+        var theme = localStorage.getItem('awardradar_theme');
+        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+      } catch (e) {}
+    })();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>About &amp; Methodology – AwardRadar</title>
+  <meta name="description" content="How AwardRadar compares cash fares, award redemptions, routing context, freshness, confidence and verification requirements.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://awardradar.app/about">
+  <link rel="manifest" href="/static/site.webmanifest">
+  <meta name="theme-color" content="#071426">
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/favicon.ico" sizes="any">
+  <link rel="icon" href="/static/favicon-48x48.png" type="image/png" sizes="48x48">
+  <link rel="icon" href="/static/favicon-96x96.png" type="image/png" sizes="96x96">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" sizes="180x180">
+  <link rel="stylesheet" href="/static/app.css?v=136">
+  <link rel="stylesheet" href="/static/consent.css?v=1">
+  <script src="/static/consent.js?v=1" defer></script>
+</head>
+<body class="about-page">
+  <a class="skip-link" href="#about-main">Skip to About &amp; Methodology</a>
+  <nav class="navbar">
+    <div class="nav-inner">
+      <a href="/" class="logo">
+        <div class="logo-mark" aria-hidden="true">
+          <svg width="52" height="52" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="22" cy="22" r="19.5" stroke="#6ad7ff" stroke-width=".7" stroke-dasharray="3 4.5" opacity=".25"/>
+            <circle cx="22" cy="22" r="13" stroke="#6ad7ff" stroke-width="1.1" opacity=".7"/>
+            <path d="M 10 32 Q 18 6 34 14" stroke="#f5c76b" stroke-width="2" stroke-linecap="round" fill="none"/>
+            <circle cx="10" cy="32" r="2" fill="#f5c76b"/>
+            <circle cx="34" cy="14" r="2" fill="#f5c76b"/>
+            <circle cx="22" cy="22" r="1.6" fill="#6ad7ff"/>
+          </svg>
+        </div>
+        <div>
+          <div class="logo-name"><span class="logo-award">Award</span><span class="logo-radar">Radar</span></div>
+          <div class="logo-tagline">Travel Intelligence</div>
+        </div>
+      </a>
+      <div class="nav-right">
+        <a class="nav-link nav-link-active" href="/about" aria-current="page">About</a>
+        <div class="text-size-control" role="group" aria-label="Text size">
+          <button type="button" class="text-size-btn" data-text-size-option="small" aria-label="Use small text size" title="Small text" aria-pressed="false">A&minus;</button>
+          <button type="button" class="text-size-btn" data-text-size-option="default" aria-label="Use default text size" title="Default text" aria-pressed="true">A</button>
+          <button type="button" class="text-size-btn" data-text-size-option="large" aria-label="Use large text size" title="Large text" aria-pressed="false">A+</button>
+        </div>
+        <button class="theme-btn" id="themeBtn" aria-label="Toggle light/dark mode">
+          <svg id="themeIconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg id="themeIconSun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+        <span class="sr-only" id="textSizeStatus" aria-live="polite" aria-atomic="true">Text size Default</span>
+      </div>
+    </div>
+  </nav>
+
+  <main id="about-main" class="about-shell" tabindex="-1">
+    <section class="about-hero" aria-labelledby="about-title">
+      <div class="eyebrow">About &amp; Methodology</div>
+      <h1 id="about-title">About AwardRadar</h1>
+      <p>AwardRadar turns fragmented travel signals into clearer decisions. It compares cash fares, award redemptions and routing context so travelers can understand what may be worth booking, why, with what level of confidence and what to verify next.</p>
+      <p>AwardRadar is decision support. It does not replace the final check with the airline, booking site or loyalty program.</p>
+    </section>
+
+    <nav class="about-toc" aria-label="About sections">
+      <a href="#what-it-does">What it does</a>
+      <a href="#decision-layer">Decision layer</a>
+      <a href="#data-status">Data status</a>
+      <a href="#confidence">Confidence</a>
+      <a href="#verification">Verification</a>
+      <a href="#limits">Limits</a>
+    </nav>
+
+    <section id="what-it-does" class="about-section">
+      <h2>What AwardRadar does</h2>
+      <p>AwardRadar is a travel decision platform for comparing cash fares, award redemptions, routing quality, availability signals, data freshness, verification requirements and selected hidden opportunities.</p>
+      <p>The product is built around a decision-first flow: first the recommendation, then the explanation, then the supporting options and verification steps.</p>
+      <ul>
+        <li>Cash searches provide fare context and relative value signals.</li>
+        <li>Award searches compare mileage cost, taxes, fees and available confidence signals.</li>
+        <li>Routing context helps separate confirmed itinerary facts from unverified award signals.</li>
+        <li>Verification guidance explains what should be checked before booking or transferring points.</li>
+      </ul>
+    </section>
+
+    <section id="decision-layer" class="about-section">
+      <h2>How the Decision Layer works</h2>
+      <p>The recommendation layer combines available signals, applies guardrails and explains why an option may be worth considering. It explains factors, not proprietary formulas.</p>
+      <p>Signals may include cash price context, award redemption value, itinerary ownership, stops, journey duration, trip basis, data freshness, provider confidence, verification status and known risks.</p>
+      <p>When the data is incomplete, the interface should say so. AwardRadar does not assume identical routing unless the relevant itinerary information is sufficiently known.</p>
+    </section>
+
+    <section id="data-status" class="about-section">
+      <h2>Data status and freshness</h2>
+      <div class="about-status-grid">
+        <article>
+          <h3>Live request</h3>
+          <p>Data was requested during the current search, but prices, seats and rules can still change after the response is returned.</p>
+        </article>
+        <article>
+          <h3>Cached or recently observed</h3>
+          <p>Data may come from a recent stored observation. It can be useful context, but it should be checked before booking.</p>
+        </article>
+        <article>
+          <h3>Provider-reported</h3>
+          <p>Availability or itinerary details are reported by a third-party source and may require official confirmation.</p>
+        </article>
+        <article>
+          <h3>Estimated or incomplete</h3>
+          <p>Some information may be missing or inferred conservatively. These signals are treated as lower-confidence context.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="confidence" class="about-section">
+      <h2>What confidence means</h2>
+      <p>Confidence is qualitative. It reflects how complete, fresh and internally consistent the available data appears to be.</p>
+      <ul>
+        <li><strong>High confidence</strong> means the available signals are relatively complete and aligned.</li>
+        <li><strong>Moderate confidence</strong> means the result is useful, but one or more inputs should be checked carefully.</li>
+        <li><strong>Needs verification</strong> means the result should be treated as a prompt for manual checking, not a firm recommendation.</li>
+      </ul>
+      <p>Confidence may consider itinerary completeness, agreement between sources, freshness, provider-reported availability, routing status and whether the trip basis is complete.</p>
+    </section>
+
+    <section id="cash-award" class="about-section">
+      <h2>Cash versus award comparisons</h2>
+      <p>Cash and award options may represent different itineraries. AwardRadar does not treat them as the same journey unless routing scope and segment order can support that comparison.</p>
+      <p>Cent-per-mile and value-per-mile metrics are context, not universal truth. Taxes, fees, transfer bonuses, elite benefits, flexibility and each traveler's personal point value can change the right decision.</p>
+    </section>
+
+    <section id="verification" class="about-section about-callout">
+      <h2>What to verify before booking</h2>
+      <p>Official airline, booking-site and loyalty-program sources are the final verification point. Before booking or transferring points, check current availability, final price, taxes and fees, flight number, schedule, routing, stops, baggage rules, fare conditions, cancellation rules and loyalty-program requirements.</p>
+    </section>
+
+    <section id="independence" class="about-section">
+      <h2>Independence and commercial links</h2>
+      <p>AwardRadar's product principle is that recommendation logic should be based on available travel signals, not on commercial placement. If sponsored or affiliate links are introduced later, they should be clearly labeled and should not change the recommendation logic.</p>
+      <p>Official airline and loyalty-program destinations should remain the primary verification targets.</p>
+    </section>
+
+    <section id="limits" class="about-section">
+      <h2>Limitations</h2>
+      <ul>
+        <li>Prices and availability can change quickly.</li>
+        <li>Provider data may be delayed, incomplete or inconsistent.</li>
+        <li>Schedules, aircraft, stops and fare rules can change.</li>
+        <li>Separate tickets and self-transfer options may carry operational risk.</li>
+        <li>Airport, visa, baggage and transit conditions may require independent checking.</li>
+        <li>AwardRadar is informational and decision-supporting, not a booking promise.</li>
+      </ul>
+    </section>
+
+    <section class="about-section about-next">
+      <h2>Continue with AwardRadar</h2>
+      <p>Feedback helps us improve how recommendations are explained.</p>
+      <div class="about-actions">
+        <a class="about-primary-link" href="/">Return to search</a>
+        <a class="about-secondary-link" href="mailto:hello@awardradar.app">Contact AwardRadar</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="beta-notice">
+      <span class="beta-tag">Intelligence</span>
+      AwardRadar provides decision-support context based on fare and award data. Availability, pricing and rules should always be checked with the respective provider. &middot; <a href="mailto:hello@awardradar.app">hello@awardradar.app</a>
+    </div>
+    <div class="footer-links">
+      <a href="/">Search</a>
+      <a href="/about" aria-current="page">About</a>
+      <a href="mailto:hello@awardradar.app">Contact</a>
+      <a href="/impressum">Imprint</a>
+      <a href="/datenschutz">Privacy</a>
+    </div>
+    <p>&copy; 2026 AwardRadar</p>
+  </footer>
+
+  <script>
+    (function () {
+      var labels = { small: 'Small', default: 'Default', large: 'Large' };
+      var values = Object.keys(labels);
+      var root = document.documentElement;
+      var textSize = values.indexOf(root.dataset.textSize) >= 0 ? root.dataset.textSize : 'default';
+      function applyTextSize(value) {
+        textSize = values.indexOf(value) >= 0 ? value : 'default';
+        root.dataset.textSize = textSize;
+        try { localStorage.setItem('awardradar_text_size', textSize); } catch (e) {}
+        document.querySelectorAll('[data-text-size-option]').forEach(function (btn) {
+          btn.setAttribute('aria-pressed', btn.dataset.textSizeOption === textSize ? 'true' : 'false');
+        });
+        var status = document.getElementById('textSizeStatus');
+        if (status) status.textContent = 'Text size ' + labels[textSize];
+      }
+      document.querySelectorAll('[data-text-size-option]').forEach(function (btn) {
+        btn.addEventListener('click', function () { applyTextSize(btn.dataset.textSizeOption); });
+      });
+      applyTextSize(textSize);
+
+      var themeBtn = document.getElementById('themeBtn');
+      var moon = document.getElementById('themeIconMoon');
+      var sun = document.getElementById('themeIconSun');
+      function applyTheme(theme) {
+        root.dataset.theme = theme;
+        try { localStorage.setItem('awardradar_theme', theme); } catch (e) {}
+        if (moon && sun) {
+          moon.style.display = theme === 'dark' ? '' : 'none';
+          sun.style.display = theme === 'light' ? '' : 'none';
+        }
+      }
+      var currentTheme = root.dataset.theme || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      applyTheme(currentTheme);
+      if (themeBtn) themeBtn.addEventListener('click', function () {
+        applyTheme(root.dataset.theme === 'dark' ? 'light' : 'dark');
+      });
+    })();
+  </script>
+</body>
+</html>

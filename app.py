@@ -1875,6 +1875,11 @@ def index():
     return render_template("index.html", app_name=APP_NAME, tagline=TAGLINE, version="v6.0")
 
 
+@app.route("/about")
+def about():
+    return render_template("about.html")
+
+
 @app.route("/impressum")
 def impressum():
     return render_template("impressum.html")
@@ -1897,6 +1902,7 @@ def sitemap():
     body = f"""<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://awardradar.app/</loc><lastmod>{today}</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://awardradar.app/about</loc><lastmod>{today}</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://awardradar.app/impressum</loc><lastmod>{today}</lastmod><changefreq>yearly</changefreq><priority>0.2</priority></url>
   <url><loc>https://awardradar.app/datenschutz</loc><lastmod>{today}</lastmod><changefreq>yearly</changefreq><priority>0.2</priority></url>
 </urlset>"""
