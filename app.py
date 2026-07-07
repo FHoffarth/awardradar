@@ -3,7 +3,7 @@
 
 Produktionsnäherer Flask-Build:
 - Gunicorn-ready
-- optionaler APP_TOKEN schützt API-Endpunkte, Landingpage bleibt sichtbar
+- öffentliche Browser-APIs für Suche und Entscheidungsunterstützung
 - dynamische Airport-Suche über Travelpayouts/Aviasales Autocomplete + lokaler Fallback
 - Cheap Flights / Skiplag Finder / Awards klar getrennt
 """
@@ -31,7 +31,6 @@ from urllib3.util.retry import Retry
 APP_NAME = "AwardRadar"
 TAGLINE = "Find miles. Fly better."
 TP_TOKEN = os.environ.get("TRAVELPAYOUTS_TOKEN", "")
-APP_TOKEN = os.environ.get("APP_TOKEN", "")
 TP_BASE = "https://api.travelpayouts.com"
 AUTOCOMPLETE_BASE = "https://autocomplete.travelpayouts.com/places2"
 PORT = int(os.environ.get("PORT", "5000"))
@@ -106,7 +105,6 @@ def api_error(error: str, message: str, status: int, retryable: bool = False):
 TEXT = {
     "missing_origin_dest": {"de": "Bitte Start und Ziel eingeben, z. B. Frankfurt und Tokio.", "en": "Please enter origin and destination, e.g. Frankfurt and Tokyo."},
     "missing_hidden": {"de": "Bitte Start und eigentliches Ziel eingeben.", "en": "Please enter origin and intended destination."},
-    "api_guard": {"de": "API geschützt. Öffne die App einmal mit ?key=DEIN_APP_TOKEN.", "en": "API protected. Open the app once with ?key=YOUR_APP_TOKEN."},
     "cheap_note": {"de": "Travelpayouts ist cache-basiert. Wenn kein Preiskontext erscheint, nutze die Prüflinks; Cachepreise werden gezeigt, wenn verfügbar, und Routing-Muster enthalten Risikokontext.", "en": "Travelpayouts is cache-based. If no fare context appears, use the verification links; cached fares are shown when available and overlooked routing results include risk context."},
     "cheap_note_live": {"de": "Cash-Fare-Kontext aus externen Preisquellen. Während der Beta gecacht — vor Kauf prüfen.", "en": "Cash fare context from external fare sources. Cached during beta - verify before purchase."},
     "skiplag_note": {"de": "Overlooked Routing bleibt Risikokontext: Travelpayouts bestätigt keine tatsächliche Umstiegsroute über dein Ziel. Routing vor Kauf prüfen; nur One-way und ohne Aufgabegepäck.", "en": "Overlooked routing remains risk-context logic: Travelpayouts does not confirm that the itinerary actually connects via your intended destination. Verify routing before purchase; one-way only and no checked baggage."},
@@ -518,37 +516,6 @@ ALIASES = {
 
 MM_AIRLINES = {"LH", "LX", "OS", "SN", "EN", "UA", "AC", "NH", "SQ", "TG", "OZ", "CA", "NZ", "SK", "TK", "TP", "A3", "BR", "ET", "LO"}
 SKIPLAG_ENDINGS = ["ATH", "IST", "BCN", "MAD", "FCO", "MXP", "AMS", "CDG", "LHR", "BOS", "MIA", "ORD", "YYZ", "YUL", "LAX", "SFO", "SEA", "DUB", "CPH", "ARN", "OSL", "WAW", "LIS"]
-
-
-def wants_access() -> bool:
-    if not APP_TOKEN:
-        return True
-    return (
-        request.args.get("key") == APP_TOKEN
-        or request.headers.get("X-App-Token") == APP_TOKEN
-        or request.cookies.get("app_token") == APP_TOKEN
-    )
-
-
-@app.before_request
-def api_guard():
-    if not APP_TOKEN:
-        return None
-    # Landingpage, static assets, health and airport suggestions stay reachable.
-    public_prefixes = ("/static/",)
-    public_paths = {"/", "/health", "/api/airports"}
-    if request.path in public_paths or request.path.startswith(public_prefixes):
-        return None
-    if request.path.startswith("/api/") and not wants_access():
-        return api_error("unauthorized", "API authentication is required.", 401, retryable=False)
-    return None
-
-
-@app.after_request
-def remember_app_token(response):
-    if APP_TOKEN and request.args.get("key") == APP_TOKEN:
-        response.set_cookie("app_token", APP_TOKEN, max_age=60 * 60 * 24 * 180, httponly=True, samesite="Lax")
-    return response
 
 
 @app.after_request
@@ -2466,7 +2433,7 @@ def top_opportunities():
 
 @app.route("/health")
 def health():
-    return jsonify({"ok": True, "app": APP_NAME, "version": "6.1", "price_source": PRICE_SOURCE, "serpapi_token": bool(SERPAPI_TOKEN), "tp_token": bool(TP_TOKEN), "api_guard": bool(APP_TOKEN), "award_source": AWARD_SOURCE, "seatsaero_key": bool(SEATSAERO_KEY), "seatsaero_remaining": _seatsaero_remaining, "serpapi_paid_calls": _serpapi_paid_calls, "serpapi_max_pairs": SERPAPI_MAX_PAIRS})
+    return jsonify({"ok": True, "app": APP_NAME, "version": "6.1", "price_source": PRICE_SOURCE, "serpapi_token": bool(SERPAPI_TOKEN), "tp_token": bool(TP_TOKEN), "award_source": AWARD_SOURCE, "seatsaero_key": bool(SEATSAERO_KEY), "seatsaero_remaining": _seatsaero_remaining, "serpapi_paid_calls": _serpapi_paid_calls, "serpapi_max_pairs": SERPAPI_MAX_PAIRS})
 
 
 def _serve_png(filename: str, fallback_svg: str = "icon.svg"):
