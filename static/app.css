@@ -44,7 +44,7 @@
   --chip-bg:rgba(255,255,255,.04);
   --chip-bg-on:rgba(106,215,255,.07);
   --nav-bg:transparent;
-  --globe-op:.45;
+  --globe-op:.30;
   --panel-shadow:0 28px 72px rgba(0,0,0,.42),0 0 0 1px rgba(106,215,255,.06),0 0 55px rgba(106,215,255,.07);
   --card-shadow:none;
 }
@@ -67,7 +67,7 @@
   --chip-bg:rgba(7,18,36,.05);
   --chip-bg-on:rgba(13,110,138,.09);
   --nav-bg:rgba(245,243,239,.97);
-  --globe-op:1.0;
+  --globe-op:.36;
   --panel-shadow:0 28px 80px rgba(7,18,36,.13),0 4px 16px rgba(7,18,36,.06);
   --card-shadow:0 6px 24px rgba(7,18,36,.09),0 1px 4px rgba(7,18,36,.05);
 }
@@ -241,10 +241,10 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 
 .shell{position:relative;z-index:1;width:min(1120px,94vw);margin:0 auto;padding:0 0 80px}
 
-.hero{padding:24px 0 26px;max-width:600px}
-.eyebrow{font-size:12px;letter-spacing:.04em;text-transform:none;color:var(--gold);font-weight:500;opacity:.75;margin-bottom:12px}
-.hero h1{font-family:var(--font-sans);font-size:clamp(34px,5vw,58px);font-weight:600;font-style:normal;line-height:1.1;letter-spacing:0;margin-bottom:10px;max-width:760px}
-.hero p{color:var(--muted);font-size:15px;line-height:1.65}
+.hero{padding:30px 0 32px;max-width:640px}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:none;color:var(--gold);font-weight:600;opacity:.82;margin-bottom:14px}
+.hero h1{font-family:var(--font-sans);font-size:clamp(34px,5vw,58px);font-weight:600;font-style:normal;line-height:1.08;letter-spacing:0;margin-bottom:14px;max-width:760px}
+.hero p{color:var(--muted);font-size:16px;line-height:1.58;max-width:620px}
 
 .panel{border:1px solid var(--border);background:var(--panel-bg);border-radius:22px;padding:28px 28px 24px;backdrop-filter:blur(22px);box-shadow:var(--panel-shadow)}
 /* Compact editable Search Summary (collapsed state after a search) */
@@ -354,7 +354,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .pa-code{letter-spacing:.04em}
 .price{letter-spacing:-.01em}
 /* ===== Discovery Widget ===== */
-.discovery-section{margin-top:32px}
+.discovery-section{margin-top:32px;overflow:hidden}
 .discovery-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
 .discovery-title{font-size:17px;font-weight:700;color:var(--text);margin:0 0 3px}
 .discovery-sub{font-size:12px;color:var(--muted);margin:0}
@@ -428,7 +428,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 /* Mobile: one card visible */
 @media(max-width:540px){.disc-card{flex:0 0 calc(100% - 24px)}}
 /* ===== Examples ===== */
-.examples-section{margin-top:24px}
+.examples-section{margin-top:24px;overflow:hidden}
 .examples-header{display:flex;flex-direction:column;gap:3px;margin-bottom:12px}
 .examples-label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.5}
 .examples-sub{font-size:12px;color:var(--muted);opacity:.7}
@@ -899,9 +899,9 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .tiny{font-size:12px;color:var(--muted)}
 .return-field input:disabled{opacity:.38}
 
-.trust-line{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--muted)}
-.trust-line span{display:flex;align-items:center;gap:4px}
-.trust-dot{width:5px;height:5px;border-radius:50%;background:var(--cyan);opacity:.6;flex-shrink:0}
+.trust-line{display:flex;gap:12px 18px;flex-wrap:wrap;margin-top:16px;font-size:12px;color:var(--muted)}
+.trust-line span{display:flex;align-items:center;gap:6px;line-height:1.3}
+.trust-dot{width:5px;height:5px;border-radius:50%;background:var(--gold);opacity:.7;flex-shrink:0}
 .usp-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
 .usp-card{border:1px solid var(--border);background:var(--chip-bg);border-radius:16px;padding:18px 20px;cursor:pointer;transition:all .2s;transform:translateY(0);display:flex;align-items:center;gap:16px}
 .usp-card:hover{border-color:rgba(106,215,255,.3);background:rgba(106,215,255,.06);transform:translateY(-2px);box-shadow:0 8px 24px rgba(106,215,255,.1)}
@@ -1032,8 +1032,8 @@ footer p{margin-bottom:8px}
 
 @media(max-width:640px){
   /* Mobile globe: hero element above search form */
-  #globe-wrap{position:relative;width:100%;height:250px;overflow:hidden;pointer-events:auto;z-index:0;flex-shrink:0}
-  #globe{position:absolute;top:0;left:0;width:100%;height:100%;cursor:grab;opacity:1}
+  #globe-wrap{position:relative;width:100%;height:220px;overflow:hidden;pointer-events:auto;z-index:0;flex-shrink:0}
+  #globe{position:absolute;top:0;left:0;width:100%;height:100%;cursor:grab;opacity:.62}
   /* Fade bottom edge into page background */
   #globe-wrap::after{content:'';position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(to bottom,transparent,var(--bg));pointer-events:none;z-index:1}
   /* Push shell below the fixed navbar (globe is now in-flow, navbar still fixed) */
@@ -1049,8 +1049,9 @@ footer p{margin-bottom:8px}
   .nav-inner{gap:8px}
 
   /* Hero: tighter on mobile */
-  .hero{padding:12px 0 16px}
-  .trust-line{gap:8px;font-size:11px}
+  .hero{padding:10px 0 18px}
+  .hero p{line-height:1.5}
+  .trust-line{gap:8px 12px;font-size:11px;margin-top:14px}
 
   /* Panel: less padding */
   .panel{padding:14px 14px 16px;border-radius:18px}
@@ -1380,7 +1381,8 @@ span.flatpickr-weekday{
 .skip-link{font-size:calc(14px * var(--text-scale))}
 .eyebrow{font-size:calc(12px * var(--text-scale))}
 .hero h1{font-size:clamp(calc(34px * var(--text-scale)),5vw,calc(58px * var(--text-scale)))}
-.hero p,.trust-line{font-size:calc(15px * var(--text-scale))}
+.hero p{font-size:calc(16px * var(--text-scale))}
+.trust-line{font-size:calc(12px * var(--text-scale))}
 .search-summary-text{font-size:calc(1.05rem * var(--text-scale))}
 .search-summary-edit{font-size:calc(.9rem * var(--text-scale))}
 .tab-title{font-size:calc(14px * var(--text-scale))}
@@ -1452,7 +1454,7 @@ span.flatpickr-weekday{
   .nav-right{gap:5px}
   .text-size-control{padding:2px;gap:1px}
   .text-size-btn{min-width:28px;min-height:28px;padding:3px 5px}
-  .hero h1{font-size:calc(38px * var(--text-scale))}
+  .hero h1{font-size:clamp(calc(31px * var(--text-scale)),11vw,calc(38px * var(--text-scale)))}
   .fields input{font-size:calc(16px * var(--text-scale))!important}
   .go-main{font-size:calc(16px * var(--text-scale))}
   .trust-line{font-size:calc(11px * var(--text-scale))}
@@ -1466,12 +1468,12 @@ span.flatpickr-weekday{
 
 /* === Globe mobile protection — must be last, overrides everything including reduced-motion === */
 @media(max-width:640px){
-  #globe-wrap{display:block!important;visibility:visible!important;opacity:1!important;min-height:260px!important;height:260px!important}
-  #globe{display:block!important;visibility:visible!important;opacity:.8!important;position:relative!important;width:100%!important;height:260px!important;min-height:260px!important}
+  #globe-wrap{display:block!important;visibility:visible!important;opacity:1!important;min-height:220px!important;height:220px!important}
+  #globe{display:block!important;visibility:visible!important;opacity:.62!important;position:relative!important;width:100%!important;height:220px!important;min-height:220px!important}
   #globe canvas{display:block!important;visibility:visible!important;opacity:1!important;width:100%!important;height:100%!important}
 }
 @media(prefers-reduced-motion:reduce) and (max-width:640px){
-  #globe-wrap{display:block!important;visibility:visible!important;opacity:1!important;min-height:260px!important;height:260px!important}
-  #globe{display:block!important;visibility:visible!important;opacity:.8!important;position:relative!important;width:100%!important;height:260px!important;min-height:260px!important}
+  #globe-wrap{display:block!important;visibility:visible!important;opacity:1!important;min-height:220px!important;height:220px!important}
+  #globe{display:block!important;visibility:visible!important;opacity:.62!important;position:relative!important;width:100%!important;height:220px!important;min-height:220px!important}
   #globe canvas{display:block!important;visibility:visible!important;opacity:1!important;width:100%!important;height:100%!important}
 }
