@@ -2254,6 +2254,80 @@ if (innerWidth <= 640) {
   }, 800);
 }
 
+// ===== Discovery Widget helpers =====
+function discoveryText(value, fallback = '') {
+  const text = String(value ?? '').trim();
+  return text || fallback;
+}
+
+function discoveryNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function discoveryBool(value) {
+  return value === true || value === 'true';
+}
+
+function discoverySafeUrl(value) {
+  const raw = discoveryText(value);
+  if (!raw) return '';
+  try {
+    const base = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : 'https://awardradar.app';
+    const url = new URL(raw, base);
+    return (url.protocol === 'http:' || url.protocol === 'https:') ? url.href : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+function normalizeDiscoveryOpportunity(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const origin = discoveryText(raw.origin).toUpperCase();
+  const dest = discoveryText(raw.dest).toUpperCase();
+  if (!origin || !dest) return null;
+  return {
+    airlines: discoveryText(raw.airlines),
+    available_date: discoveryText(raw.available_date),
+    cabin: discoveryText(raw.cabin, 'Economy'),
+    cash_eur: discoveryNumber(raw.cash_eur),
+    cpm: discoveryNumber(raw.cpm),
+    dest,
+    direct: discoveryBool(raw.direct),
+    grade_label: discoveryText(raw.grade_label),
+    grade_tier: discoveryText(raw.grade_tier, 'great').toLowerCase(),
+    miles: discoveryNumber(raw.miles),
+    origin,
+    program: discoveryText(raw.program, 'Award program'),
+    reasoning: discoveryText(raw.reasoning),
+    recommendation: discoveryText(raw.recommendation),
+    seats: discoveryNumber(raw.seats),
+    surcharge: discoveryNumber(raw.surcharge),
+    url: discoverySafeUrl(raw.url),
+  };
+}
+
+function formatDiscoveryMiles(value) {
+  const miles = discoveryNumber(value);
+  return miles === null ? 'Miles unavailable' : `${Math.round(miles).toLocaleString()} miles`;
+}
+
+function formatDiscoveryFees(value) {
+  const fees = discoveryNumber(value);
+  return fees === null ? '' : ` + EUR ${Math.round(fees)}`;
+}
+
+function discoveryReason(o) {
+  const isPremium = /business|first/i.test(o.cabin || '');
+  const highFees = (o.surcharge || 0) > 300;
+  if (!o.cpm) return o.reasoning ? esc(o.reasoning) : null;
+  if (o.cpm >= 4.0) return isPremium ? 'Exceptionally low mileage for a premium cabin.' : 'Far below typical cost for this route.';
+  if (o.cpm >= 2.5) return highFees ? 'Strong value despite elevated fees.' : 'Well above average redemption value.';
+  if (o.cpm >= 1.8) return isPremium ? 'Solid value for a premium cabin.' : 'Good miles efficiency on this route.';
+  return o.reasoning ? esc(o.reasoning) : null;
+}
+
 // ===== Discovery Widget =====
 (function initDiscovery() {
   const container = $('discovery-cards');
@@ -2265,61 +2339,64 @@ if (innerWidth <= 640) {
     consider:   'Compare options', pay_cash:   'Pay Cash',
   };
 
-  function discReason(o) {
-    const isPremium = /business|first/i.test(o.cabin || '');
-    const highFees  = (o.surcharge || 0) > 300;
-    if (!o.cpm) return null;
-    if (o.cpm >= 4.0) return isPremium ? 'Exceptionally low mileage for a premium cabin.' : 'Far below typical cost for this route.';
-    if (o.cpm >= 2.5) return highFees ? 'Strong value despite elevated fees.' : 'Well above average redemption value.';
-    if (o.cpm >= 1.8) return isPremium ? 'Solid value for a premium cabin.' : 'Good miles efficiency on this route.';
-    return null;
-  }
-
   function renderCards(opps) {
-    if (!opps.length) {
-      container.innerHTML = `<div class="disc-empty">
-        <div class="disc-empty-title">No exceptional opportunities detected today.</div>
-        New opportunities are continuously scanned.
-      </div>`;
-      return;
-    }
-    container.innerHTML = opps.map(o => {
-      const tier    = o.grade_tier || 'great';
-      const stars   = STARS_MAP[tier] || '';
-      const recLbl  = REC_LABEL[o.recommendation] || 'Verify miles option';
-      const reason  = discReason(o);
-      const seatsLbl = o.seats > 0 ? `${o.seats} seat${o.seats !== 1 ? 's' : ''} available` : '';
-      const metaLine = [o.direct ? 'Provider reports direct availability' : '', seatsLbl].filter(Boolean).join(' · ');
-
-      // CTA: prefill search form fields then switch to awards tab
+    const cards = [];
+    (Array.isArray(opps) ? opps : []).forEach((raw, index) => {
+      let o;
+      try {
+        o = normalizeDiscoveryOpportunity(raw);
+      } catch (err) {
+        console.warn('Skipping malformed top opportunity item.', err && err.message ? err.message : err);
+        return;
+      }
+      if (!o) return;
+      const tier = STARS_MAP[o.grade_tier] ? o.grade_tier : 'great';
+      const stars = STARS_MAP[tier] || '';
+      const recLbl = REC_LABEL[o.recommendation] || 'Verify miles option';
+      const reason = discoveryReason(o);
+      const roundedSeats = o.seats === null ? null : Math.round(o.seats);
+      const seatsLbl = roundedSeats && roundedSeats > 0 ? `${roundedSeats} seat${roundedSeats !== 1 ? 's' : ''} available` : '';
+      const airlineLbl = o.airlines ? `Airline signal: ${o.airlines}` : '';
+      const metaLine = [o.direct ? 'Provider reports direct availability' : '', seatsLbl, airlineLbl, o.available_date ? `Date: ${o.available_date}` : ''].filter(Boolean).join(' - ');
+      const milesLine = `${formatDiscoveryMiles(o.miles)}${formatDiscoveryFees(o.surcharge)}`;
+      const originLiteral = JSON.stringify(o.origin);
+      const destLiteral = JSON.stringify(o.dest);
       const ctaClick = `(function(){` +
-        `var f=$('from-0');var t=$('to-0');` +
-        `if(f)f.value='${esc(o.origin)}';if(t)t.value='${esc(o.dest)}';` +
+        `var f=$('origin');var t=$('dest');` +
+        `if(f)f.value=${originLiteral};if(t)t.value=${destLiteral};` +
         `switchTabAndRun('awards');` +
         `})();return false;`;
 
-      return `<div class="disc-card disc-card-${tier}" role="article">
+      cards.push(`<div class="disc-card disc-card-${tier}" role="article" data-disc-index="${index}">
         <div class="disc-route-row">
-          <span class="disc-route">${esc(o.origin)} → ${esc(o.dest)}</span>
+          <span class="disc-route">${esc(o.origin)} &rarr; ${esc(o.dest)}</span>
           <span class="disc-cabin-pill">${esc(o.cabin)}</span>
         </div>
         <div class="disc-verdict-row">
           ${stars ? `<span class="disc-stars" aria-hidden="true">${stars}</span>` : ''}
           <span class="disc-tier-label">${esc(o.grade_label || tier)}</span>
         </div>
-        <div class="disc-rec-label">↗ ${recLbl}</div>
+        <div class="disc-rec-label">&nearr; ${esc(recLbl)}</div>
         <div class="disc-offer-row">
-          <span class="disc-program">${esc(o.program)}</span><span class="disc-sep"> · </span><span class="disc-miles-val">${o.miles.toLocaleString()} miles + €${o.surcharge}</span>
+          <span class="disc-program">${esc(o.program)}</span><span class="disc-sep"> - </span><span class="disc-miles-val">${esc(milesLine)}</span>
         </div>
         ${metaLine ? `<div class="disc-meta">${esc(metaLine)}</div>` : ''}
-        ${reason   ? `<div class="disc-reason">${reason}</div>` : ''}
+        ${reason ? `<div class="disc-reason">${reason}</div>` : ''}
         <div class="disc-footer-row">
-          <span class="disc-conf disc-conf-live">● Current availability signal</span>
+          <span class="disc-conf disc-conf-live">Current availability signal</span>
           ${o.cpm ? `<span class="disc-cpm">${o.cpm.toFixed(1)} ct/mi</span>` : ''}
         </div>
-        <a href="#" class="disc-cta-btn" onclick="${ctaClick}">Review this route →</a>
+        <a href="#" class="disc-cta-btn" onclick="${esc(ctaClick)}">Review this route &rarr;</a>
+      </div>`);
+    });
+    if (!cards.length) {
+      container.innerHTML = `<div class="disc-empty">
+        <div class="disc-empty-title">No exceptional opportunities detected today.</div>
+        New opportunities are continuously scanned.
       </div>`;
-    }).join('');
+      return;
+    }
+    container.innerHTML = cards.join('');
   }
 
   function renderError() {
@@ -2337,10 +2414,13 @@ if (innerWidth <= 640) {
     fetch('/api/top-opportunities')
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(d => {
-        if (d.ok) renderCards(d.opportunities || []);
+        if (d && d.ok === true) renderCards(d.opportunities || []);
         else renderError();
       })
-      .catch(() => renderError());
+      .catch((err) => {
+        console.warn('Top opportunities unavailable.', err);
+        renderError();
+      });
   }
 
   if ('IntersectionObserver' in window) {
