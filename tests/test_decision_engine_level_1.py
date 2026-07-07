@@ -8,6 +8,7 @@ Covers the mandatory guardrails from docs/decision_engine_level_1.md:
 import os
 import json
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -481,8 +482,8 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=136", html)
-        self.assertIn("app.js?v=144", html)
+        self.assertIn("app.css?v=137", html)
+        self.assertIn("app.js?v=145", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
         self.assertIn("data-text-size-option=\"large\"", html)
@@ -520,7 +521,7 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("Independence and commercial links", html)
         self.assertIn("Limitations", html)
         self.assertIn("app.css?v=136", html)
-        self.assertNotIn("app.js?v=144", html)
+        self.assertNotIn("app.js?v=145", html)
 
     def test_about_navigation_exists_on_main_page(self):
         response = self.client.get("/")
@@ -528,8 +529,8 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=136", html)
-        self.assertIn("app.js?v=144", html)
+        self.assertIn("app.css?v=137", html)
+        self.assertIn("app.js?v=145", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -701,6 +702,90 @@ class AwardsApiErrorHandling(unittest.TestCase):
         data = self.client.get("/health").get_json()
         self.assertTrue(data["ok"])
         self.assertNotIn("api_guard", data)
+
+
+class SearchArchitectureValidation(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.repo_root = pathlib.Path(__file__).resolve().parents[1]
+        cls.index_html = (cls.repo_root / "templates" / "index.html").read_text(encoding="utf-8")
+        cls.app_js = (cls.repo_root / "static" / "app.js").read_text(encoding="utf-8")
+
+    def block(self, start, end):
+        return self.app_js.split(start, 1)[1].split(end, 1)[0]
+
+    def test_fresh_load_has_empty_required_fields_and_disabled_cta(self):
+        html = self.index_html
+        self.assertRegex(html, r'<input id="origin"[^>]*placeholder="City or airport"')
+        self.assertRegex(html, r'<input id="dest"[^>]*placeholder="City or airport"')
+        self.assertRegex(html, r'<input id="date"[^>]*placeholder="Select date"')
+        self.assertNotRegex(html, r'<input id="origin"[^>]*value=')
+        self.assertNotRegex(html, r'<input id="dest"[^>]*value=')
+        self.assertNotRegex(html, r'<input id="date"[^>]*value=')
+        self.assertRegex(html, r'<button class="go" id="go"[^>]*disabled[^>]*aria-disabled="true"')
+
+    def test_return_date_hidden_for_one_way_and_visible_logic_exists(self):
+        self.assertRegex(self.index_html, r'<input id="oneWay" type="checkbox" checked>')
+        toggle = self.block("function toggleReturn", "function updateCalendarPrices")
+        self.assertIn("wrap.style.display = on ? 'none' : ''", toggle)
+        self.assertIn("$('returnDate').disabled = on", toggle)
+        self.assertIn("returnDate: isOneWay ? '' : $('returnDate').value", self.app_js)
+
+    def test_removed_static_presets_are_absent_from_markup_and_behavior(self):
+        for term in ["weekend", "nextweek", "christmas", "newyear", "summer"]:
+            self.assertNotIn(f'data-preset="{term}"', self.index_html)
+            self.assertNotIn(f"preset === '{term}'", self.app_js)
+        self.assertIn('data-preset="today"', self.index_html)
+        self.assertIn('data-preset="tomorrow"', self.index_html)
+
+    def test_today_and_tomorrow_use_local_dates_and_never_run(self):
+        preset = self.block("function applyDatePreset", "// Flatpickr")
+        self.assertIn("localDateString(d)", preset)
+        self.assertIn("d.setDate(now.getDate() + 1)", preset)
+        self.assertNotIn("toISOString", preset)
+        self.assertNotIn("run()", preset)
+        self.assertNotIn("runIfSearchValid()", preset)
+
+    def test_airport_validity_requires_resolved_selection_not_free_text(self):
+        self.assertIn("const airportResolution = { origin: null, dest: null }", self.app_js)
+        airport_code = self.block("function airportCodeFor", "function localDateString")
+        self.assertIn("airportResolution[inputId] === code", airport_code)
+        touched = self.block("function markSearchFieldTouched", "function runIfSearchValid")
+        self.assertIn("options.resolved !== true", touched)
+        self.assertIn("airportResolution[inputId] = null", touched)
+        self.assertIn("setResolvedAirport(inputId, input.value)", self.app_js)
+
+    def test_same_airport_and_round_trip_validation_rules_exist(self):
+        validate = self.block("function validateSearchForm", "function markSearchFieldTouched")
+        self.assertIn("origin && dest && origin === dest", validate)
+        self.assertIn("Origin and destination must be different.", validate)
+        self.assertIn("!oneWay", validate)
+        self.assertIn("Select a return date.", validate)
+        self.assertIn("ret < dep", validate)
+
+    def test_cta_and_run_use_same_validation_source_of_truth(self):
+        validate = self.block("function validateSearchForm", "function markSearchFieldTouched")
+        self.assertIn("go.disabled = !valid", validate)
+        self.assertIn("go.setAttribute('aria-disabled'", validate)
+        run_prefix = self.app_js.split("async function run()", 1)[1].split("const endpoint", 1)[0]
+        self.assertIn("validateSearchForm({ submit: true })", run_prefix)
+        self.assertIn("return;", run_prefix)
+
+    def test_invalid_state_returns_before_endpoint_or_fetch(self):
+        run_fn = self.block("async function run()", "// ===== Compact editable Search Summary")
+        self.assertLess(run_fn.index("validateSearchForm({ submit: true })"), run_fn.index("const endpoint"))
+        self.assertLess(run_fn.index("return;"), run_fn.index("fetch(endpoint"))
+
+    def test_existing_modes_still_map_to_existing_endpoints(self):
+        run_fn = self.block("async function run()", "// ===== Compact editable Search Summary")
+        self.assertIn("mode === 'cheap' ? '/api/cheap'", run_fn)
+        self.assertIn("mode === 'skiplag' ? '/api/skiplag' : '/api/awards'", run_fn)
+        self.assertIn("function activateTab", self.app_js)
+
+    def test_autorun_paths_use_validation_gate(self):
+        self.assertIn("function runIfSearchValid()", self.app_js)
+        self.assertIn("if ($('results').children.length) runIfSearchValid();", self.app_js)
+        self.assertIn("$('oneWay').onchange = () => toggleReturn(false);", self.app_js)
 
 
 class TopOpportunitiesFrontendRendering(unittest.TestCase):
