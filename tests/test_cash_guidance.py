@@ -6,6 +6,7 @@ Covers: offer filtering, IDs, canonical selection, guidance generation, signal d
 import os
 import sys
 import unittest
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -511,6 +512,25 @@ class EvidenceLevel(unittest.TestCase):
         ]
         guidance = app.build_cash_guidance(offers)
         self.assertEqual(guidance["evidence_level"], "strong")
+
+
+class SeparatorEncodingRegression(unittest.TestCase):
+    """Guard against mojibake separators in cash labels/reasons."""
+
+    def test_cash_score_reason_uses_clean_middle_dot(self):
+        offers = [
+            {"price": 100, "stops": 1, "airlineCode": "BA", "typicalRange": [100, 200]},
+            {"price": 120, "stops": 0, "airlineCode": "BA", "typicalRange": [100, 200]},
+        ]
+        rescored = app.rescore_offer_set(offers)
+        first_reason = rescored[0]["scoreReason"]
+        self.assertIn(" \u00B7 ", first_reason)
+        self.assertNotIn("Â·", first_reason)
+
+    def test_frontend_source_has_no_mojibake_middle_dot(self):
+        js_path = Path(__file__).resolve().parents[1] / "static" / "app.js"
+        source = js_path.read_text(encoding="utf-8")
+        self.assertNotIn("Â·", source)
 
 
 if __name__ == "__main__":

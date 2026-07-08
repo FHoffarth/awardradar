@@ -65,6 +65,7 @@ FLEX_MAX_DAYS = int(os.environ.get("FLEX_MAX_DAYS", "3"))       # max. Flex-Tage
 mimetypes.add_type("font/woff2", ".woff2")
 
 app = Flask(__name__)
+MIDDLE_DOT_SEP = " \u00B7 "
 
 
 def make_session() -> requests.Session:
@@ -727,7 +728,7 @@ def score_reason(price: float, stops: int, airline_code: str, typical_range: lis
         parts.append("1 stop")
     if airline_code in MM_AIRLINES:
         parts.append("Star Alliance")
-    return " Â· ".join(parts)
+    return MIDDLE_DOT_SEP.join(parts)
 
 
 # ===== Relative Cash Result Intelligence =====
@@ -873,7 +874,7 @@ def rescore_offer_set(offers: list[dict]) -> list[dict]:
 
         score = int(max(0, min(100, round(score))))
         o["dealScore"] = score
-        o["scoreReason"] = " Â· ".join(reasons)
+        o["scoreReason"] = MIDDLE_DOT_SEP.join(reasons)
         o["scoreConfidence"] = confidence
         grade = _cash_grade(score)
         o.update(grade)
@@ -1998,7 +1999,7 @@ _VERIFY_GUIDANCE = ("Confirm final availability, mileage price, taxes and fees w
 def _freshness_label(is_live_award: bool, cash_is_real: bool) -> str:
     award = "Award data signal" if is_live_award else "Award estimate"
     cash = "cash context checked recently" if cash_is_real else "no live cash context"
-    return f"{award} Â· {cash.capitalize()}"
+    return f"{award}{MIDDLE_DOT_SEP}{cash.capitalize()}"
 
 
 def build_decision(best: dict | None, cash_eur, cash_is_real: bool,
@@ -2266,7 +2267,7 @@ def airports():
         for place in autocomplete_places(q, locale=locale):
             label = f"{place['name']} ({place['code']})"
             if place.get("city") and place["city"] not in place["name"]:
-                label = f"{place['city']} Â· {label}"
+                label = f"{place['city']}{MIDDLE_DOT_SEP}{label}"
             results.append({"label": label, "value": place["code"], "source": "dynamic"})
     seen, out = set(), []
     for item in results:
@@ -2541,7 +2542,11 @@ def _skiplag_inner():
                             })
 
     results.sort(key=lambda x: (0 if x.get("verified") else 1, -(x.get("savings") or -9999)))
-    note = ("Verification context from fare-source segments. One-way only Â· no checked baggage Â· verify airline T&Cs." if lang == "en" else "Verifizierungskontext aus Preisquellen-Segmenten. Nur Hinflug Â· kein AufgabegepÃ¤ck Â· AGB der Airline prÃ¼fen.") if use_serpapi else tx("skiplag_note", lang)
+    note = (
+        f"Verification context from fare-source segments. One-way only{MIDDLE_DOT_SEP}no checked baggage{MIDDLE_DOT_SEP}verify airline T&Cs."
+        if lang == "en"
+        else f"Verifizierungskontext aus Preisquellen-Segmenten. Nur Hinflug{MIDDLE_DOT_SEP}kein AufgabegepÃ¤ck{MIDDLE_DOT_SEP}AGB der Airline prÃ¼fen."
+    ) if use_serpapi else tx("skiplag_note", lang)
     return jsonify({
         "ok": True,
         "results": results[:10],
@@ -2675,11 +2680,11 @@ def _awards_inner():
             })
 
     if use_seatsaero and any(r["has_live_data"] for r in results):
-        note = "Award redemption data signal Â· Verify before purchase"
+        note = f"Award redemption data signal{MIDDLE_DOT_SEP}Verify before purchase"
     elif use_seatsaero:
-        note = "No current availability signal found for this route Â· Showing estimated values"
+        note = f"No current availability signal found for this route{MIDDLE_DOT_SEP}Showing estimated values"
     else:
-        note = "Estimated values Â· Verify before purchase"
+        note = f"Estimated values{MIDDLE_DOT_SEP}Verify before purchase"
 
     return jsonify({"ok": True, "results": results, "note": note, "award_source": award_source_meta})
 

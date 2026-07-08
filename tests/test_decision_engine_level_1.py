@@ -145,6 +145,8 @@ class DecisionSignalsLevel1(unittest.TestCase):
     def test_E_estimate_freshness_acknowledged(self):
         d = self._d(cpm=1.5, ds="estimated")
         self.assertIn("estimate", d["freshness_label"].lower())
+        self.assertIn(" \u00B7 ", d["freshness_label"])
+        self.assertNotIn("Â·", d["freshness_label"])
 
     def test_F_roundtrip_cash_vs_oneway_award_no_value(self):
         basis = app.normalize_trip_basis("round_trip", "one_way", "round_trip")
