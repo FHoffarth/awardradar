@@ -405,6 +405,8 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
             result = response.get_json()["results"][0]
             self.assertEqual(result["journey_route_source"], "search_fallback")
             self.assertEqual(result["displayed_itinerary"], "none")
+            self.assertIn(" → ", result["route"])
+            self.assertNotIn("â†’", result["route"])
         finally:
             app.AWARD_SOURCE = old_award_source
             app.SEATSAERO_KEY = old_seatsaero_key
@@ -1441,6 +1443,14 @@ class CheapApiMixedPrices(unittest.TestCase):
         offers = r.get_json().get("offers") or []
         self.assertTrue(any(o["price"] == 480.0 for o in offers))
         self.assertFalse(any(o["price"] < 0 for o in offers))
+
+    def test_fallback_routes_use_clean_arrow(self):
+        r = self._run_with(None)
+        self.assertEqual(r.status_code, 200)
+        fallback = r.get_json().get("fallback") or []
+        self.assertTrue(fallback)
+        self.assertIn(" → ", fallback[0]["route"])
+        self.assertNotIn("â†’", fallback[0]["route"])
 
 
 class CashCardInvalidPriceFrontendDefense(unittest.TestCase):

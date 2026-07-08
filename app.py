@@ -66,6 +66,51 @@ mimetypes.add_type("font/woff2", ".woff2")
 
 app = Flask(__name__)
 MIDDLE_DOT_SEP = " \u00B7 "
+RIGHT_ARROW_SEP = " \u2192 "
+
+_MOJIBAKE_REPLACEMENTS = {
+    "Â·": "·",
+    "Â±": "±",
+    "â†’": "→",
+    "â€“": "–",
+    "â€”": "—",
+    "â€™": "’",
+    "â€œ": "“",
+    "â€": "”",
+    "ðŸŸ¢": "🟢",
+    "ðŸŸ¡": "🟡",
+    "ðŸ”´": "🔴",
+}
+
+
+def _repair_mojibake_text(value: str) -> str:
+    out = value
+    for bad, good in _MOJIBAKE_REPLACEMENTS.items():
+        out = out.replace(bad, good)
+    try:
+        out = out.encode("latin-1").decode("utf-8")
+    except UnicodeError:
+        pass
+    for bad, good in _MOJIBAKE_REPLACEMENTS.items():
+        out = out.replace(bad, good)
+    return out
+
+
+def _repair_mojibake_obj(value, repair_keys: bool = False):
+    if isinstance(value, str):
+        return _repair_mojibake_text(value)
+    if isinstance(value, list):
+        return [_repair_mojibake_obj(v, repair_keys=repair_keys) for v in value]
+    if isinstance(value, tuple):
+        return tuple(_repair_mojibake_obj(v, repair_keys=repair_keys) for v in value)
+    if isinstance(value, dict):
+        if repair_keys:
+            return {
+                _repair_mojibake_obj(k, repair_keys=True): _repair_mojibake_obj(v, repair_keys=True)
+                for k, v in value.items()
+            }
+        return {k: _repair_mojibake_obj(v, repair_keys=False) for k, v in value.items()}
+    return value
 
 
 def make_session() -> requests.Session:
@@ -516,6 +561,9 @@ ALIASES = {
     "auckland": ["AKL"], "christchurch": ["CHC"], "wellington": ["WLG"],
     "nadi": ["NAN"], "fiji": ["NAN"], "tahiti": ["PPT"],
 }
+
+TEXT = _repair_mojibake_obj(TEXT)
+AIRPORTS = _repair_mojibake_obj(AIRPORTS)
 
 MM_AIRLINES = {"LH", "LX", "OS", "SN", "EN", "UA", "AC", "NH", "SQ", "TG", "OZ", "CA", "NZ", "SK", "TK", "TP", "A3", "BR", "ET", "LO"}
 SKIPLAG_ENDINGS = ["ATH", "IST", "BCN", "MAD", "FCO", "MXP", "AMS", "CDG", "LHR", "BOS", "MIA", "ORD", "YYZ", "YUL", "LAX", "SFO", "SEA", "DUB", "CPH", "ARN", "OSL", "WAW", "LIS"]
@@ -1691,6 +1739,7 @@ _TIER_META: dict[str, dict] = {
     "poor":        {"grade": "D",  "label": "Weak",              "recommendation": "pay_cash",
                     "reasoning": "Meilenwert zu niedrig â€“ Cash-Buchung ist bei diesem Preis die gÃ¼nstigere Option."},
 }
+_TIER_META = _repair_mojibake_obj(_TIER_META)
 
 
 def sweet_spot_grade(cpm: float) -> dict:
@@ -1957,7 +2006,7 @@ def normalize_trip_basis(cash_trip_type, award_trip_type, requested_trip_type) -
         "note": None,
     }
     if ct == "unknown" or at == "unknown":
-        out["note"] = "Trip-Basis nicht eindeutig vergleichbar â€“ kein belastbarer Meilenwert."
+        out["note"] = "Trip-Basis nicht eindeutig vergleichbar – kein belastbarer Meilenwert."
         return out
     if ct == at:
         out["normalized_trip_type"] = ct
@@ -1970,7 +2019,7 @@ def normalize_trip_basis(cash_trip_type, award_trip_type, requested_trip_type) -
             out["note"] = f"Cash und Meilen auf {ct.replace('_', ' ')}-Basis verglichen."
         return out
     # e.g. round-trip cash vs one-way award â€” not safely normalizable here.
-    out["note"] = ("Cash- und Meilen-Basis unterschiedlich (round-trip vs. one-way) â€“ "
+    out["note"] = ("Cash- und Meilen-Basis unterschiedlich (round-trip vs. one-way) – "
                    "keine sichere Normalisierung, daher kein Meilenwert ausgewiesen.")
     return out
 
@@ -2387,7 +2436,7 @@ def cheap():
         cash_guidance = None
         offers = []
 
-    fallback = [{"route": f"{o} â†’ {d}", "links": links_for(o, d, dep.isoformat(), ret.isoformat() if ret else None)} for o in origins[:2] for d in dests[:3] if o != d]
+    fallback = [{"route": f"{o}{RIGHT_ARROW_SEP}{d}", "links": links_for(o, d, dep.isoformat(), ret.isoformat() if ret else None)} for o in origins[:2] for d in dests[:3] if o != d]
     return jsonify({
         "ok": True,
         "offers": offers,
@@ -2425,7 +2474,7 @@ def verify_skiplag_serpapi(origin: str, true_dest: str, final_dest: str, dep: dt
         layovers = flight.get("layovers") or []
         layover_at_hidden = next((l for l in layovers if (l.get("id") or "") == true_dest), {})
         all_airports = [(s.get("departure_airport") or {}).get("id", "?") for s in segs] + [(segs[-1].get("arrival_airport") or {}).get("id", "?")]
-        seg_chain = " â†’ ".join(dict.fromkeys(all_airports))  # deduplicate consecutive identical
+        seg_chain = RIGHT_ARROW_SEP.join(dict.fromkeys(all_airports))  # deduplicate consecutive identical
         return {
             "verified": True,
             "candidatePrice": price,
@@ -2545,7 +2594,9 @@ def _skiplag_inner():
     note = (
         f"Verification context from fare-source segments. One-way only{MIDDLE_DOT_SEP}no checked baggage{MIDDLE_DOT_SEP}verify airline T&Cs."
         if lang == "en"
-        else f"Verifizierungskontext aus Preisquellen-Segmenten. Nur Hinflug{MIDDLE_DOT_SEP}kein AufgabegepÃ¤ck{MIDDLE_DOT_SEP}AGB der Airline prÃ¼fen."
+        else _repair_mojibake_text(
+            f"Verifizierungskontext aus Preisquellen-Segmenten. Nur Hinflug{MIDDLE_DOT_SEP}kein AufgabegepÃ¤ck{MIDDLE_DOT_SEP}AGB der Airline prÃ¼fen."
+        )
     ) if use_serpapi else tx("skiplag_note", lang)
     return jsonify({
         "ok": True,
@@ -2657,7 +2708,7 @@ def _awards_inner():
             )
 
             results.append({
-                "route":          f"{origin} â†’ {dest}",
+                "route":          f"{origin}{RIGHT_ARROW_SEP}{dest}",
                 "origin":         origin,
                 "dest":           dest,
                 "date":           dep.isoformat(),
@@ -2693,23 +2744,23 @@ def score_award(origin: str, dest: str, cabin: str, lang: str = "de") -> dict:
     longhaul = dest in {"JFK", "EWR", "BOS", "YYZ", "YUL", "SIN", "HKG", "BKK", "HND", "NRT", "LAX", "SFO", "SEA", "DXB", "DOH", "ICN", "TPE", "SYD", "MEL"}
     if lang == "en":
         if cabin == "Economy":
-            return {"label": "ðŸŸ¢ good chance", "text": "Economy award redemptions may be available, but compare cents-per-mile value against cash fare context."}
+            return _repair_mojibake_obj({"label": "ðŸŸ¢ good chance", "text": "Economy award redemptions may be available, but compare cents-per-mile value against cash fare context."})
         if cabin == "Premium Eco":
-            return {"label": "ðŸŸ¡ interesting", "text": "Premium Economy can be a useful sweet spot, especially on long-haul routes."}
+            return _repair_mojibake_obj({"label": "ðŸŸ¡ interesting", "text": "Premium Economy can be a useful sweet spot, especially on long-haul routes."})
         if cabin == "Business" and longhaul:
-            return {"label": "ðŸŸ¡ hunt", "text": "Business is possible, but search flexibly: Â±7 days and multiple airports."}
+            return _repair_mojibake_obj({"label": "ðŸŸ¡ hunt", "text": "Business is possible, but search flexibly: Â±7 days and multiple airports."})
         if cabin == "First":
-            return {"label": "ðŸ”´ rare", "text": "First depends heavily on airline and last-minute release patterns."}
-        return {"label": "ðŸŸ¢ solid", "text": "Short-haul award redemptions may be easier, but compare against cash fare context."}
+            return _repair_mojibake_obj({"label": "ðŸ”´ rare", "text": "First depends heavily on airline and last-minute release patterns."})
+        return _repair_mojibake_obj({"label": "ðŸŸ¢ solid", "text": "Short-haul award redemptions may be easier, but compare against cash fare context."})
     if cabin == "Economy":
-        return {"label": "ðŸŸ¢ gute Chance", "text": "Eco-Award-Redemptions kÃ¶nnen verfÃ¼gbar sein; Wert pro Meile aber mit Cash-Fare-Kontext vergleichen."}
+        return _repair_mojibake_obj({"label": "ðŸŸ¢ gute Chance", "text": "Eco-Award-Redemptions kÃ¶nnen verfÃ¼gbar sein; Wert pro Meile aber mit Cash-Fare-Kontext vergleichen."})
     if cabin == "Premium Eco":
-        return {"label": "ðŸŸ¡ interessant", "text": "Premium Eco kann einen guten Award-Redemption-Wert bieten, vor allem auf Langstrecke."}
+        return _repair_mojibake_obj({"label": "ðŸŸ¡ interessant", "text": "Premium Eco kann einen guten Award-Redemption-Wert bieten, vor allem auf Langstrecke."})
     if cabin == "Business" and longhaul:
-        return {"label": "ðŸŸ¡ jagen", "text": "Business ist mÃ¶glich, aber flexibel suchen: Â±7 Tage und mehrere Airports."}
+        return _repair_mojibake_obj({"label": "ðŸŸ¡ jagen", "text": "Business ist mÃ¶glich, aber flexibel suchen: Â±7 Tage und mehrere Airports."})
     if cabin == "First":
-        return {"label": "ðŸ”´ selten", "text": "First ist stark abhÃ¤ngig von Airline und kurzfristiger Freigabe."}
-    return {"label": "ðŸŸ¢ solide", "text": "Kurzstrecke eher verfÃ¼gbar, aber Cashpreise vergleichen."}
+        return _repair_mojibake_obj({"label": "ðŸ”´ selten", "text": "First ist stark abhÃ¤ngig von Airline und kurzfristiger Freigabe."})
+    return _repair_mojibake_obj({"label": "ðŸŸ¢ solide", "text": "Kurzstrecke eher verfÃ¼gbar, aber Cashpreise vergleichen."})
 
 
 # Popular longhaul routes for the Discovery widget â€” DACH-first, kept small to protect daily budget.
