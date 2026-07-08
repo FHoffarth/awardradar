@@ -925,7 +925,12 @@ function scoreHtml(o) {
     ${conf}
   </div>`;
 }
-function bestBadgeHtml(o, sortContext) {
+function bestBadgeHtml(o, sortContext, opts = {}) {
+  const guided = !!opts.guided;
+  if (guided) {
+    if (o.scoreContext === 'limited_comparison') return '<div class="best-badge best-badge-secondary">Only returned option</div>';
+    return '<div class="best-badge best-badge-secondary">Best returned option</div>';
+  }
   // Sort context takes precedence over value judgment
   if (sortContext === 'price') {
     return '<div class="best-badge">Lowest Price</div>';
@@ -1062,7 +1067,7 @@ function decisionGuidanceHtml(guidance) {
   const why = guidance.why ? `<div class="cg-block"><div class="cg-k">Why</div><p>${esc(guidance.why)}</p></div>` : '';
   const watchOut = guidance.watch_out ? `<div class="cg-block"><div class="cg-k">Watch out</div><p>${esc(guidance.watch_out)}</p></div>` : '';
   const nextStep = guidance.next_step ? `<div class="cg-block"><div class="cg-k">Next step</div><p>${esc(guidance.next_step)}</p></div>` : '';
-  const evidence = guidance.evidence_level ? `<div class="cg-evidence"><span class="cg-k">Evidence</span> ${esc(guidance.evidence_level)}</div>` : '';
+  const evidence = guidance.evidence_level ? `<div class="cg-evidence">Evidence level: ${esc(guidance.evidence_level)}</div>` : '';
   if (!headline && !why && !watchOut && !nextStep && !evidence) return '';
   return `<section class="cash-guidance" aria-label="Decision guidance">${headline}${why}${watchOut}${nextStep}${evidence}</section>`;
 }
@@ -1119,11 +1124,14 @@ function cheapCardsHtml(offers, sortKey, cashGuidance) {
       const returnDateStr = o.returnDate ? ` → ${formatUserDate(o.returnDate)}` : '';
       const guidanceHtml = isGuidanceRecommended ? decisionGuidanceHtml(guidance) : '';
       const verdictHtml = guidanceHtml ? '' : `<div class="rec-verdict">${esc(verdict)}</div>`;
-      const recommendationTag = isGuidanceRecommended ? '<div class="cg-tag">Recommended option</div>' : '';
+      const recommendationTag = isGuidanceRecommended ? '<div class="cg-tag cg-tag-secondary">Recommended option</div>' : '';
+      const topBadge = bestBadgeHtml(o, sortKey, { guided: isGuidanceRecommended });
 
-      return `<div class="card recommendation-card top-card">
-        ${bestBadgeHtml(o, sortKey)}
-        ${recommendationTag}
+      return `<div class="card recommendation-card top-card${isGuidanceRecommended ? ' guidance-card' : ''}">
+        <div class="recommendation-badges">
+          ${topBadge}
+          ${recommendationTag}
+        </div>
         ${guidanceHtml}
         ${verdictHtml}
         <div class="card-row">
