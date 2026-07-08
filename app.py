@@ -1,10 +1,10 @@
-#!/usr/bin/env python3
-"""AwardRadar v6.0 – Find miles. Fly better.
+﻿#!/usr/bin/env python3
+"""AwardRadar v6.0 â€“ Find miles. Fly better.
 
-Produktionsnäherer Flask-Build:
+ProduktionsnÃ¤herer Flask-Build:
 - Gunicorn-ready
-- öffentliche Browser-APIs für Suche und Entscheidungsunterstützung
-- dynamische Airport-Suche über Travelpayouts/Aviasales Autocomplete + lokaler Fallback
+- Ã¶ffentliche Browser-APIs fÃ¼r Suche und EntscheidungsunterstÃ¼tzung
+- dynamische Airport-Suche Ã¼ber Travelpayouts/Aviasales Autocomplete + lokaler Fallback
 - Cheap Flights / Skiplag Finder / Awards klar getrennt
 """
 from __future__ import annotations
@@ -16,6 +16,7 @@ import mimetypes
 import os
 import re
 import time
+from decimal import Decimal
 from functools import lru_cache
 from urllib.parse import quote_plus
 
@@ -40,7 +41,7 @@ SKIPLAG_MAX_CANDIDATES = int(os.environ.get("SKIPLAG_MAX_CANDIDATES", "16"))
 SKIPLAG_MAX_SEARCHES = int(os.environ.get("SKIPLAG_MAX_SEARCHES", "6"))
 
 # --- Echtzeitpreise via SerpApi (Google Flights) ---------------------------
-# PRICE_SOURCE steuert die Quelle für /api/cheap:
+# PRICE_SOURCE steuert die Quelle fÃ¼r /api/cheap:
 #   "serpapi"       -> echte Google-Flights-Preise (Standard, wenn SERPAPI_TOKEN gesetzt)
 #   "travelpayouts" -> alter Cache als Fallback
 SERPAPI_TOKEN = os.environ.get("SERPAPI_TOKEN", "")
@@ -53,14 +54,14 @@ SEATSAERO_KEY  = os.environ.get("SEATSAERO_API_KEY", "")
 SEATSAERO_BASE = "https://seats.aero/partnerapi"
 SEATSAERO_DAILY_BUDGET = 500        # soft cap: reserve half of 1000/day for user searches
 _seatsaero_remaining: int | None = None  # updated from X-RateLimit-Remaining header
-_serpapi_paid_calls: int = 0  # billed SerpApi calls this process — cache hits excluded
+_serpapi_paid_calls: int = 0  # billed SerpApi calls this process â€” cache hits excluded
 SERPAPI_TTL = int(os.environ.get("SERPAPI_TTL", "21600"))      # Cache-Lebensdauer in Sekunden (default 6h)
 SERPAPI_MAX_PAIRS = int(os.environ.get("SERPAPI_MAX_PAIRS", "2"))  # max. Origin/Dest-Paare pro Klick (= Anzahl bezahlter Suchen)
 SERPAPI_DEEP = (os.environ.get("SERPAPI_DEEP", "0") == "1")    # exakt wie im Browser, aber langsamer
-FLEX_MAX_DAYS = int(os.environ.get("FLEX_MAX_DAYS", "3"))       # max. Flex-Tage (±N) für Datums-Kalender
+FLEX_MAX_DAYS = int(os.environ.get("FLEX_MAX_DAYS", "3"))       # max. Flex-Tage (Â±N) fÃ¼r Datums-Kalender
 
 # Ensure self-hosted WOFF2 fonts are served as font/woff2 (not application/
-# octet-stream) — some Linux hosts (e.g. Railway) lack the .woff2 mimetype.
+# octet-stream) â€” some Linux hosts (e.g. Railway) lack the .woff2 mimetype.
 mimetypes.add_type("font/woff2", ".woff2")
 
 app = Flask(__name__)
@@ -106,20 +107,20 @@ def api_error(error: str, message: str, status: int, retryable: bool = False):
 TEXT = {
     "missing_origin_dest": {"de": "Bitte Start und Ziel eingeben, z. B. Frankfurt und Tokio.", "en": "Please enter origin and destination, e.g. Frankfurt and Tokyo."},
     "missing_hidden": {"de": "Bitte Start und eigentliches Ziel eingeben.", "en": "Please enter origin and intended destination."},
-    "cheap_note": {"de": "Travelpayouts ist cache-basiert. Wenn kein Preiskontext erscheint, nutze die Prüflinks; Cachepreise werden gezeigt, wenn verfügbar, und Routing-Muster enthalten Risikokontext.", "en": "Travelpayouts is cache-based. If no fare context appears, use the verification links; cached fares are shown when available and overlooked routing results include risk context."},
-    "cheap_note_live": {"de": "Cash-Fare-Kontext aus externen Preisquellen. Während der Beta gecacht — vor Kauf prüfen.", "en": "Cash fare context from external fare sources. Cached during beta - verify before purchase."},
-    "skiplag_note": {"de": "Overlooked Routing bleibt Risikokontext: Travelpayouts bestätigt keine tatsächliche Umstiegsroute über dein Ziel. Routing vor Kauf prüfen; nur One-way und ohne Aufgabegepäck.", "en": "Overlooked routing remains risk-context logic: Travelpayouts does not confirm that the itinerary actually connects via your intended destination. Verify routing before purchase; one-way only and no checked baggage."},
-    "awards_note": {"de": "Award-Redemption-Verfügbarkeiten brauchen eine offizielle Datenquelle; AwardRadar erzeugt Search-to-verify-Starts von Eco bis First.", "en": "Award redemption availability requires an official data source; AwardRadar creates search-to-verify starts from Economy to First."},
+    "cheap_note": {"de": "Travelpayouts ist cache-basiert. Wenn kein Preiskontext erscheint, nutze die PrÃ¼flinks; Cachepreise werden gezeigt, wenn verfÃ¼gbar, und Routing-Muster enthalten Risikokontext.", "en": "Travelpayouts is cache-based. If no fare context appears, use the verification links; cached fares are shown when available and overlooked routing results include risk context."},
+    "cheap_note_live": {"de": "Cash-Fare-Kontext aus externen Preisquellen. WÃ¤hrend der Beta gecacht â€” vor Kauf prÃ¼fen.", "en": "Cash fare context from external fare sources. Cached during beta - verify before purchase."},
+    "skiplag_note": {"de": "Overlooked Routing bleibt Risikokontext: Travelpayouts bestÃ¤tigt keine tatsÃ¤chliche Umstiegsroute Ã¼ber dein Ziel. Routing vor Kauf prÃ¼fen; nur One-way und ohne AufgabegepÃ¤ck.", "en": "Overlooked routing remains risk-context logic: Travelpayouts does not confirm that the itinerary actually connects via your intended destination. Verify routing before purchase; one-way only and no checked baggage."},
+    "awards_note": {"de": "Award-Redemption-VerfÃ¼gbarkeiten brauchen eine offizielle Datenquelle; AwardRadar erzeugt Search-to-verify-Starts von Eco bis First.", "en": "Award redemption availability requires an official data source; AwardRadar creates search-to-verify starts from Economy to First."},
     "normal_price": {"de": "Normalpreis", "en": "Normal fare"},
     "candidate_label": {"de": "Overlooked-Routing-Signal", "en": "Overlooked routing signal"},
-    "verify_routing": {"de": "Routing vor Kauf prüfen", "en": "Verify routing before purchase"},
-    "unverified": {"de": "Verifizierungskontext nicht verfügbar", "en": "verification context unavailable"},
-    "high": {"de": "prüfenswert", "en": "worth checking"},
-    "check": {"de": "prüfen", "en": "check"},
+    "verify_routing": {"de": "Routing vor Kauf prÃ¼fen", "en": "Verify routing before purchase"},
+    "unverified": {"de": "Verifizierungskontext nicht verfÃ¼gbar", "en": "verification context unavailable"},
+    "high": {"de": "prÃ¼fenswert", "en": "worth checking"},
+    "check": {"de": "prÃ¼fen", "en": "check"},
     "link_check": {"de": "Link-Check", "en": "link check"},
     "google_search": {"de": "Suchanbieter", "en": "Search provider"},
-    "google_via": {"de": "Preisquelle: via prüfen", "en": "Fare source: check via"},
-    "ticket_check": {"de": "Ticketziel prüfen", "en": "Check ticket destination"},
+    "google_via": {"de": "Preisquelle: via prÃ¼fen", "en": "Fare source: check via"},
+    "ticket_check": {"de": "Ticketziel prÃ¼fen", "en": "Check ticket destination"},
 }
 
 
@@ -129,19 +130,19 @@ def tx(key: str, lang: str = "de") -> str:
 AIRPORTS = {
     # Germany
     "FRA": {"name": "Frankfurt am Main", "city": "Frankfurt", "country": "DE"},
-    "MUC": {"name": "München", "city": "München", "country": "DE"},
-    "DUS": {"name": "Düsseldorf", "city": "Düsseldorf", "country": "DE"},
+    "MUC": {"name": "MÃ¼nchen", "city": "MÃ¼nchen", "country": "DE"},
+    "DUS": {"name": "DÃ¼sseldorf", "city": "DÃ¼sseldorf", "country": "DE"},
     "BER": {"name": "Berlin Brandenburg", "city": "Berlin", "country": "DE"},
     "HAM": {"name": "Hamburg", "city": "Hamburg", "country": "DE"},
-    "CGN": {"name": "Köln/Bonn", "city": "Köln", "country": "DE"},
+    "CGN": {"name": "KÃ¶ln/Bonn", "city": "KÃ¶ln", "country": "DE"},
     "STR": {"name": "Stuttgart", "city": "Stuttgart", "country": "DE"},
-    "NUE": {"name": "Nürnberg", "city": "Nürnberg", "country": "DE"},
+    "NUE": {"name": "NÃ¼rnberg", "city": "NÃ¼rnberg", "country": "DE"},
     "HAJ": {"name": "Hannover", "city": "Hannover", "country": "DE"},
     "LEJ": {"name": "Leipzig/Halle", "city": "Leipzig", "country": "DE"},
     "DRS": {"name": "Dresden", "city": "Dresden", "country": "DE"},
     "BRE": {"name": "Bremen", "city": "Bremen", "country": "DE"},
-    "FMO": {"name": "Münster/Osnabrück", "city": "Münster", "country": "DE"},
-    "NRN": {"name": "Weeze (Niederrhein)", "city": "Düsseldorf", "country": "DE"},
+    "FMO": {"name": "MÃ¼nster/OsnabrÃ¼ck", "city": "MÃ¼nster", "country": "DE"},
+    "NRN": {"name": "Weeze (Niederrhein)", "city": "DÃ¼sseldorf", "country": "DE"},
     "HHN": {"name": "Frankfurt Hahn", "city": "Frankfurt", "country": "DE"},
     # Austria
     "VIE": {"name": "Wien", "city": "Wien", "country": "AT"},
@@ -150,7 +151,7 @@ AIRPORTS = {
     "GRZ": {"name": "Graz", "city": "Graz", "country": "AT"},
     "LNZ": {"name": "Linz", "city": "Linz", "country": "AT"},
     # Switzerland
-    "ZRH": {"name": "Zürich", "city": "Zürich", "country": "CH"},
+    "ZRH": {"name": "ZÃ¼rich", "city": "ZÃ¼rich", "country": "CH"},
     "GVA": {"name": "Genf", "city": "Genf", "country": "CH"},
     "BSL": {"name": "Basel/Mulhouse", "city": "Basel", "country": "CH"},
     "BRN": {"name": "Bern", "city": "Bern", "country": "CH"},
@@ -175,17 +176,17 @@ AIRPORTS = {
     # Netherlands / Belgium / Luxembourg
     "AMS": {"name": "Amsterdam Schiphol", "city": "Amsterdam", "country": "NL"},
     "EIN": {"name": "Eindhoven", "city": "Eindhoven", "country": "NL"},
-    "BRU": {"name": "Brüssel", "city": "Brüssel", "country": "BE"},
-    "CRL": {"name": "Brüssel Charleroi", "city": "Brüssel", "country": "BE"},
+    "BRU": {"name": "BrÃ¼ssel", "city": "BrÃ¼ssel", "country": "BE"},
+    "CRL": {"name": "BrÃ¼ssel Charleroi", "city": "BrÃ¼ssel", "country": "BE"},
     "LUX": {"name": "Luxemburg", "city": "Luxemburg", "country": "LU"},
     # Spain
     "MAD": {"name": "Madrid Barajas", "city": "Madrid", "country": "ES"},
     "BCN": {"name": "Barcelona", "city": "Barcelona", "country": "ES"},
-    "AGP": {"name": "Málaga", "city": "Málaga", "country": "ES"},
+    "AGP": {"name": "MÃ¡laga", "city": "MÃ¡laga", "country": "ES"},
     "PMI": {"name": "Palma de Mallorca", "city": "Palma", "country": "ES"},
     "VLC": {"name": "Valencia", "city": "Valencia", "country": "ES"},
     "SVQ": {"name": "Sevilla", "city": "Sevilla", "country": "ES"},
-    "TFS": {"name": "Teneriffa Süd", "city": "Teneriffa", "country": "ES"},
+    "TFS": {"name": "Teneriffa SÃ¼d", "city": "Teneriffa", "country": "ES"},
     "LPA": {"name": "Gran Canaria", "city": "Las Palmas", "country": "ES"},
     "IBZ": {"name": "Ibiza", "city": "Ibiza", "country": "ES"},
     # Italy
@@ -210,7 +211,7 @@ AIRPORTS = {
     "ARN": {"name": "Stockholm Arlanda", "city": "Stockholm", "country": "SE"},
     "OSL": {"name": "Oslo Gardermoen", "city": "Oslo", "country": "NO"},
     "HEL": {"name": "Helsinki", "city": "Helsinki", "country": "FI"},
-    "GOT": {"name": "Göteborg", "city": "Göteborg", "country": "SE"},
+    "GOT": {"name": "GÃ¶teborg", "city": "GÃ¶teborg", "country": "SE"},
     "BGO": {"name": "Bergen", "city": "Bergen", "country": "NO"},
     "TRD": {"name": "Trondheim", "city": "Trondheim", "country": "NO"},
     # Eastern Europe
@@ -242,7 +243,7 @@ AIRPORTS = {
     "LCA": {"name": "Larnaka", "city": "Larnaka", "country": "CY"},
     "PFO": {"name": "Paphos", "city": "Paphos", "country": "CY"},
     "IST": {"name": "Istanbul", "city": "Istanbul", "country": "TR"},
-    "SAW": {"name": "Istanbul Sabiha Gökçen", "city": "Istanbul", "country": "TR"},
+    "SAW": {"name": "Istanbul Sabiha GÃ¶kÃ§en", "city": "Istanbul", "country": "TR"},
     "AYT": {"name": "Antalya", "city": "Antalya", "country": "TR"},
     "ADB": {"name": "Izmir", "city": "Izmir", "country": "TR"},
     "ESB": {"name": "Ankara", "city": "Ankara", "country": "TR"},
@@ -274,7 +275,7 @@ AIRPORTS = {
     "EBB": {"name": "Entebbe", "city": "Kampala", "country": "UG"},
     "HRE": {"name": "Harare", "city": "Harare", "country": "ZW"},
     "MRU": {"name": "Mauritius", "city": "Port Louis", "country": "MU"},
-    "SEZ": {"name": "Seychellen", "city": "Mahé", "country": "SC"},
+    "SEZ": {"name": "Seychellen", "city": "MahÃ©", "country": "SC"},
     # North America
     "JFK": {"name": "New York JFK", "city": "New York", "country": "US"},
     "EWR": {"name": "Newark", "city": "New York", "country": "US"},
@@ -309,31 +310,31 @@ AIRPORTS = {
     "HNL": {"name": "Honolulu", "city": "Honolulu", "country": "US"},
     "ANC": {"name": "Anchorage", "city": "Anchorage", "country": "US"},
     "YYZ": {"name": "Toronto Pearson", "city": "Toronto", "country": "CA"},
-    "YUL": {"name": "Montréal", "city": "Montréal", "country": "CA"},
+    "YUL": {"name": "MontrÃ©al", "city": "MontrÃ©al", "country": "CA"},
     "YVR": {"name": "Vancouver", "city": "Vancouver", "country": "CA"},
     "YYC": {"name": "Calgary", "city": "Calgary", "country": "CA"},
     "YEG": {"name": "Edmonton", "city": "Edmonton", "country": "CA"},
     "YOW": {"name": "Ottawa", "city": "Ottawa", "country": "CA"},
     # Mexico / Caribbean / Central America
     "MEX": {"name": "Mexiko-Stadt", "city": "Mexiko-Stadt", "country": "MX"},
-    "CUN": {"name": "Cancún", "city": "Cancún", "country": "MX"},
+    "CUN": {"name": "CancÃºn", "city": "CancÃºn", "country": "MX"},
     "GDL": {"name": "Guadalajara", "city": "Guadalajara", "country": "MX"},
     "MTY": {"name": "Monterrey", "city": "Monterrey", "country": "MX"},
     "MBJ": {"name": "Montego Bay", "city": "Montego Bay", "country": "JM"},
     "KIN": {"name": "Kingston", "city": "Kingston", "country": "JM"},
     "NAS": {"name": "Nassau", "city": "Nassau", "country": "BS"},
     "HAV": {"name": "Havanna", "city": "Havanna", "country": "CU"},
-    "SJO": {"name": "San José", "city": "San José", "country": "CR"},
+    "SJO": {"name": "San JosÃ©", "city": "San JosÃ©", "country": "CR"},
     "PTY": {"name": "Panama City", "city": "Panama City", "country": "PA"},
     # South America
-    "GRU": {"name": "São Paulo Guarulhos", "city": "São Paulo", "country": "BR"},
-    "CGH": {"name": "São Paulo Congonhas", "city": "São Paulo", "country": "BR"},
+    "GRU": {"name": "SÃ£o Paulo Guarulhos", "city": "SÃ£o Paulo", "country": "BR"},
+    "CGH": {"name": "SÃ£o Paulo Congonhas", "city": "SÃ£o Paulo", "country": "BR"},
     "GIG": {"name": "Rio de Janeiro", "city": "Rio de Janeiro", "country": "BR"},
-    "BSB": {"name": "Brasília", "city": "Brasília", "country": "BR"},
+    "BSB": {"name": "BrasÃ­lia", "city": "BrasÃ­lia", "country": "BR"},
     "EZE": {"name": "Buenos Aires", "city": "Buenos Aires", "country": "AR"},
     "AEP": {"name": "Buenos Aires Aeroparque", "city": "Buenos Aires", "country": "AR"},
     "SCL": {"name": "Santiago de Chile", "city": "Santiago", "country": "CL"},
-    "BOG": {"name": "Bogotá", "city": "Bogotá", "country": "CO"},
+    "BOG": {"name": "BogotÃ¡", "city": "BogotÃ¡", "country": "CO"},
     "LIM": {"name": "Lima", "city": "Lima", "country": "PE"},
     "UIO": {"name": "Quito", "city": "Quito", "country": "EC"},
     "GYE": {"name": "Guayaquil", "city": "Guayaquil", "country": "EC"},
@@ -407,15 +408,15 @@ AIRPORTS = {
 ALIASES = {
     # Germany
     "frankfurt": ["FRA"], "fra": ["FRA"],
-    "münchen": ["MUC"], "muenchen": ["MUC"], "munich": ["MUC"], "muc": ["MUC"],
-    "berlin": ["BER"], "hamburg": ["HAM"], "düsseldorf": ["DUS"], "duesseldorf": ["DUS"],
-    "köln": ["CGN"], "koeln": ["CGN"], "cologne": ["CGN"], "bonn": ["CGN"],
-    "stuttgart": ["STR"], "nürnberg": ["NUE"], "nuernberg": ["NUE"], "nuremberg": ["NUE"],
+    "mÃ¼nchen": ["MUC"], "muenchen": ["MUC"], "munich": ["MUC"], "muc": ["MUC"],
+    "berlin": ["BER"], "hamburg": ["HAM"], "dÃ¼sseldorf": ["DUS"], "duesseldorf": ["DUS"],
+    "kÃ¶ln": ["CGN"], "koeln": ["CGN"], "cologne": ["CGN"], "bonn": ["CGN"],
+    "stuttgart": ["STR"], "nÃ¼rnberg": ["NUE"], "nuernberg": ["NUE"], "nuremberg": ["NUE"],
     "hannover": ["HAJ"], "leipzig": ["LEJ"], "dresden": ["DRS"], "bremen": ["BRE"],
     # Austria / Switzerland
     "wien": ["VIE"], "vienna": ["VIE"],
-    "zürich": ["ZRH"], "zuerich": ["ZRH"], "zurich": ["ZRH"],
-    "genf": ["GVA"], "geneva": ["GVA"], "genève": ["GVA"],
+    "zÃ¼rich": ["ZRH"], "zuerich": ["ZRH"], "zurich": ["ZRH"],
+    "genf": ["GVA"], "geneva": ["GVA"], "genÃ¨ve": ["GVA"],
     "basel": ["BSL"], "salzburg": ["SZG"], "innsbruck": ["INN"], "graz": ["GRZ"],
     # UK
     "london": ["LHR", "LGW", "LCY", "STN"], "manchester": ["MAN"],
@@ -424,11 +425,11 @@ ALIASES = {
     "paris": ["CDG", "ORY"], "nizza": ["NCE"], "nice": ["NCE"],
     "lyon": ["LYS"], "marseille": ["MRS"], "toulouse": ["TLS"], "bordeaux": ["BOD"],
     # Benelux
-    "amsterdam": ["AMS"], "brüssel": ["BRU"], "brussels": ["BRU"], "bruxelles": ["BRU"],
+    "amsterdam": ["AMS"], "brÃ¼ssel": ["BRU"], "brussels": ["BRU"], "bruxelles": ["BRU"],
     "luxemburg": ["LUX"], "luxembourg": ["LUX"],
     # Spain
     "madrid": ["MAD"], "barcelona": ["BCN"], "palma": ["PMI"], "mallorca": ["PMI"],
-    "málaga": ["AGP"], "malaga": ["AGP"], "sevilla": ["SVQ"], "seville": ["SVQ"],
+    "mÃ¡laga": ["AGP"], "malaga": ["AGP"], "sevilla": ["SVQ"], "seville": ["SVQ"],
     "teneriffa": ["TFS"], "tenerife": ["TFS"], "gran canaria": ["LPA"], "ibiza": ["IBZ"],
     # Italy
     "rom": ["FCO"], "rome": ["FCO"], "mailand": ["MXP", "LIN"], "milan": ["MXP", "LIN"],
@@ -440,7 +441,7 @@ ALIASES = {
     # Scandinavia
     "kopenhagen": ["CPH"], "copenhagen": ["CPH"],
     "stockholm": ["ARN"], "oslo": ["OSL"], "helsinki": ["HEL"],
-    "göteborg": ["GOT"], "gothenburg": ["GOT"], "bergen": ["BGO"],
+    "gÃ¶teborg": ["GOT"], "gothenburg": ["GOT"], "bergen": ["BGO"],
     # Eastern Europe
     "warschau": ["WAW"], "warsaw": ["WAW"], "krakau": ["KRK"], "krakow": ["KRK"],
     "prag": ["PRG"], "prague": ["PRG"], "budapest": ["BUD"],
@@ -478,18 +479,18 @@ ALIASES = {
     "atlanta": ["ATL"], "denver": ["DEN"], "minneapolis": ["MSP"],
     "detroit": ["DTW"], "philadelphia": ["PHL"], "orlando": ["MCO"],
     "portland": ["PDX"], "honolulu": ["HNL"], "hawaii": ["HNL"],
-    "toronto": ["YYZ"], "montreal": ["YUL"], "montréal": ["YUL"],
+    "toronto": ["YYZ"], "montreal": ["YUL"], "montrÃ©al": ["YUL"],
     "vancouver": ["YVR"], "calgary": ["YYC"], "ottawa": ["YOW"],
     # Mexico / Caribbean
-    "mexiko": ["MEX"], "mexico city": ["MEX"], "cancún": ["CUN"], "cancun": ["CUN"],
+    "mexiko": ["MEX"], "mexico city": ["MEX"], "cancÃºn": ["CUN"], "cancun": ["CUN"],
     "guadalajara": ["GDL"], "monterrey": ["MTY"],
     "kingston": ["KIN"], "havanna": ["HAV"], "havana": ["HAV"],
-    "panama": ["PTY"], "san josé costa rica": ["SJO"],
+    "panama": ["PTY"], "san josÃ© costa rica": ["SJO"],
     # South America
-    "são paulo": ["GRU"], "sao paulo": ["GRU"],
-    "rio de janeiro": ["GIG"], "rio": ["GIG"], "brasília": ["BSB"], "brasilia": ["BSB"],
+    "sÃ£o paulo": ["GRU"], "sao paulo": ["GRU"],
+    "rio de janeiro": ["GIG"], "rio": ["GIG"], "brasÃ­lia": ["BSB"], "brasilia": ["BSB"],
     "buenos aires": ["EZE"], "santiago": ["SCL"],
-    "bogotá": ["BOG"], "bogota": ["BOG"], "lima": ["LIM"], "quito": ["UIO"],
+    "bogotÃ¡": ["BOG"], "bogota": ["BOG"], "lima": ["LIM"], "quito": ["UIO"],
     # Asia
     "singapur": ["SIN"], "singapore": ["SIN"],
     "hongkong": ["HKG"], "hong kong": ["HKG"],
@@ -726,7 +727,7 @@ def score_reason(price: float, stops: int, airline_code: str, typical_range: lis
         parts.append("1 stop")
     if airline_code in MM_AIRLINES:
         parts.append("Star Alliance")
-    return " · ".join(parts)
+    return " Â· ".join(parts)
 
 
 # ===== Relative Cash Result Intelligence =====
@@ -735,7 +736,7 @@ def score_reason(price: float, stops: int, airline_code: str, typical_range: lis
 # check decides whether that best option is actually good value. Top labels stay
 # scarce. Airline/alliance is a minor modifier, never a dominant factor.
 #
-# Founder calibration — NOT universal or market-standard truth.
+# Founder calibration â€” NOT universal or market-standard truth.
 # TODO: calibrate with real route data and founder review
 CASH_SCORE_CONFIG = {
     "base": 62,                     # anchor for the cheapest, itinerary-neutral result
@@ -748,7 +749,7 @@ CASH_SCORE_CONFIG = {
     "alliance_bonus": 3,            # minor modifier only
     "below_typical_bonus": 20,      # genuinely cheap vs Google's typical range
     "within_low_half_bonus": 8,     # cheaper half of the typical range
-    # score → (tier, grade, label). First threshold met wins. Exceptional is rare.
+    # score â†’ (tier, grade, label). First threshold met wins. Exceptional is rare.
     "grade_bands": [
         (88, "exceptional", "A+", "Exceptional Value"),
         (72, "great",       "A",  "Strong Value"),
@@ -759,12 +760,12 @@ CASH_SCORE_CONFIG = {
 }
 
 # Caps are derived from the bands so they can never contradict them:
-# an active weak/expensive-field cap must stay below Strong (→ max "Fair Value"),
+# an active weak/expensive-field cap must stay below Strong (â†’ max "Fair Value"),
 # and any limited-comparison cap must stay below Exceptional.
 _BAND_MIN = {tier: threshold for threshold, tier, _g, _l in CASH_SCORE_CONFIG["grade_bands"]}
-# Weak/expensive field → max Fair Value (one point below the Strong threshold).
+# Weak/expensive field â†’ max Fair Value (one point below the Strong threshold).
 CASH_SCORE_CONFIG["expensive_field_cap"] = _BAND_MIN["great"] - 1   # 71
-# A single result is the weakest possible field (no comparison at all) → also
+# A single result is the weakest possible field (no comparison at all) â†’ also
 # capped at Fair Value; this likewise keeps it below Exceptional.
 CASH_SCORE_CONFIG["single_result_cap"] = _BAND_MIN["great"] - 1     # 71
 
@@ -817,7 +818,7 @@ def rescore_offer_set(offers: list[dict]) -> list[dict]:
         score = float(cfg["base"])
         reasons = []
 
-        # 1) Relative price position — the dominant factor.
+        # 1) Relative price position â€” the dominant factor.
         premium = (price / cheapest) - 1.0 if cheapest else 0.0
         if premium > 0:
             penalty = min(cfg["premium_penalty_cap"], premium * cfg["premium_penalty_per_100pct"])
@@ -846,9 +847,9 @@ def rescore_offer_set(offers: list[dict]) -> list[dict]:
             if over_h > 0:
                 score -= min(cfg["duration_penalty_cap"], over_h * cfg["duration_penalty_per_hour"])
         elif not dur:
-            confidence = "medium"  # incomplete itinerary data → degrade gracefully
+            confidence = "medium"  # incomplete itinerary data â†’ degrade gracefully
 
-        # 3) Airline/alliance — minor modifier only.
+        # 3) Airline/alliance â€” minor modifier only.
         if (o.get("airlineCode") or "") in MM_AIRLINES:
             score += cfg["alliance_bonus"]
 
@@ -861,7 +862,7 @@ def rescore_offer_set(offers: list[dict]) -> list[dict]:
         elif band == "low_half":
             score += cfg["within_low_half_bonus"]
         else:
-            # Not demonstrably cheap → cannot be Exceptional.
+            # Not demonstrably cheap â†’ cannot be Exceptional.
             score = min(score, cfg["expensive_field_cap"])
 
         # Single-result / weak-field handling.
@@ -872,7 +873,7 @@ def rescore_offer_set(offers: list[dict]) -> list[dict]:
 
         score = int(max(0, min(100, round(score))))
         o["dealScore"] = score
-        o["scoreReason"] = " · ".join(reasons)
+        o["scoreReason"] = " Â· ".join(reasons)
         o["scoreConfidence"] = confidence
         grade = _cash_grade(score)
         o.update(grade)
@@ -885,6 +886,317 @@ def rescore_offer_set(offers: list[dict]) -> list[dict]:
             top["scoreContext"] = "best_available_not_cheap"
 
     return offers
+
+
+def compute_offer_id(offer: dict) -> str:
+    """Generate deterministic stable offer ID based on offer content.
+
+    Includes all materially distinct itinerary attributes so that two offers
+    with the same route, airline, date, and price but different times/segments
+    receive different IDs. Uses SHA-256 truncated to 12 hex chars, prefixed 'offer_'.
+    """
+    import hashlib
+
+    # Normalize all fields to ensure deterministic serialization
+    def norm_str(v):
+        return (str(v) or "").strip().upper() if v else ""
+
+    def norm_price(v):
+        # Stable decimal format using Decimal(str()) to preserve all significant digits
+        # without binary float artifacts. Allows sub-cent differentiation.
+        try:
+            p = float(v or 0)
+            if not math.isfinite(p) or p <= 0:
+                return "0"
+            # Use Decimal(str(p)) for deterministic serialization without rounding loss
+            d = Decimal(str(p))
+            return str(d)
+        except (ValueError, TypeError):
+            return "0"
+
+    # Core fields (all offers must have these)
+    parts = [
+        norm_str(offer.get("origin")),
+        norm_str(offer.get("dest")),
+        str(offer.get("date") or ""),  # ISO date string
+        str(offer.get("returnDate") or ""),  # Could be None
+        norm_str(offer.get("airlineCode")),
+        norm_price(offer.get("price")),  # Decimal price with cents
+        norm_str(offer.get("currency")),
+        str(int(offer.get("durationMin") or 0)),
+        str(int(offer.get("stops") or 0)),
+        str(offer.get("dep_time") or ""),  # Departure time of first segment
+        str(offer.get("arr_time") or ""),  # Arrival time of last segment
+        str(int(offer.get("arrival_day_offset") or 0)),  # Can be None; treat as 0
+        str(offer.get("flight_number") or ""),  # Flight number if single-segment
+    ]
+
+    # Create deterministic content string
+    content = "|".join(parts)
+    h = hashlib.sha256(content.encode()).hexdigest()[:12]
+    return f"offer_{h}"
+
+
+def select_canonical_cash_offer(offers: list[dict]) -> dict | None:
+    """Select canonical (recommended) offer deterministically.
+
+    Independent of input array order and frontend sort order.
+    Priority: highest dealScore, then lowest price, then fewest stops,
+    then shortest duration, then lexicographically smallest ID.
+    """
+    if not offers:
+       return None
+
+    # Filter to offers with dealScore (rescored valid offers only)
+    rescored = [o for o in offers if "dealScore" in o]
+    if not rescored:
+       return None
+
+    # Add offer_id if not present
+    for o in rescored:
+       if "offer_id" not in o:
+           o["offer_id"] = compute_offer_id(o)
+
+    # Primary: highest dealScore
+    max_score = max(o.get("dealScore", 0) for o in rescored)
+    same_score = [o for o in rescored if o.get("dealScore", 0) == max_score]
+
+    # Tie-break 1: lowest price
+    min_price = min(o.get("price", 10**9) for o in same_score)
+    same_price = [o for o in same_score if o.get("price", 10**9) == min_price]
+
+    # Tie-break 2: fewest stops
+    min_stops = min(o.get("stops", 999) for o in same_price)
+    same_stops = [o for o in same_price if o.get("stops", 999) == min_stops]
+
+    # Tie-break 3: shortest duration (unknown sorts last)
+    durations_known = [o for o in same_stops if o.get("durationMin")]
+    durations_unknown = [o for o in same_stops if not o.get("durationMin")]
+
+    if durations_known:
+       min_duration = min(o.get("durationMin", 10**9) for o in durations_known)
+       candidates = [o for o in durations_known if o.get("durationMin", 10**9) == min_duration]
+    else:
+       candidates = durations_unknown
+
+    # Tie-break 4: lexicographically smallest ID
+    return min(candidates, key=lambda x: x.get("offer_id", "zzz"))
+
+
+def build_cash_guidance(offers: list[dict]) -> dict | None:
+    """Generate search-level cash guidance recommendation.
+
+    Returns a guidance object with recommendation_state, headline, why,
+    watch_out, next_step, evidence levels, and signal codes.
+    Returns None if no valid offers remain.
+    """
+    # Step 1: Filter to valid rescored offers (using canonical _valid_price helper)
+    valid = [o for o in offers if _valid_price(o.get("price")) is not None and "dealScore" in o]
+    n = len(valid)
+
+    if n == 0:
+       return None  # No valid offers; use existing no-results path
+
+    # Step 2: Check for limited_evidence from comparison insufficiency
+    if n == 1:
+       canonical = valid[0]
+       canonical["offer_id"] = compute_offer_id(canonical)
+       return {
+           "recommendation_state": "limited_evidence",
+           "recommended_offer_id": canonical["offer_id"],
+           "headline": "Limited evidence",
+           "why": "Only one valid option was available for comparison.",
+           "watch_out": "AwardRadar cannot make a stronger assessment from this result set.",
+           "next_step": "Adjust the search and compare again.",
+           "evidence_level": "limited",
+           "comparison_evidence": "limited",
+           "market_context": "unavailable",
+           "price_context_band": "unknown",
+           "supporting_signals": [],
+           "disqualifying_signals": ["single_result_only"],
+       }
+
+    # Step 3: Select canonical candidate
+    canonical = select_canonical_cash_offer(valid)
+    if not canonical:
+       return None  # Degenerate; no rescored offers
+
+    canonical_id = canonical.get("offer_id") or compute_offer_id(canonical)
+
+    # Step 4: Extract signals
+    score = canonical.get("dealScore", 0)
+    stops = canonical.get("stops")
+    duration = canonical.get("durationMin")
+    price = canonical.get("price", 0)
+    typ_range = canonical.get("typicalRange")
+    context = canonical.get("scoreContext")
+    confidence = canonical.get("scoreConfidence", "high")
+
+    # Determine market context and price band
+    band = _below_typical(price, typ_range)
+    market_context = "available" if (typ_range and len(typ_range) == 2 and float(typ_range[0] or 0) > 0) else "unavailable"
+    if market_context == "unavailable":
+       band = "unknown"
+
+    # Check for limited_evidence from structural issues
+    if stops is None:
+       return {
+           "recommendation_state": "limited_evidence",
+           "recommended_offer_id": canonical_id,
+           "headline": "Limited evidence",
+           "why": "The returned itinerary data is incomplete.",
+           "watch_out": "AwardRadar cannot make a stronger assessment from this result set.",
+           "next_step": "Adjust the search and compare again.",
+           "evidence_level": "limited",
+           "comparison_evidence": "limited",
+           "market_context": market_context,
+           "price_context_band": band,
+           "supporting_signals": [],
+           "disqualifying_signals": ["unknown_stops"],
+       }
+
+    # Step 5: Build signal lists
+    supporting = []
+    disqualifying = []
+
+    # Score-based signals
+    if score >= 88:
+       supporting.append("exceptional_relative_score")
+    elif score >= 72:
+       supporting.append("strong_relative_score")
+    elif score >= 56:
+       supporting.append("fair_relative_score")
+    else:
+       disqualifying.append("weak_relative_tier")
+
+    # Routing signals
+    if stops == 0 and n >= 2:
+       supporting.append("nonstop")
+    if stops >= 3 and score < 72:
+       disqualifying.append("many_stops_weak_score")
+
+    # Price signals
+    if band == "below":
+       supporting.append("below_typical_range")
+    elif band == "low_half":
+       supporting.append("low_half_typical_range")
+    elif band == "above" and market_context == "available":
+       disqualifying.append("above_typical_range")
+
+    # Context signals
+    if context == "best_available_not_cheap":
+       supporting.append("no_below_typical_in_set")  # Informational only
+
+    # Airline signals
+    if canonical.get("airlineCode") in MM_AIRLINES:
+       supporting.append("mm_partner_airline")
+
+    # Confidence/completeness signals
+    if confidence == "medium":
+       supporting.append("incomplete_duration_data")
+
+    # Duration comparison
+    min_duration = min((o.get("durationMin") for o in valid if o.get("durationMin")), default=None)
+    if min_duration and duration == min_duration:
+       supporting.append("shortest_duration")
+
+    # Price comparison
+    min_price = min(o.get("price", 10**9) for o in valid)
+    if price == min_price:
+       supporting.append("lowest_in_result_set")
+
+    # Step 6: Calculate evidence levels
+    if n == 1:
+       comparison_evidence = "limited"
+    elif n == 2:
+       comparison_evidence = "moderate"
+    elif n >= 3:
+       comparison_evidence = "strong"
+    else:
+       comparison_evidence = "limited"
+
+    if comparison_evidence == "limited":
+       evidence_level = "limited"
+    elif comparison_evidence == "strong" and market_context == "available":
+       evidence_level = "strong"
+    else:
+       evidence_level = "moderate"
+
+    # Step 7: Decide state
+    # Check for explicit keep_looking triggers
+    if band == "above" and market_context == "available":
+       return {
+           "recommendation_state": "keep_looking",
+           "recommended_offer_id": canonical_id,
+           "headline": "This search does not show a strong option",
+           "why": "The strongest result is above the typical price range.",
+           "watch_out": "This assessment applies only to the current search.",
+           "next_step": "Try nearby dates or another departure airport.",
+           "evidence_level": evidence_level,
+           "comparison_evidence": comparison_evidence,
+           "market_context": market_context,
+           "price_context_band": band,
+           "supporting_signals": supporting,
+           "disqualifying_signals": disqualifying,
+       }
+
+    if score < 56:
+       return {
+           "recommendation_state": "keep_looking",
+           "recommended_offer_id": canonical_id,
+           "headline": "This search does not show a strong option",
+           "why": "The strongest result still has a weak relative score.",
+           "watch_out": "This assessment applies only to the current search.",
+           "next_step": "Try nearby dates or another departure airport.",
+           "evidence_level": evidence_level,
+           "comparison_evidence": comparison_evidence,
+           "market_context": market_context,
+           "price_context_band": band,
+           "supporting_signals": supporting,
+           "disqualifying_signals": disqualifying,
+       }
+
+    if stops >= 3 and score < 72:
+       return {
+           "recommendation_state": "keep_looking",
+           "recommended_offer_id": canonical_id,
+           "headline": "This search does not show a strong option",
+           "why": "The strongest result combines multiple stops with a weak relative score.",
+           "watch_out": "This assessment applies only to the current search.",
+           "next_step": "Try nearby dates or another departure airport.",
+           "evidence_level": evidence_level,
+           "comparison_evidence": comparison_evidence,
+           "market_context": market_context,
+           "price_context_band": band,
+           "supporting_signals": supporting,
+           "disqualifying_signals": disqualifying,
+       }
+
+    # Default: strongest_option_found
+    # Determine the best "why" copy
+    if "lowest_in_result_set" in supporting and stops == 0:
+       why = "It combines the lowest fare with a nonstop itinerary."
+    elif "below_typical_range" in supporting:
+       why = "Its fare is below the typical range for this route."
+    else:
+       why = "It has the highest relative score among the returned options."
+
+    watch_out = "No broader price context is available for this route." if market_context == "unavailable" else "This assessment applies only to the current search."
+
+    return {
+       "recommendation_state": "strongest_option_found",
+       "recommended_offer_id": canonical_id,
+       "headline": "Strongest option in this search",
+       "why": why,
+       "watch_out": watch_out,
+       "next_step": "Review the fare details and compare nearby dates.",
+       "evidence_level": evidence_level,
+       "comparison_evidence": comparison_evidence,
+       "market_context": market_context,
+       "price_context_band": band,
+       "supporting_signals": supporting,
+       "disqualifying_signals": disqualifying,
+    }
 
 
 def dedup_offers(offers: list[dict]) -> list[dict]:
@@ -931,13 +1243,13 @@ CABIN_TO_CLASS = {"economy": 1, "premium eco": 2, "premium economy": 2, "busines
 
 
 def iata_from_flight_number(flight_number: str) -> str:
-    # "LH 401" -> "LH" ; nutzbar für mmOnly-Filter und M&M-Bonus
+    # "LH 401" -> "LH" ; nutzbar fÃ¼r mmOnly-Filter und M&M-Bonus
     m = re.match(r"\s*([A-Z0-9]{2})\s*\d", (flight_number or "").upper())
     return m.group(1) if m else ""
 
 
 def serpapi_search(origin: str, dest: str, dep: dt.date, ret: dt.date | None, cabin: str, currency: str, lang: str = "de") -> dict:
-    """Eine Google-Flights-Suche über SerpApi. Mit TTL-Cache gegen Doppelabrechnung."""
+    """Eine Google-Flights-Suche Ã¼ber SerpApi. Mit TTL-Cache gegen Doppelabrechnung."""
     if not SERPAPI_TOKEN:
         raise RuntimeError("SERPAPI_TOKEN fehlt.")
     travel_class = CABIN_TO_CLASS.get((cabin or "economy").lower(), 1)
@@ -983,7 +1295,7 @@ def serpapi_search(origin: str, dest: str, dep: dt.date, ret: dt.date | None, ca
 
 def _valid_price(value) -> float | None:
     """A cash fare is valid only if present, finite, and strictly greater than zero.
-    Rejects 0/negative/None/""/non-numeric/NaN/±Inf and booleans (True==1 is not a fare)."""
+    Rejects 0/negative/None/""/non-numeric/NaN/Â±Inf and booleans (True==1 is not a fare)."""
     if isinstance(value, bool) or value is None:
         return None
     try:
@@ -1013,7 +1325,7 @@ def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, m
     stops = max(0, len(segs) - 1)
     via_airports = [(s.get("arrival_airport") or {}).get("id", "") for s in segs[:-1]] if stops > 0 else []
 
-    # Reuse the same provider datetime parsing the award cash-context path uses —
+    # Reuse the same provider datetime parsing the award cash-context path uses â€”
     # no second parser, no invented values. Raw provider string is the authority.
     dep_parts = _provider_datetime_parts((first.get("departure_airport") or {}).get("time") or "")
     arr_parts = _provider_datetime_parts((last.get("arrival_airport") or {}).get("time") or "")
@@ -1077,7 +1389,7 @@ def serpapi_offers(origin: str, dest: str, dep: dt.date, ret: dt.date | None, cu
     except QuotaError:
         raise
     except Exception as exc:
-        app.logger.warning("serpapi_offers %s→%s: %s", origin, dest, exc)
+        app.logger.warning("serpapi_offers %sâ†’%s: %s", origin, dest, exc)
         return [], str(exc)
     insights = data.get("price_insights") or {}
     typical_range = insights.get("typical_price_range")
@@ -1088,7 +1400,7 @@ def serpapi_offers(origin: str, dest: str, dep: dt.date, ret: dt.date | None, cu
         try:
             offer = _serp_item_to_offer(item, currency, typical_range, mm_only)
         except Exception as exc:
-            app.logger.warning("skip malformed cheap item %s→%s: %s", origin, dest, exc)
+            app.logger.warning("skip malformed cheap item %sâ†’%s: %s", origin, dest, exc)
             continue
         if offer:
             offers.append(offer)
@@ -1107,8 +1419,8 @@ def flex_date_task(args: tuple) -> tuple[str, list[dict], str | None]:
     return check_date.isoformat(), offers, err
 
 
-# ── Sweet-Spot-Engine V1 ────────────────────────────────────────────────────
-# Schätzwerte — Flo prüft echte Chart-Zahlen auf den Programmseiten.
+# â”€â”€ Sweet-Spot-Engine V1 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# SchÃ¤tzwerte â€” Flo prÃ¼ft echte Chart-Zahlen auf den Programmseiten.
 
 AIRPORT_ZONES: dict[str, str] = {
     **{k: "europe"        for k in ["FRA","MUC","DUS","BER","HAM","CGN","STR","ZRH","VIE",
@@ -1128,7 +1440,7 @@ AIRPORT_ZONES: dict[str, str] = {
 def airport_zone(iata: str) -> str:
     return AIRPORT_ZONES.get((iata or "").upper(), "other")
 
-# one-way Saver miles — Schätzwerte Stand 2024
+# one-way Saver miles â€” SchÃ¤tzwerte Stand 2024
 MM_CHART: dict[tuple, dict[str, int]] = {
     ("europe",        "europe"):        {"Economy": 12500, "Premium Eco": 20000, "Business": 37500, "First": 60000},
     ("europe",        "north_america"): {"Economy": 30000, "Premium Eco": 50000, "Business": 55000, "First": 87500},
@@ -1182,7 +1494,7 @@ AWARD_PROGRAMS = [
     ("United",       UNITED_CHART, "https://www.united.com/en/us/fsr/choose-flights"),
 ]
 
-# Typical one-way cash prices (EUR) per dest-zone + cabin — used as fallback when SerpApi has no result
+# Typical one-way cash prices (EUR) per dest-zone + cabin â€” used as fallback when SerpApi has no result
 TYPICAL_CASH_EUR: dict[str, dict[str, int]] = {
     "europe":        {"Economy": 200,  "Premium Eco": 380,  "Business": 700,   "First": 1400},
     "north_america": {"Economy": 600,  "Premium Eco": 950,  "Business": 1800,  "First": 3500},
@@ -1258,18 +1570,18 @@ def fetch_seatsaero(origin: str, dest: str, cabin: str, dep: dt.date, window_day
                 app.logger.info("seats.aero remaining calls today: %d", _seatsaero_remaining)
             except ValueError:
                 pass
-        app.logger.info("seats.aero %s→%s %s status=%s remaining=%s", origin, dest, cabin_param, r.status_code, _seatsaero_remaining)
+        app.logger.info("seats.aero %sâ†’%s %s status=%s remaining=%s", origin, dest, cabin_param, r.status_code, _seatsaero_remaining)
         if r.status_code == 429:
-            app.logger.warning("seats.aero 429 — daily limit hit, not retrying")
+            app.logger.warning("seats.aero 429 â€” daily limit hit, not retrying")
             return []
         if r.status_code != 200:
             app.logger.warning("seats.aero non-200 body: %s", r.text[:500])
             return []
         rows = r.json().get("data", []) or []
-        app.logger.info("seats.aero returned %d rows for %s→%s", len(rows), origin, dest)
+        app.logger.info("seats.aero returned %d rows for %sâ†’%s", len(rows), origin, dest)
         return rows
     except Exception as exc:
-        app.logger.warning("seats.aero fetch failed %s→%s %s: %s", origin, dest, cabin, exc)
+        app.logger.warning("seats.aero fetch failed %sâ†’%s %s: %s", origin, dest, cabin, exc)
         return []
 
 
@@ -1355,7 +1667,7 @@ def calc_cpm(cash_eur: float, miles: int, surcharge_eur: float) -> float:
 
 
 # --- Value tier calibration (single source of truth) ---
-# Provisional product calibration by the founder — NOT a universally valid or
+# Provisional product calibration by the founder â€” NOT a universally valid or
 # market-standard Miles & More valuation. `sweet_spot_grade()` is the ONLY
 # consumer of these boundaries; do not introduce a second CPM/threshold ladder.
 # TODO: calibrate with real Miles & More redemption data and founder review
@@ -1364,19 +1676,19 @@ VALUE_TIER_THRESHOLDS: list[tuple[float, str]] = [
     (1.8, "great"),
     (1.2, "good"),
     (0.7, "fair"),
-]  # cpm below the lowest boundary → "poor"
+]  # cpm below the lowest boundary â†’ "poor"
 
 _TIER_META: dict[str, dict] = {
     "exceptional": {"grade": "A+", "label": "Exceptional Value", "recommendation": "book_miles",
-                    "reasoning": "Sehr hoher Meilenwert – weit über dem M&M-Durchschnitt. Meilen-Buchung klar die bessere Wahl."},
+                    "reasoning": "Sehr hoher Meilenwert â€“ weit Ã¼ber dem M&M-Durchschnitt. Meilen-Buchung klar die bessere Wahl."},
     "great":       {"grade": "A",  "label": "Great Value",       "recommendation": "book_miles",
-                    "reasoning": "Guter Meilenwert gegenüber dem Cash-Preis. Meilen-Buchung empfohlen."},
+                    "reasoning": "Guter Meilenwert gegenÃ¼ber dem Cash-Preis. Meilen-Buchung empfohlen."},
     "good":        {"grade": "B",  "label": "Good Value",        "recommendation": "lean_miles",
-                    "reasoning": "Solider Meilenwert – Meilen haben leichten Vorteil. Lohnt sich bei ausreichend Meilen."},
+                    "reasoning": "Solider Meilenwert â€“ Meilen haben leichten Vorteil. Lohnt sich bei ausreichend Meilen."},
     "fair":        {"grade": "C",  "label": "Fair",              "recommendation": "consider",
-                    "reasoning": "Knapper Meilenwert – Cash-Alternativen prüfen, bevor du buchst."},
+                    "reasoning": "Knapper Meilenwert â€“ Cash-Alternativen prÃ¼fen, bevor du buchst."},
     "poor":        {"grade": "D",  "label": "Weak",              "recommendation": "pay_cash",
-                    "reasoning": "Meilenwert zu niedrig – Cash-Buchung ist bei diesem Preis die günstigere Option."},
+                    "reasoning": "Meilenwert zu niedrig â€“ Cash-Buchung ist bei diesem Preis die gÃ¼nstigere Option."},
 }
 
 
@@ -1598,7 +1910,7 @@ def award_source_metadata() -> dict:
 
 # ===== Decision Engine Level 1 =====
 # Turns external cash-fare context + award estimate into ONE trip-basis-safe
-# verdict. Reuses calc_cpm() + sweet_spot_grade() as the only valuation logic —
+# verdict. Reuses calc_cpm() + sweet_spot_grade() as the only valuation logic â€”
 # no parallel score/CPM ladder (Guardrail B).
 
 def cash_source_metadata() -> dict:
@@ -1615,8 +1927,8 @@ def cash_source_metadata() -> dict:
 def assess_cash_level(price, typical_range) -> str:
     """Decision-Engine view of the cash fare's position vs the typical range.
 
-    Reuses the relative-cash foundation `_below_typical()` — the single source of
-    the price-vs-typical assessment — instead of recomputing it independently.
+    Reuses the relative-cash foundation `_below_typical()` â€” the single source of
+    the price-vs-typical assessment â€” instead of recomputing it independently.
     """
     return {
         "below": "below_typical",
@@ -1644,7 +1956,7 @@ def normalize_trip_basis(cash_trip_type, award_trip_type, requested_trip_type) -
         "note": None,
     }
     if ct == "unknown" or at == "unknown":
-        out["note"] = "Trip-Basis nicht eindeutig vergleichbar – kein belastbarer Meilenwert."
+        out["note"] = "Trip-Basis nicht eindeutig vergleichbar â€“ kein belastbarer Meilenwert."
         return out
     if ct == at:
         out["normalized_trip_type"] = ct
@@ -1656,13 +1968,13 @@ def normalize_trip_basis(cash_trip_type, award_trip_type, requested_trip_type) -
             out["trip_basis_compatible"] = True
             out["note"] = f"Cash und Meilen auf {ct.replace('_', ' ')}-Basis verglichen."
         return out
-    # e.g. round-trip cash vs one-way award — not safely normalizable here.
-    out["note"] = ("Cash- und Meilen-Basis unterschiedlich (round-trip vs. one-way) – "
+    # e.g. round-trip cash vs one-way award â€” not safely normalizable here.
+    out["note"] = ("Cash- und Meilen-Basis unterschiedlich (round-trip vs. one-way) â€“ "
                    "keine sichere Normalisierung, daher kein Meilenwert ausgewiesen.")
     return out
 
 
-# Cautious internal value signals → visible, non-committal English labels.
+# Cautious internal value signals â†’ visible, non-committal English labels.
 _SIGNAL_LABEL = {
     "strong_miles_value":   "Miles may make sense here",
     "promising_miles_value": "Estimated value looks promising",
@@ -1670,7 +1982,7 @@ _SIGNAL_LABEL = {
     "cash_may_be_stronger": "Cash may be stronger here",
     "insufficient_data":    "Not enough data for a reliable comparison",
 }
-# Award value tier (from sweet_spot_grade) → decision signal. Cash side is trusted
+# Award value tier (from sweet_spot_grade) â†’ decision signal. Cash side is trusted
 # input; the Decision Engine never recomputes the cash score itself.
 _TIER_SIGNAL = {
     "exceptional": "strong_miles_value",
@@ -1686,7 +1998,7 @@ _VERIFY_GUIDANCE = ("Confirm final availability, mileage price, taxes and fees w
 def _freshness_label(is_live_award: bool, cash_is_real: bool) -> str:
     award = "Award data signal" if is_live_award else "Award estimate"
     cash = "cash context checked recently" if cash_is_real else "no live cash context"
-    return f"{award} · {cash.capitalize()}"
+    return f"{award} Â· {cash.capitalize()}"
 
 
 def build_decision(best: dict | None, cash_eur, cash_is_real: bool,
@@ -1736,7 +2048,7 @@ def build_decision(best: dict | None, cash_eur, cash_is_real: bool,
         decision["confidence_reason"] = "No award availability or estimate to compare."
         return decision
 
-    # No observed cash context → cannot compare; availability only.
+    # No observed cash context â†’ cannot compare; availability only.
     if not cash_eur or best.get("cpm") is None:
         decision["verdict"] = "availability_only"
         decision["explanation"] = ("Award availability is visible, but there is no cash "
@@ -1744,14 +2056,14 @@ def build_decision(best: dict | None, cash_eur, cash_is_real: bool,
         decision["confidence_reason"] = "Missing cash fare context for this route."
         return decision
 
-    # Trip basis not safely comparable → no value signal (Guardrail A).
+    # Trip basis not safely comparable â†’ no value signal (Guardrail A).
     if not basis["trip_basis_compatible"]:
         decision["explanation"] = ("Cash and miles could not be normalized to the same "
                                    "trip direction, so no mileage value is shown.")
         decision["confidence_reason"] = "Incompatible or unclear trip basis (cash vs award)."
         return decision
 
-    # Compatible basis → reuse the single award valuation ladder (sweet_spot_grade).
+    # Compatible basis â†’ reuse the single award valuation ladder (sweet_spot_grade).
     grade = best.get("grade") or sweet_spot_grade(best["cpm"])
     signal = _TIER_SIGNAL.get(grade["tier"], "mixed_value")
     decision["tier"] = grade["tier"]
@@ -1760,7 +2072,7 @@ def build_decision(best: dict | None, cash_eur, cash_is_real: bool,
     decision["label"] = _SIGNAL_LABEL[signal]
     decision["estimated_value"] = round(best["cpm"], 1)
 
-    # Confidence reflects input quality: award liveness + real cash − basis assumption.
+    # Confidence reflects input quality: award liveness + real cash âˆ’ basis assumption.
     score = (2 if is_live else 1) + (1 if cash_is_real else 0) - basis["confidence_penalty"]
     decision["confidence"] = "high" if score >= 3 else ("medium" if score == 2 else "low")
     reasons = []
@@ -1771,7 +2083,7 @@ def build_decision(best: dict | None, cash_eur, cash_is_real: bool,
     reasons.append("official availability not yet confirmed")
     decision["confidence_reason"] = "; ".join(reasons)
 
-    # Visible "why" — cautious English, names the trip basis.
+    # Visible "why" â€” cautious English, names the trip basis.
     why = {
         "strong_miles_value":   "The estimated cash fare is relatively high compared with the estimated mileage requirement.",
         "promising_miles_value": "The estimated mileage requirement compares reasonably well with the estimated cash fare.",
@@ -1801,7 +2113,7 @@ def _fmt_duration(minutes: int | None) -> str | None:
 
 def fetch_cash_details(origin: str, dest: str, dep: dt.date, cabin: str, currency: str = "EUR",
                        ret: dt.date | None = None) -> dict:
-    """Quick SerpApi lookup — returns {price, dep_time, arr_time, duration, stops, flight_number} for cheapest flight."""
+    """Quick SerpApi lookup â€” returns {price, dep_time, arr_time, duration, stops, flight_number} for cheapest flight."""
     empty: dict = {}
     if not SERPAPI_TOKEN:
         return empty
@@ -1855,7 +2167,7 @@ def fetch_cash_details(origin: str, dest: str, dep: dt.date, cabin: str, currenc
             {"iata": l.get("id"), "duration_min": l.get("duration"), "overnight": l.get("overnight", False)}
             for l in (best.get("layovers") or [])
         ]
-        # Relative cash context — same response, no extra provider call.
+        # Relative cash context â€” same response, no extra provider call.
         insights = data.get("price_insights") or {}
         typical_range = insights.get("typical_price_range")
         return {
@@ -1884,7 +2196,7 @@ def fetch_cash_details(origin: str, dest: str, dep: dt.date, cabin: str, currenc
 
 
 def fetch_cash_price(origin: str, dest: str, dep: dt.date, cabin: str, currency: str = "EUR") -> float | None:
-    """Wrapper kept for compatibility — returns price only."""
+    """Wrapper kept for compatibility â€” returns price only."""
     d = fetch_cash_details(origin, dest, dep, cabin, currency)
     return d.get("price")
 
@@ -1954,7 +2266,7 @@ def airports():
         for place in autocomplete_places(q, locale=locale):
             label = f"{place['name']} ({place['code']})"
             if place.get("city") and place["city"] not in place["name"]:
-                label = f"{place['city']} · {label}"
+                label = f"{place['city']} Â· {label}"
             results.append({"label": label, "value": place["code"], "source": "dynamic"})
     seen, out = set(), []
     for item in results:
@@ -1993,7 +2305,7 @@ def cheap():
             with cf.ThreadPoolExecutor(max_workers=min(SERPAPI_MAX_PAIRS, max(1, len(tasks)))) as pool:
                 for origin, dest, found, err in pool.map(serpapi_task, tasks):
                     if err:
-                        app.logger.warning("cheap %s→%s: %s", origin, dest, err)
+                        app.logger.warning("cheap %sâ†’%s: %s", origin, dest, err)
                     else:
                         offers.extend(found)
         except QuotaError:
@@ -2031,7 +2343,7 @@ def cheap():
         with cf.ThreadPoolExecutor(max_workers=min(8, max(1, len(tasks)))) as pool:
             for origin, dest, rows, err in pool.map(tp_price_task, tasks):
                 if err:
-                    warnings.append(f"{origin}→{dest}: {err}")
+                    warnings.append(f"{origin}â†’{dest}: {err}")
                     continue
                 for row in rows or []:
                     airline = row.get("airline", "")
@@ -2043,12 +2355,42 @@ def cheap():
     # Deduplizieren (gleiche Airline + Ziel), dann relativ zum Ergebnis-Set
     # bewerten (zentrale Cash Result Intelligence), dann sortieren.
     offers = dedup_offers(offers)
-    offers = rescore_offer_set(offers)
-    offers.sort(key=lambda x: (-(x.get("dealScore") or 0), x.get("price") or 10**9))
-    fallback = [{"route": f"{o} → {d}", "links": links_for(o, d, dep.isoformat(), ret.isoformat() if ret else None)} for o in origins[:2] for d in dests[:3] if o != d]
+
+    # Filter to valid priced offers using canonical validation helper
+    valid_offers = [o for o in offers if _valid_price(o.get("price")) is not None]
+
+    if valid_offers:
+        valid_offers = rescore_offer_set(valid_offers)
+
+        # Assign stable offer IDs before sort
+        for o in valid_offers:
+            o["offer_id"] = compute_offer_id(o)
+
+        # Generate search-level guidance (before sort for stability)
+        cash_guidance = build_cash_guidance(valid_offers)
+
+        # Sort for visual display
+        valid_offers.sort(key=lambda x: (-(x.get("dealScore") or 0), x.get("price") or 10**9))
+        offers = valid_offers[:8]
+
+        # If a recommended offer was selected but is not in the returned slice, include it
+        if cash_guidance and cash_guidance.get("recommended_offer_id"):
+            recommended_id = cash_guidance["recommended_offer_id"]
+            if not any(o.get("offer_id") == recommended_id for o in offers):
+                # Recommended offer is outside [:8]; include it by replacing the last returned offer
+                rec_offer = next((o for o in valid_offers if o.get("offer_id") == recommended_id), None)
+                if rec_offer:
+                    # Swap out position 7 (last) with recommended offer to ensure it's returned
+                    offers = offers[:7] + [rec_offer]
+    else:
+        cash_guidance = None
+        offers = []
+
+    fallback = [{"route": f"{o} â†’ {d}", "links": links_for(o, d, dep.isoformat(), ret.isoformat() if ret else None)} for o in origins[:2] for d in dests[:3] if o != d]
     return jsonify({
         "ok": True,
-        "offers": offers[:8],
+        "offers": offers,
+        "cash_guidance": cash_guidance,
         "calendar": calendar,
         "fallback": fallback,
         "warnings": [],
@@ -2058,7 +2400,7 @@ def cheap():
 
 
 def verify_skiplag_serpapi(origin: str, true_dest: str, final_dest: str, dep: dt.date, currency: str, lang: str) -> dict | None:
-    """Search origin→final_dest via SerpApi; return verification data if true_dest appears as layover."""
+    """Search originâ†’final_dest via SerpApi; return verification data if true_dest appears as layover."""
     try:
         data = serpapi_search(origin, final_dest, dep, None, "economy", currency, lang)
     except QuotaError:
@@ -2082,7 +2424,7 @@ def verify_skiplag_serpapi(origin: str, true_dest: str, final_dest: str, dep: dt
         layovers = flight.get("layovers") or []
         layover_at_hidden = next((l for l in layovers if (l.get("id") or "") == true_dest), {})
         all_airports = [(s.get("departure_airport") or {}).get("id", "?") for s in segs] + [(segs[-1].get("arrival_airport") or {}).get("id", "?")]
-        seg_chain = " → ".join(dict.fromkeys(all_airports))  # deduplicate consecutive identical
+        seg_chain = " â†’ ".join(dict.fromkeys(all_airports))  # deduplicate consecutive identical
         return {
             "verified": True,
             "candidatePrice": price,
@@ -2134,7 +2476,7 @@ def _skiplag_inner():
                 normal_rows = tp_prices(origin, true_dest, dep, None, False, currency=currency, limit=5, timeout=12)
                 normal_price = cheapest_price(normal_rows)
             except Exception as exc:
-                app.logger.debug("skiplag normal price %s→%s: %s", origin, true_dest, exc)
+                app.logger.debug("skiplag normal price %sâ†’%s: %s", origin, true_dest, exc)
 
             if use_serpapi:
                 candidates = [e for e in SKIPLAG_ENDINGS if e not in (origin, true_dest)][:SKIPLAG_MAX_SEARCHES]
@@ -2199,7 +2541,7 @@ def _skiplag_inner():
                             })
 
     results.sort(key=lambda x: (0 if x.get("verified") else 1, -(x.get("savings") or -9999)))
-    note = ("Verification context from fare-source segments. One-way only · no checked baggage · verify airline T&Cs." if lang == "en" else "Verifizierungskontext aus Preisquellen-Segmenten. Nur Hinflug · kein Aufgabegepäck · AGB der Airline prüfen.") if use_serpapi else tx("skiplag_note", lang)
+    note = ("Verification context from fare-source segments. One-way only Â· no checked baggage Â· verify airline T&Cs." if lang == "en" else "Verifizierungskontext aus Preisquellen-Segmenten. Nur Hinflug Â· kein AufgabegepÃ¤ck Â· AGB der Airline prÃ¼fen.") if use_serpapi else tx("skiplag_note", lang)
     return jsonify({
         "ok": True,
         "results": results[:10],
@@ -2275,7 +2617,7 @@ def _awards_inner():
             try:
                 cash_details = fetch_cash_details(origin, dest, dep, cabin, ret=ret)
             except QuotaError:
-                cash_details = {}   # SerpApi quota empty — use zone fallback, don't abort
+                cash_details = {}   # SerpApi quota empty â€” use zone fallback, don't abort
             cash_eur = cash_details.get("price")
 
             # Live availability from seats.aero (if configured)
@@ -2297,7 +2639,7 @@ def _awards_inner():
             flight_info = {k: v for k, v in cash_details.items() if k != "price"} if cash_details else None
             ownership = itinerary_ownership_metadata(cash_details)
 
-            # Decision Engine Level 1 — trip-basis-safe verdict on the top program.
+            # Decision Engine Level 1 â€” trip-basis-safe verdict on the top program.
             top = combined[0] if combined else None
             cash_level = assess_cash_level(cash_eur, cash_details.get("typical_range"))
             decision = build_decision(
@@ -2310,7 +2652,7 @@ def _awards_inner():
             )
 
             results.append({
-                "route":          f"{origin} → {dest}",
+                "route":          f"{origin} â†’ {dest}",
                 "origin":         origin,
                 "dest":           dest,
                 "date":           dep.isoformat(),
@@ -2333,11 +2675,11 @@ def _awards_inner():
             })
 
     if use_seatsaero and any(r["has_live_data"] for r in results):
-        note = "Award redemption data signal · Verify before purchase"
+        note = "Award redemption data signal Â· Verify before purchase"
     elif use_seatsaero:
-        note = "No current availability signal found for this route · Showing estimated values"
+        note = "No current availability signal found for this route Â· Showing estimated values"
     else:
-        note = "Estimated values · Verify before purchase"
+        note = "Estimated values Â· Verify before purchase"
 
     return jsonify({"ok": True, "results": results, "note": note, "award_source": award_source_meta})
 
@@ -2346,27 +2688,27 @@ def score_award(origin: str, dest: str, cabin: str, lang: str = "de") -> dict:
     longhaul = dest in {"JFK", "EWR", "BOS", "YYZ", "YUL", "SIN", "HKG", "BKK", "HND", "NRT", "LAX", "SFO", "SEA", "DXB", "DOH", "ICN", "TPE", "SYD", "MEL"}
     if lang == "en":
         if cabin == "Economy":
-            return {"label": "🟢 good chance", "text": "Economy award redemptions may be available, but compare cents-per-mile value against cash fare context."}
+            return {"label": "ðŸŸ¢ good chance", "text": "Economy award redemptions may be available, but compare cents-per-mile value against cash fare context."}
         if cabin == "Premium Eco":
-            return {"label": "🟡 interesting", "text": "Premium Economy can be a useful sweet spot, especially on long-haul routes."}
+            return {"label": "ðŸŸ¡ interesting", "text": "Premium Economy can be a useful sweet spot, especially on long-haul routes."}
         if cabin == "Business" and longhaul:
-            return {"label": "🟡 hunt", "text": "Business is possible, but search flexibly: ±7 days and multiple airports."}
+            return {"label": "ðŸŸ¡ hunt", "text": "Business is possible, but search flexibly: Â±7 days and multiple airports."}
         if cabin == "First":
-            return {"label": "🔴 rare", "text": "First depends heavily on airline and last-minute release patterns."}
-        return {"label": "🟢 solid", "text": "Short-haul award redemptions may be easier, but compare against cash fare context."}
+            return {"label": "ðŸ”´ rare", "text": "First depends heavily on airline and last-minute release patterns."}
+        return {"label": "ðŸŸ¢ solid", "text": "Short-haul award redemptions may be easier, but compare against cash fare context."}
     if cabin == "Economy":
-        return {"label": "🟢 gute Chance", "text": "Eco-Award-Redemptions können verfügbar sein; Wert pro Meile aber mit Cash-Fare-Kontext vergleichen."}
+        return {"label": "ðŸŸ¢ gute Chance", "text": "Eco-Award-Redemptions kÃ¶nnen verfÃ¼gbar sein; Wert pro Meile aber mit Cash-Fare-Kontext vergleichen."}
     if cabin == "Premium Eco":
-        return {"label": "🟡 interessant", "text": "Premium Eco kann einen guten Award-Redemption-Wert bieten, vor allem auf Langstrecke."}
+        return {"label": "ðŸŸ¡ interessant", "text": "Premium Eco kann einen guten Award-Redemption-Wert bieten, vor allem auf Langstrecke."}
     if cabin == "Business" and longhaul:
-        return {"label": "🟡 jagen", "text": "Business ist möglich, aber flexibel suchen: ±7 Tage und mehrere Airports."}
+        return {"label": "ðŸŸ¡ jagen", "text": "Business ist mÃ¶glich, aber flexibel suchen: Â±7 Tage und mehrere Airports."}
     if cabin == "First":
-        return {"label": "🔴 selten", "text": "First ist stark abhängig von Airline und kurzfristiger Freigabe."}
-    return {"label": "🟢 solide", "text": "Kurzstrecke eher verfügbar, aber Cashpreise vergleichen."}
+        return {"label": "ðŸ”´ selten", "text": "First ist stark abhÃ¤ngig von Airline und kurzfristiger Freigabe."}
+    return {"label": "ðŸŸ¢ solide", "text": "Kurzstrecke eher verfÃ¼gbar, aber Cashpreise vergleichen."}
 
 
-# Popular longhaul routes for the Discovery widget — DACH-first, kept small to protect daily budget.
-# Max 8 routes × 3 Gunicorn workers = 24 calls per cold-start worst case.
+# Popular longhaul routes for the Discovery widget â€” DACH-first, kept small to protect daily budget.
+# Max 8 routes Ã— 3 Gunicorn workers = 24 calls per cold-start worst case.
 # Expand only after file-based shared cache is in place.
 TOP_OPP_ROUTES: list[tuple[str, str, str]] = [
     ("FRA", "JFK", "Business"), ("FRA", "HND", "Business"), ("FRA", "SIN", "Business"),
@@ -2396,7 +2738,7 @@ def _read_file_cache() -> list | None:
 
 
 def _write_file_cache(opportunities: list) -> None:
-    """Atomic write: temp file → rename, so readers never see partial data."""
+    """Atomic write: temp file â†’ rename, so readers never see partial data."""
     try:
         import json as _json, pathlib, tempfile, os
         payload = _json.dumps({"ts": time.time(), "opportunities": opportunities})
@@ -2409,7 +2751,7 @@ def _write_file_cache(opportunities: list) -> None:
 
 @app.route("/api/top-opportunities")
 def top_opportunities():
-    # 1. Try shared file cache first — all workers share this
+    # 1. Try shared file cache first â€” all workers share this
     cached = _read_file_cache()
     if cached is not None:
         return jsonify({"ok": True, "opportunities": cached, "source": "cache"})
@@ -2419,7 +2761,7 @@ def top_opportunities():
 
     # 2. Lock prevents concurrent scans within the same worker process
     if not _TOP_OPP_LOCK.acquire(blocking=False):
-        # Another thread in this worker is already scanning — wait briefly and try cache again
+        # Another thread in this worker is already scanning â€” wait briefly and try cache again
         _TOP_OPP_LOCK.acquire(blocking=True, timeout=30)
         _TOP_OPP_LOCK.release()
         cached = _read_file_cache()
@@ -2436,14 +2778,14 @@ def top_opportunities():
         origin, dest, cabin = args
         with rate_lock:
             try:
-                time.sleep(2.0)  # 2s spacing → max ~30 calls/min, well within daily budget
+                time.sleep(2.0)  # 2s spacing â†’ max ~30 calls/min, well within daily budget
                 rows = fetch_seatsaero(origin, dest, cabin, dep, window_days=30)
             except Exception:
                 rows = []
         if not rows:
             return []
         try:
-            cash = None  # Discovery scan uses zone fallback only — never burns SerpApi budget
+            cash = None  # Discovery scan uses zone fallback only â€” never burns SerpApi budget
             programs = build_seatsaero_programs(origin, dest, cabin, dep, cash, rows)
             out = []
             for p in programs:
