@@ -489,8 +489,8 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=139", html)
-        self.assertIn("app.js?v=148", html)
+        self.assertIn("app.css?v=140", html)
+        self.assertIn("app.js?v=149", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
         self.assertIn("data-text-size-option=\"large\"", html)
@@ -536,8 +536,8 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=139", html)
-        self.assertIn("app.js?v=148", html)
+        self.assertIn("app.css?v=140", html)
+        self.assertIn("app.js?v=149", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -1178,6 +1178,127 @@ class CashCardRenderMarkup(unittest.TestCase):
         self.assertIn(".cash-itin-times", self.css)
         self.assertIn(".cash-itin-times{font-size:calc(15px * var(--text-scale))}", self.css)
         self.assertIn("flex-wrap:wrap", self.css)
+
+
+class R2BCashDecisionCard(unittest.TestCase):
+    """R2B-1: Recommendation card, compact alternatives, date localization, source disclosure."""
+
+    def setUp(self):
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(root, "static", "app.js"), encoding="utf-8") as f:
+            self.js = f.read()
+        with open(os.path.join(root, "static", "app.css"), encoding="utf-8") as f:
+            self.css = f.read()
+
+    def test_recommendation_card_structure_present(self):
+        """Scope A: First Cash result has distinct recommendation card structure."""
+        self.assertIn(".recommendation-card", self.css)
+        self.assertIn(".rec-verdict", self.css)
+        self.assertIn(".rec-meta", self.css)
+        self.assertIn(".rec-cta", self.css)
+
+    def test_compact_alternatives_present(self):
+        """Scope F: Non-first results use compact structure."""
+        self.assertIn(".compact-alternative", self.css)
+        self.assertIn(".compact-row", self.css)
+        self.assertIn(".compact-route", self.css)
+        self.assertIn(".compact-price", self.css)
+        self.assertIn(".compact-value", self.css)
+
+    def test_compact_journey_summary_present(self):
+        """Scope C: Compact Cash journey summary renderer exists."""
+        self.assertIn("compactCashJourneySummary", self.js)
+        self.assertIn(".compact-cash-journey", self.css)
+        self.assertIn(".ccjs-route", self.css)
+        self.assertIn(".ccjs-apt", self.css)
+
+    def test_date_formatter_present(self):
+        """Scope D: Date localization helper formatUserDate exists."""
+        self.assertIn("function formatUserDate(dateStr)", self.js)
+
+    def test_source_disclosure_present(self):
+        """Scope E: Source disclosure (Compare sources) UI present."""
+        self.assertIn("sourceDisclosureHtml", self.js)
+        self.assertIn(".source-disclosure", self.css)
+        self.assertIn(".source-toggle", self.css)
+        self.assertIn(".source-popover", self.css)
+
+    def test_source_disclosure_keyboard_accessible(self):
+        """Scope E: Source toggle has keyboard focus styles."""
+        self.assertIn(".source-toggle:focus-visible", self.css)
+        self.assertIn("outline:2px solid var(--cyan)", self.css)
+
+    def test_airline_rendered_prominently(self):
+        """Scope B: Airline name rendered at card level (not tiny metadata)."""
+        self.assertIn("class=\"airline-name\"", self.js)
+        self.assertIn(".airline-name", self.css)
+        self.assertIn(".card-airline", self.css)
+
+    def test_flight_number_rules_unchanged(self):
+        """Scope B: Top-level flight number only for single-segment."""
+        self.assertIn("o.flight_number ?", self.js)
+
+    def test_verdict_copy_uses_existing_signals(self):
+        """Scope A: Verdict text maps to existing sort/tier logic."""
+        verdicts = [
+            "Lowest fare in this search",
+            "Best nonstop option",
+            "Fewest stops option",
+            "Best available option",
+            "Only option found",
+            "Exceptional value for this search",
+            "Strong value for this search",
+            "Best match for this search",
+        ]
+        for v in verdicts:
+            self.assertIn(v, self.js)
+
+    def test_verdict_no_unsupported_claims(self):
+        """Scope A: Unsupported claims removed from verdict copy."""
+        self.assertNotIn("Exceptional value — nonstop and affordable", self.js)
+        self.assertNotIn("nonstop and affordable", self.js)
+
+    def test_no_book_now_copy(self):
+        """Scope E: Primary link says 'View fare', not 'Book Now' or 'Buy'."""
+        self.assertIn("View fare", self.js)
+        self.assertNotIn("Book Now", self.js)
+        self.assertNotIn('label: "Buy"', self.js)
+        self.assertNotIn('"Buy"', self.js)
+
+    def test_debug_resolved_line_removed(self):
+        """Scope G: Debug Resolved block no longer rendered in user-facing HTML."""
+        # The render() function must NOT output the debug block at all
+        self.assertNotIn('style="display:none"', self.js)
+        # But "Resolved" should not appear in the rendered output section
+        # (it may appear in comments, but not in the render function's output)
+        render_section = self.js.split('function render(data)')[1].split('function ')[0] if 'function render(data)' in self.js else ''
+        if 'Resolved:' in render_section:
+            self.fail("Debug 'Resolved:' block still appears in render() output")
+
+    def test_escape_handler_present(self):
+        """Keyboard accessibility: Escape key handler exists for source disclosure."""
+        self.assertIn("e.key !== 'Escape'", self.js)
+        self.assertIn(".source-popover:not([hidden])", self.js)
+        self.assertIn("btn.focus()", self.js)
+
+    def test_mobile_compact_value_readable(self):
+        """Mobile text sizing: compact-value font-size at least 11px."""
+        # Check mobile override doesn't use font-size below 11px
+        self.assertNotIn(".compact-value{font-size:9px", self.css)
+        self.assertNotIn(".compact-value{font-size:10px", self.css)
+        # Should use 11px or higher on mobile
+        self.assertIn(".compact-value{font-size:11px", self.css)
+
+    def test_score_remains_available_secondary(self):
+        """Scope: Score visible but demoted (not removed)."""
+        self.assertIn("scoreHtml(o)", self.js)
+        self.assertIn("${scoreHtml(o)}", self.js)
+        self.assertNotIn("//scoreHtml(o)", self.js)
+
+    def test_recommendation_card_first_only(self):
+        """Only the first result (i === 0) becomes recommendation card."""
+        self.assertIn("if (isTop)", self.js)
+        self.assertIn(".recommendation-card", self.css)
 
 
 class InvalidCashPriceValidation(unittest.TestCase):
