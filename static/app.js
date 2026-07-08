@@ -1,4 +1,35 @@
-const $ = id => document.getElementById(id);
+﻿const $ = id => document.getElementById(id);
+
+// User-visible date formatter: 22 Oct 2026 format (en), 22.10.2026 (de)
+// Safely handles date-only strings without timezone conversion that shifts dates
+function formatUserDate(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return '';
+  const trimmed = dateStr.trim();
+  if (!trimmed) return '';
+
+  // Parse as date-only (no time component) to avoid UTC/local timezone shifts
+  // ISO date format: YYYY-MM-DD
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return trimmed; // Fallback if not ISO format
+
+  const year = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10) - 1; // JS months are 0-indexed
+  const day = parseInt(match[3], 10);
+
+  // Create date at midnight UTC to avoid timezone shift
+  const d = new Date(Date.UTC(year, month, day));
+
+  const lang = document.documentElement.getAttribute('lang') || 'en';
+  if (lang === 'de') {
+    const dayStr = String(d.getUTCDate()).padStart(2, '0');
+    const monthStr = String(d.getUTCMonth() + 1).padStart(2, '0');
+    return `${dayStr}.${monthStr}.${year}`;
+  }
+
+  // English international: 22 Oct 2026
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${d.getUTCDate()} ${monthNames[d.getUTCMonth()]} ${year}`;
+}
 
 // Sprint 2B — Itinerary Intelligence helpers
 function fmtDur(min) {
@@ -88,6 +119,41 @@ document.addEventListener('click', function (e) {
   btn.setAttribute('aria-expanded', String(open));
   const lbl = btn.querySelector('.aw-itin-toggle-label');
   if (lbl) lbl.textContent = open ? 'Hide flight details' : 'Show flight details';
+});
+
+// Delegated toggle for source disclosure (Scope E)
+document.addEventListener('click', function (e) {
+  const btn = e.target.closest && e.target.closest('.source-toggle');
+  if (!btn) return;
+  const popover = document.getElementById(btn.getAttribute('aria-controls'));
+  if (!popover) return;
+  popover.hidden = !popover.hidden;
+  btn.setAttribute('aria-expanded', String(!popover.hidden));
+});
+
+// Close source popovers when clicking outside
+document.addEventListener('click', function (e) {
+  if (e.target.closest('.source-toggle') || e.target.closest('.source-popover')) return;
+  document.querySelectorAll('.source-popover:not([hidden])').forEach(pop => {
+    pop.hidden = true;
+    const btn = document.querySelector(`[aria-controls="${pop.id}"]`);
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  });
+});
+
+// Close source popovers when Escape is pressed; return focus to trigger
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape') return;
+  const openPopovers = document.querySelectorAll('.source-popover:not([hidden])');
+  if (!openPopovers.length) return;
+  openPopovers.forEach(pop => {
+    pop.hidden = true;
+    const btn = document.querySelector(`[aria-controls="${pop.id}"]`);
+    if (btn) {
+      btn.setAttribute('aria-expanded', 'false');
+      btn.focus();
+    }
+  });
 });
 
 function awardTrustMetaHtml(p) {
@@ -663,6 +729,26 @@ function linksHtmlWithLabels(obj) {
   ).join('')}</div>`;
 }
 
+// Source disclosure button + hidden popover for "Compare sources" (Scope E)
+function sourceDisclosureHtml(obj) {
+  const entries = Object.entries(obj || {});
+  if (!entries.length) return '';
+
+  const uid = 'src-' + Math.random().toString(36).slice(2, 9);
+  const sourcesHtml = entries.map(([k, v]) =>
+    `<a target="_blank" rel="noopener" href="${esc(v)}" class="source-link">${esc(k)}</a>`
+  ).join('');
+
+  return `<div class="source-disclosure">
+    <button type="button" class="source-toggle" aria-expanded="false" aria-controls="${uid}">
+      Compare sources
+    </button>
+    <div class="source-popover" id="${uid}" hidden>
+      <div class="source-links">${sourcesHtml}</div>
+    </div>
+  </div>`;
+}
+
 // Structured action links for Awards: Verify | Cash
 function actionLinksHtml(links) {
   if (!links || Array.isArray(links)) return linksHtml(links);
@@ -930,6 +1016,35 @@ function cashItineraryHtml(o) {
   return `<div class="cash-itin-note">Times not available from the current source</div>`;
 }
 
+// Compact Cash journey summary for recommendation card (Scope C)
+// Shows origin → destination with stopover if known, times, duration, stops
+function compactCashJourneySummary(o) {
+  const stops = parseInt(o.stops) || 0;
+  const dep = o.dep_time;
+  const arr = o.arr_time;
+  const off = (typeof o.arrival_day_offset === 'number' && o.arrival_day_offset > 0) ? o.arrival_day_offset : null;
+
+  const route = [];
+  route.push(`<span class="ccjs-apt">${esc(o.origin)}</span>`);
+  if (o.via && o.via.length) {
+    route.push(`<span class="ccjs-arrow" aria-hidden="true">→</span>`);
+    route.push(`<span class="ccjs-stopover">${esc(o.via.join(', '))}</span>`);
+  }
+  route.push(`<span class="ccjs-arrow" aria-hidden="true">→</span>`);
+  route.push(`<span class="ccjs-apt">${esc(o.dest)}</span>`);
+
+  const times = dep && arr ? `${esc(dep)}–${esc(arr)}${off ? ` +${off}d` : ''}` : '';
+  const dur = o.durationMin ? fmtDur(o.durationMin) : '';
+  const stopsLabel = stops === 0 ? 'Nonstop' : stops === 1 ? '1 stop' : `${stops} stops`;
+
+  const meta = [times, dur, stopsLabel].filter(Boolean).join(' · ');
+
+  return `<div class="compact-cash-journey">
+    <div class="ccjs-route">${route.join('')}</div>
+    ${meta ? `<div class="ccjs-meta">${esc(meta)}</div>` : ''}
+  </div>`;
+}
+
 // Client-side mirror of the backend valid-price rule: reject booleans, null,
 // empty/whitespace strings, non-numeric, NaN, ±Infinity, zero and negatives.
 // Booleans are excluded explicitly because Number(true) === 1 would slip through.
@@ -950,31 +1065,94 @@ function cheapCardsHtml(offers, sortKey) {
   return sorted.map((o, i) => {
     const isTop = i === 0;
     const stops = parseInt(o.stops) || 0;
-    const viaText = o.via && o.via.length ? ` via ${esc(o.via.join(', '))}` : '';
-    const stopsLabel = stops === 0 ? 'Nonstop' : stops === 1 ? `1 stop${viaText}` : `${stops} stops${viaText}`;
     const airlineLabel = o.airline || 'Airline';
     const logoImg = airlineMarkHtml(airlineLabel, o.airlineCode);
-    const durStr = o.durationMin ? fmtDur(o.durationMin) : '';
-    const metaLine = [durStr, stopsLabel, esc(o.date) + (o.returnDate ? ' → ' + esc(o.returnDate) : '')].filter(Boolean).join(' · ');
     const flightNoHtml = o.flight_number ? `<span class="cash-flight-no">${esc(o.flight_number)}</span>` : '';
-    return `<div class="card${isTop ? ' top-card' : ''}">
-      ${isTop ? bestBadgeHtml(o, sortKey) : ''}
-      <div class="card-row">
-        <div class="card-main">
-          <h3>${esc(o.origin)}<span class="route-arrow">→</span>${esc(o.dest)}</h3>
-          ${cashItineraryHtml(o)}
-          <div class="card-detail">${metaLine}</div>
-          <div class="card-airline">${logoImg}<span class="airline-name">${esc(airlineLabel)}</span>${flightNoHtml}</div>
+
+    // R2B-1 RECOMMENDATION CARD (Scope A, B, C, E)
+    if (isTop) {
+      // Verdict copy based on sort context and existing signals
+      let verdict = '';
+      if (sortKey === 'price') {
+        verdict = 'Lowest fare in this search';
+      } else if (sortKey === 'nonstop') {
+        verdict = stops === 0 ? 'Best nonstop option' : 'Fewest stops option';
+      } else {
+        // Score sort — use existing tier logic
+        const tier = o.tier || scoreInfo(o.dealScore).tier;
+        if (o.scoreContext === 'best_available_not_cheap') {
+          verdict = 'Best available option';
+        } else if (o.scoreContext === 'limited_comparison') {
+          verdict = 'Only option found';
+        } else if (tier === 'exceptional') {
+          verdict = 'Exceptional value for this search';
+        } else if (tier === 'great') {
+          verdict = 'Strong value for this search';
+        } else {
+          verdict = 'Best match for this search';
+        }
+      }
+
+      const formattedDate = formatUserDate(o.date);
+      const returnDateStr = o.returnDate ? ` → ${formatUserDate(o.returnDate)}` : '';
+
+      return `<div class="card recommendation-card top-card">
+        ${bestBadgeHtml(o, sortKey)}
+        <div class="rec-verdict">${esc(verdict)}</div>
+        <div class="card-row">
+          <div class="card-main">
+            <h3>${esc(o.origin)}<span class="route-arrow">→</span>${esc(o.dest)}</h3>
+            ${compactCashJourneySummary(o)}
+            <div class="card-airline">${logoImg}<span class="airline-name">${esc(airlineLabel)}</span>${flightNoHtml}</div>
+            <div class="rec-meta">${formattedDate}${returnDateStr}</div>
+          </div>
+          <div class="card-price">
+            <div class="price">${Math.round(o.price)} <span class="price-currency">${esc(o.currency)}</span></div>
+            <div class="price-sub">per person</div>
+            ${o.scoreReason ? `<div class="score-reason-pills">${o.scoreReason.split(' · ').map(p => `<span class="srp">${esc(p)}</span>`).join('')}</div>` : ''}
+            ${scoreHtml(o)}
+          </div>
         </div>
-        <div class="card-price">
-          <div class="price">${Math.round(o.price)} <span class="price-currency">${esc(o.currency)}</span></div>
-          <div class="price-sub">per person</div>
-          ${o.scoreReason ? `<div class="score-reason-pills">${o.scoreReason.split(' · ').map(p => `<span class="srp">${esc(p)}</span>`).join('')}</div>` : ''}
-          ${scoreHtml(o)}
+        <div class="rec-cta">
+          ${linksHtmlWithLabels(o.links)}
+          ${sourceDisclosureHtml(o.links)}
+        </div>
+        <div class="card-fare-source">Fare data: Google Flights</div>
+      </div>`;
+    }
+
+    // R2B-1 COMPACT ALTERNATIVES (Scope F)
+    const viaText = o.via && o.via.length ? ` via ${esc(o.via.join(', '))}` : '';
+    const stopsLabel = stops === 0 ? 'Nonstop' : stops === 1 ? `1 stop${viaText}` : `${stops} stops${viaText}`;
+    const durStr = o.durationMin ? fmtDur(o.durationMin) : '';
+    const formattedDate = formatUserDate(o.date);
+    const metaLine = [durStr, stopsLabel, formattedDate + (o.returnDate ? ' → ' + formatUserDate(o.returnDate) : '')].filter(Boolean).join(' · ');
+
+    const tier = o.tier || scoreInfo(o.dealScore).tier;
+    let conciseLabel = '';
+    if (tier === 'exceptional') conciseLabel = 'A+ · Exceptional';
+    else if (tier === 'great') conciseLabel = 'A · Strong';
+    else if (tier === 'good') conciseLabel = 'B · Fair';
+    else if (tier === 'fair') conciseLabel = 'C · Pricey';
+    else conciseLabel = 'D · Weak';
+
+    return `<div class="card compact-alternative">
+      <div class="compact-row">
+        <div class="compact-main">
+          <div class="compact-route">${esc(o.origin)} → ${esc(o.dest)}</div>
+          <div class="compact-times">${metaLine}</div>
+          <div class="compact-airline">${logoImg}<span>${esc(airlineLabel)}</span>${flightNoHtml}</div>
+        </div>
+        <div class="compact-price">
+          <div class="price">${Math.round(o.price)}</div>
+          <div class="price-cur">${esc(o.currency)}</div>
+          <div class="compact-value">${esc(conciseLabel)}</div>
         </div>
       </div>
-      ${linksHtmlWithLabels(o.links)}
-      <div class="card-fare-source">Fare data: Google Flights</div>
+      <div class="compact-cta">
+        ${linksHtmlWithLabels(o.links)}
+        ${sourceDisclosureHtml(o.links)}
+      </div>
     </div>`;
   }).join('');
 }
@@ -1021,7 +1199,6 @@ function relatedAnalysesHtml(currentMode) {
 function render(data) {
   let html = '';
   if (data.note) html += `<div class="card note">${esc(data.note)}</div>`;
-  if (data.debug) html += `<div class="card tiny">Resolved: ${(data.debug.origins || []).join(', ')} → ${(data.debug.dests || []).join(', ')}${data.debug.seconds ? ' · ' + data.debug.seconds + 's' : ''}${data.debug.source ? ' · ' + esc(data.debug.source) : ''}</div>`;
   // Warnings: log internally only — never expose raw provider errors to users
   if (data.warnings?.length) console.debug('[AwardRadar warnings]', data.warnings);
 
