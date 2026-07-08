@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import concurrent.futures as cf
 import datetime as dt
+import math
 import mimetypes
 import os
 import re
@@ -980,6 +981,20 @@ def serpapi_search(origin: str, dest: str, dep: dt.date, ret: dt.date | None, ca
     return data
 
 
+def _valid_price(value) -> float | None:
+    """A cash fare is valid only if present, finite, and strictly greater than zero.
+    Rejects 0/negative/None/""/non-numeric/NaN/±Inf and booleans (True==1 is not a fare)."""
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        price = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(price) or price <= 0:
+        return None
+    return price
+
+
 def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, mm_only: bool) -> dict | None:
     segs = item.get("flights") or []
     if not segs:
@@ -991,8 +1006,11 @@ def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, m
     if mm_only and airline_code and airline_code not in MM_AIRLINES:
         return None
     airline_name = first.get("airline") or airline_code
+    # Reject invalid fares before any scoring, dedup, or link generation.
+    price = _valid_price(item.get("price"))
+    if price is None:
+        return None
     stops = max(0, len(segs) - 1)
-    price = float(item.get("price") or 0)
     via_airports = [(s.get("arrival_airport") or {}).get("id", "") for s in segs[:-1]] if stops > 0 else []
 
     # Reuse the same provider datetime parsing the award cash-context path uses —
@@ -1066,7 +1084,12 @@ def serpapi_offers(origin: str, dest: str, dep: dt.date, ret: dt.date | None, cu
     items = (data.get("best_flights") or []) + (data.get("other_flights") or [])
     offers = []
     for item in items:
-        offer = _serp_item_to_offer(item, currency, typical_range, mm_only)
+        # Per-item guard: a single malformed provider item must not suppress the rest.
+        try:
+            offer = _serp_item_to_offer(item, currency, typical_range, mm_only)
+        except Exception as exc:
+            app.logger.warning("skip malformed cheap item %s→%s: %s", origin, dest, exc)
+            continue
         if offer:
             offers.append(offer)
     return offers, None

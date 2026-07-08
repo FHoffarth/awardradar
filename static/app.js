@@ -900,8 +900,19 @@ function cashItineraryHtml(o) {
   return `<div class="cash-itin-note">Times not available from the current source</div>`;
 }
 
+// Client-side mirror of the backend valid-price rule: reject booleans, null,
+// empty/whitespace strings, non-numeric, NaN, ±Infinity, zero and negatives.
+// Booleans are excluded explicitly because Number(true) === 1 would slip through.
+function isValidCashPrice(v) {
+  if (typeof v === 'boolean' || v == null) return false;
+  if (typeof v === 'string' && v.trim() === '') return false;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0;
+}
+
 function cheapCardsHtml(offers, sortKey) {
-  let sorted = [...offers];
+  // Defense in depth: an invalid price must never sort as cheapest/best or render.
+  let sorted = [...offers].filter(o => o && isValidCashPrice(o.price));
   if (sortKey === 'price') sorted.sort((a, b) => (a.price || 99999) - (b.price || 99999));
   else if (sortKey === 'nonstop') sorted.sort((a, b) => (a.stops || 0) - (b.stops || 0) || (-(a.dealScore || 0)) + (b.dealScore || 0));
   else sorted.sort((a, b) => (-(a.dealScore || 0)) + (b.dealScore || 0));
