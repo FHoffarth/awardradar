@@ -1023,15 +1023,23 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .rec-verdict{font-size:16px;font-weight:600;color:var(--cyan);margin-bottom:12px;padding:0 0 8px}
 .rec-meta{font-size:12px;color:var(--muted);margin-top:8px;font-weight:500}
 .rec-cta{display:flex;gap:10px;flex-direction:column;margin-top:12px}
-.cash-guidance{margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.08)}
-.cg-headline{margin:0 0 10px;font-size:17px;line-height:1.35;color:var(--text)}
+.recommendation-badges{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;margin-bottom:10px}
+.cash-guidance{margin-bottom:12px;padding:12px 12px 10px;border:1px solid rgba(106,215,255,.22);border-radius:12px;background:rgba(106,215,255,.06)}
+.cg-headline{margin:0 0 10px;font-size:20px;font-weight:700;line-height:1.35;color:var(--text);letter-spacing:-.2px}
 .cg-block{margin-bottom:8px}
 .cg-k{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
 .cg-block p{margin:4px 0 0;font-size:14px;line-height:1.45;color:var(--text)}
 .cg-evidence{margin-top:2px;font-size:12px;color:var(--muted)}
-.cg-tag{display:inline-flex;align-items:center;gap:6px;margin:0 0 10px;padding:4px 10px;border-radius:999px;border:1px solid rgba(106,215,255,.35);background:rgba(106,215,255,.11);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--cyan)}
+.cg-tag{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid rgba(106,215,255,.35);background:rgba(106,215,255,.11);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--cyan)}
 .cg-tag-compact{margin:0 0 8px;padding:3px 8px;font-size:10px}
+.cg-tag-secondary{border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.03);color:var(--muted);font-weight:600;text-transform:none;letter-spacing:.02em}
+.best-badge-secondary{background:rgba(245,199,107,.10);border-color:rgba(245,199,107,.24);color:#f2dba1}
+.recommendation-badges .best-badge,.recommendation-badges .cg-tag{margin-bottom:0;max-width:100%;white-space:normal;line-height:1.25;text-align:left}
 .guidance-recommended{border-color:rgba(106,215,255,.22);background:rgba(106,215,255,.04)}
+.guidance-card .card-price{border-left:1px solid rgba(255,255,255,.08);padding-left:12px}
+.guidance-card .score-block{margin-top:12px;opacity:.75}
+.guidance-card .score-num{font-size:16px}
+.guidance-card .score-lbl{font-size:10.5px}
 
 /* Compact Cash Journey Summary (Scope C) */
 .compact-cash-journey{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.06)}
@@ -1196,10 +1204,13 @@ footer p{margin-bottom:8px}
   .recommendation-card .card-row{flex-direction:column}
   .recommendation-card .card-price{text-align:left;width:100%}
   .rec-verdict{font-size:14px;margin-bottom:10px;padding-bottom:6px}
-  .cash-guidance{margin-bottom:10px;padding-bottom:8px}
-  .cg-headline{font-size:15px;margin-bottom:8px}
+  .recommendation-badges{gap:5px;margin-bottom:8px}
+  .cash-guidance{margin-bottom:10px;padding:10px 10px 8px}
+  .cg-headline{font-size:17px;margin-bottom:8px}
   .cg-block p{font-size:13px;line-height:1.4}
   .cg-tag{font-size:10px;padding:4px 8px}
+  .guidance-card .card-price{border-left:0;padding-left:0}
+  .guidance-card .score-block{opacity:.8}
   .compact-cash-journey{margin-top:6px;padding-top:6px}
   .ccjs-route{font-size:12px;gap:3px}
   .ccjs-apt{padding:2px 5px;font-size:11px}

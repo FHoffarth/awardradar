@@ -493,8 +493,8 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=141", html)
-        self.assertIn("app.js?v=150", html)
+        self.assertIn("app.css?v=142", html)
+        self.assertIn("app.js?v=151", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
         self.assertIn("data-text-size-option=\"large\"", html)
@@ -540,8 +540,8 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=141", html)
-        self.assertIn("app.js?v=150", html)
+        self.assertIn("app.css?v=142", html)
+        self.assertIn("app.js?v=151", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -1314,12 +1314,15 @@ class R2BCashDecisionCard(unittest.TestCase):
         self.assertIn("guidance.next_step", self.js)
         self.assertIn("guidance.evidence_level", self.js)
         self.assertIn("Decision guidance", self.js)
+        self.assertIn("Evidence level:", self.js)
 
     def test_recommended_offer_id_is_used_without_frontend_recompute(self):
         """Frontend marks backend-selected offer; no recommendation state machine."""
         self.assertIn("guidance.recommended_offer_id", self.js)
         self.assertIn("o.offer_id === recommendedId", self.js)
         self.assertIn("Recommended option", self.js)
+        self.assertIn("Best returned option", self.js)
+        self.assertIn("Only returned option", self.js)
         self.assertNotIn("recommendation_state ===", self.js)
 
     def test_sorting_preserves_recommended_offer_visibility(self):
