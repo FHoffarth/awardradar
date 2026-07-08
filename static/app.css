@@ -519,6 +519,8 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .cash-itin-note{font-size:12px;color:var(--muted);font-style:italic;margin:2px 0 4px}
 .cash-flight-no{font-size:12px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .card-fare-source{font-size:11px;color:var(--muted);opacity:.7;margin-top:8px}
+.rt-disclosure{margin:8px 0 10px;padding:8px 10px;border:1px solid rgba(255,255,255,.12);border-radius:8px;background:rgba(255,255,255,.03);font-size:12px;line-height:1.4;color:var(--muted);word-break:break-word}
+.rt-disclosure-k{font-size:11px;font-weight:600;color:var(--text);margin-bottom:3px}
 .price-currency{font-size:16px;font-weight:600;color:var(--gold)}
 .score-reason{font-size:11px;color:var(--muted);margin-top:4px;text-align:right}
 .score-reason-pills{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;margin-top:5px}
@@ -1228,6 +1230,8 @@ footer p{margin-bottom:8px}
   .compact-value{font-size:11px;margin-top:3px}
   .compact-cta{margin-top:8px;padding-top:8px;gap:6px}
   .rec-cta{gap:8px;width:100%}
+  .rt-disclosure{font-size:11px;padding:7px 8px;margin:7px 0 9px}
+  .rt-disclosure-k{font-size:10px}
   .score-reason-pills{justify-content:flex-start}
   .srp{font-size:11px}
 

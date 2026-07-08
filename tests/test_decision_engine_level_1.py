@@ -493,8 +493,8 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=142", html)
-        self.assertIn("app.js?v=151", html)
+        self.assertIn("app.css?v=143", html)
+        self.assertIn("app.js?v=152", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
         self.assertIn("data-text-size-option=\"large\"", html)
@@ -540,8 +540,8 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=142", html)
-        self.assertIn("app.js?v=151", html)
+        self.assertIn("app.css?v=143", html)
+        self.assertIn("app.js?v=152", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -1315,6 +1315,8 @@ class R2BCashDecisionCard(unittest.TestCase):
         self.assertIn("guidance.evidence_level", self.js)
         self.assertIn("Decision guidance", self.js)
         self.assertIn("Evidence level:", self.js)
+        self.assertIn("returnDisclosureHtml", self.js)
+        self.assertIn("Return itinerary details unavailable from current fare source. Verify return flight times before purchase.", self.js)
 
     def test_recommended_offer_id_is_used_without_frontend_recompute(self):
         """Frontend marks backend-selected offer; no recommendation state machine."""
@@ -1328,12 +1330,29 @@ class R2BCashDecisionCard(unittest.TestCase):
     def test_sorting_preserves_recommended_offer_visibility(self):
         """Recommended offer is moved to visible first card regardless of sort."""
         self.assertIn("sorted = [recommended, ...sorted.filter(o => o.offer_id !== recommendedId)]", self.js)
-        self.assertIn("cheapCardsHtml(currentOffers, key, currentCashGuidance)", self.js)
+        self.assertIn("cheapCardsHtml(currentOffers, key, currentCashGuidance, { roundTripRequested: currentCheapRoundTripRequested })", self.js)
 
     def test_cash_guidance_missing_falls_back_safely(self):
         """No guidance payload must render existing card flow without empty blocks."""
         self.assertIn("if (!guidance || typeof guidance !== 'object') return '';", self.js)
         self.assertIn("if (!headline && !why && !watchOut && !nextStep && !evidence) return '';", self.js)
+
+    def test_roundtrip_missing_return_details_disclosure_guardrail_present(self):
+        self.assertIn("function hasExplicitReturnLegDetails(o)", self.js)
+        self.assertIn("function needsReturnDisclosure(o, roundTripRequested)", self.js)
+        self.assertIn("if (!roundTripRequested) return false;", self.js)
+        self.assertIn("Shown itinerary details are from returned fare data.", self.js)
+        self.assertIn("Return itinerary details unavailable from current fare source. Verify return flight times before purchase.", self.js)
+        self.assertIn(".rt-disclosure", self.css)
+        self.assertIn(".rt-disclosure-k", self.css)
+
+    def test_oneway_path_does_not_force_return_disclosure(self):
+        self.assertIn("currentCheapRoundTripRequested = !requestPayload.oneWay", self.js)
+        self.assertIn("if (!roundTripRequested) return false;", self.js)
+
+    def test_frontend_does_not_render_invented_return_times(self):
+        self.assertNotIn("esc(o.return_dep_time)", self.js)
+        self.assertNotIn("esc(o.return_arr_time)", self.js)
 
 
 class InvalidCashPriceValidation(unittest.TestCase):
