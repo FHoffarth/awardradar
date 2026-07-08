@@ -452,7 +452,9 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertEqual(meta["displayed_itinerary"], "cash")
         self.assertFalse(meta["verified_identical_routing"])
 
-    def test_normal_cash_search_offers_are_cash_owned_without_times(self):
+    def test_normal_cash_search_offers_carry_reliable_times(self):
+        # R1: cash offers now carry reliable itinerary timing (from the same
+        # provider datetime parsing used for award cash context), still cash-owned.
         offer = app._serp_item_to_offer({
             "price": 200,
             "total_duration": 90,
@@ -464,8 +466,13 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         }, "EUR", None, False)
         self.assertEqual(offer["itinerary_source"], "cash_offer")
         self.assertEqual(offer["displayed_itinerary"], "cash")
-        self.assertEqual(offer["time_data_status"], "unavailable")
-        self.assertNotIn("dep_time", offer)
+        self.assertEqual(offer["time_data_status"], "complete")
+        self.assertEqual(offer["dep_time"], "08:10")
+        self.assertEqual(offer["arr_time"], "09:40")
+        self.assertEqual(offer["departure_date"], "2026-07-07")
+        self.assertEqual(offer["arrival_date"], "2026-07-07")
+        self.assertIsNone(offer["arrival_day_offset"])
+        self.assertEqual(offer["flight_number"], "LH 2226")
 
     def test_frontend_copy_qualifies_unverified_routing_and_direct_signal(self):
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -482,8 +489,8 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=137", html)
-        self.assertIn("app.js?v=145", html)
+        self.assertIn("app.css?v=138", html)
+        self.assertIn("app.js?v=146", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
         self.assertIn("data-text-size-option=\"large\"", html)
@@ -521,7 +528,7 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("Independence and commercial links", html)
         self.assertIn("Limitations", html)
         self.assertIn("app.css?v=136", html)
-        self.assertNotIn("app.js?v=145", html)
+        self.assertNotIn("app.js?v=146", html)
 
     def test_about_navigation_exists_on_main_page(self):
         response = self.client.get("/")
@@ -529,8 +536,8 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=137", html)
-        self.assertIn("app.js?v=145", html)
+        self.assertIn("app.css?v=138", html)
+        self.assertIn("app.js?v=146", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -1006,6 +1013,171 @@ class EnglishPrivacyNotice(unittest.TestCase):
     def test_related_legal_and_core_routes_remain_healthy(self):
         for path in ("/datenschutz", "/impressum", "/about", "/"):
             self.assertEqual(self.client.get(path).status_code, 200)
+
+
+class CashItineraryNormalization(unittest.TestCase):
+    """R1: _serp_item_to_offer carries reliable itinerary timing without invention."""
+
+    def _offer(self, flights, price=300, total_duration=480):
+        return app._serp_item_to_offer(
+            {"price": price, "total_duration": total_duration, "flights": flights},
+            "EUR", None, False,
+        )
+
+    def _nonstop(self, dep="2026-08-15 10:45", arr="2026-08-15 13:15", fn="LH 400"):
+        return [{
+            "departure_airport": {"id": "FRA", "time": dep},
+            "arrival_airport": {"id": "JFK", "time": arr},
+            "flight_number": fn,
+            "airline": "Lufthansa",
+        }]
+
+    def test_both_times_are_complete(self):
+        o = self._offer(self._nonstop())
+        self.assertEqual(o["time_data_status"], "complete")
+        self.assertEqual(o["dep_time"], "10:45")
+        self.assertEqual(o["arr_time"], "13:15")
+
+    def test_one_time_is_partial(self):
+        o = self._offer([{
+            "departure_airport": {"id": "FRA", "time": "2026-08-15 10:45"},
+            "arrival_airport": {"id": "JFK", "time": ""},
+            "flight_number": "LH 400",
+        }])
+        self.assertEqual(o["time_data_status"], "partial")
+        self.assertEqual(o["dep_time"], "10:45")
+        self.assertIsNone(o["arr_time"])
+
+    def test_no_times_is_unavailable(self):
+        o = self._offer([{
+            "departure_airport": {"id": "FRA", "time": ""},
+            "arrival_airport": {"id": "JFK", "time": ""},
+            "flight_number": "LH 400",
+        }])
+        self.assertEqual(o["time_data_status"], "unavailable")
+        self.assertIsNone(o["dep_time"])
+        self.assertIsNone(o["arr_time"])
+
+    def test_missing_dates_do_not_downgrade_complete_times(self):
+        # Times present but only clock strings (no date) → still complete.
+        o = self._offer([{
+            "departure_airport": {"id": "FRA", "time": "10:45"},
+            "arrival_airport": {"id": "JFK", "time": "13:15"},
+            "flight_number": "LH 400",
+        }])
+        self.assertEqual(o["time_data_status"], "complete")
+        self.assertIsNone(o["departure_date"])
+        self.assertIsNone(o["arrival_date"])
+        self.assertIsNone(o["arrival_day_offset"])
+
+    def test_reliable_positive_arrival_day_offset(self):
+        o = self._offer(self._nonstop(dep="2026-08-15 22:30", arr="2026-08-16 06:10"))
+        self.assertEqual(o["arrival_day_offset"], 1)
+
+    def test_no_offset_inferred_from_clock_values_alone(self):
+        # Arrival clock earlier than departure clock but no dates → no invented offset.
+        o = self._offer([{
+            "departure_airport": {"id": "FRA", "time": "22:30"},
+            "arrival_airport": {"id": "JFK", "time": "06:10"},
+            "flight_number": "LH 400",
+        }])
+        self.assertIsNone(o["arrival_day_offset"])
+
+    def test_duration_preserved(self):
+        o = self._offer(self._nonstop(), total_duration=510)
+        self.assertEqual(o["durationMin"], 510)
+
+    def test_stops_and_via_preserved(self):
+        conn = [
+            {"departure_airport": {"id": "MUC", "time": "2026-08-15 08:00"},
+             "arrival_airport": {"id": "FRA", "time": "2026-08-15 09:00"},
+             "flight_number": "LH 100", "airline": "Lufthansa"},
+            {"departure_airport": {"id": "FRA", "time": "2026-08-15 11:00"},
+             "arrival_airport": {"id": "JFK", "time": "2026-08-15 14:00"},
+             "flight_number": "LH 400", "airline": "Lufthansa"},
+        ]
+        o = self._offer(conn)
+        self.assertEqual(o["stops"], 1)
+        self.assertEqual(o["via"], ["FRA"])
+
+    def test_airline_preserved(self):
+        o = self._offer(self._nonstop())
+        self.assertEqual(o["airline"], "Lufthansa")
+
+    def test_single_segment_flight_number_preserved(self):
+        o = self._offer(self._nonstop(fn="LH 400"))
+        self.assertEqual(o["flight_number"], "LH 400")
+
+    def test_connecting_first_flight_number_not_exposed_as_top_level(self):
+        conn = [
+            {"departure_airport": {"id": "MUC", "time": "2026-08-15 08:00"},
+             "arrival_airport": {"id": "FRA", "time": "2026-08-15 09:00"},
+             "flight_number": "LH 100", "airline": "Lufthansa"},
+            {"departure_airport": {"id": "FRA", "time": "2026-08-15 11:00"},
+             "arrival_airport": {"id": "JFK", "time": "2026-08-15 14:00"},
+             "flight_number": "LH 400", "airline": "Lufthansa"},
+        ]
+        o = self._offer(conn)
+        self.assertIsNone(o["flight_number"])
+
+    def test_backward_compatible_fields_present(self):
+        o = self._offer(self._nonstop())
+        for key in ("source", "itinerary_source", "displayed_itinerary", "price",
+                    "currency", "origin", "dest", "date", "airline", "airlineCode",
+                    "stops", "via", "durationMin", "links", "dealScore", "scoreReason"):
+            self.assertIn(key, o)
+        self.assertEqual(o["itinerary_source"], "cash_offer")
+        self.assertEqual(o["displayed_itinerary"], "cash")
+
+
+class CashCardRenderMarkup(unittest.TestCase):
+    """R1: static assertions on the Cash-card render path and styling."""
+
+    def setUp(self):
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(root, "static", "app.js"), encoding="utf-8") as f:
+            self.js = f.read()
+        with open(os.path.join(root, "static", "app.css"), encoding="utf-8") as f:
+            self.css = f.read()
+
+    def test_renderer_shows_complete_times(self):
+        self.assertIn("cash-itin-times", self.js)
+        self.assertIn("cash-itin-time", self.js)
+
+    def test_renderer_partial_fallback_copy(self):
+        self.assertIn("Cash itinerary details incomplete", self.js)
+
+    def test_renderer_unavailable_fallback_copy(self):
+        self.assertIn("Times not available from the current source", self.js)
+
+    def test_renderer_formats_duration(self):
+        self.assertIn("fmtDur(o.durationMin)", self.js)
+
+    def test_renderer_stop_labels(self):
+        self.assertIn("Nonstop", self.js)
+        self.assertIn("1 stop", self.js)
+        self.assertIn("stops", self.js)
+
+    def test_renderer_positive_day_change_marker(self):
+        self.assertIn("cash-itin-day", self.js)
+        self.assertIn("arrival_day_offset > 0", self.js)
+
+    def test_renderer_uses_time_data_status(self):
+        self.assertIn("time_data_status", self.js)
+        self.assertIn("'complete'", self.js)
+        self.assertIn("'partial'", self.js)
+
+    def test_provider_attribution_present_but_secondary(self):
+        self.assertIn("Fare data: Google Flights", self.js)
+        self.assertIn(".card-fare-source", self.css)
+        # The prominent provider byline must not appear in visible Cash-card copy.
+        self.assertNotIn('class="card-source">${esc(o.source', self.js)
+        self.assertNotIn("Google Flights (SerpApi)", self.js)
+
+    def test_mobile_and_large_text_classes_present(self):
+        self.assertIn(".cash-itin-times", self.css)
+        self.assertIn(".cash-itin-times{font-size:calc(15px * var(--text-scale))}", self.css)
+        self.assertIn("flex-wrap:wrap", self.css)
 
 
 if __name__ == "__main__":

@@ -511,6 +511,14 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .airline-name{}
 .card-detail{font-size:13px;color:var(--muted);margin-bottom:2px}
 .card-source{font-size:12px;color:var(--muted);margin-top:2px}
+/* Cash itinerary timing — mobile-first, wraps safely, no fixed widths. */
+.cash-itin-times{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;margin:2px 0 4px;font-size:15px;font-weight:600;color:var(--text)}
+.cash-itin-time{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;white-space:nowrap}
+.cash-itin-arrow{color:var(--gold);font-weight:400}
+.cash-itin-day{font-size:11px;font-weight:700;color:var(--gold);background:rgba(245,199,107,.12);border:1px solid rgba(245,199,107,.30);border-radius:5px;padding:1px 6px;white-space:nowrap}
+.cash-itin-note{font-size:12px;color:var(--muted);font-style:italic;margin:2px 0 4px}
+.cash-flight-no{font-size:12px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.card-fare-source{font-size:11px;color:var(--muted);opacity:.7;margin-top:8px}
 .price-currency{font-size:16px;font-weight:600;color:var(--gold)}
 .score-reason{font-size:11px;color:var(--muted);margin-top:4px;text-align:right}
 .score-reason-pills{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;margin-top:5px}
@@ -1485,8 +1493,10 @@ span.flatpickr-weekday{
    card (cash-card detail/currency/pills, empty/error states, discovery meta,
    skiplag results). Same var, no new sizes. */
 .price-currency{font-size:calc(16px * var(--text-scale))}
+.cash-itin-times{font-size:calc(15px * var(--text-scale))}
 .card-detail{font-size:calc(13px * var(--text-scale))}
-.card-source,.examples-sub{font-size:calc(12px * var(--text-scale))}
+.card-source,.examples-sub,.cash-itin-note,.cash-flight-no{font-size:calc(12px * var(--text-scale))}
+.cash-itin-day,.card-fare-source{font-size:calc(11px * var(--text-scale))}
 .score-reason,.disc-stars,.disc-tier-label,.related-label{font-size:calc(11px * var(--text-scale))}
 .srp,.disc-cabin-pill,.disc-conf-live,.disc-cpm,.legend-hint,.aw-date-hint,.skiplag-empty-header{font-size:calc(10px * var(--text-scale))}
 .cross-nudge-msg{font-size:calc(14px * var(--text-scale))}

@@ -882,6 +882,24 @@ function jumpToDate(date) {
   runIfSearchValid();
 }
 
+// Cash itinerary timing block. Renders only reliable fields from the payload and
+// discloses missing timing explicitly — no invented times, no empty separators.
+function cashItineraryHtml(o) {
+  const status = o.time_data_status || 'unavailable';
+  const dep = o.dep_time;
+  const arr = o.arr_time;
+  const off = (typeof o.arrival_day_offset === 'number' && o.arrival_day_offset > 0) ? o.arrival_day_offset : null;
+  const dayMark = off ? ` <span class="cash-itin-day">+${off} day${off > 1 ? 's' : ''}</span>` : '';
+  if (status === 'complete' && dep && arr) {
+    return `<div class="cash-itin-times"><span class="cash-itin-time">${esc(dep)}</span><span class="cash-itin-arrow" aria-hidden="true">→</span><span class="cash-itin-time">${esc(arr)}</span>${dayMark}</div>`;
+  }
+  if (status === 'partial' && (dep || arr)) {
+    const lbl = dep ? `Dep ${esc(dep)}` : `Arr ${esc(arr)}`;
+    return `<div class="cash-itin-times"><span class="cash-itin-time">${lbl}</span>${!dep ? dayMark : ''}</div><div class="cash-itin-note">Cash itinerary details incomplete</div>`;
+  }
+  return `<div class="cash-itin-note">Times not available from the current source</div>`;
+}
+
 function cheapCardsHtml(offers, sortKey) {
   let sorted = [...offers];
   if (sortKey === 'price') sorted.sort((a, b) => (a.price || 99999) - (b.price || 99999));
@@ -891,18 +909,21 @@ function cheapCardsHtml(offers, sortKey) {
   return sorted.map((o, i) => {
     const isTop = i === 0;
     const stops = parseInt(o.stops) || 0;
-    const viaText = o.via && o.via.length ? ` via ${o.via.join(', ')}` : '';
-    const stopsLabel = stops === 0 ? 'Nonstop' : stops === 1 ? `1 Stop${viaText}` : `${stops} Stops${viaText}`;
+    const viaText = o.via && o.via.length ? ` via ${esc(o.via.join(', '))}` : '';
+    const stopsLabel = stops === 0 ? 'Nonstop' : stops === 1 ? `1 stop${viaText}` : `${stops} stops${viaText}`;
     const airlineLabel = o.airline || 'Airline';
     const logoImg = airlineMarkHtml(airlineLabel, o.airlineCode);
+    const durStr = o.durationMin ? fmtDur(o.durationMin) : '';
+    const metaLine = [durStr, stopsLabel, esc(o.date) + (o.returnDate ? ' → ' + esc(o.returnDate) : '')].filter(Boolean).join(' · ');
+    const flightNoHtml = o.flight_number ? `<span class="cash-flight-no">${esc(o.flight_number)}</span>` : '';
     return `<div class="card${isTop ? ' top-card' : ''}">
       ${isTop ? bestBadgeHtml(o) : ''}
       <div class="card-row">
         <div class="card-main">
           <h3>${esc(o.origin)}<span class="route-arrow">→</span>${esc(o.dest)}</h3>
-          <div class="card-airline">${logoImg}<span class="airline-name">${esc(airlineLabel)}</span></div>
-          <div class="card-detail">${stopsLabel} · ${esc(o.date)}${o.returnDate ? ' → ' + esc(o.returnDate) : ''}</div>
-          <div class="card-source">${esc(o.source || '')}</div>
+          ${cashItineraryHtml(o)}
+          <div class="card-detail">${metaLine}</div>
+          <div class="card-airline">${logoImg}<span class="airline-name">${esc(airlineLabel)}</span>${flightNoHtml}</div>
         </div>
         <div class="card-price">
           <div class="price">${Math.round(o.price)} <span class="price-currency">${esc(o.currency)}</span></div>
@@ -912,6 +933,7 @@ function cheapCardsHtml(offers, sortKey) {
         </div>
       </div>
       ${linksHtml(o.links)}
+      <div class="card-fare-source">Fare data: Google Flights</div>
     </div>`;
   }).join('');
 }
