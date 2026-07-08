@@ -1184,6 +1184,8 @@ footer p{margin-bottom:8px}
 
   /* R2B-1 Mobile Overrides */
   .recommendation-card{padding:12px 12px}
+  .recommendation-card .card-row{flex-direction:column}
+  .recommendation-card .card-price{text-align:left;width:100%}
   .rec-verdict{font-size:14px;margin-bottom:10px;padding-bottom:6px}
   .compact-cash-journey{margin-top:6px;padding-top:6px}
   .ccjs-route{font-size:12px;gap:3px}
@@ -1201,7 +1203,9 @@ footer p{margin-bottom:8px}
   .compact-price .price-cur{font-size:9px}
   .compact-value{font-size:11px;margin-top:3px}
   .compact-cta{margin-top:8px;padding-top:8px;gap:6px}
-  .rec-cta{gap:8px}
+  .rec-cta{gap:8px;width:100%}
+  .score-reason-pills{justify-content:flex-start}
+  .srp{font-size:11px}
 
   /* Award table: touch-scroll */
   .award-table-wrap{-webkit-overflow-scrolling:touch}
