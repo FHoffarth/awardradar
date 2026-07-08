@@ -649,6 +649,20 @@ function linksHtml(obj) {
   return `<div class="links">${Object.entries(obj || {}).map(([k, v]) => `<a target="_blank" rel="noopener" href="${esc(v)}">${esc(k)}</a>`).join('')}</div>`;
 }
 
+// Link rendering for cash cards: first link labeled "View fare", others show provider name
+function linksHtmlWithLabels(obj) {
+  if (Array.isArray(obj)) {
+    return linksHtml(obj);
+  }
+  const entries = Object.entries(obj || {});
+  if (!entries.length) return '';
+  return `<div class="links">${entries.map(([k, v], idx) =>
+    idx === 0
+      ? `<a class="link-primary" target="_blank" rel="noopener" href="${esc(v)}" title="View fare on ${esc(k)}"><span class="link-label">View fare</span><span class="link-provider">${esc(k)}</span></a>`
+      : `<a target="_blank" rel="noopener" href="${esc(v)}">${esc(k)}</a>`
+  ).join('')}</div>`;
+}
+
 // Structured action links for Awards: Verify | Cash
 function actionLinksHtml(links) {
   if (!links || Array.isArray(links)) return linksHtml(links);
@@ -824,7 +838,23 @@ function scoreHtml(o) {
     ${conf}
   </div>`;
 }
-function bestBadgeHtml(o) {
+function bestBadgeHtml(o, sortContext) {
+  // Sort context takes precedence over value judgment
+  if (sortContext === 'price') {
+    return '<div class="best-badge">Lowest Price</div>';
+  }
+  if (sortContext === 'nonstop') {
+    const hasKnownStops =
+      o.stops !== null &&
+      o.stops !== undefined &&
+      o.stops !== '' &&
+      Number.isFinite(Number(o.stops));
+
+    const stops = hasKnownStops ? Number(o.stops) : null;
+    const label = stops === 0 ? 'Nonstop' : 'Fewest Stops';
+    return `<div class="best-badge">${label}</div>`;
+  }
+  // Default: use value-tier logic
   const tier = o.tier || scoreInfo(o.dealScore).tier;
   if (o.scoreContext === 'best_available_not_cheap') return '<div class="best-badge">Best Available</div>';
   if (o.scoreContext === 'limited_comparison') return '<div class="best-badge">Only Option</div>';
@@ -928,7 +958,7 @@ function cheapCardsHtml(offers, sortKey) {
     const metaLine = [durStr, stopsLabel, esc(o.date) + (o.returnDate ? ' → ' + esc(o.returnDate) : '')].filter(Boolean).join(' · ');
     const flightNoHtml = o.flight_number ? `<span class="cash-flight-no">${esc(o.flight_number)}</span>` : '';
     return `<div class="card${isTop ? ' top-card' : ''}">
-      ${isTop ? bestBadgeHtml(o) : ''}
+      ${isTop ? bestBadgeHtml(o, sortKey) : ''}
       <div class="card-row">
         <div class="card-main">
           <h3>${esc(o.origin)}<span class="route-arrow">→</span>${esc(o.dest)}</h3>
@@ -939,11 +969,11 @@ function cheapCardsHtml(offers, sortKey) {
         <div class="card-price">
           <div class="price">${Math.round(o.price)} <span class="price-currency">${esc(o.currency)}</span></div>
           <div class="price-sub">per person</div>
-          ${scoreHtml(o)}
           ${o.scoreReason ? `<div class="score-reason-pills">${o.scoreReason.split(' · ').map(p => `<span class="srp">${esc(p)}</span>`).join('')}</div>` : ''}
+          ${scoreHtml(o)}
         </div>
       </div>
-      ${linksHtml(o.links)}
+      ${linksHtmlWithLabels(o.links)}
       <div class="card-fare-source">Fare data: Google Flights</div>
     </div>`;
   }).join('');
