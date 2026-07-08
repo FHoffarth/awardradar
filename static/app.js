@@ -338,6 +338,7 @@ let mode = 'cheap';
 let currentOffers = [];
 let currentSortKey = 'score';
 let currentCashGuidance = null;
+let currentCheapRoundTripRequested = false;
 let calendarPrices = {};
 let fpDep, fpRet;
 
@@ -782,11 +783,15 @@ async function run() {
   document.querySelector('.shell').classList.add('has-results');
   const _origin = ($('origin').value || '').trim().toUpperCase().slice(0, 3);
   const _dest = ($('dest').value || '').trim().toUpperCase().slice(0, 3);
+  const requestPayload = payload();
+  if (mode === 'cheap') {
+    currentCheapRoundTripRequested = !requestPayload.oneWay && !!String(requestPayload.returnDate || '').trim();
+  }
   startProgress(_origin, _dest);
   const endpoint = mode === 'cheap' ? '/api/cheap' : mode === 'skiplag' ? '/api/skiplag' : '/api/awards';
   try {
     const headers = { 'Content-Type': 'application/json' };
-    const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(payload()) });
+    const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(requestPayload) });
     let data;
     try { data = await res.json(); } catch (_) { throw new Error(res.status + ' ' + res.statusText); }
     if (!res.ok || !data.ok) {
@@ -1072,12 +1077,36 @@ function decisionGuidanceHtml(guidance) {
   return `<section class="cash-guidance" aria-label="Decision guidance">${headline}${why}${watchOut}${nextStep}${evidence}</section>`;
 }
 
-function cheapCardsHtml(offers, sortKey, cashGuidance) {
+function hasExplicitReturnLegDetails(o) {
+  if (!o || typeof o !== 'object') return false;
+  const textFields = ['return_dep_time', 'return_arr_time', 'return_duration', 'return_flight_number', 'return_route'];
+  const valueFields = ['return_durationMin', 'return_stops', 'return_arrival_day_offset'];
+  if (textFields.some(k => !!String(o[k] || '').trim())) return true;
+  if (valueFields.some(k => o[k] !== null && o[k] !== undefined && String(o[k]).trim() !== '')) return true;
+  if (Array.isArray(o.return_segments) && o.return_segments.length > 0) return true;
+  return false;
+}
+
+function needsReturnDisclosure(o, roundTripRequested) {
+  if (!roundTripRequested) return false;
+  return !hasExplicitReturnLegDetails(o);
+}
+
+function returnDisclosureHtml(o, roundTripRequested) {
+  if (!needsReturnDisclosure(o, roundTripRequested)) return '';
+  return `<div class="rt-disclosure">
+    <div class="rt-disclosure-k">Shown itinerary details are from returned fare data.</div>
+    <div>Return itinerary details unavailable from current fare source. Verify return flight times before purchase.</div>
+  </div>`;
+}
+
+function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
   // Defense in depth: an invalid price must never sort as cheapest/best or render.
   let sorted = [...offers].filter(o => o && isValidCashPrice(o.price));
   if (sortKey === 'price') sorted.sort((a, b) => (a.price || 99999) - (b.price || 99999));
   else if (sortKey === 'nonstop') sorted.sort((a, b) => (a.stops || 0) - (b.stops || 0) || (-(a.dealScore || 0)) + (b.dealScore || 0));
   else sorted.sort((a, b) => (-(a.dealScore || 0)) + (b.dealScore || 0));
+  const roundTripRequested = !!opts.roundTripRequested;
 
   const guidance = cashGuidance && typeof cashGuidance === 'object' ? cashGuidance : null;
   const recommendedId = ((guidance && guidance.recommended_offer_id) || '').trim();
@@ -1126,6 +1155,7 @@ function cheapCardsHtml(offers, sortKey, cashGuidance) {
       const verdictHtml = guidanceHtml ? '' : `<div class="rec-verdict">${esc(verdict)}</div>`;
       const recommendationTag = isGuidanceRecommended ? '<div class="cg-tag cg-tag-secondary">Recommended option</div>' : '';
       const topBadge = bestBadgeHtml(o, sortKey, { guided: isGuidanceRecommended });
+      const returnDisclosure = returnDisclosureHtml(o, roundTripRequested);
 
       return `<div class="card recommendation-card top-card${isGuidanceRecommended ? ' guidance-card' : ''}">
         <div class="recommendation-badges">
@@ -1133,6 +1163,7 @@ function cheapCardsHtml(offers, sortKey, cashGuidance) {
           ${recommendationTag}
         </div>
         ${guidanceHtml}
+        ${returnDisclosure}
         ${verdictHtml}
         <div class="card-row">
           <div class="card-main">
@@ -1171,6 +1202,7 @@ function cheapCardsHtml(offers, sortKey, cashGuidance) {
     else if (tier === 'fair') conciseLabel = 'C · Pricey';
     else conciseLabel = 'D · Weak';
     const recommendationTag = isGuidanceRecommended ? '<div class="cg-tag cg-tag-compact">Recommended option</div>' : '';
+    const returnDisclosure = returnDisclosureHtml(o, roundTripRequested);
 
     return `<div class="card compact-alternative${isGuidanceRecommended ? ' guidance-recommended' : ''}">
       <div class="compact-row">
@@ -1178,6 +1210,7 @@ function cheapCardsHtml(offers, sortKey, cashGuidance) {
           ${recommendationTag}
           <div class="compact-route">${esc(o.origin)} → ${esc(o.dest)}</div>
           <div class="compact-times">${metaLine}</div>
+          ${returnDisclosure}
           <div class="compact-airline">${logoImg}<span>${esc(airlineLabel)}</span>${flightNoHtml}</div>
         </div>
         <div class="compact-price">
@@ -1212,7 +1245,7 @@ function applySort(key) {
   currentSortKey = key;
   document.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === key));
   const wrap = document.getElementById('cards-wrap');
-  if (wrap) wrap.innerHTML = cheapCardsHtml(currentOffers, key, currentCashGuidance);
+  if (wrap) wrap.innerHTML = cheapCardsHtml(currentOffers, key, currentCashGuidance, { roundTripRequested: currentCheapRoundTripRequested });
 }
 
 function switchTabAndRun(targetMode) {
@@ -1242,6 +1275,8 @@ function render(data) {
   if (mode === 'cheap') {
     currentOffers = data.offers || [];
     currentCashGuidance = data.cash_guidance || null;
+    const hasOfferReturnDate = currentOffers.some(o => o && String(o.returnDate || '').trim());
+    currentCheapRoundTripRequested = currentCheapRoundTripRequested || hasOfferReturnDate;
     currentSortKey = 'score';
     updateCalendarPrices(data.calendar);
 
@@ -1257,10 +1292,11 @@ function render(data) {
         <button class="sort-btn" data-sort="nonstop" onclick="applySort('nonstop')">Fewest Stops</button>
       </div>
       ${scoreLegendHtml()}`;
-      html += `<div id="cards-wrap">${cheapCardsHtml(currentOffers, 'score', currentCashGuidance)}</div>`;
+      html += `<div id="cards-wrap">${cheapCardsHtml(currentOffers, 'score', currentCashGuidance, { roundTripRequested: currentCheapRoundTripRequested })}</div>`;
       html += relatedAnalysesHtml('cheap');
     } else {
       currentCashGuidance = null;
+      currentCheapRoundTripRequested = false;
       html += `<div class="card"><h3>No fare context found — try the verification links below</h3><p class="tiny" style="margin-top:6px">No cached fare context for this route right now. Use the links to verify current pricing.</p></div>`;
     }
     html += (data.fallback || []).map(f => `<div class="card"><h3>${esc(f.route)}</h3>${linksHtml(f.links)}</div>`).join('');
