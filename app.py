@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import concurrent.futures as cf
 import datetime as dt
+import math
 import mimetypes
 import os
 import re
@@ -980,6 +981,20 @@ def serpapi_search(origin: str, dest: str, dep: dt.date, ret: dt.date | None, ca
     return data
 
 
+def _valid_price(value) -> float | None:
+    """A cash fare is valid only if present, finite, and strictly greater than zero.
+    Rejects 0/negative/None/""/non-numeric/NaN/±Inf and booleans (True==1 is not a fare)."""
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        price = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(price) or price <= 0:
+        return None
+    return price
+
+
 def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, mm_only: bool) -> dict | None:
     segs = item.get("flights") or []
     if not segs:
@@ -991,23 +1006,59 @@ def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, m
     if mm_only and airline_code and airline_code not in MM_AIRLINES:
         return None
     airline_name = first.get("airline") or airline_code
-    dep_date = ((first.get("departure_airport") or {}).get("time") or "")[:10]
+    # Reject invalid fares before any scoring, dedup, or link generation.
+    price = _valid_price(item.get("price"))
+    if price is None:
+        return None
     stops = max(0, len(segs) - 1)
-    price = float(item.get("price") or 0)
     via_airports = [(s.get("arrival_airport") or {}).get("id", "") for s in segs[:-1]] if stops > 0 else []
+
+    # Reuse the same provider datetime parsing the award cash-context path uses —
+    # no second parser, no invented values. Raw provider string is the authority.
+    dep_parts = _provider_datetime_parts((first.get("departure_airport") or {}).get("time") or "")
+    arr_parts = _provider_datetime_parts((last.get("arrival_airport") or {}).get("time") or "")
+    dep_time = dep_parts["time"]
+    arr_time = arr_parts["time"]
+    dep_date = dep_parts["date"] or ((first.get("departure_airport") or {}).get("time") or "")[:10]
+    arr_date = arr_parts["date"]
+    any_overnight = any(s.get("overnight") for s in segs)
+    arrival_day_offset = _arrival_day_offset(dep_parts["date"], arr_date, any_overnight)
+    # Only a positive offset is a real day change; ignore null/negative.
+    if not (isinstance(arrival_day_offset, int) and arrival_day_offset > 0):
+        arrival_day_offset = None
+
+    # Honest timing status: based only on whether reliable times were parsed.
+    # Missing dates / unknown day offset must NOT downgrade otherwise complete times.
+    if dep_time and arr_time:
+        time_data_status = "complete"
+    elif dep_time or arr_time:
+        time_data_status = "partial"
+    else:
+        time_data_status = "unavailable"
+
+    # Flight number only for a true single-segment itinerary; never inferred, and
+    # a first-segment number must not stand in for a connecting itinerary.
+    flight_number = first.get("flight_number") or None if len(segs) == 1 else None
+
     return {
         "source": "Google Flights (SerpApi)",
         "itinerary_source": "cash_offer",
         "displayed_itinerary": "cash",
-        "time_data_status": "unavailable",
+        "time_data_status": time_data_status,
         "price": price,
         "currency": currency.upper(),
         "origin": origin,
         "dest": dest,
         "date": dep_date,
         "returnDate": None,
+        "dep_time": dep_time,
+        "arr_time": arr_time,
+        "departure_date": dep_parts["date"],
+        "arrival_date": arr_date,
+        "arrival_day_offset": arrival_day_offset,
         "airline": airline_name,
         "airlineCode": airline_code,
+        "flight_number": flight_number,
         "stops": stops,
         "via": [v for v in via_airports if v],
         "durationMin": item.get("total_duration"),
@@ -1033,7 +1084,12 @@ def serpapi_offers(origin: str, dest: str, dep: dt.date, ret: dt.date | None, cu
     items = (data.get("best_flights") or []) + (data.get("other_flights") or [])
     offers = []
     for item in items:
-        offer = _serp_item_to_offer(item, currency, typical_range, mm_only)
+        # Per-item guard: a single malformed provider item must not suppress the rest.
+        try:
+            offer = _serp_item_to_offer(item, currency, typical_range, mm_only)
+        except Exception as exc:
+            app.logger.warning("skip malformed cheap item %s→%s: %s", origin, dest, exc)
+            continue
         if offer:
             offers.append(offer)
     return offers, None
