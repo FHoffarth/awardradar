@@ -337,6 +337,7 @@ const consent = {
 let mode = 'cheap';
 let currentOffers = [];
 let currentSortKey = 'score';
+let currentCashGuidance = null;
 let calendarPrices = {};
 let fpDep, fpRet;
 
@@ -1055,15 +1056,36 @@ function isValidCashPrice(v) {
   return Number.isFinite(n) && n > 0;
 }
 
-function cheapCardsHtml(offers, sortKey) {
+function decisionGuidanceHtml(guidance) {
+  if (!guidance || typeof guidance !== 'object') return '';
+  const headline = guidance.headline ? `<h3 class="cg-headline">${esc(guidance.headline)}</h3>` : '';
+  const why = guidance.why ? `<div class="cg-block"><div class="cg-k">Why</div><p>${esc(guidance.why)}</p></div>` : '';
+  const watchOut = guidance.watch_out ? `<div class="cg-block"><div class="cg-k">Watch out</div><p>${esc(guidance.watch_out)}</p></div>` : '';
+  const nextStep = guidance.next_step ? `<div class="cg-block"><div class="cg-k">Next step</div><p>${esc(guidance.next_step)}</p></div>` : '';
+  const evidence = guidance.evidence_level ? `<div class="cg-evidence"><span class="cg-k">Evidence</span> ${esc(guidance.evidence_level)}</div>` : '';
+  if (!headline && !why && !watchOut && !nextStep && !evidence) return '';
+  return `<section class="cash-guidance" aria-label="Decision guidance">${headline}${why}${watchOut}${nextStep}${evidence}</section>`;
+}
+
+function cheapCardsHtml(offers, sortKey, cashGuidance) {
   // Defense in depth: an invalid price must never sort as cheapest/best or render.
   let sorted = [...offers].filter(o => o && isValidCashPrice(o.price));
   if (sortKey === 'price') sorted.sort((a, b) => (a.price || 99999) - (b.price || 99999));
   else if (sortKey === 'nonstop') sorted.sort((a, b) => (a.stops || 0) - (b.stops || 0) || (-(a.dealScore || 0)) + (b.dealScore || 0));
   else sorted.sort((a, b) => (-(a.dealScore || 0)) + (b.dealScore || 0));
 
+  const guidance = cashGuidance && typeof cashGuidance === 'object' ? cashGuidance : null;
+  const recommendedId = ((guidance && guidance.recommended_offer_id) || '').trim();
+  if (recommendedId) {
+    const recommended = sorted.find(o => o.offer_id === recommendedId);
+    if (recommended) {
+      sorted = [recommended, ...sorted.filter(o => o.offer_id !== recommendedId)];
+    }
+  }
+
   return sorted.map((o, i) => {
     const isTop = i === 0;
+    const isGuidanceRecommended = !!(recommendedId && o.offer_id === recommendedId);
     const stops = parseInt(o.stops) || 0;
     const airlineLabel = o.airline || 'Airline';
     const logoImg = airlineMarkHtml(airlineLabel, o.airlineCode);
@@ -1095,10 +1117,15 @@ function cheapCardsHtml(offers, sortKey) {
 
       const formattedDate = formatUserDate(o.date);
       const returnDateStr = o.returnDate ? ` → ${formatUserDate(o.returnDate)}` : '';
+      const guidanceHtml = isGuidanceRecommended ? decisionGuidanceHtml(guidance) : '';
+      const verdictHtml = guidanceHtml ? '' : `<div class="rec-verdict">${esc(verdict)}</div>`;
+      const recommendationTag = isGuidanceRecommended ? '<div class="cg-tag">Recommended option</div>' : '';
 
       return `<div class="card recommendation-card top-card">
         ${bestBadgeHtml(o, sortKey)}
-        <div class="rec-verdict">${esc(verdict)}</div>
+        ${recommendationTag}
+        ${guidanceHtml}
+        ${verdictHtml}
         <div class="card-row">
           <div class="card-main">
             <h3>${esc(o.origin)}<span class="route-arrow">→</span>${esc(o.dest)}</h3>
@@ -1135,10 +1162,12 @@ function cheapCardsHtml(offers, sortKey) {
     else if (tier === 'good') conciseLabel = 'B · Fair';
     else if (tier === 'fair') conciseLabel = 'C · Pricey';
     else conciseLabel = 'D · Weak';
+    const recommendationTag = isGuidanceRecommended ? '<div class="cg-tag cg-tag-compact">Recommended option</div>' : '';
 
-    return `<div class="card compact-alternative">
+    return `<div class="card compact-alternative${isGuidanceRecommended ? ' guidance-recommended' : ''}">
       <div class="compact-row">
         <div class="compact-main">
+          ${recommendationTag}
           <div class="compact-route">${esc(o.origin)} → ${esc(o.dest)}</div>
           <div class="compact-times">${metaLine}</div>
           <div class="compact-airline">${logoImg}<span>${esc(airlineLabel)}</span>${flightNoHtml}</div>
@@ -1175,7 +1204,7 @@ function applySort(key) {
   currentSortKey = key;
   document.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === key));
   const wrap = document.getElementById('cards-wrap');
-  if (wrap) wrap.innerHTML = cheapCardsHtml(currentOffers, key);
+  if (wrap) wrap.innerHTML = cheapCardsHtml(currentOffers, key, currentCashGuidance);
 }
 
 function switchTabAndRun(targetMode) {
@@ -1204,6 +1233,7 @@ function render(data) {
 
   if (mode === 'cheap') {
     currentOffers = data.offers || [];
+    currentCashGuidance = data.cash_guidance || null;
     currentSortKey = 'score';
     updateCalendarPrices(data.calendar);
 
@@ -1219,9 +1249,10 @@ function render(data) {
         <button class="sort-btn" data-sort="nonstop" onclick="applySort('nonstop')">Fewest Stops</button>
       </div>
       ${scoreLegendHtml()}`;
-      html += `<div id="cards-wrap">${cheapCardsHtml(currentOffers, 'score')}</div>`;
+      html += `<div id="cards-wrap">${cheapCardsHtml(currentOffers, 'score', currentCashGuidance)}</div>`;
       html += relatedAnalysesHtml('cheap');
     } else {
+      currentCashGuidance = null;
       html += `<div class="card"><h3>No fare context found — try the verification links below</h3><p class="tiny" style="margin-top:6px">No cached fare context for this route right now. Use the links to verify current pricing.</p></div>`;
     }
     html += (data.fallback || []).map(f => `<div class="card"><h3>${esc(f.route)}</h3>${linksHtml(f.links)}</div>`).join('');

@@ -1023,6 +1023,15 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .rec-verdict{font-size:16px;font-weight:600;color:var(--cyan);margin-bottom:12px;padding:0 0 8px}
 .rec-meta{font-size:12px;color:var(--muted);margin-top:8px;font-weight:500}
 .rec-cta{display:flex;gap:10px;flex-direction:column;margin-top:12px}
+.cash-guidance{margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.08)}
+.cg-headline{margin:0 0 10px;font-size:17px;line-height:1.35;color:var(--text)}
+.cg-block{margin-bottom:8px}
+.cg-k{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.cg-block p{margin:4px 0 0;font-size:14px;line-height:1.45;color:var(--text)}
+.cg-evidence{margin-top:2px;font-size:12px;color:var(--muted)}
+.cg-tag{display:inline-flex;align-items:center;gap:6px;margin:0 0 10px;padding:4px 10px;border-radius:999px;border:1px solid rgba(106,215,255,.35);background:rgba(106,215,255,.11);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--cyan)}
+.cg-tag-compact{margin:0 0 8px;padding:3px 8px;font-size:10px}
+.guidance-recommended{border-color:rgba(106,215,255,.22);background:rgba(106,215,255,.04)}
 
 /* Compact Cash Journey Summary (Scope C) */
 .compact-cash-journey{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.06)}
@@ -1187,6 +1196,10 @@ footer p{margin-bottom:8px}
   .recommendation-card .card-row{flex-direction:column}
   .recommendation-card .card-price{text-align:left;width:100%}
   .rec-verdict{font-size:14px;margin-bottom:10px;padding-bottom:6px}
+  .cash-guidance{margin-bottom:10px;padding-bottom:8px}
+  .cg-headline{font-size:15px;margin-bottom:8px}
+  .cg-block p{font-size:13px;line-height:1.4}
+  .cg-tag{font-size:10px;padding:4px 8px}
   .compact-cash-journey{margin-top:6px;padding-top:6px}
   .ccjs-route{font-size:12px;gap:3px}
   .ccjs-apt{padding:2px 5px;font-size:11px}
