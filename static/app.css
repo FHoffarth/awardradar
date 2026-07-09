@@ -72,6 +72,7 @@
   --card-shadow:0 6px 24px rgba(7,18,36,.09),0 1px 4px rgba(7,18,36,.05);
 }
 *{box-sizing:border-box;margin:0;padding:0;transition:background-color .2s,border-color .2s,color .15s,box-shadow .2s}
+html{max-width:100vw;overflow-x:hidden}
 a,button,input,canvas,#globe,.logo-mark svg{transition:none}
 
 /* Skip link */
@@ -1223,7 +1224,8 @@ footer p{margin-bottom:8px}
 
   /* Tabs → compact segmented control on mobile */
   .tabs{display:flex;flex-direction:row;gap:0;background:var(--chip-bg);border:1px solid var(--border);border-radius:12px;padding:3px;margin-bottom:12px}
-  .tab{flex:1;padding:8px 4px;justify-content:center;border:0;background:transparent;border-radius:9px;gap:4px;min-height:40px}
+  .tab{flex:1;min-width:0;padding:8px 4px;justify-content:center;border:0;background:transparent;border-radius:9px;gap:4px;min-height:40px}
+  .tab-body{min-width:0;width:100%;overflow:hidden}
   .tab.active{background:rgba(245,199,107,.14);border:0;border-color:transparent}
   .tab-icon{display:none}
   .tab-info{display:none}
