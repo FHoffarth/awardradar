@@ -990,6 +990,10 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 .beta-notice{background:rgba(245,199,107,.07);border:1px solid rgba(245,199,107,.18);border-radius:10px;padding:10px 18px;font-size:12px;color:var(--gold);text-align:center;margin-bottom:18px;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
 .beta-notice a{color:var(--cyan);text-decoration:none}
 .beta-tag{background:rgba(245,199,107,.2);border:1px solid rgba(245,199,107,.4);color:var(--gold);border-radius:5px;padding:2px 7px;font-size:10px;font-weight:800;letter-spacing:.1em;flex-shrink:0}
+.trust-note{font-size:calc(11px * var(--text-scale));color:var(--muted);line-height:1.55;text-align:center;padding:6px 0 10px;margin-bottom:6px}
+.trust-note strong{color:var(--text);font-weight:600}
+[data-theme="light"] .trust-note{color:#587089}
+[data-theme="light"] .trust-note strong{color:#2d3e52}
 .date-chips{display:flex;gap:5px;flex-wrap:wrap}
 .date-chip{border:1px solid var(--border);background:var(--chip-bg);color:var(--muted);border-radius:999px;padding:5px 11px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .15s}
 .date-chip:hover{border-color:rgba(106,215,255,.28);color:var(--cyan);background:rgba(106,215,255,.07)}

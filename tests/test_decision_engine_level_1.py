@@ -1356,6 +1356,8 @@ process.stdout.write(html);
         self.assertNotIn("baggage", lowered)
         self.assertNotIn("layover", lowered)
         self.assertNotIn("self-transfer", lowered)
+        self.assertNotIn("hello@awardradar.app", html)
+        self.assertNotIn("decision-support context", html)
         self.assertIn("Lufthansa", html)
         self.assertIn("LH 400", html)
         self.assertIn("View fare", html)
@@ -1534,6 +1536,28 @@ process.stdout.write(html);
         self.assertIn("decisionActionsHtml()", self.js)
         self.assertIn("switchTabAndRun('awards')", self.js)
         self.assertIn("switchTabAndRun('skiplag')", self.js)
+
+    def test_trust_note_replaces_intelligence_notice(self):
+        """Trust note: quiet verification disclosure replaces Intelligence beta-notice."""
+        self.assertIn("Verify before booking", self.html)
+        self.assertIn(".trust-note", self.css)
+        self.assertNotIn("decision-support context", self.html)
+        self.assertNotIn("provider .", self.html)
+        # Old 'Intelligence' pill removed from this notice context
+        idx = self.html.find("trust-note")
+        if idx >= 0:
+            end = self.html.find("</div>", idx)
+            block = self.html[idx:end] if end > idx else self.html[idx:idx+500]
+            self.assertNotIn("hello@awardradar.app", block)
+            self.assertNotIn("Intelligence", block)
+
+    def test_decision_support_copy_absent_from_index(self):
+        """Old decision-support context copy must not appear in index.html."""
+        self.assertNotIn("decision-support context", self.html)
+
+    def test_provider_punctuation_not_broken(self):
+        """No 'provider .' (space before period) in index.html."""
+        self.assertNotIn("provider .", self.html)
 
 
 class InvalidCashPriceValidation(unittest.TestCase):
