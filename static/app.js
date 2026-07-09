@@ -1110,6 +1110,7 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
 
   const guidance = cashGuidance && typeof cashGuidance === 'object' ? cashGuidance : null;
   const recommendedId = ((guidance && guidance.recommended_offer_id) || '').trim();
+  const decisionActionsMarkup = typeof opts.decisionActionsMarkup === 'string' ? opts.decisionActionsMarkup : '';
   if (recommendedId) {
     const recommended = sorted.find(o => o.offer_id === recommendedId);
     if (recommended) {
@@ -1165,6 +1166,7 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
         ${guidanceHtml}
         ${returnDisclosure}
         ${verdictHtml}
+        ${decisionActionsMarkup}
         <div class="card-row">
           <div class="card-main">
             <h3>${esc(o.origin)}<span class="route-arrow">→</span>${esc(o.dest)}</h3>
@@ -1266,6 +1268,14 @@ function relatedAnalysesHtml(currentMode) {
   return `<div class="related-analyses"><span class="related-label">Related analyses</span>${links}</div>`;
 }
 
+function decisionActionsHtml() {
+  return `<div class="decision-actions" aria-label="Primary decision actions">
+    <span class="decision-actions-label">Next actions</span>
+    <button class="cross-link decision-action" onclick="switchTabAndRun('awards')">Compare award options</button>
+    <button class="cross-link decision-action" onclick="switchTabAndRun('skiplag')">Check hidden opportunities</button>
+  </div>`;
+}
+
 function render(data) {
   let html = '';
   if (data.note) html += `<div class="card note">${esc(data.note)}</div>`;
@@ -1285,6 +1295,8 @@ function render(data) {
     }
 
     if (currentOffers.length) {
+      const primaryDecisionActionsHtml = decisionActionsHtml();
+      const hasPrimaryDecisionActions = !!String(primaryDecisionActionsHtml || '').trim();
       html += `<div class="sort-bar">
         <span class="sort-label">Sort:</span>
         <button class="sort-btn active" data-sort="score" onclick="applySort('score')">Best Value</button>
@@ -1292,8 +1304,10 @@ function render(data) {
         <button class="sort-btn" data-sort="nonstop" onclick="applySort('nonstop')">Fewest Stops</button>
       </div>
       ${scoreLegendHtml()}`;
-      html += `<div id="cards-wrap">${cheapCardsHtml(currentOffers, 'score', currentCashGuidance, { roundTripRequested: currentCheapRoundTripRequested })}</div>`;
-      html += relatedAnalysesHtml('cheap');
+      html += `<div id="cards-wrap">${cheapCardsHtml(currentOffers, 'score', currentCashGuidance, { roundTripRequested: currentCheapRoundTripRequested, decisionActionsMarkup: primaryDecisionActionsHtml })}</div>`;
+      if (!hasPrimaryDecisionActions) {
+        html += relatedAnalysesHtml('cheap');
+      }
     } else {
       currentCashGuidance = null;
       currentCheapRoundTripRequested = false;

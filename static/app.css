@@ -283,6 +283,11 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .search-summary-edit{background:none;border:1px solid var(--border);border-radius:10px;color:var(--cyan);font-weight:600;font-size:.9rem;padding:9px 16px;cursor:pointer;min-height:40px;flex-shrink:0}
 .search-summary-edit:hover{background:rgba(106,215,255,.06)}
 .search-summary-edit:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.shell.has-results .panel{padding:14px 16px 14px;border-radius:16px}
+.shell.has-results .search-summary{gap:8px;align-items:flex-start}
+.shell.has-results .search-summary-text{font-size:.98rem;line-height:1.4;max-width:calc(100% - 120px)}
+.shell.has-results .search-summary-edit{padding:7px 12px;min-height:34px;font-size:12px}
+.shell.has-results .card.note{margin-bottom:8px;padding:8px 12px 8px 10px;font-size:12px;line-height:1.45}
 .tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px}
 .tab{border:1px solid var(--border);background:var(--chip-bg);color:var(--text);border-radius:14px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;text-align:left;font-family:inherit}
 .tab:hover{border-color:rgba(106,215,255,.22);background:rgba(106,215,255,.04)}
@@ -537,6 +542,9 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .legend-grid{display:grid;grid-template-columns:36px 1fr;gap:6px 10px;padding:10px 14px;align-items:center;font-size:12px;color:var(--text)}
 .legend-grid span{line-height:1.4}
 .legend-note{font-size:11px;color:var(--muted);padding:0 14px 10px;line-height:1.5}
+.decision-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0 12px;padding-top:4px}
+.decision-actions-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-right:2px;flex-shrink:0}
+.decision-action{white-space:normal}
 .verified-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;margin-bottom:8px;background:rgba(135,247,181,.12);border:1px solid rgba(135,247,181,.3);color:var(--green)}
 .unverified-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;margin-bottom:8px;background:rgba(255,157,157,.07);border:1px solid rgba(255,157,157,.2);color:var(--bad)}
 .seg-chain{font-size:13px;font-weight:600;color:var(--muted);margin:4px 0 6px;letter-spacing:.02em}
@@ -1120,6 +1128,10 @@ footer p{margin-bottom:8px}
   .fields,.fields.no-return{grid-template-columns:1fr}
   .swap-btn{display:none}
   .panel{border-radius:16px;padding:16px}
+  .shell.has-results .panel{padding:12px 12px 12px}
+  .shell.has-results .search-summary{flex-direction:column;align-items:stretch}
+  .shell.has-results .search-summary-text{max-width:none;font-size:.96rem}
+  .shell.has-results .search-summary-edit{width:100%}
   .config-row{flex-direction:column;gap:14px}
   .seg-ctrl{width:100%}
   .seg{flex:1;text-align:center}
@@ -1206,6 +1218,8 @@ footer p{margin-bottom:8px}
   .recommendation-card .card-row{flex-direction:column}
   .recommendation-card .card-price{text-align:left;width:100%}
   .rec-verdict{font-size:14px;margin-bottom:10px;padding-bottom:6px}
+  .decision-actions{gap:6px;margin:8px 0 10px}
+  .decision-actions-label{font-size:10px}
   .recommendation-badges{gap:5px;margin-bottom:8px}
   .cash-guidance{margin-bottom:10px;padding:10px 10px 8px}
   .cg-headline{font-size:17px;margin-bottom:8px}
