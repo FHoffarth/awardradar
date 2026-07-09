@@ -493,8 +493,8 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=143", html)
-        self.assertIn("app.js?v=152", html)
+        self.assertIn("app.css?v=145", html)
+        self.assertIn("app.js?v=153", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
         self.assertIn("data-text-size-option=\"large\"", html)
@@ -540,8 +540,8 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=143", html)
-        self.assertIn("app.js?v=152", html)
+        self.assertIn("app.css?v=145", html)
+        self.assertIn("app.js?v=153", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -1143,6 +1143,8 @@ class CashCardRenderMarkup(unittest.TestCase):
             self.js = f.read()
         with open(os.path.join(root, "static", "app.css"), encoding="utf-8") as f:
             self.css = f.read()
+        with open(os.path.join(root, "templates", "index.html"), encoding="utf-8") as f:
+            self.html = f.read()
 
     def test_renderer_shows_complete_times(self):
         self.assertIn("cash-itin-times", self.js)
@@ -1193,6 +1195,8 @@ class R2BCashDecisionCard(unittest.TestCase):
             self.js = f.read()
         with open(os.path.join(root, "static", "app.css"), encoding="utf-8") as f:
             self.css = f.read()
+        with open(os.path.join(root, "templates", "index.html"), encoding="utf-8") as f:
+            self.html = f.read()
 
     def test_recommendation_card_structure_present(self):
         """Scope A: First Cash result has distinct recommendation card structure."""
@@ -1303,6 +1307,9 @@ class R2BCashDecisionCard(unittest.TestCase):
         """Only the first result (i === 0) becomes recommendation card."""
         self.assertIn("if (isTop)", self.js)
         self.assertIn(".recommendation-card", self.css)
+        self.assertIn("decisionActionsHtml()", self.js)
+        self.assertIn("Compare award options", self.js)
+        self.assertIn("Check hidden opportunities", self.js)
 
     def test_frontend_consumes_backend_cash_guidance(self):
         """Guidance block must come from backend cash_guidance payload."""
@@ -1331,6 +1338,16 @@ class R2BCashDecisionCard(unittest.TestCase):
         """Recommended offer is moved to visible first card regardless of sort."""
         self.assertIn("sorted = [recommended, ...sorted.filter(o => o.offer_id !== recommendedId)]", self.js)
         self.assertIn("cheapCardsHtml(currentOffers, key, currentCashGuidance, { roundTripRequested: currentCheapRoundTripRequested })", self.js)
+        self.assertIn("if (!hasPrimaryDecisionActions) {", self.js)
+        self.assertIn("html += relatedAnalysesHtml('cheap');", self.js)
+
+    def test_related_analyses_falls_back_when_primary_actions_missing(self):
+        """Cheap path keeps Related analyses when primary decision actions are unavailable."""
+        self.assertIn("const primaryDecisionActionsHtml = decisionActionsHtml();", self.js)
+        self.assertIn("const hasPrimaryDecisionActions = !!String(primaryDecisionActionsHtml || '').trim();", self.js)
+        self.assertIn("decisionActionsMarkup: primaryDecisionActionsHtml", self.js)
+        self.assertIn("if (!hasPrimaryDecisionActions) {", self.js)
+        self.assertIn("html += relatedAnalysesHtml('cheap');", self.js)
 
     def test_cash_guidance_missing_falls_back_safely(self):
         """No guidance payload must render existing card flow without empty blocks."""
@@ -1353,6 +1370,29 @@ class R2BCashDecisionCard(unittest.TestCase):
     def test_frontend_does_not_render_invented_return_times(self):
         self.assertNotIn("esc(o.return_dep_time)", self.js)
         self.assertNotIn("esc(o.return_arr_time)", self.js)
+
+    def test_result_mode_shell_is_compact_after_search(self):
+        """Result mode should use the compact search summary shell and collapse landing hero."""
+        self.assertIn("function collapseSearch()", self.js)
+        self.assertIn("st.textContent = _searchSummaryText()", self.js)
+        self.assertIn('id="landing-state"', self.html)
+        self.assertIn('id="searchSummary"', self.html)
+        self.assertIn("search-summary", self.html)
+        self.assertIn(".shell.has-results #landing-state{display:none}", self.css)
+        self.assertIn(".shell.has-results .panel{padding:14px 16px 14px", self.css)
+        self.assertIn(".shell.has-results .search-summary{gap:8px", self.css)
+
+    def test_trust_notices_are_compact_result_context_not_banners(self):
+        self.assertIn(".shell.has-results .card.note", self.css)
+        self.assertIn("data.note", self.js)
+
+    def test_primary_actions_exist_before_provider_links(self):
+        self.assertIn("decision-actions", self.css)
+        self.assertIn("Compare award options", self.js)
+        self.assertIn("Check hidden opportunities", self.js)
+        self.assertIn("decisionActionsHtml()", self.js)
+        self.assertIn("switchTabAndRun('awards')", self.js)
+        self.assertIn("switchTabAndRun('skiplag')", self.js)
 
 
 class InvalidCashPriceValidation(unittest.TestCase):
