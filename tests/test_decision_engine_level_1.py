@@ -493,7 +493,7 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=150", html)
+        self.assertIn("app.css?v=151", html)
         self.assertIn("app.js?v=156", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
@@ -540,7 +540,7 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=150", html)
+        self.assertIn("app.css?v=151", html)
         self.assertIn("app.js?v=156", html)
 
     def test_about_copy_avoids_overclaiming(self):
@@ -1590,6 +1590,17 @@ process.stdout.write(html);
         self.assertIn(".tab-icon{display:none}", self.css)
         self.assertIn(".tab-info{display:none}", self.css)
         self.assertIn("flex-direction:row", self.css)
+
+    def test_mobile_tab_labels_intentional(self):
+        """Mobile tab titles use short intentional labels; desktop keeps full labels."""
+        self.assertIn("tab-label-long", self.html)
+        self.assertIn("tab-label-short", self.html)
+        self.assertIn("Best Value Flights", self.html)
+        self.assertIn("Award Redemptions", self.html)
+        self.assertIn("Hidden Opportunities", self.html)
+        self.assertIn(".tab-label-short{display:none}", self.css)
+        self.assertIn(".tab-label-long{display:none}", self.css)
+        self.assertIn(".tab-label-short{display:inline}", self.css)
 
 
 class InvalidCashPriceValidation(unittest.TestCase):

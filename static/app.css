@@ -305,6 +305,7 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 .tab.active .tab-icon{background:rgba(245,199,107,.13)}
 .tab-body{}
 .tab-title{font-size:14px;font-weight:700;line-height:1.2}
+.tab-label-short{display:none}
 .tab-sub{font-size:11px;color:var(--muted);margin-top:3px}
 
 .fields{display:grid;grid-template-columns:1fr auto 1fr 190px 190px;gap:10px;margin-bottom:0;align-items:start}
@@ -1230,6 +1231,8 @@ footer p{margin-bottom:8px}
   .tab-icon{display:none}
   .tab-info{display:none}
   .tab-title{font-size:11px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+  .tab-label-long{display:none}
+  .tab-label-short{display:inline}
   /* Light theme: override card-style tab backgrounds for compact segmented control */
   [data-theme="light"] .tab{background:transparent;box-shadow:none}
   [data-theme="light"] .tab:hover{background:rgba(7,18,36,.04);box-shadow:none}
