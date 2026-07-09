@@ -493,8 +493,8 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=145", html)
-        self.assertIn("app.js?v=153", html)
+        self.assertIn("app.css?v=146", html)
+        self.assertIn("app.js?v=154", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
         self.assertIn("data-text-size-option=\"large\"", html)
@@ -540,8 +540,8 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=145", html)
-        self.assertIn("app.js?v=153", html)
+        self.assertIn("app.css?v=146", html)
+        self.assertIn("app.js?v=154", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -1218,7 +1218,125 @@ class R2BCashDecisionCard(unittest.TestCase):
         self.assertIn("compactCashJourneySummary", self.js)
         self.assertIn(".compact-cash-journey", self.css)
         self.assertIn(".ccjs-route", self.css)
-        self.assertIn(".ccjs-apt", self.css)
+        self.assertIn(".ccjs-times", self.css)
+        self.assertIn(".ccjs-trip-meta", self.css)
+        self.assertIn(".ccjs-via", self.css)
+
+    def test_itinerary_priority_markup_present_in_cash_cards(self):
+        self.assertIn("class=\"ccjs-times\"", self.js)
+        self.assertIn("class=\"ccjs-trip-meta\"", self.js)
+        self.assertIn("class=\"compact-times\"", self.js)
+        self.assertIn("class=\"compact-trip-meta\"", self.js)
+        self.assertIn("class=\"compact-date-meta\"", self.js)
+        self.assertIn("class=\"compact-via\"", self.js)
+        self.assertIn("class=\"compact-time-arrow\"", self.js)
+
+    def test_times_and_trip_meta_remain_visible_without_invention(self):
+        self.assertIn("if (dep && arr)", self.js)
+        self.assertIn("times = `Dep ${esc(dep)}`", self.js)
+        self.assertIn("times = `Arr ${esc(arr)}", self.js)
+        self.assertIn("const tripMeta = [dur, stopsLabel].filter(Boolean).join(' · ');", self.js)
+        self.assertIn("const tripMetaLine = [durStr, stopsLabel].filter(Boolean).join(' · ');", self.js)
+        self.assertNotIn("esc(o.return_dep_time)", self.js)
+        self.assertNotIn("esc(o.return_arr_time)", self.js)
+
+    def test_cash_card_renderer_outputs_itinerary_priority_html(self):
+        bundled_node = pathlib.Path(
+            r"C:\Users\Flo\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
+        )
+        node = shutil.which("node") or (str(bundled_node) if bundled_node.exists() else None)
+        if not node:
+            self.skipTest("Node.js is required for frontend rendering regression tests")
+
+        script = f"""
+const fs = require('fs');
+const document = {{ documentElement: {{ getAttribute: () => 'en' }} }};
+const src = fs.readFileSync({json.dumps(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static", "app.js"))}, 'utf8');
+function between(start, end) {{
+  const s = src.indexOf(start);
+  if (s < 0) throw new Error('missing start marker: ' + start);
+  const e = src.indexOf(end, s);
+  if (e < 0) throw new Error('missing end marker: ' + end);
+  return src.slice(s, e);
+}}
+const block = [
+  between('function formatUserDate(dateStr)', 'function aircraftStub'),
+  between('function esc(s)', 'async function run()'),
+  between('const CASH_TIER_CSS = {{', 'function priceTiers(calendar)'),
+  between('function cashItineraryHtml(o)', '// Client-side mirror of the backend valid-price rule'),
+  between('function isValidCashPrice(v)', 'function decisionGuidanceHtml(guidance)'),
+  between('function decisionGuidanceHtml(guidance)', 'function render(data)'),
+].join('\\n');
+eval(block);
+const offers = [
+  {{
+    offer_id: 'offer-1',
+    origin: 'FRA',
+    dest: 'JFK',
+    dep_time: '07:30',
+    arr_time: '10:15',
+    durationMin: 465,
+    stops: 0,
+    via: [],
+    airline: 'Lufthansa',
+    airlineCode: 'LH',
+    flight_number: 'LH 400',
+    date: '2026-10-20',
+    returnDate: '2026-10-28',
+    currency: 'EUR',
+    price: 510,
+    dealScore: 84,
+    tier: 'great',
+    label: 'Strong Value',
+    links: {{ 'Google Flights': 'https://example.com/gf', 'Kayak': 'https://example.com/ky' }}
+  }},
+  {{
+    offer_id: 'offer-2',
+    origin: 'FRA',
+    dest: 'JFK',
+    dep_time: '09:10',
+    arr_time: '12:05',
+    durationMin: 490,
+    stops: 1,
+    via: ['BOS'],
+    airline: 'United',
+    airlineCode: 'UA',
+    flight_number: 'UA 101',
+    date: '2026-10-20',
+    currency: 'EUR',
+    price: 560,
+    dealScore: 71,
+    tier: 'good',
+    label: 'Fair Value',
+    links: {{ 'Google Flights': 'https://example.com/gf2' }}
+  }}
+];
+const guidance = {{
+  recommended_offer_id: 'offer-1',
+  headline: 'Test headline',
+  why: 'Test why',
+  watch_out: 'Test watch out',
+  next_step: 'Test next step',
+  evidence_level: 'medium'
+}};
+const html = cheapCardsHtml(offers, 'score', guidance, {{
+  roundTripRequested: true,
+  decisionActionsMarkup: '<div class="decision-actions"><button>Compare award options</button></div>'
+}});
+process.stdout.write(html);
+"""
+        out = subprocess.run([node, "-e", script], text=True, capture_output=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        html = out.stdout
+        self.assertIn('class="ccjs-route"', html)
+        self.assertTrue('class="ccjs-times"' in html or 'class="compact-times"' in html)
+        self.assertTrue('class="ccjs-trip-meta"' in html or 'class="compact-trip-meta"' in html)
+        self.assertIn("FRA", html)
+        self.assertIn("JFK", html)
+        self.assertIn("Lufthansa", html)
+        self.assertIn("LH 400", html)
+        self.assertIn("View fare", html)
+        self.assertIn("Google Flights", html)
 
     def test_date_formatter_present(self):
         """Scope D: Date localization helper formatUserDate exists."""

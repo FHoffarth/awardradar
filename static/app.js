@@ -1034,25 +1034,25 @@ function compactCashJourneySummary(o) {
   const dep = o.dep_time;
   const arr = o.arr_time;
   const off = (typeof o.arrival_day_offset === 'number' && o.arrival_day_offset > 0) ? o.arrival_day_offset : null;
-
-  const route = [];
-  route.push(`<span class="ccjs-apt">${esc(o.origin)}</span>`);
-  if (o.via && o.via.length) {
-    route.push(`<span class="ccjs-arrow" aria-hidden="true">→</span>`);
-    route.push(`<span class="ccjs-stopover">${esc(o.via.join(', '))}</span>`);
+  const route = `${esc(o.origin)} → ${esc(o.dest)}`;
+  const viaLine = o.via && o.via.length ? `<div class="ccjs-via">via ${esc(o.via.join(', '))}</div>` : '';
+  let times = '';
+  if (dep && arr) {
+    times = `${esc(dep)} <span class="ccjs-arrow" aria-hidden="true">→</span> ${esc(arr)}${off ? ` <span class="ccjs-daymark">+${off}d</span>` : ''}`;
+  } else if (dep) {
+    times = `Dep ${esc(dep)}`;
+  } else if (arr) {
+    times = `Arr ${esc(arr)}${off ? ` <span class="ccjs-daymark">+${off}d</span>` : ''}`;
   }
-  route.push(`<span class="ccjs-arrow" aria-hidden="true">→</span>`);
-  route.push(`<span class="ccjs-apt">${esc(o.dest)}</span>`);
-
-  const times = dep && arr ? `${esc(dep)}–${esc(arr)}${off ? ` +${off}d` : ''}` : '';
   const dur = o.durationMin ? fmtDur(o.durationMin) : '';
-  const stopsLabel = stops === 0 ? 'Nonstop' : stops === 1 ? '1 stop' : `${stops} stops`;
-
-  const meta = [times, dur, stopsLabel].filter(Boolean).join(' · ');
+  const stopsLabel = stops === 0 ? 'nonstop' : stops === 1 ? '1 stop' : `${stops} stops`;
+  const tripMeta = [dur, stopsLabel].filter(Boolean).join(' · ');
 
   return `<div class="compact-cash-journey">
-    <div class="ccjs-route">${route.join('')}</div>
-    ${meta ? `<div class="ccjs-meta">${esc(meta)}</div>` : ''}
+    <div class="ccjs-route">${route}</div>
+    ${viaLine}
+    ${times ? `<div class="ccjs-times">${times}</div>` : ''}
+    ${tripMeta ? `<div class="ccjs-trip-meta">${esc(tripMeta)}</div>` : ''}
   </div>`;
 }
 
@@ -1190,11 +1190,23 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
     }
 
     // R2B-1 COMPACT ALTERNATIVES (Scope F)
-    const viaText = o.via && o.via.length ? ` via ${esc(o.via.join(', '))}` : '';
-    const stopsLabel = stops === 0 ? 'Nonstop' : stops === 1 ? `1 stop${viaText}` : `${stops} stops${viaText}`;
+    const stopsLabel = stops === 0 ? 'nonstop' : stops === 1 ? '1 stop' : `${stops} stops`;
     const durStr = o.durationMin ? fmtDur(o.durationMin) : '';
     const formattedDate = formatUserDate(o.date);
-    const metaLine = [durStr, stopsLabel, formattedDate + (o.returnDate ? ' → ' + formatUserDate(o.returnDate) : '')].filter(Boolean).join(' · ');
+    const dateLine = formattedDate + (o.returnDate ? ' → ' + formatUserDate(o.returnDate) : '');
+    const dep = o.dep_time;
+    const arr = o.arr_time;
+    const off = (typeof o.arrival_day_offset === 'number' && o.arrival_day_offset > 0) ? o.arrival_day_offset : null;
+    let compactTimes = '';
+    if (dep && arr) {
+      compactTimes = `${esc(dep)} <span class="compact-time-arrow" aria-hidden="true">→</span> ${esc(arr)}${off ? ` <span class="compact-daymark">+${off}d</span>` : ''}`;
+    } else if (dep) {
+      compactTimes = `Dep ${esc(dep)}`;
+    } else if (arr) {
+      compactTimes = `Arr ${esc(arr)}${off ? ` <span class="compact-daymark">+${off}d</span>` : ''}`;
+    }
+    const viaLine = o.via && o.via.length ? `<div class="compact-via">via ${esc(o.via.join(', '))}</div>` : '';
+    const tripMetaLine = [durStr, stopsLabel].filter(Boolean).join(' · ');
 
     const tier = o.tier || scoreInfo(o.dealScore).tier;
     let conciseLabel = '';
@@ -1211,7 +1223,10 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
         <div class="compact-main">
           ${recommendationTag}
           <div class="compact-route">${esc(o.origin)} → ${esc(o.dest)}</div>
-          <div class="compact-times">${metaLine}</div>
+          ${viaLine}
+          ${compactTimes ? `<div class="compact-times">${compactTimes}</div>` : ''}
+          ${tripMetaLine ? `<div class="compact-trip-meta">${esc(tripMetaLine)}</div>` : ''}
+          <div class="compact-date-meta">${esc(dateLine)}</div>
           ${returnDisclosure}
           <div class="compact-airline">${logoImg}<span>${esc(airlineLabel)}</span>${flightNoHtml}</div>
         </div>
