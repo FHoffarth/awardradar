@@ -493,8 +493,8 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=148", html)
-        self.assertIn("app.js?v=155", html)
+        self.assertIn("app.css?v=149", html)
+        self.assertIn("app.js?v=156", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
         self.assertIn("data-text-size-option=\"large\"", html)
@@ -540,8 +540,8 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=148", html)
-        self.assertIn("app.js?v=155", html)
+        self.assertIn("app.css?v=149", html)
+        self.assertIn("app.js?v=156", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -1558,6 +1558,38 @@ process.stdout.write(html);
     def test_provider_punctuation_not_broken(self):
         """No 'provider .' (space before period) in index.html."""
         self.assertNotIn("provider .", self.html)
+
+    def test_search_mode_controls_include_all_three_modes(self):
+        """All three search mode tabs must be present."""
+        self.assertIn('data-tab="cheap"', self.html)
+        self.assertIn('data-tab="awards"', self.html)
+        self.assertIn('data-tab="skiplag"', self.html)
+        self.assertIn("Best Value Flights", self.html)
+        self.assertIn("Award Redemptions", self.html)
+        self.assertIn("Hidden Opportunities", self.html)
+
+    def test_popular_airports_progressive_disclosure_exists(self):
+        """Mobile airport disclosure: pa-col-compact class and pa-all-toggle button injected via JS."""
+        self.assertIn("pa-col-compact", self.js)
+        self.assertIn("pa-all-toggle", self.js)
+        self.assertIn("Show all airports", self.js)
+        self.assertIn("Show fewer airports", self.js)
+        self.assertIn(".pa-col.pa-col-compact .pa-group:not(:first-child){display:none}", self.css)
+        self.assertIn(".pa-all-toggle{display:none}", self.css)
+
+    def test_search_cta_validation_still_intact(self):
+        """Search CTA must remain disabled until form is valid."""
+        self.assertIn('id="go"', self.html)
+        self.assertIn('aria-disabled="true"', self.html)
+        self.assertIn('id="searchValidationStatus"', self.html)
+        self.assertIn("validateSearchForm", self.js)
+        self.assertIn("Select origin, destination and departure date to search.", self.html)
+
+    def test_compact_tab_css_present(self):
+        """Mobile tabs rendered as compact segmented control."""
+        self.assertIn(".tab-icon{display:none}", self.css)
+        self.assertIn(".tab-info{display:none}", self.css)
+        self.assertIn("flex-direction:row", self.css)
 
 
 class InvalidCashPriceValidation(unittest.TestCase):

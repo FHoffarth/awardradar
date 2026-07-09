@@ -2053,6 +2053,27 @@ document.querySelectorAll('.pa-toggle').forEach(btn => {
   };
 });
 
+// Mobile airport progressive disclosure: collapse all groups except DACH by default
+(function() {
+  const paCol = document.querySelector('.pa-col');
+  if (!paCol) return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'pa-all-toggle';
+  btn.textContent = 'Show all airports';
+  paCol.appendChild(btn);
+  function applyCompact() {
+    const compact = window.innerWidth <= 640;
+    paCol.classList.toggle('pa-col-compact', compact);
+    if (compact) btn.textContent = 'Show all airports';
+  }
+  btn.addEventListener('click', function() {
+    const nowCompact = paCol.classList.toggle('pa-col-compact');
+    btn.textContent = nowCompact ? 'Show all airports' : 'Show fewer airports';
+  });
+  applyCompact();
+})();
+
 function updatePaCodes() {
   const destVal   = ($('dest').value   || '').toUpperCase().trim();
   const originVal = ($('origin').value || '').toUpperCase().trim();

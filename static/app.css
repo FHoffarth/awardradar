@@ -356,6 +356,7 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 .pa-group.expanded .pa-extra{display:inline-flex}
 .pa-toggle{border:none;background:transparent;color:var(--cyan);font-size:10px;font-weight:700;letter-spacing:.04em;padding:5px 0 0;cursor:pointer;font-family:inherit;text-transform:uppercase}
 .pa-toggle:hover{text-decoration:underline}
+.pa-all-toggle{display:none}
 .config-col{display:flex;flex-direction:column;gap:20px;min-width:0}
 .config-row{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
 .config-section{display:flex;flex-direction:column;gap:8px;min-width:0}
@@ -1219,9 +1220,19 @@ footer p{margin-bottom:8px}
 
   /* Panel: less padding */
   .panel{padding:14px 14px 16px;border-radius:18px}
-  .tabs{gap:6px;margin-bottom:14px}
-  .tab{padding:11px 12px;gap:10px;border-radius:12px}
-  .tab-icon{width:38px;height:38px;font-size:18px}
+
+  /* Tabs → compact segmented control on mobile */
+  .tabs{display:flex;flex-direction:row;gap:0;background:var(--chip-bg);border:1px solid var(--border);border-radius:12px;padding:3px;margin-bottom:12px}
+  .tab{flex:1;padding:8px 4px;justify-content:center;border:0;background:transparent;border-radius:9px;gap:4px;min-height:40px}
+  .tab.active{background:rgba(245,199,107,.14);border:0;border-color:transparent}
+  .tab-icon{display:none}
+  .tab-info{display:none}
+  .tab-title{font-size:11px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+  /* Light theme: override card-style tab backgrounds for compact segmented control */
+  [data-theme="light"] .tab{background:transparent;box-shadow:none}
+  [data-theme="light"] .tab:hover{background:rgba(7,18,36,.04);box-shadow:none}
+  [data-theme="light"] .tab.active{background:rgba(154,110,16,.12);box-shadow:none;border-color:transparent}
+  [data-theme="light"] .tabs{background:rgba(7,18,36,.05);border-color:rgba(7,18,36,.1)}
 
   /* Fields: date full-width already set in 800px block above */
   /* Reduce swap button for narrow screens */
@@ -1235,9 +1246,12 @@ footer p{margin-bottom:8px}
   .pa-group-label{font-size:8px}
   .pa-grid{flex-wrap:wrap;overflow:visible;padding-bottom:0;scrollbar-width:auto}
   .pa-grid::-webkit-scrollbar{display:none}
-  .pa-extra{display:flex}
-  .pa-toggle{display:none}
   .pa-code{flex:0 0 auto;min-width:44px;min-height:34px;padding:0 9px}
+
+  /* Mobile airport progressive disclosure: collapse all groups except first */
+  .pa-col.pa-col-compact .pa-group:not(:first-child){display:none}
+  .pa-all-toggle{display:block;border:none;background:transparent;color:var(--cyan);font-size:10px;font-weight:700;letter-spacing:.04em;padding:6px 0 2px;cursor:pointer;font-family:inherit;text-transform:uppercase;width:100%;text-align:left;min-height:32px}
+  .pa-all-toggle:hover,.pa-all-toggle:focus-visible{text-decoration:underline;outline:none}
 
   /* Touch targets — min 36–44px */
   .pa-target{min-height:32px;padding:5px 11px;font-size:11px}
