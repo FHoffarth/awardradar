@@ -1071,12 +1071,27 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 
 /* Compact Cash Journey Summary (Scope C) */
 .compact-cash-journey{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.06)}
+.journey-strip{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px;line-height:1}
+.journey-node{display:inline-flex;align-items:center;justify-content:center;min-width:30px;padding:2px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.02);font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--muted)}
+.journey-node-main{border-color:rgba(106,215,255,.28);background:rgba(106,215,255,.08);color:var(--cyan)}
+.journey-via{border-color:rgba(245,199,107,.26);background:rgba(245,199,107,.08);color:var(--gold)}
+.journey-line{display:inline-block;width:16px;height:1px;background:linear-gradient(90deg,rgba(255,255,255,.12),rgba(255,255,255,.32))}
+.journey-strip-compact{gap:5px;margin-bottom:3px}
+.journey-strip-compact .journey-node{min-width:24px;padding:1px 6px;font-size:9px}
+.journey-strip-compact .journey-line{width:12px}
+.journey-facts{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.journey-fact{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);font-size:10px;font-weight:600;color:var(--muted);line-height:1.25}
 .ccjs-route{font-size:12px;font-weight:600;color:var(--muted);line-height:1.35;word-break:break-word}
 .ccjs-via{font-size:11px;color:var(--muted);margin-top:2px}
 .ccjs-times{font-size:20px;font-weight:700;color:var(--text);line-height:1.15;margin-top:2px;letter-spacing:-.01em;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px}
 .ccjs-trip-meta{font-size:12px;font-weight:600;color:var(--muted);margin-top:4px}
 .ccjs-arrow{color:var(--gold);opacity:.8;font-size:16px}
 .ccjs-daymark{font-size:10px;font-weight:700;color:var(--gold);background:rgba(245,199,107,.12);border:1px solid rgba(245,199,107,.26);border-radius:999px;padding:1px 6px;line-height:1.2}
+[data-theme="light"] .journey-node{border-color:rgba(16,32,51,.16);background:rgba(16,32,51,.03);color:#4b6278}
+[data-theme="light"] .journey-node-main{border-color:rgba(13,110,138,.28);background:rgba(13,110,138,.1);color:#0d6e8a}
+[data-theme="light"] .journey-via{border-color:rgba(177,127,16,.26);background:rgba(177,127,16,.12);color:#8a6811}
+[data-theme="light"] .journey-line{background:linear-gradient(90deg,rgba(16,32,51,.14),rgba(16,32,51,.32))}
+[data-theme="light"] .journey-fact{border-color:rgba(16,32,51,.14);background:rgba(16,32,51,.03);color:#4b6278}
 
 /* Source Disclosure (Scope E) */
 .source-disclosure{display:flex;flex-direction:column;gap:6px;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.03)}
@@ -1258,6 +1273,11 @@ footer p{margin-bottom:8px}
   .guidance-card .card-price{border-left:0;padding-left:0}
   .guidance-card .score-block{opacity:.8}
   .compact-cash-journey{margin-top:6px;padding-top:6px}
+  .journey-strip{gap:5px;margin-bottom:3px}
+  .journey-node{min-width:26px;padding:1px 6px;font-size:9px}
+  .journey-line{width:10px}
+  .journey-facts{gap:4px;margin-top:5px}
+  .journey-fact{font-size:9.5px;padding:2px 6px}
   .ccjs-route{font-size:11px}
   .ccjs-via{font-size:10px}
   .ccjs-times{font-size:17px;gap:3px}

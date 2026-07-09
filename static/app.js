@@ -1049,11 +1049,73 @@ function compactCashJourneySummary(o) {
   const tripMeta = [dur, stopsLabel].filter(Boolean).join(' · ');
 
   return `<div class="compact-cash-journey">
+    ${journeyStripHtml(o)}
     <div class="ccjs-route">${route}</div>
     ${viaLine}
     ${times ? `<div class="ccjs-times">${times}</div>` : ''}
     ${tripMeta ? `<div class="ccjs-trip-meta">${esc(tripMeta)}</div>` : ''}
   </div>`;
+}
+
+function journeyNodes(o) {
+  const out = [];
+  const push = (code) => {
+    const c = String(code || '').trim().toUpperCase();
+    if (/^[A-Z0-9]{3}$/.test(c) && out[out.length - 1] !== c) out.push(c);
+  };
+  push(o.origin);
+  const viaCodes = Array.isArray(o.via) ? o.via : [];
+  viaCodes.forEach(push);
+  push(o.dest);
+  return out;
+}
+
+function journeyStripHtml(o, opts = {}) {
+  const compact = !!opts.compact;
+  const nodes = journeyNodes(o);
+  if (nodes.length < 2) return '';
+  const parts = [];
+  nodes.forEach((code, i) => {
+    const isMain = i === 0 || i === nodes.length - 1;
+    const cls = `journey-node${isMain ? ' journey-node-main' : ' journey-via'}`;
+    parts.push(`<span class="${cls}">${esc(code)}</span>`);
+    if (i < nodes.length - 1) {
+      parts.push('<span class="journey-line" aria-hidden="true"></span>');
+    }
+  });
+  return `<div class="journey-strip${compact ? ' journey-strip-compact' : ''}">${parts.join('')}</div>`;
+}
+
+function journeyViaFact(o) {
+  const viaCodes = (Array.isArray(o.via) ? o.via : [])
+    .map(v => String(v || '').trim().toUpperCase())
+    .filter(v => /^[A-Z0-9]{3}$/.test(v));
+  if (!viaCodes.length) return '';
+  if (viaCodes.length <= 2) return `via ${viaCodes.join(', ')}`;
+  return `via ${viaCodes.slice(0, 2).join(', ')} +${viaCodes.length - 2}`;
+}
+
+function journeyFactsHtml(o, opts = {}) {
+  const facts = [];
+  const maxFacts = Number.isFinite(opts.maxFacts) ? Math.max(1, opts.maxFacts) : 4;
+  const stops = parseInt(o.stops) || 0;
+  const stopsLabel = stops === 0 ? 'nonstop' : stops === 1 ? '1 stop' : `${stops} stops`;
+  const off = (typeof o.arrival_day_offset === 'number' && o.arrival_day_offset > 0) ? o.arrival_day_offset : null;
+
+  if (opts.isRecommended) facts.push('Recommended option');
+  if (opts.isCheapest) facts.push('Cheapest returned option');
+  facts.push(stopsLabel);
+  if (o.durationMin) facts.push(fmtDur(o.durationMin));
+  if (opts.includeViaFact) {
+    const viaFact = journeyViaFact(o);
+    if (viaFact) facts.push(viaFact);
+  }
+  if (off) facts.push(`+${off} day arrival`);
+  if (opts.includeAirlineFlight && o.airline && o.flight_number) facts.push(`${o.airline} ${o.flight_number}`);
+
+  const uniq = facts.filter((f, i) => f && facts.indexOf(f) === i).slice(0, maxFacts);
+  if (!uniq.length) return '';
+  return `<div class="journey-facts">${uniq.map(f => `<span class="journey-fact">${esc(f)}</span>`).join('')}</div>`;
 }
 
 // Client-side mirror of the backend valid-price rule: reject booleans, null,
@@ -1117,10 +1179,15 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
       sorted = [recommended, ...sorted.filter(o => o.offer_id !== recommendedId)];
     }
   }
+  const cheapestPrice = sorted.reduce((min, o) => {
+    const n = Number(o.price);
+    return Number.isFinite(n) && n < min ? n : min;
+  }, Infinity);
 
   return sorted.map((o, i) => {
     const isTop = i === 0;
     const isGuidanceRecommended = !!(recommendedId && o.offer_id === recommendedId);
+    const isCheapest = Number.isFinite(cheapestPrice) && Number(o.price) === cheapestPrice;
     const stops = parseInt(o.stops) || 0;
     const airlineLabel = o.airline || 'Airline';
     const logoImg = airlineMarkHtml(airlineLabel, o.airlineCode);
@@ -1157,6 +1224,13 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
       const recommendationTag = isGuidanceRecommended ? '<div class="cg-tag cg-tag-secondary">Recommended option</div>' : '';
       const topBadge = bestBadgeHtml(o, sortKey, { guided: isGuidanceRecommended });
       const returnDisclosure = returnDisclosureHtml(o, roundTripRequested);
+      const journeyFacts = journeyFactsHtml(o, {
+        maxFacts: 4,
+        includeViaFact: true,
+        includeAirlineFlight: true,
+        isRecommended: isGuidanceRecommended,
+        isCheapest,
+      });
 
       return `<div class="card recommendation-card top-card${isGuidanceRecommended ? ' guidance-card' : ''}">
         <div class="recommendation-badges">
@@ -1171,6 +1245,7 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
           <div class="card-main">
             <h3>${esc(o.origin)}<span class="route-arrow">→</span>${esc(o.dest)}</h3>
             ${compactCashJourneySummary(o)}
+            ${journeyFacts}
             <div class="card-airline">${logoImg}<span class="airline-name">${esc(airlineLabel)}</span>${flightNoHtml}</div>
             <div class="rec-meta">${formattedDate}${returnDateStr}</div>
           </div>
@@ -1207,6 +1282,13 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
     }
     const viaLine = o.via && o.via.length ? `<div class="compact-via">via ${esc(o.via.join(', '))}</div>` : '';
     const tripMetaLine = [durStr, stopsLabel].filter(Boolean).join(' · ');
+    const compactJourneyFacts = journeyFactsHtml(o, {
+      maxFacts: 2,
+      includeViaFact: false,
+      includeAirlineFlight: false,
+      isRecommended: isGuidanceRecommended,
+      isCheapest,
+    });
 
     const tier = o.tier || scoreInfo(o.dealScore).tier;
     let conciseLabel = '';
@@ -1222,10 +1304,12 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
       <div class="compact-row">
         <div class="compact-main">
           ${recommendationTag}
+          ${journeyStripHtml(o, { compact: true })}
           <div class="compact-route">${esc(o.origin)} → ${esc(o.dest)}</div>
           ${viaLine}
           ${compactTimes ? `<div class="compact-times">${compactTimes}</div>` : ''}
           ${tripMetaLine ? `<div class="compact-trip-meta">${esc(tripMetaLine)}</div>` : ''}
+          ${compactJourneyFacts}
           <div class="compact-date-meta">${esc(dateLine)}</div>
           ${returnDisclosure}
           <div class="compact-airline">${logoImg}<span>${esc(airlineLabel)}</span>${flightNoHtml}</div>
