@@ -493,8 +493,8 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=147", html)
-        self.assertIn("app.js?v=154", html)
+        self.assertIn("app.css?v=148", html)
+        self.assertIn("app.js?v=155", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
         self.assertIn("data-text-size-option=\"large\"", html)
@@ -540,8 +540,8 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=147", html)
-        self.assertIn("app.js?v=154", html)
+        self.assertIn("app.css?v=148", html)
+        self.assertIn("app.js?v=155", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -1217,12 +1217,19 @@ class R2BCashDecisionCard(unittest.TestCase):
         """Scope C: Compact Cash journey summary renderer exists."""
         self.assertIn("compactCashJourneySummary", self.js)
         self.assertIn(".compact-cash-journey", self.css)
+        self.assertIn(".journey-strip", self.css)
+        self.assertIn(".journey-node", self.css)
+        self.assertIn(".journey-facts", self.css)
         self.assertIn(".ccjs-route", self.css)
         self.assertIn(".ccjs-times", self.css)
         self.assertIn(".ccjs-trip-meta", self.css)
         self.assertIn(".ccjs-via", self.css)
 
     def test_itinerary_priority_markup_present_in_cash_cards(self):
+        self.assertIn("class=\"journey-strip", self.js)
+        self.assertIn("journey-node-main", self.js)
+        self.assertIn("journey-via", self.js)
+        self.assertIn("class=\"journey-facts\"", self.js)
         self.assertIn("class=\"ccjs-times\"", self.js)
         self.assertIn("class=\"ccjs-trip-meta\"", self.js)
         self.assertIn("class=\"compact-times\"", self.js)
@@ -1329,10 +1336,28 @@ process.stdout.write(html);
         self.assertEqual(out.returncode, 0, out.stderr)
         html = out.stdout
         self.assertIn('class="ccjs-route"', html)
+        self.assertIn('class="journey-strip"', html)
+        self.assertIn('class="journey-node journey-node-main"', html)
         self.assertTrue('class="ccjs-times"' in html or 'class="compact-times"' in html)
         self.assertTrue('class="ccjs-trip-meta"' in html or 'class="compact-trip-meta"' in html)
         self.assertIn("FRA", html)
         self.assertIn("JFK", html)
+        self.assertIn("class=\"journey-node journey-via\"", html)
+        self.assertIn("BOS", html)
+        top_card_start = html.find('class="card recommendation-card')
+        compact_start = html.find('class="card compact-alternative')
+        self.assertGreaterEqual(top_card_start, 0)
+        self.assertGreater(compact_start, top_card_start)
+        top_card_html = html[top_card_start:compact_start]
+        self.assertNotIn('class="journey-node journey-via"', top_card_html)
+        lowered = html.lower()
+        self.assertNotIn("aircraft", lowered)
+        self.assertNotIn("terminal", lowered)
+        self.assertNotIn("baggage", lowered)
+        self.assertNotIn("layover", lowered)
+        self.assertNotIn("self-transfer", lowered)
+        self.assertNotIn("hello@awardradar.app", html)
+        self.assertNotIn("decision-support context", html)
         self.assertIn("Lufthansa", html)
         self.assertIn("LH 400", html)
         self.assertIn("View fare", html)
@@ -1511,6 +1536,28 @@ process.stdout.write(html);
         self.assertIn("decisionActionsHtml()", self.js)
         self.assertIn("switchTabAndRun('awards')", self.js)
         self.assertIn("switchTabAndRun('skiplag')", self.js)
+
+    def test_trust_note_replaces_intelligence_notice(self):
+        """Trust note: quiet verification disclosure replaces Intelligence beta-notice."""
+        self.assertIn("Verify before booking", self.html)
+        self.assertIn(".trust-note", self.css)
+        self.assertNotIn("decision-support context", self.html)
+        self.assertNotIn("provider .", self.html)
+        # Old 'Intelligence' pill removed from this notice context
+        idx = self.html.find("trust-note")
+        if idx >= 0:
+            end = self.html.find("</div>", idx)
+            block = self.html[idx:end] if end > idx else self.html[idx:idx+500]
+            self.assertNotIn("hello@awardradar.app", block)
+            self.assertNotIn("Intelligence", block)
+
+    def test_decision_support_copy_absent_from_index(self):
+        """Old decision-support context copy must not appear in index.html."""
+        self.assertNotIn("decision-support context", self.html)
+
+    def test_provider_punctuation_not_broken(self):
+        """No 'provider .' (space before period) in index.html."""
+        self.assertNotIn("provider .", self.html)
 
 
 class InvalidCashPriceValidation(unittest.TestCase):
