@@ -493,7 +493,7 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=152", html)
+        self.assertIn("app.css?v=153", html)
         self.assertIn("app.js?v=157", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
@@ -531,7 +531,7 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("What to verify before booking", html)
         self.assertIn("Independence and commercial links", html)
         self.assertIn("Limitations", html)
-        self.assertIn("app.css?v=152", html)
+        self.assertIn("app.css?v=153", html)
         self.assertIn("consent.css?v=2", html)
         self.assertNotIn("app.js?v=147", html)
 
@@ -541,7 +541,7 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=152", html)
+        self.assertIn("app.css?v=153", html)
         self.assertIn("app.js?v=157", html)
 
     def test_about_copy_avoids_overclaiming(self):
@@ -973,6 +973,8 @@ class EnglishPrivacyNotice(unittest.TestCase):
         response = self.client.get("/privacy")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
+        self.assertIn("app.css?v=153", html)
+        self.assertIn("consent.css?v=2", html)
         # Informational-only disclaimer and controlling-version statement
         self.assertIn(
             "This English version is provided for information only. "
@@ -1018,10 +1020,28 @@ class EnglishPrivacyNotice(unittest.TestCase):
         response = self.client.get("/datenschutz")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
+        self.assertIn("app.css?v=153", html)
+        self.assertIn("consent.css?v=2", html)
         self.assertIn('href="/privacy"', html)
         # German legal substance remains intact
         self.assertIn("Art. 6 Abs. 1 lit. f DSGVO", html)
         self.assertIn("§ 25 TDDDG", html)
+
+    def test_impressum_uses_current_assets(self):
+        html = self.client.get("/impressum").get_data(as_text=True)
+        self.assertIn("app.css?v=153", html)
+        self.assertIn("consent.css?v=2", html)
+        self.assertNotIn("app.css?v=152", html)
+        self.assertNotIn("consent.css?v=1", html)
+
+    def test_legal_pages_include_theme_toggle_hooks(self):
+        for path in ("/impressum", "/privacy", "/datenschutz"):
+            html = self.client.get(path).get_data(as_text=True)
+            self.assertIn('class="about-page"', html)
+            self.assertIn('id="themeBtn"', html)
+            self.assertIn('id="themeIconMoon"', html)
+            self.assertIn('id="themeIconSun"', html)
+            self.assertIn("awardradar_theme", html)
 
     def test_footers_link_to_english_privacy(self):
         for path in ("/", "/about"):
@@ -1394,6 +1414,15 @@ process.stdout.write(html);
         self.assertIn("function formatCpm(value)", self.js)
         self.assertIn("function formatTripDate(value)", self.js)
         self.assertIn("function formatTripDateRange(start, end)", self.js)
+
+    def test_visual_token_primitives_present(self):
+        self.assertIn("--ar-bg-deep", self.css)
+        self.assertIn("--ar-surface-glass", self.css)
+        self.assertIn("--ar-border-subtle", self.css)
+        self.assertIn("--ar-border-focus", self.css)
+        self.assertIn("--ar-accent-cyan", self.css)
+        self.assertIn("--ar-accent-mint", self.css)
+        self.assertIn("--ar-caution-amber", self.css)
 
     def test_number_formatters_lock_international_locale(self):
         self.assertIn("num.toLocaleString('en-US'", self.js)
