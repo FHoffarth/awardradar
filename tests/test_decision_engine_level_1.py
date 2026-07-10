@@ -493,8 +493,8 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=153", html)
-        self.assertIn("app.js?v=157", html)
+        self.assertIn("app.css?v=154", html)
+        self.assertIn("app.js?v=158", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
         self.assertIn("data-text-size-option=\"large\"", html)
@@ -531,7 +531,7 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("What to verify before booking", html)
         self.assertIn("Independence and commercial links", html)
         self.assertIn("Limitations", html)
-        self.assertIn("app.css?v=153", html)
+        self.assertIn("app.css?v=154", html)
         self.assertIn("consent.css?v=2", html)
         self.assertNotIn("app.js?v=147", html)
 
@@ -541,8 +541,8 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=153", html)
-        self.assertIn("app.js?v=157", html)
+        self.assertIn("app.css?v=154", html)
+        self.assertIn("app.js?v=158", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -973,7 +973,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
         response = self.client.get("/privacy")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("app.css?v=153", html)
+        self.assertIn("app.css?v=154", html)
         self.assertIn("consent.css?v=2", html)
         # Informational-only disclaimer and controlling-version statement
         self.assertIn(
@@ -1020,7 +1020,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
         response = self.client.get("/datenschutz")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("app.css?v=153", html)
+        self.assertIn("app.css?v=154", html)
         self.assertIn("consent.css?v=2", html)
         self.assertIn('href="/privacy"', html)
         # German legal substance remains intact
@@ -1029,9 +1029,9 @@ class EnglishPrivacyNotice(unittest.TestCase):
 
     def test_impressum_uses_current_assets(self):
         html = self.client.get("/impressum").get_data(as_text=True)
-        self.assertIn("app.css?v=153", html)
+        self.assertIn("app.css?v=154", html)
         self.assertIn("consent.css?v=2", html)
-        self.assertNotIn("app.css?v=152", html)
+        self.assertNotIn("app.css?v=153", html)
         self.assertNotIn("consent.css?v=1", html)
 
     def test_legal_pages_include_theme_toggle_hooks(self):
@@ -1244,6 +1244,13 @@ class R2BCashDecisionCard(unittest.TestCase):
         self.assertIn(".rec-meta", self.css)
         self.assertIn(".rec-cta", self.css)
 
+    def test_recommendation_card_uses_composed_reading_width(self):
+        """Primary decision card should constrain briefing sections without shrinking the outer shell."""
+        self.assertIn(".rec-brief{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(220px,.72fr)", self.css)
+        self.assertIn(".rec-brief-main{display:flex;flex-direction:column;gap:10px;min-width:0;max-width:620px}", self.css)
+        self.assertIn("class=\"rec-brief-side\"", self.js)
+        self.assertIn("class=\"card-price rec-price-panel\"", self.js)
+
     def test_compact_alternatives_present(self):
         """Scope F: Non-first results use compact structure."""
         self.assertIn(".compact-alternative", self.css)
@@ -1251,6 +1258,19 @@ class R2BCashDecisionCard(unittest.TestCase):
         self.assertIn(".compact-route", self.css)
         self.assertIn(".compact-price", self.css)
         self.assertIn(".compact-value", self.css)
+
+    def test_award_program_grid_keeps_evaluated_card_intentional(self):
+        """Evaluated redemption card should not stretch into a lonely full-width tile."""
+        self.assertIn(".aw-cards-grid-briefing{grid-template-columns:minmax(0,1fr);margin-bottom:0}", self.css)
+        self.assertIn(".aw-cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,280px));justify-content:start", self.css)
+        self.assertIn("class=\"aw-cards-grid aw-cards-grid-briefing\"", self.js)
+
+    def test_award_result_uses_two_column_briefing_composition(self):
+        """Award recommendation should pair verdict and evidence in one desktop briefing block."""
+        self.assertIn(".aw-briefing{display:grid;grid-template-columns:minmax(0,1.18fr) minmax(300px,.82fr)", self.css)
+        self.assertIn("class=\"aw-briefing\"", self.js)
+        self.assertIn("class=\"aw-evidence\"", self.js)
+        self.assertIn("class=\"aw-program-options\"", self.js)
 
     def test_compact_journey_summary_present(self):
         """Scope C: Compact Cash journey summary renderer exists."""
@@ -1608,8 +1628,10 @@ process.stdout.write(html);
         self.assertIn('id="searchSummary"', self.html)
         self.assertIn("search-summary", self.html)
         self.assertIn(".shell.has-results #landing-state{display:none}", self.css)
-        self.assertIn(".shell.has-results .panel{padding:14px 16px 14px", self.css)
+        self.assertIn(".shell.has-results .hero{padding:10px 0 12px", self.css)
+        self.assertIn(".shell.has-results .panel{padding:13px 15px 13px", self.css)
         self.assertIn(".shell.has-results .search-summary{gap:8px", self.css)
+        self.assertIn(".shell.has-results .results{margin-top:8px;gap:8px}", self.css)
 
     def test_trust_notices_are_compact_result_context_not_banners(self):
         self.assertIn(".shell.has-results .card.note", self.css)
