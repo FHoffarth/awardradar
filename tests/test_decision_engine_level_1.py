@@ -493,10 +493,10 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=159", html)
-        self.assertIn("app.js?v=161", html)
-        self.assertNotIn("app.css?v=158", html)
-        self.assertNotIn("app.js?v=160", html)
+        self.assertIn("app.css?v=160", html)
+        self.assertIn("app.js?v=162", html)
+        self.assertNotIn("app.css?v=159", html)
+        self.assertNotIn("app.js?v=161", html)
         self.assertNotIn("app.js?v=157", html)
         self.assertIn("Know what&rsquo;s worth checking.", html)
         self.assertIn("with clear trade-offs, confidence signals and official verification guidance.", html)
@@ -544,7 +544,7 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("What to verify before booking", html)
         self.assertIn("Independence and commercial links", html)
         self.assertIn("Limitations", html)
-        self.assertIn("app.css?v=159", html)
+        self.assertIn("app.css?v=160", html)
         self.assertIn("consent.css?v=2", html)
         self.assertNotIn("app.js?v=147", html)
 
@@ -554,8 +554,8 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=159", html)
-        self.assertIn("app.js?v=161", html)
+        self.assertIn("app.css?v=160", html)
+        self.assertIn("app.js?v=162", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -993,7 +993,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
         response = self.client.get("/privacy")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("app.css?v=159", html)
+        self.assertIn("app.css?v=160", html)
         self.assertIn("consent.css?v=2", html)
         # Informational-only disclaimer and controlling-version statement
         self.assertIn(
@@ -1040,7 +1040,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
         response = self.client.get("/datenschutz")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("app.css?v=159", html)
+        self.assertIn("app.css?v=160", html)
         self.assertIn("consent.css?v=2", html)
         self.assertIn('href="/privacy"', html)
         # German legal substance remains intact
@@ -1049,7 +1049,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
 
     def test_impressum_uses_current_assets(self):
         html = self.client.get("/impressum").get_data(as_text=True)
-        self.assertIn("app.css?v=159", html)
+        self.assertIn("app.css?v=160", html)
         self.assertIn("consent.css?v=2", html)
         self.assertNotIn("app.css?v=156", html)
         self.assertNotIn("app.css?v=155", html)
@@ -1463,7 +1463,7 @@ process.stdout.write(html);
         self.assertIn("Verify current fare", html)
         self.assertNotIn("View fare", html)
         self.assertIn("Google Flights", html)
-        self.assertIn("AwardRadar does not sell or book fares.", html)
+        self.assertNotIn("AwardRadar does not sell or book fares.", top_card_html)
         self.assertEqual(top_card_html.count('class="link-primary"'), 1)
 
     def test_date_formatter_present(self):
@@ -1570,9 +1570,26 @@ process.stdout.write(html);
         self.assertNotIn('label: "Buy"', self.js)
         self.assertNotIn('"Buy"', self.js)
 
+    def test_cash_verification_explainer_is_result_level_not_card_level(self):
+        helper = self.js.split("function linksHtmlWithLabels(obj)", 1)[1].split("function sourceDisclosureHtml", 1)[0]
+        self.assertNotIn("AwardRadar does not sell or book fares.", helper)
+        self.assertIn("function cashVerificationExplainerHtml()", self.js)
+        self.assertIn("External verification", self.js)
+        self.assertIn("AwardRadar does not sell or book fares.", self.js)
+        self.assertIn("cashVerificationExplainerHtml()", self.js)
+        self.assertIn(".cash-result-verification", self.css)
+
+    def test_header_ready_pill_and_value_signal_hint_are_removed(self):
+        self.assertNotIn('id="status"', self.html)
+        self.assertNotIn('>ready<', self.html)
+        legend = self.js.split("function scoreLegendHtml()", 1)[1].split("function cashVerificationExplainerHtml", 1)[0]
+        self.assertIn("What is the Value Signal?", legend)
+        self.assertNotIn("tap to expand", legend)
+        self.assertNotIn("legend-hint", self.css)
+
     def test_cash_primary_link_hierarchy_keeps_one_verification_path(self):
         helper = self.js.split("function linksHtmlWithLabels(obj)", 1)[1].split("function sourceDisclosureHtml", 1)[0]
-        self.assertIn("const [provider, url] = entries[0];", helper)
+        self.assertIn("const [, url] = entries[0];", helper)
         self.assertNotIn("entries.map", helper)
         disclosure = self.js.split("function sourceDisclosureHtml(obj)", 1)[1].split("function actionLinksHtml", 1)[0]
         self.assertIn("entries.map", disclosure)
