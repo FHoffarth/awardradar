@@ -587,7 +587,10 @@ function payload() {
   };
 }
 
-function setStatus(t) { $('status').textContent = t; }
+function setStatus(t) {
+  const status = $('status');
+  if (status) status.textContent = t;
+}
 
 const RADAR_STAGES = {
   cheap: [
@@ -725,11 +728,8 @@ function linksHtmlWithLabels(obj) {
   }
   const entries = Object.entries(obj || {});
   if (!entries.length) return '';
-  const [provider, url] = entries[0];
-  return `<div class="cash-verification">
-    <div class="cash-verification-note"><strong>External verification</strong><span>AwardRadar does not sell or book fares.</span></div>
-    <div class="links"><a class="link-primary" target="_blank" rel="noopener" href="${esc(url)}" title="Verify current fare externally"><span class="link-label">Verify current fare</span></a></div>
-  </div>`;
+  const [, url] = entries[0];
+  return `<div class="links"><a class="link-primary" target="_blank" rel="noopener" href="${esc(url)}" title="Verify current fare externally"><span class="link-label">Verify current fare</span></a></div>`;
 }
 
 // Source disclosure keeps every returned provider available as provenance and
@@ -1024,7 +1024,7 @@ function bestBadgeHtml(o, sortContext, opts = {}) {
 
 function scoreLegendHtml() {
   return `<details class="score-legend">
-    <summary>What is the Value Signal? <span class="legend-hint">tap to expand</span></summary>
+    <summary>What is the Value Signal?</summary>
     <div class="legend-grid">
       <span class="s-gold score-num" style="font-size:15px">+</span><span><strong>Stronger relative signal</strong> — returned fare and routing evidence align more closely</span>
       <span class="s-cyan score-num" style="font-size:15px">~</span><span><strong>Moderate relative signal</strong> — returned evidence is mixed</span>
@@ -1032,6 +1032,12 @@ function scoreLegendHtml() {
     </div>
     <p class="legend-note">Value Signal is relative to the cheapest comparable result in this search, adjusted for routing quality and a price reality check. Best available is not always cheap.</p>
   </details>`;
+}
+
+function cashVerificationExplainerHtml() {
+  return `<div class="cash-result-verification" role="note">
+    <strong>External verification</strong> — AwardRadar does not sell or book fares. Confirm current fares, seats and rules with the source.
+  </div>`;
 }
 
 function priceTiers(calendar) {
@@ -1469,7 +1475,8 @@ function render(data) {
         <button class="sort-btn" data-sort="price" onclick="applySort('price')">Fare amount</button>
         <button class="sort-btn" data-sort="nonstop" onclick="applySort('nonstop')">Routing simplicity</button>
       </div>
-      ${scoreLegendHtml()}`;
+      ${scoreLegendHtml()}
+      ${cashVerificationExplainerHtml()}`;
       html += `<div id="cards-wrap">${cheapCardsHtml(currentOffers, 'score', currentCashGuidance, { roundTripRequested: currentCheapRoundTripRequested, decisionActionsMarkup: primaryDecisionActionsHtml })}</div>`;
       if (!hasPrimaryDecisionActions) {
         html += relatedAnalysesHtml('cheap');
