@@ -2986,7 +2986,7 @@ function discoveryReason(o) {
   const container = $('discovery-cards');
   if (!container) return;
 
-  const STARS_MAP = { exceptional: '★★★★★', great: '★★★★☆' };
+  const SIGNAL_LABEL = { exceptional: 'Strong award signal', great: 'Award signal' };
   const REC_LABEL  = {
     book_miles: 'Verify miles option', lean_miles: 'Lean towards Miles',
     consider:   'Compare options', pay_cash:   'Pay Cash',
@@ -3003,8 +3003,8 @@ function discoveryReason(o) {
         return;
       }
       if (!o) return;
-      const tier = STARS_MAP[o.grade_tier] ? o.grade_tier : 'great';
-      const stars = STARS_MAP[tier] || '';
+      const tier = SIGNAL_LABEL[o.grade_tier] ? o.grade_tier : 'great';
+      const tierLabel = SIGNAL_LABEL[tier] || 'Award signal';
       const recLbl = REC_LABEL[o.recommendation] || 'Verify miles option';
       const reason = discoveryReason(o);
       const roundedSeats = o.seats === null ? null : Math.round(o.seats);
@@ -3026,8 +3026,7 @@ function discoveryReason(o) {
           <span class="disc-cabin-pill">${esc(o.cabin)}</span>
         </div>
         <div class="disc-verdict-row">
-          ${stars ? `<span class="disc-stars" aria-hidden="true">${stars}</span>` : ''}
-          <span class="disc-tier-label">${esc(o.grade_label || tier)}</span>
+          <span class="disc-tier-label">${esc(tierLabel)}</span>
         </div>
         <div class="disc-rec-label">&nearr; ${esc(recLbl)}</div>
         <div class="disc-offer-row">
@@ -3039,12 +3038,12 @@ function discoveryReason(o) {
           <span class="disc-conf disc-conf-live">Current availability signal</span>
           ${o.cpm ? `<span class="disc-cpm">${formatCpm(o.cpm)}</span>` : ''}
         </div>
-        <a href="#" class="disc-cta-btn" onclick="${esc(ctaClick)}">Review this route &rarr;</a>
+        <a href="#" class="disc-cta-btn" onclick="${esc(ctaClick)}">Review value signal &rarr;</a>
       </div>`);
     });
     if (!cards.length) {
       container.innerHTML = `<div class="disc-empty">
-        <div class="disc-empty-title">No exceptional opportunities detected today.</div>
+        <div class="disc-empty-title">No strong opportunity signals are available right now.</div>
         New opportunities are continuously scanned.
       </div>`;
       return;
