@@ -493,8 +493,9 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=156", html)
-        self.assertIn("app.js?v=158", html)
+        self.assertIn("app.css?v=157", html)
+        self.assertIn("app.js?v=159", html)
+        self.assertNotIn("app.js?v=158", html)
         self.assertNotIn("app.js?v=157", html)
         self.assertIn("Know what&rsquo;s worth checking.", html)
         self.assertIn("with clear trade-offs, confidence signals and official verification guidance.", html)
@@ -542,7 +543,7 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("What to verify before booking", html)
         self.assertIn("Independence and commercial links", html)
         self.assertIn("Limitations", html)
-        self.assertIn("app.css?v=156", html)
+        self.assertIn("app.css?v=157", html)
         self.assertIn("consent.css?v=2", html)
         self.assertNotIn("app.js?v=147", html)
 
@@ -552,8 +553,8 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=156", html)
-        self.assertIn("app.js?v=158", html)
+        self.assertIn("app.css?v=157", html)
+        self.assertIn("app.js?v=159", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -855,7 +856,7 @@ const document = {{ documentElement: {{ getAttribute: () => 'en' }} }};
 function esc(s) {{
   return String(s ?? '').replace(/[&<>"]/g, c => ({{ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }}[c]));
 }}
-const STARS_MAP = {{ exceptional: '*****', great: '****' }};
+const SIGNAL_LABEL = {{ exceptional: 'Strong award signal', great: 'Award signal' }};
 const REC_LABEL = {{
   book_miles: 'Verify miles option',
   lean_miles: 'Lean towards Miles',
@@ -916,10 +917,16 @@ process.stdout.write(JSON.stringify({{ html: container.innerHTML, warnings }}));
         )
         html = result["html"]
         self.assertIn("disc-card", html)
+        self.assertNotIn("disc-stars", html)
         self.assertIn("FRA", html)
         self.assertIn("JFK", html)
         self.assertIn("2L", html)
         self.assertIn("UNKNOWN", html)
+        self.assertIn("Strong award signal", html)
+        self.assertIn("Award signal", html)
+        self.assertIn("Review value signal", html)
+        self.assertNotIn("Review this route", html)
+        self.assertNotIn("Exceptional value", html)
         self.assertIn("Provider reports direct availability", html)
         self.assertNotIn("disc-error", html)
         self.assertEqual(result["warnings"], [])
@@ -935,7 +942,8 @@ process.stdout.write(JSON.stringify({{ html: container.innerHTML, warnings }}));
 
     def test_empty_success_response_uses_neutral_empty_state(self):
         result = self.render_fixture([])
-        self.assertIn("No exceptional opportunities detected today.", result["html"])
+        self.assertIn("No strong opportunity signals are available right now.", result["html"])
+        self.assertNotIn("No exceptional opportunities detected today.", result["html"])
         self.assertNotIn("temporarily unavailable", result["html"])
 
     def test_malformed_item_does_not_suppress_valid_cards(self):
@@ -984,7 +992,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
         response = self.client.get("/privacy")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("app.css?v=156", html)
+        self.assertIn("app.css?v=157", html)
         self.assertIn("consent.css?v=2", html)
         # Informational-only disclaimer and controlling-version statement
         self.assertIn(
@@ -1031,7 +1039,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
         response = self.client.get("/datenschutz")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("app.css?v=156", html)
+        self.assertIn("app.css?v=157", html)
         self.assertIn("consent.css?v=2", html)
         self.assertIn('href="/privacy"', html)
         # German legal substance remains intact
@@ -1040,8 +1048,9 @@ class EnglishPrivacyNotice(unittest.TestCase):
 
     def test_impressum_uses_current_assets(self):
         html = self.client.get("/impressum").get_data(as_text=True)
-        self.assertIn("app.css?v=156", html)
+        self.assertIn("app.css?v=157", html)
         self.assertIn("consent.css?v=2", html)
+        self.assertNotIn("app.css?v=156", html)
         self.assertNotIn("app.css?v=155", html)
         self.assertNotIn("app.css?v=154", html)
         self.assertNotIn("app.css?v=153", html)
