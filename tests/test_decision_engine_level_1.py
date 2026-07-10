@@ -493,8 +493,8 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=151", html)
-        self.assertIn("app.js?v=156", html)
+        self.assertIn("app.css?v=152", html)
+        self.assertIn("app.js?v=157", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
         self.assertIn("data-text-size-option=\"large\"", html)
@@ -531,7 +531,8 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("What to verify before booking", html)
         self.assertIn("Independence and commercial links", html)
         self.assertIn("Limitations", html)
-        self.assertIn("app.css?v=136", html)
+        self.assertIn("app.css?v=152", html)
+        self.assertIn("consent.css?v=2", html)
         self.assertNotIn("app.js?v=147", html)
 
     def test_about_navigation_exists_on_main_page(self):
@@ -540,8 +541,8 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=151", html)
-        self.assertIn("app.js?v=156", html)
+        self.assertIn("app.css?v=152", html)
+        self.assertIn("app.js?v=157", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -556,6 +557,21 @@ class AboutMethodologyPage(unittest.TestCase):
             self.assertNotIn(phrase, html)
         self.assertIn("official airline, booking-site and loyalty-program sources are the final verification point", html)
         self.assertIn("commercial placement", html)
+
+    def test_about_legacy_notice_replaced(self):
+        html = self.client.get("/about").get_data(as_text=True)
+        self.assertIn("Verify before booking — AwardRadar provides decision support only.", html)
+        self.assertNotIn("beta-notice", html)
+        self.assertNotIn("beta-tag", html)
+        self.assertNotIn("decision-support context based on fare and award data", html)
+        trust_note = html.split('<div class="trust-note">', 1)[1].split('</div>', 1)[0]
+        self.assertNotIn("hello@awardradar.app", trust_note)
+        self.assertIn('<a href="mailto:hello@awardradar.app">Contact</a>', html)
+
+    def test_legacy_notice_css_removed(self):
+        css = (pathlib.Path(__file__).parents[1] / "static" / "app.css").read_text(encoding="utf-8")
+        self.assertNotIn(".beta-notice", css)
+        self.assertNotIn(".beta-tag", css)
 
     def test_about_appears_in_sitemap(self):
         response = self.client.get("/sitemap.xml")
@@ -824,6 +840,7 @@ class TopOpportunitiesFrontendRendering(unittest.TestCase):
 const warnings = [];
 const console = {{ warn: (...args) => warnings.push(args.join(' ')) }};
 const window = {{ location: {{ origin: 'https://awardradar.app' }} }};
+const document = {{ documentElement: {{ getAttribute: () => 'en' }} }};
 function esc(s) {{
   return String(s ?? '').replace(/[&<>"]/g, c => ({{ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }}[c]));
 }}
@@ -835,6 +852,8 @@ const REC_LABEL = {{
   pay_cash: 'Pay Cash',
 }};
 const container = {{ innerHTML: '' }};
+{"function formatUserDate(dateStr)" + js.split("function formatUserDate(dateStr)", 1)[1].split("function fmtDur(min)", 1)[0]}
+{"const SEARCH_MONTHS = [" + js.split("const SEARCH_MONTHS = [", 1)[1].split("function _searchSummaryText()", 1)[0]}
 {helper_block}
 {render_cards}
 renderCards({json.dumps(opportunities)});
@@ -1269,6 +1288,7 @@ function between(start, end) {{
 const block = [
   between('function formatUserDate(dateStr)', 'function aircraftStub'),
   between('function esc(s)', 'async function run()'),
+  between('const SEARCH_MONTHS = [', 'function _searchSummaryText()'),
   between('const CASH_TIER_CSS = {{', 'function priceTiers(calendar)'),
   between('function cashItineraryHtml(o)', '// Client-side mirror of the backend valid-price rule'),
   between('function isValidCashPrice(v)', 'function decisionGuidanceHtml(guidance)'),
@@ -1366,6 +1386,43 @@ process.stdout.write(html);
     def test_date_formatter_present(self):
         """Scope D: Date localization helper formatUserDate exists."""
         self.assertIn("function formatUserDate(dateStr)", self.js)
+
+    def test_central_formatters_present(self):
+        self.assertIn("function formatMoney(value, currency = 'EUR')", self.js)
+        self.assertIn("function formatMilesNumber(value)", self.js)
+        self.assertIn("function formatMiles(value, unit = 'miles')", self.js)
+        self.assertIn("function formatCpm(value)", self.js)
+        self.assertIn("function formatTripDate(value)", self.js)
+        self.assertIn("function formatTripDateRange(start, end)", self.js)
+
+    def test_number_formatters_lock_international_locale(self):
+        self.assertIn("num.toLocaleString('en-US'", self.js)
+        self.assertIn("Math.round(num).toLocaleString('en-US')", self.js)
+        self.assertNotIn("toLocaleString(undefined", self.js)
+
+    def test_award_card_miles_keep_split_span_structure(self):
+        self.assertIn('class="aw-card-miles">${esc(formatMilesNumber(p.miles) || \'—\')}</span>', self.js)
+        self.assertIn('<span class="aw-card-miles-unit">miles</span>', self.js)
+        self.assertNotIn('class="aw-card-miles">${esc(formatMiles(p.miles))}', self.js)
+
+    def test_trip_dates_use_central_formatters(self):
+        self.assertIn("const dateContext = formatTripDateRange(r.date, r.returnDate);", self.js)
+        self.assertIn("esc(formatTripDate(r.date))", self.js)
+        self.assertIn("Date: ${formatTripDate(o.available_date)}", self.js)
+        self.assertNotIn("${r.date} -> ${r.returnDate}", self.js)
+        self.assertNotIn("Date: ${o.available_date}", self.js)
+
+    def test_money_displays_use_central_formatter(self):
+        self.assertIn("formatMoney(o.price, o.currency)", self.js)
+        self.assertIn("formatMoney(r.cash_eur)", self.js)
+        self.assertIn("formatMoney(cal.price)", self.js)
+        self.assertIn("formatMoney(fees)", self.js)
+        self.assertNotIn("Potential difference ~${Math.round(r.savings)} EUR vs direct", self.js)
+        self.assertNotIn(" + EUR ${Math.round(fees)}", self.js)
+
+    def test_cpm_unit_is_ct_per_mile(self):
+        self.assertIn("return `${num.toFixed(1)} ct/mi`;", self.js)
+        self.assertNotIn("${cpm.toFixed(1)} ct", self.js)
 
     def test_source_disclosure_present(self):
         """Scope E: Source disclosure (Compare sources) UI present."""
@@ -1777,9 +1834,9 @@ class CashCardInvalidPriceFrontendDefense(unittest.TestCase):
         self.assertGreater(idx_filter, -1)
         self.assertGreater(idx_sort, idx_filter)
 
-    def test_price_render_uses_math_round(self):
+    def test_price_render_uses_central_money_formatter(self):
         # Guard remains the sole path; invalid prices never reach this line.
-        self.assertIn("Math.round(o.price)", self.js)
+        self.assertIn("formatMoney(o.price, o.currency)", self.js)
 
     def _eval_helper(self, cases_json):
         if not self.node:
