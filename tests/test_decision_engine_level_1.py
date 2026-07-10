@@ -493,8 +493,9 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=154", html)
+        self.assertIn("app.css?v=155", html)
         self.assertIn("app.js?v=158", html)
+        self.assertNotIn("app.js?v=157", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
         self.assertIn("data-text-size-option=\"large\"", html)
@@ -531,7 +532,7 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("What to verify before booking", html)
         self.assertIn("Independence and commercial links", html)
         self.assertIn("Limitations", html)
-        self.assertIn("app.css?v=154", html)
+        self.assertIn("app.css?v=155", html)
         self.assertIn("consent.css?v=2", html)
         self.assertNotIn("app.js?v=147", html)
 
@@ -541,7 +542,7 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=154", html)
+        self.assertIn("app.css?v=155", html)
         self.assertIn("app.js?v=158", html)
 
     def test_about_copy_avoids_overclaiming(self):
@@ -973,7 +974,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
         response = self.client.get("/privacy")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("app.css?v=154", html)
+        self.assertIn("app.css?v=155", html)
         self.assertIn("consent.css?v=2", html)
         # Informational-only disclaimer and controlling-version statement
         self.assertIn(
@@ -1020,7 +1021,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
         response = self.client.get("/datenschutz")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("app.css?v=154", html)
+        self.assertIn("app.css?v=155", html)
         self.assertIn("consent.css?v=2", html)
         self.assertIn('href="/privacy"', html)
         # German legal substance remains intact
@@ -1029,8 +1030,9 @@ class EnglishPrivacyNotice(unittest.TestCase):
 
     def test_impressum_uses_current_assets(self):
         html = self.client.get("/impressum").get_data(as_text=True)
-        self.assertIn("app.css?v=154", html)
+        self.assertIn("app.css?v=155", html)
         self.assertIn("consent.css?v=2", html)
+        self.assertNotIn("app.css?v=154", html)
         self.assertNotIn("app.css?v=153", html)
         self.assertNotIn("consent.css?v=1", html)
 
@@ -1271,6 +1273,20 @@ class R2BCashDecisionCard(unittest.TestCase):
         self.assertIn("class=\"aw-briefing\"", self.js)
         self.assertIn("class=\"aw-evidence\"", self.js)
         self.assertIn("class=\"aw-program-options\"", self.js)
+
+    def test_typography_tokens_define_ledger_and_cockpit_layers(self):
+        self.assertIn('font-family:"Inter";', self.css)
+        self.assertIn('--font-body:"Source Sans 3",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;', self.css)
+        self.assertIn("--font-sans:var(--font-body);", self.css)
+        self.assertIn('--font-display:"Inter",var(--font-body);', self.css)
+        self.assertIn('--font-data:"Inter",var(--font-body);', self.css)
+        self.assertIn("body{min-height:100vh;font-family:var(--font-sans)", self.css)
+
+    def test_typography_cockpit_selectors_use_display_and_data_fonts(self):
+        self.assertIn(".price,.price-currency,.aw-card-miles,.aw-card-miles-unit,.aw-miles,.aw-cpm,.aw-meta-cpm,.aw-metric-val,.bdc-cpp,.score-num,.aw-trust-v,.pa-code,.aw-route-code,.journey-node-main{font-family:var(--font-data)}", self.css)
+        self.assertIn(".rec-verdict,.cg-headline,.aw-verdict-h,.results .card h3{font-family:var(--font-display)}", self.css)
+        self.assertIn(".search-summary-text{font-family:var(--font-display)}", self.css)
+        self.assertIn(".tab-title,.go-main{font-family:var(--font-display)}", self.css)
 
     def test_compact_journey_summary_present(self):
         """Scope C: Compact Cash journey summary renderer exists."""

@@ -26,8 +26,32 @@
   font-style:normal;
   font-display:swap;
 }
+@font-face{
+  font-family:"Inter";
+  src:url("/static/fonts/Inter-Medium.woff2") format("woff2");
+  font-weight:500;
+  font-style:normal;
+  font-display:swap;
+}
+@font-face{
+  font-family:"Inter";
+  src:url("/static/fonts/Inter-SemiBold.woff2") format("woff2");
+  font-weight:600;
+  font-style:normal;
+  font-display:swap;
+}
+@font-face{
+  font-family:"Inter";
+  src:url("/static/fonts/Inter-Bold.woff2") format("woff2");
+  font-weight:700;
+  font-style:normal;
+  font-display:swap;
+}
 :root{
-  --font-sans:"Source Sans 3",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --font-body:"Source Sans 3",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --font-sans:var(--font-body);
+  --font-display:"Inter",var(--font-body);
+  --font-data:"Inter",var(--font-body);
   --text-scale:1;
   --ar-bg-deep:#061425;
   --ar-bg-slate:#10243f;
@@ -445,6 +469,10 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 .price,.price-currency,.pa-code,.ex-route,.fields input,.score-val,.score-num,.cpm-val,.aw-metric-val,.aw-card-miles,.aw-card-surcharge,.aw-meta-cpm,.aw-fs-times,.aw-seg-times,.aw-journey-time,.bdc-cpp,.bdc-cash-vs strong{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 .pa-code{letter-spacing:.04em}
 .price{letter-spacing:-.01em}
+.price,.price-currency,.aw-card-miles,.aw-card-miles-unit,.aw-miles,.aw-cpm,.aw-meta-cpm,.aw-metric-val,.bdc-cpp,.score-num,.aw-trust-v,.pa-code,.aw-route-code,.journey-node-main{font-family:var(--font-data)}
+.rec-verdict,.cg-headline,.aw-verdict-h,.results .card h3{font-family:var(--font-display)}
+.search-summary-text{font-family:var(--font-display)}
+.tab-title,.go-main{font-family:var(--font-display)}
 /* ===== Discovery Widget ===== */
 .discovery-section{margin-top:32px;overflow:hidden}
 .discovery-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
