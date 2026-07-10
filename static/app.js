@@ -717,21 +717,23 @@ function linksHtml(obj) {
   return `<div class="links">${Object.entries(obj || {}).map(([k, v]) => `<a target="_blank" rel="noopener" href="${esc(v)}">${esc(k)}</a>`).join('')}</div>`;
 }
 
-// Link rendering for cash cards: first link labeled "View fare", others show provider name
+// Cash cards expose one primary verification path. Additional sources remain in
+// the demoted provenance disclosure below.
 function linksHtmlWithLabels(obj) {
   if (Array.isArray(obj)) {
     return linksHtml(obj);
   }
   const entries = Object.entries(obj || {});
   if (!entries.length) return '';
-  return `<div class="links">${entries.map(([k, v], idx) =>
-    idx === 0
-      ? `<a class="link-primary" target="_blank" rel="noopener" href="${esc(v)}" title="View fare on ${esc(k)}"><span class="link-label">View fare</span><span class="link-provider">${esc(k)}</span></a>`
-      : `<a target="_blank" rel="noopener" href="${esc(v)}">${esc(k)}</a>`
-  ).join('')}</div>`;
+  const [provider, url] = entries[0];
+  return `<div class="cash-verification">
+    <div class="cash-verification-note"><strong>External verification</strong><span>AwardRadar does not sell or book fares.</span></div>
+    <div class="links"><a class="link-primary" target="_blank" rel="noopener" href="${esc(url)}" title="Verify current fare with ${esc(provider)}"><span class="link-label">Verify current fare</span><span class="link-provider">${esc(provider)}</span></a></div>
+  </div>`;
 }
 
-// Source disclosure button + hidden popover for "Compare sources" (Scope E)
+// Source disclosure keeps every returned provider available as provenance and
+// an optional verification path without turning the card into a shopping list.
 function sourceDisclosureHtml(obj) {
   const entries = Object.entries(obj || {});
   if (!entries.length) return '';
@@ -743,7 +745,7 @@ function sourceDisclosureHtml(obj) {
 
   return `<div class="source-disclosure">
     <button type="button" class="source-toggle" aria-expanded="false" aria-controls="${uid}">
-      Compare sources
+      Fare sources and verification options
     </button>
     <div class="source-popover" id="${uid}" hidden>
       <div class="source-links">${sourcesHtml}</div>
@@ -963,16 +965,29 @@ function scoreHtml(o) {
   const info = o.tier && CASH_TIER_CSS[o.tier] ? CASH_TIER_CSS[o.tier] : scoreInfo(s);
   const grade = o.grade || info.grade;
   const label = o.label || info.label;
-  const tooltip = o.scoreReason ? esc(o.scoreReason) : esc(label);
+  const tooltip = o.scoreReason ? esc(cashReasonDisplay(o.scoreReason)) : esc(label);
   const note = CASH_CONTEXT_NOTE[o.scoreContext] || '';
   const conf = o.scoreConfidence && o.scoreConfidence !== 'high'
     ? `<div class="score-conf">${o.scoreConfidence === 'low' ? 'Limited confidence' : 'Moderate confidence'}</div>` : '';
-  return `<div class="score-block ${info.css}" title="${tooltip}" aria-label="Value Signal ${s} out of 100: ${esc(label)}">
-    <span class="score-num">${s}</span><span class="score-denom">/100</span>
-    <div class="score-lbl"><span class="score-grade">${grade}</span> ${esc(label)}</div>
-    ${note ? `<div class="score-context">${esc(note)}</div>` : ''}
-    ${conf}
-  </div>`;
+  return `<details class="score-block score-details ${info.css}" title="${tooltip}">
+    <summary>Assessment details</summary>
+    <div class="score-details-body" aria-label="Relative assessment ${s} out of 100: ${esc(label)}">
+      <span class="score-num">${s}</span><span class="score-denom">/100</span>
+      <div class="score-lbl"><span class="score-grade">${grade}</span> ${esc(label)}</div>
+      ${note ? `<div class="score-context">${esc(note)}</div>` : ''}
+      ${conf}
+    </div>
+  </details>`;
+}
+
+function cashReasonDisplay(reason) {
+  return String(reason || '')
+    .replace(/cheapest in this search/gi, 'Lowest returned fare')
+    .replace(/higher than cheapest/gi, 'Higher than lowest returned fare')
+    .replace(/(\d+)% pricier than cheapest/gi, '$1% above lowest returned fare')
+    .replace(/\bnonstop\b/gi, 'Nonstop itinerary')
+    .replace(/\b1 stop\b/gi, 'One-stop itinerary')
+    .replace(/\b(\d+) stops\b/gi, '$1-stop itinerary');
 }
 function bestBadgeHtml(o, sortContext, opts = {}) {
   const guided = !!opts.guided;
@@ -982,7 +997,7 @@ function bestBadgeHtml(o, sortContext, opts = {}) {
   }
   // Sort context takes precedence over value judgment
   if (sortContext === 'price') {
-    return '<div class="best-badge">Lowest Price</div>';
+    return '<div class="best-badge">Lowest returned fare</div>';
   }
   if (sortContext === 'nonstop') {
     const hasKnownStops =
@@ -992,7 +1007,7 @@ function bestBadgeHtml(o, sortContext, opts = {}) {
       Number.isFinite(Number(o.stops));
 
     const stops = hasKnownStops ? Number(o.stops) : null;
-    const label = stops === 0 ? 'Nonstop' : 'Fewest Stops';
+    const label = stops === 0 ? 'Nonstop itinerary' : 'Simplest routing';
     return `<div class="best-badge">${label}</div>`;
   }
   // Default: use value-tier logic
@@ -1297,7 +1312,7 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
             <div class="card-price rec-price-panel">
               <div class="price">${esc(formatMoney(o.price, o.currency))}</div>
               <div class="price-sub">per person</div>
-              ${o.scoreReason ? `<div class="score-reason-pills">${o.scoreReason.split(' · ').map(p => `<span class="srp">${esc(p)}</span>`).join('')}</div>` : ''}
+              ${o.scoreReason ? `<div class="score-reason-pills">${o.scoreReason.split(' · ').map(p => `<span class="srp">${esc(cashReasonDisplay(p))}</span>`).join('')}</div>` : ''}
               ${scoreHtml(o)}
             </div>
           </div>
@@ -1346,11 +1361,9 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
 
     const tier = o.tier || scoreInfo(o.dealScore).tier;
     let conciseLabel = '';
-    if (tier === 'exceptional') conciseLabel = 'A+ · Exceptional';
-    else if (tier === 'great') conciseLabel = 'A · Strong';
-    else if (tier === 'good') conciseLabel = 'B · Fair';
-    else if (tier === 'fair') conciseLabel = 'C · Pricey';
-    else conciseLabel = 'D · Weak';
+    if (tier === 'exceptional' || tier === 'great') conciseLabel = 'Stronger relative signal';
+    else if (tier === 'good') conciseLabel = 'Moderate relative signal';
+    else conciseLabel = 'Weaker relative signal';
     const recommendationTag = isGuidanceRecommended ? '<div class="cg-tag cg-tag-compact">Recommended option</div>' : '';
     const returnDisclosure = returnDisclosureHtml(o, roundTripRequested);
 
@@ -1450,10 +1463,10 @@ function render(data) {
       const primaryDecisionActionsHtml = decisionActionsHtml();
       const hasPrimaryDecisionActions = !!String(primaryDecisionActionsHtml || '').trim();
       html += `<div class="sort-bar">
-        <span class="sort-label">Sort:</span>
-        <button class="sort-btn active" data-sort="score" onclick="applySort('score')">Best Value</button>
-        <button class="sort-btn" data-sort="price" onclick="applySort('price')">Lowest Price</button>
-        <button class="sort-btn" data-sort="nonstop" onclick="applySort('nonstop')">Fewest Stops</button>
+        <span class="sort-label">Review by:</span>
+        <button class="sort-btn active" data-sort="score" onclick="applySort('score')">Assessment</button>
+        <button class="sort-btn" data-sort="price" onclick="applySort('price')">Fare amount</button>
+        <button class="sort-btn" data-sort="nonstop" onclick="applySort('nonstop')">Routing simplicity</button>
       </div>
       ${scoreLegendHtml()}`;
       html += `<div id="cards-wrap">${cheapCardsHtml(currentOffers, 'score', currentCashGuidance, { roundTripRequested: currentCheapRoundTripRequested, decisionActionsMarkup: primaryDecisionActionsHtml })}</div>`;
