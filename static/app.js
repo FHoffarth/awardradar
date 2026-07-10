@@ -860,6 +860,50 @@ function formatSearchDateRange(depValue, retValue) {
   if (dep.y === ret.y) return `${dep.d} ${SEARCH_MONTHS[dep.m - 1]}–${ret.d} ${SEARCH_MONTHS[ret.m - 1]} ${dep.y}`;
   return `${formatSearchDate(depValue)}–${formatSearchDate(retValue)}`;
 }
+function formatMoney(value, currency = 'EUR') {
+  if (value == null) return '—';
+  const num = Number(value);
+  if (!isFinite(num)) return '—';
+  const hasDecimals = Math.abs(num % 1) > 0;
+  const minDigits = hasDecimals ? 2 : 0;
+  const maxDigits = 2;
+  if (currency === 'EUR') {
+    return `€${num.toLocaleString('en-US', { minimumFractionDigits: minDigits, maximumFractionDigits: maxDigits })}`;
+  }
+  return `${num.toLocaleString('en-US', { minimumFractionDigits: minDigits, maximumFractionDigits: maxDigits })} ${currency}`;
+}
+function formatMilesNumber(value) {
+  if (value == null) return null;
+  const num = Number(value);
+  if (!isFinite(num)) return null;
+  return Math.round(num).toLocaleString('en-US');
+}
+function formatMiles(value, unit = 'miles') {
+  const numStr = formatMilesNumber(value);
+  if (!numStr) return unit === 'miles' ? 'Miles unavailable' : `${unit} unavailable`;
+  return `${numStr} ${unit}`;
+}
+function formatCpm(value) {
+  if (value == null) return null;
+  const num = Number(value);
+  if (!isFinite(num)) return null;
+  return `${num.toFixed(1)} ct/mi`;
+}
+function formatTripDate(value) {
+  return formatUserDate(value);
+}
+function formatTripDateRange(start, end) {
+  if (!start && !end) return '';
+  if (!start) return formatTripDate(end);
+  if (!end) return formatTripDate(start);
+  const dep = parseIsoDateParts(start);
+  const ret = parseIsoDateParts(end);
+  if (dep && ret) {
+    if (dep.y === ret.y && dep.m === ret.m) return `${dep.d}–${ret.d} ${SEARCH_MONTHS[dep.m - 1]} ${dep.y}`;
+    if (dep.y === ret.y) return `${dep.d} ${SEARCH_MONTHS[dep.m - 1]} – ${ret.d} ${SEARCH_MONTHS[ret.m - 1]} ${dep.y}`;
+  }
+  return `${formatTripDate(start)} – ${formatTripDate(end)}`;
+}
 function _searchSummaryText() {
   const o = ($('origin').value || '').trim().toUpperCase().slice(0, 3);
   const d = ($('dest').value || '').trim().toUpperCase().slice(0, 3);
@@ -993,7 +1037,7 @@ function calendarStripHtml(calendar) {
     const label = d.toLocaleDateString('en', { month: 'short', day: 'numeric' });
     const tier = tiers[c.date] || '';
     const cls = (c.isSelected ? ' dc-sel' : c.isBest ? ' dc-best' : tier ? ` dc-${tier}` : '');
-    const priceStr = c.price ? Math.round(c.price) + ' ' + (c.currency || 'EUR') : '—';
+    const priceStr = c.price ? formatMoney(c.price, c.currency || 'EUR') : '—';
     return `<button class="date-cell${cls}" onclick="jumpToDate('${c.date}')">
       <div class="dc-date">${label}</div>
       <div class="dc-price">${priceStr}</div>
@@ -1217,8 +1261,7 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
         }
       }
 
-      const formattedDate = formatUserDate(o.date);
-      const returnDateStr = o.returnDate ? ` → ${formatUserDate(o.returnDate)}` : '';
+      const dateLine = formatTripDateRange(o.date, o.returnDate);
       const guidanceHtml = isGuidanceRecommended ? decisionGuidanceHtml(guidance) : '';
       const verdictHtml = guidanceHtml ? '' : `<div class="rec-verdict">${esc(verdict)}</div>`;
       const recommendationTag = isGuidanceRecommended ? '<div class="cg-tag cg-tag-secondary">Recommended option</div>' : '';
@@ -1247,10 +1290,10 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
             ${compactCashJourneySummary(o)}
             ${journeyFacts}
             <div class="card-airline">${logoImg}<span class="airline-name">${esc(airlineLabel)}</span>${flightNoHtml}</div>
-            <div class="rec-meta">${formattedDate}${returnDateStr}</div>
+            <div class="rec-meta">${esc(dateLine)}</div>
           </div>
           <div class="card-price">
-            <div class="price">${Math.round(o.price)} <span class="price-currency">${esc(o.currency)}</span></div>
+            <div class="price">${esc(formatMoney(o.price, o.currency))}</div>
             <div class="price-sub">per person</div>
             ${o.scoreReason ? `<div class="score-reason-pills">${o.scoreReason.split(' · ').map(p => `<span class="srp">${esc(p)}</span>`).join('')}</div>` : ''}
             ${scoreHtml(o)}
@@ -1267,8 +1310,7 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
     // R2B-1 COMPACT ALTERNATIVES (Scope F)
     const stopsLabel = stops === 0 ? 'nonstop' : stops === 1 ? '1 stop' : `${stops} stops`;
     const durStr = o.durationMin ? fmtDur(o.durationMin) : '';
-    const formattedDate = formatUserDate(o.date);
-    const dateLine = formattedDate + (o.returnDate ? ' → ' + formatUserDate(o.returnDate) : '');
+    const dateLine = formatTripDateRange(o.date, o.returnDate);
     const dep = o.dep_time;
     const arr = o.arr_time;
     const off = (typeof o.arrival_day_offset === 'number' && o.arrival_day_offset > 0) ? o.arrival_day_offset : null;
@@ -1315,8 +1357,7 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
           <div class="compact-airline">${logoImg}<span>${esc(airlineLabel)}</span>${flightNoHtml}</div>
         </div>
         <div class="compact-price">
-          <div class="price">${Math.round(o.price)}</div>
-          <div class="price-cur">${esc(o.currency)}</div>
+          <div class="price">${esc(formatMoney(o.price, o.currency))}</div>
           <div class="compact-value">${esc(conciseLabel)}</div>
         </div>
       </div>
@@ -1427,10 +1468,10 @@ function render(data) {
         const segChain = r.segmentChain ? `<div class="seg-chain">${esc(r.segmentChain)}</div>` : '';
         const layover = r.layoverDuration ? `<span class="badge">Layover ${r.layoverDuration} min at ${esc(r.hiddenCity)}</span>` : `<span class="badge">Exit at ${esc(r.hiddenCity)}</span>`;
         const savingsLine = r.savings && r.savings > 0
-          ? `<div class="savings-line">Potential difference ~${Math.round(r.savings)} EUR vs direct</div>`
+          ? `<div class="savings-line">Potential difference ~${esc(formatMoney(r.savings))} vs direct</div>`
           : '';
         const priceDisplay = r.candidatePrice
-          ? `<div class="price">${Math.round(r.candidatePrice)} <span class="price-currency">${esc(r.currency || 'EUR')}</span></div><div class="price-sub">fare to ${esc(r.ticketDestination)}</div>`
+          ? `<div class="price">${esc(formatMoney(r.candidatePrice, r.currency || 'EUR'))}</div><div class="price-sub">fare to ${esc(r.ticketDestination)}</div>`
           : `<div class="price tiny">verify current</div>`;
         return `<div class="card${isVerified ? ' top-card' : ''}">
           ${verifiedBadge}
@@ -1439,7 +1480,7 @@ function render(data) {
               <h3>${esc(r.origin)}<span class="route-arrow">→</span><span style="color:var(--gold)">${esc(r.hiddenCity)}</span><span class="route-arrow">→</span>${esc(r.ticketDestination)}</h3>
               ${segChain}
               ${r.airline ? `<div class="card-airline">${logoImg}<span class="airline-name">${esc(r.airline)}</span></div>` : ''}
-              <div class="meta">${layover}<span>${esc(r.date)}</span></div>
+              <div class="meta">${layover}<span>${esc(formatTripDate(r.date))}</span></div>
               ${savingsLine}
             </div>
             <div class="card-price">
@@ -1482,7 +1523,7 @@ function render(data) {
         poor:        { label: 'D',  cls: 'aw-grade-d' },
       };
       html += awardResults.map(r => {
-        const cashStr = r.cash_eur ? `${Math.round(r.cash_eur)} EUR` : null;
+        const cashStr = r.cash_eur ? formatMoney(r.cash_eur) : null;
         const itineraryHtml = buildItinerary(r.flight);
         const scheduleFallback = itineraryHtml
           ? ''
@@ -1533,7 +1574,6 @@ function render(data) {
         const stateOf = sig => sig === 'cash_may_be_stronger' ? 'cash'
           : (sig === 'strong_miles_value' || sig === 'promising_miles_value') ? 'miles'
           : sig === 'mixed_value' ? 'mixed' : 'insufficient';
-        const nfmt = n => Number(n).toLocaleString();
 
         const best = sorted[0];
         const d = r.decision || {};
@@ -1546,7 +1586,7 @@ function render(data) {
           const gm = incompatibleBasis ? null : (GRADE_MAP[g.tier] || null);
           const isLive = p.data_source === 'live';
           const isBest = !incompatibleBasis && idx === 0 && (g.tier === 'exceptional' || g.tier === 'great');
-          const cpmStr = (!incompatibleBasis && p.cpm) ? `${p.cpm.toFixed(1)} ct/mi` : null;
+          const cpmStr = (!incompatibleBasis && p.cpm) ? formatCpm(p.cpm) : null;
           const verifyContext = [r.route, r.date, r.cabin, p.program]
             .filter(Boolean)
             .map(esc)
@@ -1585,10 +1625,10 @@ function render(data) {
               ${gm ? `<span class="aw-grade-pill ${gm.cls}" title="Program-level redemption signal — see the summary card above for AwardRadar's assessment">${gm.label}</span>` : ''}
             </div>
             <div class="aw-card-cost">
-              <span class="aw-card-miles">${p.miles.toLocaleString()}</span>
+              <span class="aw-card-miles">${esc(formatMilesNumber(p.miles) || '—')}</span>
               <span class="aw-card-miles-unit">miles</span>
             </div>
-            <div class="aw-card-surcharge${surchargeClass ? ' ' + surchargeClass : ''}">+ €${p.surcharge} taxes &amp; fees</div>
+            <div class="aw-card-surcharge${surchargeClass ? ' ' + surchargeClass : ''}">+ ${esc(formatMoney(p.surcharge))} taxes &amp; fees</div>
             ${metaParts.length ? `<div class="aw-card-meta">${metaParts.join('<span class="aw-meta-sep">·</span>')}</div>` : ''}
             ${p.airlines ? `<div class="aw-card-airline">${esc(p.airlines)}</div>` : ''}
             ${awardTrustMetaHtml(p)}
@@ -1606,7 +1646,7 @@ function render(data) {
 
         // Header (route + date + cash badge) — position 1 in the hierarchy.
         const requestedTripLabel = r.returnDate ? 'Round trip' : 'One-way';
-        const dateContext = r.returnDate ? `${r.date} -> ${r.returnDate}` : r.date;
+        const dateContext = formatTripDateRange(r.date, r.returnDate);
         const cashBadgeLabel = d.cash_trip_type === 'round_trip' ? 'Round-trip cash fare' : 'Cash fare';
         const headerHtml = `
           <div class="aw-result-header">
@@ -1665,15 +1705,15 @@ function render(data) {
           meaning = 'The cash fare covers the full return trip, while the available award estimate covers the outbound journey only.';
         } else if (st === 'cash') {
           meaning = (netSaved != null && netSaved > 0 && milesAvailable)
-            ? `You would use ${nfmt(evalMiles)} miles to save only €${netSaved}. That is weak value for your miles.`
+            ? `You would use ${formatMiles(evalMiles)} to save only ${formatMoney(netSaved)}. That is weak value for your miles.`
             : 'The current award option does not provide enough value compared with the cash fare.';
         } else if (st === 'miles') {
           meaning = (netSaved != null && netSaved > 0 && valueAdj)
-            ? `The award option saves about €${netSaved} while giving your miles ${valueAdj} value.`
+            ? `The award option saves about ${formatMoney(netSaved)} while giving your miles ${valueAdj} value.`
             : 'The current award option appears promising based on the available value signals.';
         } else if (st === 'mixed') {
           meaning = (netSaved != null && cpm != null)
-            ? `The award option saves €${netSaved}, but the value per mile is only ${cpm.toFixed(1)} ct. Neither option is clearly superior.`
+            ? `The award option saves ${formatMoney(netSaved)}, but the value per mile is only ${formatCpm(cpm)}. Neither option is clearly superior.`
             : 'The available signals do not clearly favor either cash or miles.';
         } else {
           meaning = 'AwardRadar does not yet have enough compatible data to make a reliable comparison.';
@@ -1700,13 +1740,13 @@ function render(data) {
           `<div class="aw-metric"><div class="aw-metric-label">${esc(label)}</div><div class="aw-metric-val">${esc(val)}</div>${sub ? `<div class="aw-metric-sub${subCls ? ' ' + subCls : ''}">${esc(sub)}</div>` : ''}</div>`;
         const metrics = [];
         if (incompatibleBasis) {
-          metrics.push(metricCell('Round-trip cash fare', cash != null ? `€${cash}` : 'Not available'));
-          metrics.push(metricCell('Outbound one-way award estimate', milesAvailable ? `${nfmt(evalMiles)} miles + €${evalSurcharge}` : 'Not available'));
+          metrics.push(metricCell('Round-trip cash fare', cash != null ? formatMoney(cash) : 'Not available'));
+          metrics.push(metricCell('Outbound one-way award estimate', milesAvailable ? `${formatMiles(evalMiles)} + ${formatMoney(evalSurcharge)}` : 'Not available'));
         } else {
-          metrics.push(metricCell('Cash fare', cash != null ? `€${cash}` : 'Not available'));
-          metrics.push(metricCell('Award cost', milesAvailable ? `${nfmt(evalMiles)} miles + €${evalSurcharge}` : 'Not available'));
-          if (netSaved != null && netSaved > 0) metrics.push(metricCell('Net cash saved', `€${netSaved}`));
-          if (cpm != null) metrics.push(metricCell('Value per mile', `${cpm.toFixed(1)} ct`, valueWord, tier ? `aw-vw-${tier}` : ''));
+          metrics.push(metricCell('Cash fare', cash != null ? formatMoney(cash) : 'Not available'));
+          metrics.push(metricCell('Award cost', milesAvailable ? `${formatMiles(evalMiles)} + ${formatMoney(evalSurcharge)}` : 'Not available'));
+          if (netSaved != null && netSaved > 0) metrics.push(metricCell('Net cash saved', formatMoney(netSaved)));
+          if (cpm != null) metrics.push(metricCell('Value per mile', formatCpm(cpm), valueWord, tier ? `aw-vw-${tier}` : ''));
         }
         const metricsHtml = `<div class="aw-metrics">${metrics.join('')}</div>`;
 
@@ -1878,7 +1918,7 @@ function initDatepickers() {
     if (cal) {
       const span = document.createElement('span');
       span.className = 'fp-price';
-      span.textContent = Math.round(cal.price) + '€';
+      span.textContent = formatMoney(cal.price);
       dayElem.appendChild(span);
       if (cal.tier) dayElem.classList.add('fp-day-' + cal.tier);
       if (cal.isBest) dayElem.classList.add('fp-day-best');
@@ -2899,12 +2939,12 @@ function normalizeDiscoveryOpportunity(raw) {
 
 function formatDiscoveryMiles(value) {
   const miles = discoveryNumber(value);
-  return miles === null ? 'Miles unavailable' : `${Math.round(miles).toLocaleString()} miles`;
+  return formatMiles(miles);
 }
 
 function formatDiscoveryFees(value) {
   const fees = discoveryNumber(value);
-  return fees === null ? '' : ` + EUR ${Math.round(fees)}`;
+  return fees === null ? '' : ` + ${formatMoney(fees)}`;
 }
 
 function discoveryReason(o) {
@@ -2946,7 +2986,7 @@ function discoveryReason(o) {
       const roundedSeats = o.seats === null ? null : Math.round(o.seats);
       const seatsLbl = roundedSeats && roundedSeats > 0 ? `${roundedSeats} seat${roundedSeats !== 1 ? 's' : ''} available` : '';
       const airlineLbl = o.airlines ? `Airline signal: ${o.airlines}` : '';
-      const metaLine = [o.direct ? 'Provider reports direct availability' : '', seatsLbl, airlineLbl, o.available_date ? `Date: ${o.available_date}` : ''].filter(Boolean).join(' - ');
+      const metaLine = [o.direct ? 'Provider reports direct availability' : '', seatsLbl, airlineLbl, o.available_date ? `Date: ${formatTripDate(o.available_date)}` : ''].filter(Boolean).join(' - ');
       const milesLine = `${formatDiscoveryMiles(o.miles)}${formatDiscoveryFees(o.surcharge)}`;
       const originLiteral = JSON.stringify(o.origin);
       const destLiteral = JSON.stringify(o.dest);
@@ -2973,7 +3013,7 @@ function discoveryReason(o) {
         ${reason ? `<div class="disc-reason">${reason}</div>` : ''}
         <div class="disc-footer-row">
           <span class="disc-conf disc-conf-live">Current availability signal</span>
-          ${o.cpm ? `<span class="disc-cpm">${o.cpm.toFixed(1)} ct/mi</span>` : ''}
+          ${o.cpm ? `<span class="disc-cpm">${formatCpm(o.cpm)}</span>` : ''}
         </div>
         <a href="#" class="disc-cta-btn" onclick="${esc(ctaClick)}">Review this route &rarr;</a>
       </div>`);
