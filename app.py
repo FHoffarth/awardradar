@@ -207,6 +207,7 @@ AIRPORTS = {
     "LCY": {"name": "London City", "city": "London", "country": "GB"},
     "STN": {"name": "London Stansted", "city": "London", "country": "GB"},
     "LTN": {"name": "London Luton", "city": "London", "country": "GB"},
+    "SEN": {"name": "London Southend", "city": "London", "country": "GB"},
     "MAN": {"name": "Manchester", "city": "Manchester", "country": "GB"},
     "EDI": {"name": "Edinburgh", "city": "Edinburgh", "country": "GB"},
     "GLA": {"name": "Glasgow", "city": "Glasgow", "country": "GB"},
@@ -214,6 +215,7 @@ AIRPORTS = {
     # France
     "CDG": {"name": "Paris Charles de Gaulle", "city": "Paris", "country": "FR"},
     "ORY": {"name": "Paris Orly", "city": "Paris", "country": "FR"},
+    "BVA": {"name": "Paris Beauvais", "city": "Paris", "country": "FR"},
     "NCE": {"name": "Nizza", "city": "Nizza", "country": "FR"},
     "LYS": {"name": "Lyon", "city": "Lyon", "country": "FR"},
     "MRS": {"name": "Marseille", "city": "Marseille", "country": "FR"},
@@ -451,6 +453,16 @@ AIRPORTS = {
     "PPT": {"name": "Papeete", "city": "Tahiti", "country": "PF"},
 }
 
+METRO_CODES = {
+    "NYC": ["JFK", "EWR", "LGA"],
+    "LON": ["LHR", "LGW", "LCY", "STN", "LTN", "SEN"],
+    "PAR": ["CDG", "ORY", "BVA"],
+    "ROM": ["FCO", "CIA"],
+    "MIL": ["MXP", "LIN", "BGY"],
+    "TYO": ["HND", "NRT"],
+}
+
+
 ALIASES = {
     # Germany
     "frankfurt": ["FRA"], "fra": ["FRA"],
@@ -465,10 +477,10 @@ ALIASES = {
     "genf": ["GVA"], "geneva": ["GVA"], "genÃ¨ve": ["GVA"],
     "basel": ["BSL"], "salzburg": ["SZG"], "innsbruck": ["INN"], "graz": ["GRZ"],
     # UK
-    "london": ["LHR", "LGW", "LCY", "STN"], "manchester": ["MAN"],
+    "london": METRO_CODES["LON"], "lon": METRO_CODES["LON"], "manchester": ["MAN"],
     "edinburgh": ["EDI"], "glasgow": ["GLA"], "birmingham": ["BHX"],
     # France
-    "paris": ["CDG", "ORY"], "nizza": ["NCE"], "nice": ["NCE"],
+    "paris": METRO_CODES["PAR"], "par": METRO_CODES["PAR"], "nizza": ["NCE"], "nice": ["NCE"],
     "lyon": ["LYS"], "marseille": ["MRS"], "toulouse": ["TLS"], "bordeaux": ["BOD"],
     # Benelux
     "amsterdam": ["AMS"], "brÃ¼ssel": ["BRU"], "brussels": ["BRU"], "bruxelles": ["BRU"],
@@ -478,7 +490,8 @@ ALIASES = {
     "mÃ¡laga": ["AGP"], "malaga": ["AGP"], "sevilla": ["SVQ"], "seville": ["SVQ"],
     "teneriffa": ["TFS"], "tenerife": ["TFS"], "gran canaria": ["LPA"], "ibiza": ["IBZ"],
     # Italy
-    "rom": ["FCO"], "rome": ["FCO"], "mailand": ["MXP", "LIN"], "milan": ["MXP", "LIN"],
+    "rom": METRO_CODES["ROM"], "rome": METRO_CODES["ROM"],
+    "mailand": METRO_CODES["MIL"], "milan": METRO_CODES["MIL"], "mil": METRO_CODES["MIL"],
     "venedig": ["VCE"], "venice": ["VCE"], "neapel": ["NAP"], "naples": ["NAP"],
     "florenz": ["FLR"], "florence": ["FLR"], "bologna": ["BLQ"], "pisa": ["PSA"],
     "catania": ["CTA"], "palermo": ["PMO"],
@@ -515,7 +528,7 @@ ALIASES = {
     "tunis": ["TUN"], "lagos": ["LOS"], "accra": ["ACC"],
     "mauritius": ["MRU"], "seychellen": ["SEZ"], "seychelles": ["SEZ"],
     # North America
-    "new york": ["JFK", "EWR", "LGA"], "nyc": ["JFK", "EWR", "LGA"],
+    "new york": METRO_CODES["NYC"], "nyc": METRO_CODES["NYC"],
     "boston": ["BOS"], "washington": ["IAD", "DCA"],
     "chicago": ["ORD", "MDW"], "miami": ["MIA", "FLL"],
     "los angeles": ["LAX"], "la": ["LAX"],
@@ -540,7 +553,7 @@ ALIASES = {
     # Asia
     "singapur": ["SIN"], "singapore": ["SIN"],
     "hongkong": ["HKG"], "hong kong": ["HKG"],
-    "bangkok": ["BKK"], "tokio": ["HND", "NRT"], "tokyo": ["HND", "NRT"], "tyo": ["HND", "NRT"],
+    "bangkok": ["BKK"], "tokio": METRO_CODES["TYO"], "tokyo": METRO_CODES["TYO"], "tyo": METRO_CODES["TYO"],
     "osaka": ["KIX", "ITM"], "nagoya": ["NGO"], "fukuoka": ["FUK"], "okinawa": ["OKA"],
     "seoul": ["ICN", "GMP"], "taipei": ["TPE"],
     "peking": ["PEK"], "beijing": ["PEK"],
@@ -597,6 +610,36 @@ def unique(seq: list[str]) -> list[str]:
     return out
 
 
+def _expand_known_code(code: str) -> list[str]:
+    upper = (code or "").upper().strip()
+    if upper in METRO_CODES:
+        return METRO_CODES[upper]
+    if upper in AIRPORTS:
+        return [upper]
+    return []
+
+
+def airport_to_metro(code: str) -> str | None:
+    upper = (code or "").upper().strip()
+    for metro, airports in METRO_CODES.items():
+        if upper in airports:
+            return metro
+    return None
+
+
+def has_meaningful_route_pair(origins: list[str], dests: list[str]) -> bool:
+    for origin in origins:
+        for dest in dests:
+            if origin == dest:
+                continue
+            origin_metro = airport_to_metro(origin)
+            dest_metro = airport_to_metro(dest)
+            if origin_metro and dest_metro and origin_metro == dest_metro:
+                continue
+            return True
+    return False
+
+
 def local_codes(value: str) -> list[str]:
     raw = (value or "").strip()
     if not raw:
@@ -606,15 +649,17 @@ def local_codes(value: str) -> list[str]:
     for part in parts:
         upper = part.upper()
         if re.fullmatch(r"[A-Z]{3}", upper):
-            codes.append(upper)
+            codes.extend(_expand_known_code(upper))
             continue
         match = re.search(r"\(([A-Z]{3}(?:\s*\+\s*[A-Z]{3})*)\)", part)
         if match:
-            codes.extend([c.strip() for c in match.group(1).split("+")])
+            for candidate in match.group(1).split("+"):
+                codes.extend(_expand_known_code(candidate))
             continue
         alias = ALIASES.get(part.lower())
         if alias:
-            codes.extend(alias)
+            for candidate in alias:
+                codes.extend(_expand_known_code(candidate))
     return unique(codes)
 
 
@@ -2308,7 +2353,11 @@ def airports():
     if q:
         for alias, codes in ALIASES.items():
             if q in alias:
-                results.append({"label": f"{alias.title()} ({' + '.join(codes)})", "value": ",".join(codes), "source": "local"})
+                for code in codes:
+                    meta = AIRPORTS.get(code)
+                    if not meta:
+                        continue
+                    results.append({"label": f"{meta['name']} ({code})", "value": code, "source": "local"})
         for code, meta in AIRPORTS.items():
             hay = f"{code} {meta['name']} {meta['city']} {meta['country']}".lower()
             if q in hay:
@@ -2340,6 +2389,8 @@ def cheap():
     currency = (data.get("currency") or "eur").lower()
     if not origins or not dests:
         return jsonify({"ok": False, "error": tx("missing_origin_dest", lang)}), 400
+    if not has_meaningful_route_pair(origins[:4], dests[:4]):
+        return jsonify({"ok": False, "error": "Origin and destination must be different."}), 422
 
     cabin = (data.get("cabins") or ["economy"])[0].lower()
     flex_days = min(int(data.get("flexDays", 0)), FLEX_MAX_DAYS)
@@ -2514,6 +2565,8 @@ def _skiplag_inner():
     currency = (data.get("currency") or "eur").lower()
     if not origins or not true_dests:
         return jsonify({"ok": False, "error": tx("missing_hidden", lang)}), 400
+    if not has_meaningful_route_pair(origins[:4], true_dests[:4]):
+        return jsonify({"ok": False, "error": "Origin and destination must be different."}), 422
     started = time.time()
     results, warnings = [], []
     use_serpapi = PRICE_SOURCE == "serpapi" and bool(SERPAPI_TOKEN)
@@ -2658,7 +2711,7 @@ def _awards_inner():
     cabin   = data.get("cabin") or (data.get("cabins") or ["Economy"])[0]
     if not origins or not dests:
         return api_error("invalid_request", tx("missing_origin_dest", lang), 400, retryable=False)
-    if not any(origin != dest for origin in origins[:4] for dest in dests[:3]):
+    if not has_meaningful_route_pair(origins[:4], dests[:3]):
         return api_error("unsupported_route", "Origin and destination must be different.", 422, retryable=False)
 
     trip_type = "one_way" if one_way else "round_trip"
