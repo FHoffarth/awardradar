@@ -493,10 +493,10 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=158", html)
-        self.assertIn("app.js?v=160", html)
-        self.assertNotIn("app.css?v=157", html)
-        self.assertNotIn("app.js?v=159", html)
+        self.assertIn("app.css?v=159", html)
+        self.assertIn("app.js?v=161", html)
+        self.assertNotIn("app.css?v=158", html)
+        self.assertNotIn("app.js?v=160", html)
         self.assertNotIn("app.js?v=157", html)
         self.assertIn("Know what&rsquo;s worth checking.", html)
         self.assertIn("with clear trade-offs, confidence signals and official verification guidance.", html)
@@ -544,7 +544,7 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("What to verify before booking", html)
         self.assertIn("Independence and commercial links", html)
         self.assertIn("Limitations", html)
-        self.assertIn("app.css?v=158", html)
+        self.assertIn("app.css?v=159", html)
         self.assertIn("consent.css?v=2", html)
         self.assertNotIn("app.js?v=147", html)
 
@@ -554,8 +554,8 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=158", html)
-        self.assertIn("app.js?v=160", html)
+        self.assertIn("app.css?v=159", html)
+        self.assertIn("app.js?v=161", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -993,7 +993,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
         response = self.client.get("/privacy")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("app.css?v=158", html)
+        self.assertIn("app.css?v=159", html)
         self.assertIn("consent.css?v=2", html)
         # Informational-only disclaimer and controlling-version statement
         self.assertIn(
@@ -1040,7 +1040,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
         response = self.client.get("/datenschutz")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("app.css?v=158", html)
+        self.assertIn("app.css?v=159", html)
         self.assertIn("consent.css?v=2", html)
         self.assertIn('href="/privacy"', html)
         # German legal substance remains intact
@@ -1049,7 +1049,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
 
     def test_impressum_uses_current_assets(self):
         html = self.client.get("/impressum").get_data(as_text=True)
-        self.assertIn("app.css?v=158", html)
+        self.assertIn("app.css?v=159", html)
         self.assertIn("consent.css?v=2", html)
         self.assertNotIn("app.css?v=156", html)
         self.assertNotIn("app.css?v=155", html)
@@ -1235,9 +1235,11 @@ class CashCardRenderMarkup(unittest.TestCase):
         self.assertIn("'complete'", self.js)
         self.assertIn("'partial'", self.js)
 
-    def test_provider_attribution_present_but_secondary(self):
-        self.assertIn("Fare data: Google Flights", self.js)
-        self.assertIn(".card-fare-source", self.css)
+    def test_provider_attribution_is_available_only_in_disclosure(self):
+        disclosure = self.js.split("function sourceDisclosureHtml(obj)", 1)[1].split("function actionLinksHtml", 1)[0]
+        self.assertIn("entries.map", disclosure)
+        self.assertNotIn("card-fare-source", self.js)
+        self.assertNotIn("link-provider", self.js)
         # The prominent provider byline must not appear in visible Cash-card copy.
         self.assertNotIn('class="card-source">${esc(o.source', self.js)
         self.assertNotIn("Google Flights (SerpApi)", self.js)
@@ -1272,7 +1274,7 @@ class R2BCashDecisionCard(unittest.TestCase):
         self.assertIn(".rec-brief{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(220px,.72fr)", self.css)
         self.assertIn(".rec-brief-main{display:flex;flex-direction:column;gap:10px;min-width:0;max-width:620px}", self.css)
         self.assertIn("class=\"rec-brief-side\"", self.js)
-        self.assertIn("class=\"card-price rec-price-panel\"", self.js)
+        self.assertIn("card-price rec-price-panel${isWeakAssessment ? ' price-evidence' : ''}", self.js)
 
     def test_compact_alternatives_present(self):
         """Scope F: Non-first results use compact structure."""
@@ -1560,7 +1562,7 @@ process.stdout.write(html);
 
     def test_cash_cta_uses_verification_not_booking_copy(self):
         self.assertIn("Verify current fare", self.js)
-        self.assertIn("Verify current fare with ${esc(provider)}", self.js)
+        self.assertIn("Verify current fare externally", self.js)
         self.assertIn('target="_blank" rel="noopener"', self.js)
         self.assertIn("AwardRadar does not sell or book fares.", self.js)
         self.assertNotIn("View fare", self.js)
@@ -1579,8 +1581,24 @@ process.stdout.write(html);
         score = self.js.split("function scoreHtml(o)", 1)[1].split("function bestBadgeHtml", 1)[0]
         self.assertIn('<details class="score-block score-details', score)
         self.assertIn("<summary>Assessment details</summary>", score)
-        self.assertIn("/100", score)
+        self.assertNotIn("/100", score)
+        self.assertNotIn("score-grade", score)
+        self.assertNotIn("score-num", score)
+        self.assertIn("relativeSignalLabel", score)
         self.assertIn(".score-details", self.css)
+
+    def test_cash_assessment_hierarchy_demotes_price_and_provider_details(self):
+        self.assertIn("assessment-caution", self.js)
+        self.assertIn("price-evidence", self.js)
+        self.assertIn(".assessment-caution .rec-price-panel", self.css)
+        self.assertIn(".price-evidence .price", self.css)
+        self.assertIn("order:1", self.css)
+        self.assertIn("order:2", self.css)
+
+    def test_compact_cards_use_lowest_returned_fare_not_cheapest_wording(self):
+        facts = self.js.split("function journeyFactsHtml", 1)[1].split("// Client-side mirror", 1)[0]
+        self.assertIn("Lowest returned fare", facts)
+        self.assertNotIn("Cheapest returned option", facts)
 
     def test_compact_cash_labels_are_neutral(self):
         self.assertIn("Stronger relative signal", self.js)
