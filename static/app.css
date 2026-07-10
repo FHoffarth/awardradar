@@ -733,9 +733,9 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 
 /* Change B — dominant Recommendation region (dominance via space/scale, not glow) */
-.aw-recommendation{display:flex;flex-direction:column;gap:15px;padding:4px 0 10px}
+.aw-recommendation{display:flex;flex-direction:column;gap:12px;max-width:820px;padding:4px 0 12px}
 /* Change C — Key trade-offs, subordinate to the recommendation */
-.aw-tradeoffs{margin-top:0;padding-top:2px}
+.aw-tradeoffs{margin-top:0;max-width:860px;padding-top:2px}
 .aw-tradeoffs-kicker{text-transform:uppercase;letter-spacing:.05em;font-size:.66rem;font-weight:700;color:var(--muted);margin-bottom:7px}
 
 /* Change D — compact chronological itinerary summary (replaces the SVG journey map).
@@ -779,7 +779,7 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 
 .aw-flight-details{margin-top:2px}
 .aw-itin-label{font-size:.72rem;font-weight:500;letter-spacing:.015em;text-transform:none;color:var(--muted);margin:0 0 4px}
-.aw-programs{display:flex;flex-direction:column;gap:8px}
+.aw-programs{display:flex;flex-direction:column;gap:10px;max-width:980px}
 
 @media(max-width:900px){.aw-metrics{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:420px){.aw-metrics{grid-template-columns:1fr 1fr}}
@@ -825,9 +825,10 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 .aw-layover-ic{font-size:.8rem}
 [data-theme="light"] .aw-layover{background:rgba(0,0,0,.03)}
 /* ===== Award Cards V2 ===== */
-.aw-result-shell{display:flex;flex-direction:column;gap:10px}
-.aw-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;margin-bottom:8px}
-.aw-cards-grid-secondary{margin-top:8px;opacity:.7}
+.aw-result-shell{display:flex;flex-direction:column;gap:12px;max-width:1080px}
+.aw-cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,280px));justify-content:start;gap:10px;margin-bottom:8px}
+.aw-programs>.aw-cards-grid:first-of-type{grid-template-columns:minmax(300px,420px);justify-content:start}
+.aw-cards-grid-secondary{margin-top:8px;opacity:.74}
 
 /* Base card */
 .aw-card{
@@ -852,6 +853,8 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
   background:rgba(106,215,255,.04);
   box-shadow:0 0 0 1px rgba(106,215,255,.12) inset;
 }
+.aw-programs>.aw-cards-grid:first-of-type .aw-card-best,
+.aw-programs>.aw-cards-grid:first-of-type .aw-card-evaluated{min-height:100%}
 .aw-card-best:hover{border-color:rgba(106,215,255,.52)}
 .aw-card-best::before{
   content:'';position:absolute;top:0;left:16px;right:16px;height:2px;
@@ -989,6 +992,8 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 [data-theme="light"] .aw-card-best{border-color:rgba(13,110,138,.28);background:rgba(13,110,138,.03)}
 [data-theme="light"] .aw-card-best::before{background:linear-gradient(90deg,transparent,rgba(13,110,138,.48),transparent)}
 [data-theme="light"] .aw-card-evaluated,[data-theme="light"] .aw-evaluated{background:rgba(13,110,138,.035);border-color:rgba(13,110,138,.16)}
+[data-theme="light"] .rec-verdict{border-color:rgba(13,110,138,.16);background:rgba(13,110,138,.038)}
+[data-theme="light"] .rec-cta{border-color:rgba(16,32,51,.08);background:rgba(16,32,51,.02)}
 [data-theme="light"] .aw-card-miles{color:#0a1628}
 [data-theme="light"] .aw-grade-aplus,[data-theme="light"] .aw-grade-a{color:#15803d;background:rgba(15,102,64,.07);border-color:rgba(15,102,64,.22)}
 [data-theme="light"] .aw-grade-b{color:#9a6e10;background:rgba(154,110,16,.07);border-color:rgba(154,110,16,.28)}
@@ -1001,6 +1006,7 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 
 @media(max-width:540px){
   .aw-cards-grid{grid-template-columns:1fr}
+  .aw-programs>.aw-cards-grid:first-of-type{grid-template-columns:1fr}
   .aw-evaluated{align-items:stretch;flex-direction:column}
   .aw-primary-verify{width:100%}
 }
@@ -1090,15 +1096,26 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 .sort-btn:hover:not(.active){border-color:rgba(255,255,255,.15);color:var(--text)}
 
 /* R2B-1: Recommendation Card (Scope A, B, C) */
-.recommendation-card{position:relative;border:1px solid rgba(106,215,255,.3);background:linear-gradient(165deg,rgba(11,26,50,.96),rgba(6,14,28,.93));box-shadow:0 12px 34px rgba(0,0,0,.28),0 0 0 1px rgba(106,215,255,.08)}
-.rec-verdict{font-size:17px;font-weight:700;color:var(--cyan);margin-bottom:10px;padding:0 0 7px;letter-spacing:-.01em}
+.recommendation-card{position:relative;display:grid;grid-template-columns:minmax(0,1fr);gap:10px;border:1px solid rgba(106,215,255,.3);background:linear-gradient(165deg,rgba(11,26,50,.96),rgba(6,14,28,.93));box-shadow:0 12px 34px rgba(0,0,0,.28),0 0 0 1px rgba(106,215,255,.08)}
+.recommendation-card>*{width:100%}
+.recommendation-card .recommendation-badges,
+.recommendation-card .cash-guidance,
+.recommendation-card .rt-disclosure,
+.recommendation-card .rec-verdict,
+.recommendation-card .decision-actions,
+.recommendation-card .card-row,
+.recommendation-card .rec-cta,
+.recommendation-card .card-fare-source{max-width:860px}
+.recommendation-card .recommendation-badges{margin-bottom:0}
+.rec-verdict{max-width:760px;font-size:17px;font-weight:700;color:var(--cyan);margin:0;padding:11px 14px 10px;border:1px solid rgba(106,215,255,.16);border-radius:14px;background:rgba(106,215,255,.038);letter-spacing:-.01em;line-height:1.35}
 .rec-meta{font-size:12px;color:var(--muted);margin-top:8px;font-weight:500}
-.rec-cta{display:flex;gap:10px;flex-direction:column;margin-top:12px}
+.rec-cta{display:flex;gap:8px;flex-direction:column;margin-top:0;padding:10px 12px;border:1px solid rgba(255,255,255,.06);border-radius:12px;background:rgba(255,255,255,.018)}
 .recommendation-badges{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;margin-bottom:10px}
-.recommendation-card .card-row{align-items:flex-start}
-.recommendation-card .card-price{border-left:1px solid rgba(255,255,255,.08);padding-left:14px;min-width:140px}
-.cash-guidance{margin-bottom:8px;padding:3px 0 7px;border:0;border-bottom:1px solid rgba(106,215,255,.14);border-radius:0;background:transparent}
-[data-theme="light"] .cash-guidance{border-bottom-color:rgba(13,110,138,.18)}
+.recommendation-card .card-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,240px);align-items:start;gap:18px;padding-top:12px;border-top:1px solid rgba(255,255,255,.06)}
+.recommendation-card .card-main{max-width:620px}
+.recommendation-card .card-price{border-left:1px solid rgba(255,255,255,.08);padding-left:16px;min-width:0;width:100%;max-width:240px;justify-self:end}
+.cash-guidance{margin-bottom:0;padding:12px 14px 12px;border:1px solid rgba(106,215,255,.16);border-radius:14px;background:rgba(106,215,255,.038)}
+[data-theme="light"] .cash-guidance{border-color:rgba(13,110,138,.16);background:rgba(13,110,138,.04)}
 .cg-headline{margin:0 0 10px;font-size:20px;font-weight:700;line-height:1.35;color:var(--text);letter-spacing:-.2px}
 .cg-block{margin-bottom:8px}
 .cg-k{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
@@ -1110,10 +1127,14 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 .best-badge-secondary{background:rgba(245,199,107,.10);border-color:rgba(245,199,107,.24);color:#f2dba1}
 .recommendation-badges .best-badge,.recommendation-badges .cg-tag{margin-bottom:0;max-width:100%;white-space:normal;line-height:1.25;text-align:left}
 .guidance-recommended{border-color:rgba(106,215,255,.22);background:rgba(106,215,255,.04)}
-.guidance-card .card-price{border-left:1px solid rgba(255,255,255,.08);padding-left:12px}
+.guidance-card .card-price{border-left:1px solid rgba(255,255,255,.08);padding-left:16px}
 .guidance-card .score-block{margin-top:12px;opacity:.75}
 .guidance-card .score-num{font-size:16px}
 .guidance-card .score-lbl{font-size:10.5px}
+.recommendation-card .decision-actions{max-width:760px;margin:0;padding:10px 0 0;border-top:1px solid rgba(106,215,255,.12)}
+.recommendation-card .links{margin-top:0}
+.recommendation-card .source-disclosure{margin-top:0;padding-top:0;border-top:0}
+.recommendation-card .card-fare-source{margin-top:0;max-width:760px}
 
 /* Compact Cash Journey Summary (Scope C) */
 .compact-cash-journey{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.06)}
@@ -1322,7 +1343,7 @@ footer p{margin-bottom:8px}
 
   /* R2B-1 Mobile Overrides */
   .recommendation-card{padding:12px 12px}
-  .recommendation-card .card-row{flex-direction:column}
+  .recommendation-card .card-row{display:flex;flex-direction:column;padding-top:10px}
   .recommendation-card .card-price{text-align:left;width:100%}
   .shell.has-results .card{padding:12px 12px}
   .shell.has-results .results{margin-top:6px;gap:7px}

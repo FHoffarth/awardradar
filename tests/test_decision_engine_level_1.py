@@ -1244,6 +1244,12 @@ class R2BCashDecisionCard(unittest.TestCase):
         self.assertIn(".rec-meta", self.css)
         self.assertIn(".rec-cta", self.css)
 
+    def test_recommendation_card_uses_composed_reading_width(self):
+        """Primary decision card should constrain briefing sections without shrinking the outer shell."""
+        self.assertIn(".recommendation-card .card-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,240px)", self.css)
+        self.assertIn(".recommendation-card .card-main{max-width:620px}", self.css)
+        self.assertIn(".recommendation-card .rec-cta", self.css)
+
     def test_compact_alternatives_present(self):
         """Scope F: Non-first results use compact structure."""
         self.assertIn(".compact-alternative", self.css)
@@ -1251,6 +1257,11 @@ class R2BCashDecisionCard(unittest.TestCase):
         self.assertIn(".compact-route", self.css)
         self.assertIn(".compact-price", self.css)
         self.assertIn(".compact-value", self.css)
+
+    def test_award_program_grid_keeps_evaluated_card_intentional(self):
+        """Evaluated redemption card should not stretch into a lonely full-width tile."""
+        self.assertIn(".aw-programs>.aw-cards-grid:first-of-type{grid-template-columns:minmax(300px,420px);justify-content:start}", self.css)
+        self.assertIn(".aw-cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,280px));justify-content:start", self.css)
 
     def test_compact_journey_summary_present(self):
         """Scope C: Compact Cash journey summary renderer exists."""
