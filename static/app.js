@@ -728,7 +728,7 @@ function linksHtmlWithLabels(obj) {
   const [provider, url] = entries[0];
   return `<div class="cash-verification">
     <div class="cash-verification-note"><strong>External verification</strong><span>AwardRadar does not sell or book fares.</span></div>
-    <div class="links"><a class="link-primary" target="_blank" rel="noopener" href="${esc(url)}" title="Verify current fare with ${esc(provider)}"><span class="link-label">Verify current fare</span><span class="link-provider">${esc(provider)}</span></a></div>
+    <div class="links"><a class="link-primary" target="_blank" rel="noopener" href="${esc(url)}" title="Verify current fare externally"><span class="link-label">Verify current fare</span></a></div>
   </div>`;
 }
 
@@ -963,21 +963,25 @@ function scoreHtml(o) {
   const s = o.dealScore;
   if (s == null) return '';
   const info = o.tier && CASH_TIER_CSS[o.tier] ? CASH_TIER_CSS[o.tier] : scoreInfo(s);
-  const grade = o.grade || info.grade;
-  const label = o.label || info.label;
-  const tooltip = o.scoreReason ? esc(cashReasonDisplay(o.scoreReason)) : esc(label);
+  const signal = relativeSignalLabel(o.tier || info.tier);
+  const tooltip = o.scoreReason ? esc(cashReasonDisplay(o.scoreReason)) : esc(signal);
   const note = CASH_CONTEXT_NOTE[o.scoreContext] || '';
   const conf = o.scoreConfidence && o.scoreConfidence !== 'high'
     ? `<div class="score-conf">${o.scoreConfidence === 'low' ? 'Limited confidence' : 'Moderate confidence'}</div>` : '';
   return `<details class="score-block score-details ${info.css}" title="${tooltip}">
     <summary>Assessment details</summary>
-    <div class="score-details-body" aria-label="Relative assessment ${s} out of 100: ${esc(label)}">
-      <span class="score-num">${s}</span><span class="score-denom">/100</span>
-      <div class="score-lbl"><span class="score-grade">${grade}</span> ${esc(label)}</div>
+    <div class="score-details-body" aria-label="${esc(signal)}">
+      <div class="score-lbl">${esc(signal)}</div>
       ${note ? `<div class="score-context">${esc(note)}</div>` : ''}
       ${conf}
     </div>
   </details>`;
+}
+
+function relativeSignalLabel(tier) {
+  if (tier === 'exceptional' || tier === 'great') return 'Stronger relative signal';
+  if (tier === 'good') return 'Moderate relative signal';
+  return 'Weaker relative signal';
 }
 
 function cashReasonDisplay(reason) {
@@ -1014,8 +1018,7 @@ function bestBadgeHtml(o, sortContext, opts = {}) {
   const tier = o.tier || scoreInfo(o.dealScore).tier;
   if (o.scoreContext === 'best_available_not_cheap') return '<div class="best-badge">Best Available</div>';
   if (o.scoreContext === 'limited_comparison') return '<div class="best-badge">Only Option</div>';
-  if (tier === 'exceptional') return '<div class="best-badge">A+ · Exceptional Value</div>';
-  if (tier === 'great') return '<div class="best-badge">A · Strong Value</div>';
+  if (tier === 'exceptional' || tier === 'great') return '<div class="best-badge">Stronger relative signal</div>';
   return '<div class="best-badge">Best Match</div>';
 }
 
@@ -1023,11 +1026,9 @@ function scoreLegendHtml() {
   return `<details class="score-legend">
     <summary>What is the Value Signal? <span class="legend-hint">tap to expand</span></summary>
     <div class="legend-grid">
-      <span class="s-gold score-num" style="font-size:15px">A+</span><span><strong>Exceptional Value</strong> — cheapest, nonstop and genuinely below typical (rare)</span>
-      <span class="s-green score-num" style="font-size:15px">A</span><span><strong>Strong Value</strong> — near the best option in this search</span>
-      <span class="s-cyan score-num" style="font-size:15px">B</span><span><strong>Fair Value</strong> — reasonable relative to the cheapest</span>
-      <span class="s-muted score-num" style="font-size:15px">C</span><span><strong>Pricey for This Search</strong> — materially costlier or worse routing</span>
-      <span class="s-muted score-num" style="font-size:15px">D</span><span><strong>Weak Relative Value</strong> — far from the best in this search</span>
+      <span class="s-gold score-num" style="font-size:15px">+</span><span><strong>Stronger relative signal</strong> — returned fare and routing evidence align more closely</span>
+      <span class="s-cyan score-num" style="font-size:15px">~</span><span><strong>Moderate relative signal</strong> — returned evidence is mixed</span>
+      <span class="s-muted score-num" style="font-size:15px">−</span><span><strong>Weaker relative signal</strong> — returned fare or routing evidence is less compelling</span>
     </div>
     <p class="legend-note">Value Signal is relative to the cheapest comparable result in this search, adjusted for routing quality and a price reality check. Best available is not always cheap.</p>
   </details>`;
@@ -1162,7 +1163,7 @@ function journeyFactsHtml(o, opts = {}) {
   const off = (typeof o.arrival_day_offset === 'number' && o.arrival_day_offset > 0) ? o.arrival_day_offset : null;
 
   if (opts.isRecommended) facts.push('Recommended option');
-  if (opts.isCheapest) facts.push('Cheapest returned option');
+  if (opts.isCheapest) facts.push('Lowest returned fare');
   facts.push(stopsLabel);
   if (o.durationMin) facts.push(fmtDur(o.durationMin));
   if (opts.includeViaFact) {
@@ -1246,6 +1247,10 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
   return sorted.map((o, i) => {
     const isTop = i === 0;
     const isGuidanceRecommended = !!(recommendedId && o.offer_id === recommendedId);
+    const offerTier = o.tier || scoreInfo(o.dealScore).tier;
+    const isWeakAssessment = isGuidanceRecommended &&
+      ['keep_looking', 'limited_evidence'].includes(guidance && guidance.recommendation_state) ||
+      ['fair', 'poor'].includes(offerTier);
     const isCheapest = Number.isFinite(cheapestPrice) && Number(o.price) === cheapestPrice;
     const stops = parseInt(o.stops) || 0;
     const airlineLabel = o.airline || 'Airline';
@@ -1290,7 +1295,7 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
         isCheapest,
       });
 
-      return `<div class="card recommendation-card top-card${isGuidanceRecommended ? ' guidance-card' : ''}">
+      return `<div class="card recommendation-card top-card${isGuidanceRecommended ? ' guidance-card' : ''}${isWeakAssessment ? ' assessment-caution' : ''}">
         <div class="recommendation-badges">
           ${topBadge}
           ${recommendationTag}
@@ -1309,7 +1314,7 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
             ${decisionActionsMarkup}
           </div>
           <div class="rec-brief-side">
-            <div class="card-price rec-price-panel">
+            <div class="card-price rec-price-panel${isWeakAssessment ? ' price-evidence' : ''}">
               <div class="price">${esc(formatMoney(o.price, o.currency))}</div>
               <div class="price-sub">per person</div>
               ${o.scoreReason ? `<div class="score-reason-pills">${o.scoreReason.split(' · ').map(p => `<span class="srp">${esc(cashReasonDisplay(p))}</span>`).join('')}</div>` : ''}
@@ -1328,7 +1333,6 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
               ${linksHtmlWithLabels(o.links)}
               ${sourceDisclosureHtml(o.links)}
             </div>
-            <div class="card-fare-source">Fare data: Google Flights</div>
           </div>
         </div>
       </div>`;
@@ -1359,11 +1363,8 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
       isCheapest,
     });
 
-    const tier = o.tier || scoreInfo(o.dealScore).tier;
-    let conciseLabel = '';
-    if (tier === 'exceptional' || tier === 'great') conciseLabel = 'Stronger relative signal';
-    else if (tier === 'good') conciseLabel = 'Moderate relative signal';
-    else conciseLabel = 'Weaker relative signal';
+    const tier = offerTier;
+    const conciseLabel = relativeSignalLabel(tier);
     const recommendationTag = isGuidanceRecommended ? '<div class="cg-tag cg-tag-compact">Recommended option</div>' : '';
     const returnDisclosure = returnDisclosureHtml(o, roundTripRequested);
 
@@ -1381,7 +1382,7 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
           ${returnDisclosure}
           <div class="compact-airline">${logoImg}<span>${esc(airlineLabel)}</span>${flightNoHtml}</div>
         </div>
-        <div class="compact-price">
+        <div class="compact-price${['fair', 'poor'].includes(tier) ? ' price-evidence' : ''}">
           <div class="price">${esc(formatMoney(o.price, o.currency))}</div>
           <div class="compact-value">${esc(conciseLabel)}</div>
         </div>
