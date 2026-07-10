@@ -494,7 +494,7 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
         self.assertIn("app.css?v=154", html)
-        self.assertIn("app.js?v=157", html)
+        self.assertIn("app.js?v=158", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
         self.assertIn("data-text-size-option=\"large\"", html)
@@ -542,7 +542,7 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
         self.assertIn("app.css?v=154", html)
-        self.assertIn("app.js?v=157", html)
+        self.assertIn("app.js?v=158", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -1246,9 +1246,10 @@ class R2BCashDecisionCard(unittest.TestCase):
 
     def test_recommendation_card_uses_composed_reading_width(self):
         """Primary decision card should constrain briefing sections without shrinking the outer shell."""
-        self.assertIn(".recommendation-card .card-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,240px)", self.css)
-        self.assertIn(".recommendation-card .card-main{max-width:620px}", self.css)
-        self.assertIn(".recommendation-card .rec-cta", self.css)
+        self.assertIn(".rec-brief{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(220px,.72fr)", self.css)
+        self.assertIn(".rec-brief-main{display:flex;flex-direction:column;gap:10px;min-width:0;max-width:620px}", self.css)
+        self.assertIn("class=\"rec-brief-side\"", self.js)
+        self.assertIn("class=\"card-price rec-price-panel\"", self.js)
 
     def test_compact_alternatives_present(self):
         """Scope F: Non-first results use compact structure."""
@@ -1260,8 +1261,16 @@ class R2BCashDecisionCard(unittest.TestCase):
 
     def test_award_program_grid_keeps_evaluated_card_intentional(self):
         """Evaluated redemption card should not stretch into a lonely full-width tile."""
-        self.assertIn(".aw-programs>.aw-cards-grid:first-of-type{grid-template-columns:minmax(300px,420px);justify-content:start}", self.css)
+        self.assertIn(".aw-cards-grid-briefing{grid-template-columns:minmax(0,1fr);margin-bottom:0}", self.css)
         self.assertIn(".aw-cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,280px));justify-content:start", self.css)
+        self.assertIn("class=\"aw-cards-grid aw-cards-grid-briefing\"", self.js)
+
+    def test_award_result_uses_two_column_briefing_composition(self):
+        """Award recommendation should pair verdict and evidence in one desktop briefing block."""
+        self.assertIn(".aw-briefing{display:grid;grid-template-columns:minmax(0,1.18fr) minmax(300px,.82fr)", self.css)
+        self.assertIn("class=\"aw-briefing\"", self.js)
+        self.assertIn("class=\"aw-evidence\"", self.js)
+        self.assertIn("class=\"aw-program-options\"", self.js)
 
     def test_compact_journey_summary_present(self):
         """Scope C: Compact Cash journey summary renderer exists."""

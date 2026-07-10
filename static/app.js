@@ -1280,30 +1280,42 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
           ${topBadge}
           ${recommendationTag}
         </div>
-        ${guidanceHtml}
-        ${returnDisclosure}
-        ${verdictHtml}
-        ${decisionActionsMarkup}
-        <div class="card-row">
-          <div class="card-main">
+        <div class="rec-context">
+          <div class="rec-context-head">
             <h3>${esc(o.origin)}<span class="route-arrow">→</span>${esc(o.dest)}</h3>
+            <div class="rec-meta">${esc(dateLine)}</div>
+          </div>
+        </div>
+        <div class="rec-brief">
+          <div class="rec-brief-main">
+            ${guidanceHtml}
+            ${returnDisclosure}
+            ${verdictHtml}
+            ${decisionActionsMarkup}
+          </div>
+          <div class="rec-brief-side">
+            <div class="card-price rec-price-panel">
+              <div class="price">${esc(formatMoney(o.price, o.currency))}</div>
+              <div class="price-sub">per person</div>
+              ${o.scoreReason ? `<div class="score-reason-pills">${o.scoreReason.split(' · ').map(p => `<span class="srp">${esc(p)}</span>`).join('')}</div>` : ''}
+              ${scoreHtml(o)}
+            </div>
+          </div>
+        </div>
+        <div class="rec-evidence">
+          <div class="rec-evidence-main">
             ${compactCashJourneySummary(o)}
             ${journeyFacts}
             <div class="card-airline">${logoImg}<span class="airline-name">${esc(airlineLabel)}</span>${flightNoHtml}</div>
-            <div class="rec-meta">${esc(dateLine)}</div>
           </div>
-          <div class="card-price">
-            <div class="price">${esc(formatMoney(o.price, o.currency))}</div>
-            <div class="price-sub">per person</div>
-            ${o.scoreReason ? `<div class="score-reason-pills">${o.scoreReason.split(' · ').map(p => `<span class="srp">${esc(p)}</span>`).join('')}</div>` : ''}
-            ${scoreHtml(o)}
+          <div class="rec-provider">
+            <div class="rec-cta">
+              ${linksHtmlWithLabels(o.links)}
+              ${sourceDisclosureHtml(o.links)}
+            </div>
+            <div class="card-fare-source">Fare data: Google Flights</div>
           </div>
         </div>
-        <div class="rec-cta">
-          ${linksHtmlWithLabels(o.links)}
-          ${sourceDisclosureHtml(o.links)}
-        </div>
-        <div class="card-fare-source">Fare data: Google Flights</div>
       </div>`;
     }
 
@@ -1803,30 +1815,42 @@ function render(data) {
         const programsHtml = `
           <div class="aw-programs">
             <div class="aw-section-kicker">${incompatibleBasis ? 'One-way award signals for the outbound journey' : 'Evaluated redemption'}</div>
-            <div class="aw-cards-grid">${evaluatedCard}</div>
+            <div class="aw-cards-grid aw-cards-grid-briefing">${evaluatedCard}</div>
+          </div>`;
+        const programOptionsHtml = (alternatives.length || hiddenPrograms.length) ? `
+          <div class="aw-program-options">
             ${alternatives.length ? `
               <div class="aw-cards-caption">Other program options · raw estimates, not AwardRadar's final judgment</div>
               <div class="aw-cards-grid">${altCards}</div>` : ''}
             ${showAll}
-          </div>`;
+          </div>` : '';
 
         return `<div class="card${r.best_program ? ' top-card' : ''}">
           <div class="aw-result-shell">
             ${headerHtml}
-            <div class="aw-recommendation">
-              ${verdictHtml}
-              ${meansHtml}
-              ${nextHtml}
-              ${ctaHtml}
+            <div class="aw-briefing">
+              <div class="aw-briefing-main">
+                <div class="aw-recommendation">
+                  ${verdictHtml}
+                  ${meansHtml}
+                  ${nextHtml}
+                  ${ctaHtml}
+                </div>
+              </div>
+              <div class="aw-briefing-side">
+                <div class="aw-tradeoffs">
+                  <div class="aw-section-kicker aw-tradeoffs-kicker">Key trade-offs</div>
+                  ${metricsHtml}
+                </div>
+                ${programsHtml}
+              </div>
             </div>
-            <div class="aw-tradeoffs">
-              <div class="aw-section-kicker aw-tradeoffs-kicker">Key trade-offs</div>
-              ${metricsHtml}
+            <div class="aw-evidence">
+              ${trustHtml}
+              ${journeyMap.html}
+              ${flightHtml}
             </div>
-            ${trustHtml}
-            ${journeyMap.html}
-            ${flightHtml}
-            ${programsHtml}
+            ${programOptionsHtml}
             <p class="legend-note">Final availability, mileage prices, taxes, fees and rules must be confirmed with the airline or loyalty program before any transfer or purchase.</p>
             ${actionLinksHtml(r.links)}
           </div>
