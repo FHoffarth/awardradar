@@ -339,7 +339,7 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 /* Compact editable Search Summary (collapsed state after a search) */
 .search-summary[hidden]{display:none}
 .search-summary{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
-.search-summary-text{font-size:1.05rem;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.35}
+.search-summary-text{font-size:1.05rem;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.3}
 .search-summary-edit{background:none;border:1px solid var(--border);border-radius:10px;color:var(--cyan);font-weight:600;font-size:.9rem;padding:9px 16px;cursor:pointer;min-height:40px;flex-shrink:0}
 .search-summary-edit:hover{background:rgba(106,215,255,.06)}
 .search-summary-edit:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
@@ -467,12 +467,11 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 
 /* Tabular numerics for codes, prices, routes */
 .price,.price-currency,.pa-code,.ex-route,.fields input,.score-val,.score-num,.cpm-val,.aw-metric-val,.aw-card-miles,.aw-card-surcharge,.aw-meta-cpm,.aw-fs-times,.aw-seg-times,.aw-journey-time,.bdc-cpp,.bdc-cash-vs strong{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
-.pa-code{letter-spacing:.04em}
-.price{letter-spacing:-.01em}
-.price,.price-currency,.aw-card-miles,.aw-card-miles-unit,.aw-miles,.aw-cpm,.aw-meta-cpm,.aw-metric-val,.bdc-cpp,.score-num,.aw-trust-v,.pa-code,.aw-route-code,.journey-node-main{font-family:var(--font-data)}
-.rec-verdict,.cg-headline,.aw-verdict-h,.results .card h3{font-family:var(--font-display)}
-.search-summary-text{font-family:var(--font-display)}
-.tab-title,.go-main{font-family:var(--font-display)}
+.pa-code{letter-spacing:.02em;line-height:1;font-family:var(--font-body)}
+.price{letter-spacing:-.015em}
+.price,.price-currency,.aw-card-miles,.aw-card-miles-unit,.aw-miles,.aw-cpm,.aw-meta-cpm,.aw-metric-val,.bdc-cpp,.score-num,.aw-trust-v,.aw-route-code,.journey-node-main{font-family:var(--font-data)}
+.rec-verdict,.cg-headline,.aw-verdict-h{font-family:var(--font-display)}
+.search-summary-text{font-family:var(--font-body)}
 /* ===== Discovery Widget ===== */
 .discovery-section{margin-top:32px;overflow:hidden}
 .discovery-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
@@ -500,22 +499,22 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 
 /* Route + cabin row */
 .disc-route-row{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:2px}
-.disc-route{font-size:15px;font-weight:800;color:var(--text);letter-spacing:-.01em}
+.disc-route{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.005em}
 .disc-cabin-pill{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
 
 /* Verdict row: stars + tier label */
 .disc-verdict-row{display:flex;align-items:center;gap:5px}
-.disc-stars{font-size:11px;color:var(--disc-accent,var(--gold));letter-spacing:.5px}
-.disc-tier-label{font-size:11px;font-weight:700;color:var(--disc-accent,var(--gold));text-transform:uppercase;letter-spacing:.05em}
+.disc-stars{font-size:10px;color:var(--disc-accent,var(--gold));letter-spacing:.25px;opacity:.82}
+.disc-tier-label{font-size:11px;font-weight:600;color:var(--disc-accent,var(--gold));text-transform:uppercase;letter-spacing:.03em}
 
 /* Recommendation */
-.disc-rec-label{font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px}
+.disc-rec-label{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px}
 
 /* Offer: program · miles + fees */
 .disc-offer-row{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;align-items:baseline;gap:2px}
 .disc-program{font-weight:600;color:var(--text)}
 .disc-sep{opacity:.4}
-.disc-miles-val{color:var(--gold);font-weight:600}
+.disc-miles-val{color:var(--text);font-weight:600}
 
 .disc-meta{font-size:11px;color:var(--muted)}
 .disc-reason{font-size:11px;color:var(--muted);line-height:1.45;font-style:italic}
@@ -573,10 +572,10 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 .card-price{text-align:right;flex-shrink:0}
 .card h3{font-size:17px;font-weight:700;letter-spacing:-.2px;margin-bottom:6px;display:flex;align-items:center;flex-wrap:wrap;gap:2px}
 .route-arrow{color:var(--ar-text-secondary);margin:0 5px;font-weight:400}
-.price{font-size:25px;font-weight:800;color:var(--text);line-height:1}
+.price{font-size:25px;font-weight:800;color:var(--text);line-height:1.02}
 .price-sub{font-size:11px;color:var(--muted);margin-top:3px}
 .score-block{margin-top:10px;text-align:right}
-.score-num{font-size:18px;font-weight:600;line-height:1;opacity:.75}
+.score-num{font-size:18px;font-weight:700;line-height:1.02;opacity:.88}
 .score-denom{font-size:13px;font-weight:600;color:var(--muted)}
 .score-lbl{font-size:11px;font-weight:600;margin-top:3px;opacity:.8}
 .score-grade{font-weight:700;margin-right:2px;opacity:.75}
@@ -685,9 +684,9 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 [data-theme="light"] .aw-source-est{background:rgba(7,18,36,.04);border-color:rgba(7,18,36,.12)}
 [data-theme="light"] .aw-row-live td{background:rgba(15,102,64,.03)}
 [data-theme="light"] .aw-row-live td:first-child{border-left-color:rgba(15,102,64,.4)}
-.aw-miles{font-weight:700;color:var(--text);white-space:nowrap}
+.aw-miles{font-weight:700;color:var(--text);white-space:nowrap;letter-spacing:-.01em}
 .aw-surcharge{color:var(--muted);white-space:nowrap}
-.aw-cpm{font-weight:700;white-space:nowrap}
+.aw-cpm{font-weight:700;white-space:nowrap;letter-spacing:-.005em}
 .aw-grade{white-space:nowrap}
 .award-grade{font-size:15px;font-weight:800;margin-right:4px}
 .award-label{font-size:11px;font-weight:600}
@@ -704,7 +703,7 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 /* ===== Guided Award Decision (Awards) ===== */
 /* 1 — Verdict: the dominant text element, readable without colour */
 .aw-verdict{border-left:4px solid var(--border);padding-left:16px;margin-bottom:1px}
-.aw-verdict-h{font-size:clamp(1.42rem,1.2rem + 0.86vw,1.9rem);font-weight:700;line-height:1.2;margin:0;color:var(--text);max-width:36rem}
+.aw-verdict-h{font-size:clamp(1.42rem,1.2rem + 0.86vw,1.9rem);font-weight:700;line-height:1.16;margin:0;color:var(--text);max-width:36rem}
 .aw-verdict-cash{border-left-color:var(--cyan)}
 .aw-verdict-cash .aw-verdict-h{color:var(--cyan)}
 .aw-verdict-miles{border-left-color:var(--green)}
@@ -726,7 +725,7 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 .aw-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .aw-metric{background:transparent;border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:3px;min-width:0}
 .aw-metric-label{font-size:.72rem;font-weight:500;letter-spacing:.01em;text-transform:none;color:var(--muted)}
-.aw-metric-val{font-size:1.08rem;font-weight:600;color:var(--text);line-height:1.18;overflow-wrap:anywhere}
+.aw-metric-val{font-size:1.08rem;font-weight:700;color:var(--text);line-height:1.14;overflow-wrap:anywhere}
 .aw-metric-sub{font-size:.8rem;font-weight:500}
 .aw-vw-exceptional,.aw-vw-great{color:var(--green)}
 .aw-vw-good{color:var(--cyan)}
@@ -751,7 +750,7 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 .aw-trust{display:flex;flex-wrap:wrap;align-items:baseline;gap:7px 18px;padding:10px 0 0;border:0;border-top:1px solid var(--border);border-radius:0;background:transparent}
 .aw-trust-item{display:flex;align-items:baseline;gap:6px}
 .aw-trust-k{font-size:.74rem;font-weight:500;letter-spacing:.01em;text-transform:none;color:var(--muted)}
-.aw-trust-v{font-size:.9rem;font-weight:600;color:var(--text)}
+.aw-trust-v{font-size:.9rem;font-weight:700;color:var(--text);line-height:1.2}
 .aw-conf-high{color:var(--green)}
 .aw-conf-medium{color:var(--gold)}
 .aw-conf-low{color:var(--muted)}
@@ -783,7 +782,7 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 .aw-route-node{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0;flex:0 0 auto;padding:2px 0;max-width:150px}
 .aw-route-dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);margin-bottom:3px;flex-shrink:0}
 .aw-route-node-origin .aw-route-dot,.aw-route-node-destination .aw-route-dot{background:var(--gold)}
-.aw-route-code{font-size:1rem;font-weight:650;color:var(--text);letter-spacing:.02em}
+.aw-route-code{font-size:1rem;font-weight:700;color:var(--text);letter-spacing:.03em;line-height:1.1}
 .aw-route-city{font-size:.78rem;color:var(--muted);white-space:nowrap}
 .aw-route-times{display:flex;flex-wrap:wrap;gap:2px 5px;font-size:.84rem;color:var(--text);font-variant-numeric:tabular-nums;white-space:normal;line-height:1.25}
 .aw-route-time{white-space:nowrap}
@@ -924,8 +923,8 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 
 /* Miles — dominant number */
 .aw-card-cost{display:flex;align-items:baseline;gap:5px;margin-top:6px}
-.aw-card-miles{font-size:22px;font-weight:600;color:var(--text);letter-spacing:0;line-height:1}
-.aw-card-miles-unit{font-size:12px;color:var(--muted);font-weight:500}
+.aw-card-miles{font-size:22px;font-weight:700;color:var(--text);letter-spacing:-.01em;line-height:1.02}
+.aw-card-miles-unit{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:0}
 
 /* Surcharge */
 .aw-card-surcharge{font-size:12px;color:var(--muted)}
@@ -937,7 +936,7 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 .aw-meta-nonstop{color:var(--cyan);font-weight:600}
 .aw-meta-seats{color:var(--muted)}
 .aw-meta-seats-low{color:var(--gold);font-weight:600}
-.aw-meta-cpm{color:var(--muted)}
+.aw-meta-cpm{color:var(--muted);font-weight:600;letter-spacing:-.005em}
 .aw-meta-sep{color:var(--border);margin:0 1px}
 
 /* Airline line */
@@ -1156,7 +1155,7 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 .rec-context{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.06)}
 .rec-context-head{max-width:720px}
 .rec-context .card-airline{margin:6px 0 0}
-.rec-verdict{max-width:760px;font-size:17px;font-weight:700;color:var(--cyan);margin:0;padding:11px 14px 10px;border:1px solid rgba(106,215,255,.16);border-radius:14px;background:rgba(106,215,255,.038);letter-spacing:-.01em;line-height:1.35}
+.rec-verdict{max-width:760px;font-size:17px;font-weight:700;color:var(--cyan);margin:0;padding:11px 14px 10px;border:1px solid rgba(106,215,255,.16);border-radius:14px;background:rgba(106,215,255,.038);letter-spacing:-.012em;line-height:1.3}
 .rec-meta{font-size:12px;color:var(--muted);margin-top:8px;font-weight:500}
 .rec-brief{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(220px,.72fr);gap:18px;align-items:start}
 .rec-brief-main{display:flex;flex-direction:column;gap:10px;min-width:0;max-width:620px}
@@ -1172,7 +1171,7 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 .rec-provider{display:flex;flex-direction:column;gap:8px;max-width:760px}
 .cash-guidance{margin-bottom:0;padding:12px 14px 12px;border:1px solid rgba(106,215,255,.16);border-radius:14px;background:rgba(106,215,255,.038)}
 [data-theme="light"] .cash-guidance{border-color:rgba(13,110,138,.16);background:rgba(13,110,138,.04)}
-.cg-headline{margin:0 0 10px;font-size:20px;font-weight:700;line-height:1.35;color:var(--text);letter-spacing:-.2px}
+.cg-headline{margin:0 0 10px;font-size:20px;font-weight:700;line-height:1.28;color:var(--text);letter-spacing:-.2px}
 .cg-block{margin-bottom:8px}
 .cg-k{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
 .cg-block p{margin:4px 0 0;font-size:14px;line-height:1.45;color:var(--text)}
@@ -1196,7 +1195,7 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 .compact-cash-journey{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.06)}
 .journey-strip{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px;line-height:1}
 .journey-node{display:inline-flex;align-items:center;justify-content:center;min-width:30px;padding:2px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.02);font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--muted)}
-.journey-node-main{border-color:rgba(106,215,255,.28);background:rgba(106,215,255,.08);color:var(--cyan)}
+.journey-node-main{border-color:rgba(106,215,255,.28);background:rgba(106,215,255,.08);color:var(--cyan);letter-spacing:.03em;line-height:1.15}
 .journey-via{border-color:rgba(245,199,107,.26);background:rgba(245,199,107,.08);color:var(--gold)}
 .journey-line{display:inline-block;width:16px;height:1px;background:linear-gradient(90deg,rgba(255,255,255,.12),rgba(255,255,255,.32))}
 .journey-strip-compact{gap:5px;margin-bottom:3px}
@@ -1693,7 +1692,7 @@ span.flatpickr-weekday{
   flex-wrap:wrap;margin-bottom:10px;
 }
 .bdc-cpp{
-  font-size:15px;font-weight:600;color:var(--bdc-accent);
+  font-size:15px;font-weight:700;color:var(--bdc-accent);line-height:1.2;letter-spacing:-.01em;
 }
 .bdc-cpp small{font-size:11px;font-weight:500;color:var(--muted)}
 .bdc-cash-vs{font-size:13px;color:var(--muted)}

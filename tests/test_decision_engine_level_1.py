@@ -496,6 +496,16 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("app.css?v=155", html)
         self.assertIn("app.js?v=158", html)
         self.assertNotIn("app.js?v=157", html)
+        self.assertIn("Know what&rsquo;s worth checking.", html)
+        self.assertIn("with clear trade-offs, confidence signals and official verification guidance.", html)
+        self.assertIn("Fare context", html)
+        self.assertIn("Award value", html)
+        self.assertIn("Verification guidance", html)
+        self.assertNotIn("Find where your<br>miles go further.", html)
+        self.assertNotIn("all in one trusted decision view.", html)
+        self.assertNotIn("Price context", html)
+        self.assertNotIn("Routing confidence", html)
+        self.assertNotIn("Official verification", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
         self.assertIn("data-text-size-option=\"large\"", html)
@@ -1283,10 +1293,11 @@ class R2BCashDecisionCard(unittest.TestCase):
         self.assertIn("body{min-height:100vh;font-family:var(--font-sans)", self.css)
 
     def test_typography_cockpit_selectors_use_display_and_data_fonts(self):
-        self.assertIn(".price,.price-currency,.aw-card-miles,.aw-card-miles-unit,.aw-miles,.aw-cpm,.aw-meta-cpm,.aw-metric-val,.bdc-cpp,.score-num,.aw-trust-v,.pa-code,.aw-route-code,.journey-node-main{font-family:var(--font-data)}", self.css)
-        self.assertIn(".rec-verdict,.cg-headline,.aw-verdict-h,.results .card h3{font-family:var(--font-display)}", self.css)
-        self.assertIn(".search-summary-text{font-family:var(--font-display)}", self.css)
-        self.assertIn(".tab-title,.go-main{font-family:var(--font-display)}", self.css)
+        self.assertIn(".price,.price-currency,.aw-card-miles,.aw-card-miles-unit,.aw-miles,.aw-cpm,.aw-meta-cpm,.aw-metric-val,.bdc-cpp,.score-num,.aw-trust-v,.aw-route-code,.journey-node-main{font-family:var(--font-data)}", self.css)
+        self.assertIn(".rec-verdict,.cg-headline,.aw-verdict-h{font-family:var(--font-display)}", self.css)
+        self.assertIn(".search-summary-text{font-family:var(--font-body)}", self.css)
+        self.assertIn(".pa-code{letter-spacing:.02em;line-height:1;font-family:var(--font-body)}", self.css)
+        self.assertNotIn(".tab-title,.go-main{font-family:var(--font-display)}", self.css)
 
     def test_compact_journey_summary_present(self):
         """Scope C: Compact Cash journey summary renderer exists."""
