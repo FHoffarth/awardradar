@@ -248,6 +248,19 @@ function normalizeItineraryOwnership(r) {
   };
 }
 
+function roundTripAwardDisclosureHtml(r) {
+  const decision = r.decision || {};
+  const outboundOnly = !!r.returnDate && (
+    decision.award_trip_type === 'one_way' ||
+    decision.trip_basis_compatible === false
+  );
+  if (!outboundOnly) return '';
+  return `<section class="aw-trip-basis" role="note" aria-label="Round-trip award availability disclosure">
+    <div class="aw-trip-basis-k">Round-trip requested</div>
+    <p>Award availability currently represents outbound award signals only. Return award availability must be verified separately.</p>
+  </section>`;
+}
+
 function awardJourneyMapHtml(r) {
   const ownership = normalizeItineraryOwnership(r);
   if (ownership.journeyRouteSource === 'search_fallback' || ownership.displayedItinerary === 'none') {
@@ -1611,6 +1624,7 @@ function render(data) {
         const best = sorted[0];
         const d = r.decision || {};
         const incompatibleBasis = d.trip_basis_compatible === false;
+        const outboundOnlyAward = !!r.returnDate && (d.award_trip_type === 'one_way' || incompatibleBasis);
         const ownership = normalizeItineraryOwnership(r);
         const routingVerified = ownership.verifiedIdenticalRouting === true;
 
@@ -1695,9 +1709,11 @@ function render(data) {
         if (!best) {
           return `<div class="card"><div class="aw-result-shell">
             ${headerHtml}
+            ${roundTripAwardDisclosureHtml(r)}
             <div class="aw-verdict aw-verdict-insufficient"><h4 class="aw-verdict-h">More information is needed before comparing.</h4></div>
             <div class="aw-means"><div class="aw-block-k">What this means</div><p>AwardRadar does not yet have enough compatible data to make a reliable comparison.</p></div>
             <div class="aw-next"><div class="aw-block-k">Your next best step</div><p>No award options were returned for this route. Verify current availability with the official program.</p></div>
+            <div class="aw-cta-row"><button type="button" class="aw-cta aw-cta-secondary" onclick="switchTabAndRun('cheap')">Compare cash fare</button></div>
             <p class="legend-note">Final availability, mileage prices, taxes, fees and rules must be confirmed with the airline or loyalty program before any transfer or purchase.</p>
             ${actionLinksHtml(r.links)}
           </div></div>`;
@@ -1796,10 +1812,10 @@ function render(data) {
           return `<button type="button" class="${cls}" onclick="this.closest('.card').querySelector('.aw-programs').scrollIntoView({block:'start'})">${esc(label)}</button>`;
         };
         const CTA = {
-          cash:         { p: ['Check cash fare', 'cash'],            s: ['View evaluated award', 'award'] },
-          miles:        { p: ['Verify with official program', 'award'], s: ['Compare cash alternative', 'cash'] },
+          cash:         { p: ['Compare cash fare', 'cash'],          s: ['View evaluated award', 'award'] },
+          miles:        { p: ['Verify with official program', 'award'], s: ['Compare cash fare', 'cash'] },
           mixed:        { p: ['Compare official options', 'award'], s: ['Review both alternatives', 'cash'] },
-          insufficient: { p: ['Verify current availability', 'award'], s: ['Review available signals', 'scroll'] },
+          insufficient: { p: ['Verify current availability', 'award'], s: ['Compare cash fare', 'cash'] },
         }[st];
         const ctaHtml = `<div class="aw-cta-row">${ctaBtn(CTA.p[0], CTA.p[1], true)}${ctaBtn(CTA.s[0], CTA.s[1], false)}</div>`;
 
@@ -1835,13 +1851,13 @@ function render(data) {
           </details>` : '';
         const programsHtml = `
           <div class="aw-programs">
-            <div class="aw-section-kicker">${incompatibleBasis ? 'One-way award signals for the outbound journey' : 'Evaluated redemption'}</div>
+            <div class="aw-section-kicker">${outboundOnlyAward ? 'Outbound award signal' : 'Evaluated redemption'}</div>
             <div class="aw-cards-grid aw-cards-grid-briefing">${evaluatedCard}</div>
           </div>`;
         const programOptionsHtml = (alternatives.length || hiddenPrograms.length) ? `
           <div class="aw-program-options">
             ${alternatives.length ? `
-              <div class="aw-cards-caption">Other program options · raw estimates, not AwardRadar's final judgment</div>
+              <div class="aw-cards-caption">${outboundOnlyAward ? 'Other outbound award signals' : 'Other program options'} · raw estimates, not AwardRadar's final judgment</div>
               <div class="aw-cards-grid">${altCards}</div>` : ''}
             ${showAll}
           </div>` : '';
@@ -1849,6 +1865,7 @@ function render(data) {
         return `<div class="card${r.best_program ? ' top-card' : ''}">
           <div class="aw-result-shell">
             ${headerHtml}
+            ${roundTripAwardDisclosureHtml(r)}
             <div class="aw-briefing">
               <div class="aw-briefing-main">
                 <div class="aw-recommendation">

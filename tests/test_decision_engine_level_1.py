@@ -493,8 +493,8 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=160", html)
-        self.assertIn("app.js?v=162", html)
+        self.assertIn("app.css?v=161", html)
+        self.assertIn("app.js?v=163", html)
         self.assertNotIn("app.css?v=159", html)
         self.assertNotIn("app.js?v=161", html)
         self.assertNotIn("app.js?v=157", html)
@@ -544,7 +544,7 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("What to verify before booking", html)
         self.assertIn("Independence and commercial links", html)
         self.assertIn("Limitations", html)
-        self.assertIn("app.css?v=160", html)
+        self.assertIn("app.css?v=161", html)
         self.assertIn("consent.css?v=2", html)
         self.assertNotIn("app.js?v=147", html)
 
@@ -554,8 +554,8 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=160", html)
-        self.assertIn("app.js?v=162", html)
+        self.assertIn("app.css?v=161", html)
+        self.assertIn("app.js?v=163", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -993,7 +993,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
         response = self.client.get("/privacy")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("app.css?v=160", html)
+        self.assertIn("app.css?v=161", html)
         self.assertIn("consent.css?v=2", html)
         # Informational-only disclaimer and controlling-version statement
         self.assertIn(
@@ -1040,7 +1040,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
         response = self.client.get("/datenschutz")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("app.css?v=160", html)
+        self.assertIn("app.css?v=161", html)
         self.assertIn("consent.css?v=2", html)
         self.assertIn('href="/privacy"', html)
         # German legal substance remains intact
@@ -1049,7 +1049,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
 
     def test_impressum_uses_current_assets(self):
         html = self.client.get("/impressum").get_data(as_text=True)
-        self.assertIn("app.css?v=160", html)
+        self.assertIn("app.css?v=161", html)
         self.assertIn("consent.css?v=2", html)
         self.assertNotIn("app.css?v=156", html)
         self.assertNotIn("app.css?v=155", html)
@@ -1248,6 +1248,47 @@ class CashCardRenderMarkup(unittest.TestCase):
         self.assertIn(".cash-itin-times", self.css)
         self.assertIn(".cash-itin-times{font-size:calc(15px * var(--text-scale))}", self.css)
         self.assertIn("flex-wrap:wrap", self.css)
+
+
+class AwardRoundTripClarityFrontend(unittest.TestCase):
+    """Phase 1: award round-trip disclosure and internal cash comparison."""
+
+    def setUp(self):
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.js = pathlib.Path(root, "static", "app.js").read_text(encoding="utf-8")
+        self.css = pathlib.Path(root, "static", "app.css").read_text(encoding="utf-8")
+        self.html = pathlib.Path(root, "templates", "index.html").read_text(encoding="utf-8")
+
+    def test_roundtrip_outbound_only_disclosure_is_explicit(self):
+        helper = self.js.split("function roundTripAwardDisclosureHtml(r)", 1)[1].split("function awardJourneyMapHtml", 1)[0]
+        self.assertIn("Round-trip requested", helper)
+        self.assertIn("outbound award signals only", helper)
+        self.assertIn("Return award availability must be verified separately.", helper)
+        self.assertIn("decision.award_trip_type === 'one_way'", helper)
+        self.assertIn("decision.trip_basis_compatible === false", helper)
+        self.assertIn(".aw-trip-basis", self.css)
+
+    def test_award_program_labels_do_not_claim_full_roundtrip_availability(self):
+        self.assertIn("const outboundOnlyAward = !!r.returnDate", self.js)
+        self.assertIn("'Outbound award signal'", self.js)
+        self.assertIn("'Other outbound award signals'", self.js)
+        self.assertNotIn("Round-trip award availability confirmed", self.js)
+
+    def test_cash_compare_cta_is_internal_and_context_preserving(self):
+        self.assertIn("Compare cash fare", self.js)
+        self.assertIn("onclick=\"switchTabAndRun('cheap')\"", self.js)
+        switcher = self.js.split("function switchTabAndRun(targetMode)", 1)[1].split("function decisionActionsHtml", 1)[0]
+        self.assertIn("activateTab(tabEl)", switcher)
+        self.assertIn("run();", switcher)
+        self.assertNotIn("window.location", switcher)
+        self.assertIn("returnDate: isOneWay ? '' : $('returnDate').value", self.js)
+        self.assertIn("cabin: activeCabin()", self.js)
+
+    def test_award_cta_avoids_booking_language_and_assets_are_current(self):
+        self.assertNotIn("Book now", self.js)
+        self.assertNotIn("Buy award", self.js)
+        self.assertIn("app.css?v=161", self.html)
+        self.assertIn("app.js?v=163", self.html)
 
 
 class R2BCashDecisionCard(unittest.TestCase):

@@ -701,6 +701,9 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 .aw-result-route{font-size:clamp(1.15rem,1rem + 0.6vw,1.45rem);font-weight:600;line-height:1.24;margin:0}
 .aw-result-route .aw-dot{color:var(--muted);font-weight:400;margin:0 2px}
 .aw-result-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.85rem;color:var(--muted)}
+.aw-trip-basis{margin:12px 0 4px;padding:10px 13px;border:1px solid rgba(245,199,107,.32);border-radius:10px;background:rgba(245,199,107,.055);max-width:48rem}
+.aw-trip-basis-k{font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--gold)}
+.aw-trip-basis p{margin:3px 0 0;font-size:.88rem;line-height:1.45;color:var(--text)}
 
 /* ===== Guided Award Decision (Awards) ===== */
 /* 1 — Verdict: the dominant text element, readable without colour */
@@ -1777,6 +1780,8 @@ span.flatpickr-weekday{
 .score-context{font-size:calc(10.5px * var(--text-scale))}
 .aw-result-route{font-size:clamp(calc(1.15rem * var(--text-scale)),calc(1rem * var(--text-scale) + .6vw),calc(1.45rem * var(--text-scale)))}
 .aw-result-meta{font-size:calc(.85rem * var(--text-scale))}
+.aw-trip-basis-k{font-size:calc(.72rem * var(--text-scale))}
+.aw-trip-basis p{font-size:calc(.88rem * var(--text-scale))}
 .aw-verdict-h{font-size:clamp(calc(1.42rem * var(--text-scale)),calc(1.2rem * var(--text-scale) + .86vw),calc(1.9rem * var(--text-scale)))}
 .aw-means,.aw-explain{font-size:calc(1rem * var(--text-scale))}
 .aw-block-k,.aw-metric-label,.aw-itin-label{font-size:calc(.72rem * var(--text-scale))}
