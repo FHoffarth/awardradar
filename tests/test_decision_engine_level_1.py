@@ -493,8 +493,21 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=149", html)
-        self.assertIn("app.js?v=156", html)
+        self.assertIn("app.css?v=160", html)
+        self.assertIn("app.js?v=162", html)
+        self.assertNotIn("app.css?v=159", html)
+        self.assertNotIn("app.js?v=161", html)
+        self.assertNotIn("app.js?v=157", html)
+        self.assertIn("Know what&rsquo;s worth checking.", html)
+        self.assertIn("with clear trade-offs, confidence signals and official verification guidance.", html)
+        self.assertIn("Fare context", html)
+        self.assertIn("Award value", html)
+        self.assertIn("Verification guidance", html)
+        self.assertNotIn("Find where your<br>miles go further.", html)
+        self.assertNotIn("all in one trusted decision view.", html)
+        self.assertNotIn("Price context", html)
+        self.assertNotIn("Routing confidence", html)
+        self.assertNotIn("Official verification", html)
         self.assertIn("data-text-size-option=\"small\"", html)
         self.assertIn("data-text-size-option=\"default\"", html)
         self.assertIn("data-text-size-option=\"large\"", html)
@@ -531,7 +544,8 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("What to verify before booking", html)
         self.assertIn("Independence and commercial links", html)
         self.assertIn("Limitations", html)
-        self.assertIn("app.css?v=136", html)
+        self.assertIn("app.css?v=160", html)
+        self.assertIn("consent.css?v=2", html)
         self.assertNotIn("app.js?v=147", html)
 
     def test_about_navigation_exists_on_main_page(self):
@@ -540,8 +554,8 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=149", html)
-        self.assertIn("app.js?v=156", html)
+        self.assertIn("app.css?v=160", html)
+        self.assertIn("app.js?v=162", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -556,6 +570,21 @@ class AboutMethodologyPage(unittest.TestCase):
             self.assertNotIn(phrase, html)
         self.assertIn("official airline, booking-site and loyalty-program sources are the final verification point", html)
         self.assertIn("commercial placement", html)
+
+    def test_about_legacy_notice_replaced(self):
+        html = self.client.get("/about").get_data(as_text=True)
+        self.assertIn("Verify before booking — AwardRadar provides decision support only.", html)
+        self.assertNotIn("beta-notice", html)
+        self.assertNotIn("beta-tag", html)
+        self.assertNotIn("decision-support context based on fare and award data", html)
+        trust_note = html.split('<div class="trust-note">', 1)[1].split('</div>', 1)[0]
+        self.assertNotIn("hello@awardradar.app", trust_note)
+        self.assertIn('<a href="mailto:hello@awardradar.app">Contact</a>', html)
+
+    def test_legacy_notice_css_removed(self):
+        css = (pathlib.Path(__file__).parents[1] / "static" / "app.css").read_text(encoding="utf-8")
+        self.assertNotIn(".beta-notice", css)
+        self.assertNotIn(".beta-tag", css)
 
     def test_about_appears_in_sitemap(self):
         response = self.client.get("/sitemap.xml")
@@ -824,10 +853,11 @@ class TopOpportunitiesFrontendRendering(unittest.TestCase):
 const warnings = [];
 const console = {{ warn: (...args) => warnings.push(args.join(' ')) }};
 const window = {{ location: {{ origin: 'https://awardradar.app' }} }};
+const document = {{ documentElement: {{ getAttribute: () => 'en' }} }};
 function esc(s) {{
   return String(s ?? '').replace(/[&<>"]/g, c => ({{ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }}[c]));
 }}
-const STARS_MAP = {{ exceptional: '*****', great: '****' }};
+const SIGNAL_LABEL = {{ exceptional: 'Strong award signal', great: 'Award signal' }};
 const REC_LABEL = {{
   book_miles: 'Verify miles option',
   lean_miles: 'Lean towards Miles',
@@ -835,6 +865,8 @@ const REC_LABEL = {{
   pay_cash: 'Pay Cash',
 }};
 const container = {{ innerHTML: '' }};
+{"function formatUserDate(dateStr)" + js.split("function formatUserDate(dateStr)", 1)[1].split("function fmtDur(min)", 1)[0]}
+{"const SEARCH_MONTHS = [" + js.split("const SEARCH_MONTHS = [", 1)[1].split("function _searchSummaryText()", 1)[0]}
 {helper_block}
 {render_cards}
 renderCards({json.dumps(opportunities)});
@@ -886,10 +918,16 @@ process.stdout.write(JSON.stringify({{ html: container.innerHTML, warnings }}));
         )
         html = result["html"]
         self.assertIn("disc-card", html)
+        self.assertNotIn("disc-stars", html)
         self.assertIn("FRA", html)
         self.assertIn("JFK", html)
         self.assertIn("2L", html)
         self.assertIn("UNKNOWN", html)
+        self.assertIn("Strong award signal", html)
+        self.assertIn("Award signal", html)
+        self.assertIn("Review value signal", html)
+        self.assertNotIn("Review this route", html)
+        self.assertNotIn("Exceptional value", html)
         self.assertIn("Provider reports direct availability", html)
         self.assertNotIn("disc-error", html)
         self.assertEqual(result["warnings"], [])
@@ -905,7 +943,8 @@ process.stdout.write(JSON.stringify({{ html: container.innerHTML, warnings }}));
 
     def test_empty_success_response_uses_neutral_empty_state(self):
         result = self.render_fixture([])
-        self.assertIn("No exceptional opportunities detected today.", result["html"])
+        self.assertIn("No strong opportunity signals are available right now.", result["html"])
+        self.assertNotIn("No exceptional opportunities detected today.", result["html"])
         self.assertNotIn("temporarily unavailable", result["html"])
 
     def test_malformed_item_does_not_suppress_valid_cards(self):
@@ -954,6 +993,8 @@ class EnglishPrivacyNotice(unittest.TestCase):
         response = self.client.get("/privacy")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
+        self.assertIn("app.css?v=160", html)
+        self.assertIn("consent.css?v=2", html)
         # Informational-only disclaimer and controlling-version statement
         self.assertIn(
             "This English version is provided for information only. "
@@ -999,10 +1040,31 @@ class EnglishPrivacyNotice(unittest.TestCase):
         response = self.client.get("/datenschutz")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
+        self.assertIn("app.css?v=160", html)
+        self.assertIn("consent.css?v=2", html)
         self.assertIn('href="/privacy"', html)
         # German legal substance remains intact
         self.assertIn("Art. 6 Abs. 1 lit. f DSGVO", html)
         self.assertIn("§ 25 TDDDG", html)
+
+    def test_impressum_uses_current_assets(self):
+        html = self.client.get("/impressum").get_data(as_text=True)
+        self.assertIn("app.css?v=160", html)
+        self.assertIn("consent.css?v=2", html)
+        self.assertNotIn("app.css?v=156", html)
+        self.assertNotIn("app.css?v=155", html)
+        self.assertNotIn("app.css?v=154", html)
+        self.assertNotIn("app.css?v=153", html)
+        self.assertNotIn("consent.css?v=1", html)
+
+    def test_legal_pages_include_theme_toggle_hooks(self):
+        for path in ("/impressum", "/privacy", "/datenschutz"):
+            html = self.client.get(path).get_data(as_text=True)
+            self.assertIn('class="about-page"', html)
+            self.assertIn('id="themeBtn"', html)
+            self.assertIn('id="themeIconMoon"', html)
+            self.assertIn('id="themeIconSun"', html)
+            self.assertIn("awardradar_theme", html)
 
     def test_footers_link_to_english_privacy(self):
         for path in ("/", "/about"):
@@ -1173,9 +1235,11 @@ class CashCardRenderMarkup(unittest.TestCase):
         self.assertIn("'complete'", self.js)
         self.assertIn("'partial'", self.js)
 
-    def test_provider_attribution_present_but_secondary(self):
-        self.assertIn("Fare data: Google Flights", self.js)
-        self.assertIn(".card-fare-source", self.css)
+    def test_provider_attribution_is_available_only_in_disclosure(self):
+        disclosure = self.js.split("function sourceDisclosureHtml(obj)", 1)[1].split("function actionLinksHtml", 1)[0]
+        self.assertIn("entries.map", disclosure)
+        self.assertNotIn("card-fare-source", self.js)
+        self.assertNotIn("link-provider", self.js)
         # The prominent provider byline must not appear in visible Cash-card copy.
         self.assertNotIn('class="card-source">${esc(o.source', self.js)
         self.assertNotIn("Google Flights (SerpApi)", self.js)
@@ -1205,6 +1269,13 @@ class R2BCashDecisionCard(unittest.TestCase):
         self.assertIn(".rec-meta", self.css)
         self.assertIn(".rec-cta", self.css)
 
+    def test_recommendation_card_uses_composed_reading_width(self):
+        """Primary decision card should constrain briefing sections without shrinking the outer shell."""
+        self.assertIn(".rec-brief{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(220px,.72fr)", self.css)
+        self.assertIn(".rec-brief-main{display:flex;flex-direction:column;gap:10px;min-width:0;max-width:620px}", self.css)
+        self.assertIn("class=\"rec-brief-side\"", self.js)
+        self.assertIn("card-price rec-price-panel${isWeakAssessment ? ' price-evidence' : ''}", self.js)
+
     def test_compact_alternatives_present(self):
         """Scope F: Non-first results use compact structure."""
         self.assertIn(".compact-alternative", self.css)
@@ -1213,16 +1284,51 @@ class R2BCashDecisionCard(unittest.TestCase):
         self.assertIn(".compact-price", self.css)
         self.assertIn(".compact-value", self.css)
 
+    def test_award_program_grid_keeps_evaluated_card_intentional(self):
+        """Evaluated redemption card should not stretch into a lonely full-width tile."""
+        self.assertIn(".aw-cards-grid-briefing{grid-template-columns:minmax(0,1fr);margin-bottom:0}", self.css)
+        self.assertIn(".aw-cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,280px));justify-content:start", self.css)
+        self.assertIn("class=\"aw-cards-grid aw-cards-grid-briefing\"", self.js)
+
+    def test_award_result_uses_two_column_briefing_composition(self):
+        """Award recommendation should pair verdict and evidence in one desktop briefing block."""
+        self.assertIn(".aw-briefing{display:grid;grid-template-columns:minmax(0,1.18fr) minmax(300px,.82fr)", self.css)
+        self.assertIn("class=\"aw-briefing\"", self.js)
+        self.assertIn("class=\"aw-evidence\"", self.js)
+        self.assertIn("class=\"aw-program-options\"", self.js)
+
+    def test_typography_tokens_define_ledger_and_cockpit_layers(self):
+        self.assertIn('font-family:"Inter";', self.css)
+        self.assertIn('--font-body:"Source Sans 3",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;', self.css)
+        self.assertIn("--font-sans:var(--font-body);", self.css)
+        self.assertIn('--font-display:"Inter",var(--font-body);', self.css)
+        self.assertIn('--font-data:"Inter",var(--font-body);', self.css)
+        self.assertIn("body{min-height:100vh;font-family:var(--font-sans)", self.css)
+
+    def test_typography_cockpit_selectors_use_display_and_data_fonts(self):
+        self.assertIn(".price,.price-currency,.aw-card-miles,.aw-card-miles-unit,.aw-miles,.aw-cpm,.aw-meta-cpm,.aw-metric-val,.bdc-cpp,.score-num,.aw-trust-v,.aw-route-code,.journey-node-main{font-family:var(--font-data)}", self.css)
+        self.assertIn(".rec-verdict,.cg-headline,.aw-verdict-h{font-family:var(--font-display)}", self.css)
+        self.assertIn(".search-summary-text{font-family:var(--font-body)}", self.css)
+        self.assertIn(".pa-code{letter-spacing:.02em;line-height:1;font-family:var(--font-body)}", self.css)
+        self.assertNotIn(".tab-title,.go-main{font-family:var(--font-display)}", self.css)
+
     def test_compact_journey_summary_present(self):
         """Scope C: Compact Cash journey summary renderer exists."""
         self.assertIn("compactCashJourneySummary", self.js)
         self.assertIn(".compact-cash-journey", self.css)
+        self.assertIn(".journey-strip", self.css)
+        self.assertIn(".journey-node", self.css)
+        self.assertIn(".journey-facts", self.css)
         self.assertIn(".ccjs-route", self.css)
         self.assertIn(".ccjs-times", self.css)
         self.assertIn(".ccjs-trip-meta", self.css)
         self.assertIn(".ccjs-via", self.css)
 
     def test_itinerary_priority_markup_present_in_cash_cards(self):
+        self.assertIn("class=\"journey-strip", self.js)
+        self.assertIn("journey-node-main", self.js)
+        self.assertIn("journey-via", self.js)
+        self.assertIn("class=\"journey-facts\"", self.js)
         self.assertIn("class=\"ccjs-times\"", self.js)
         self.assertIn("class=\"ccjs-trip-meta\"", self.js)
         self.assertIn("class=\"compact-times\"", self.js)
@@ -1262,6 +1368,7 @@ function between(start, end) {{
 const block = [
   between('function formatUserDate(dateStr)', 'function aircraftStub'),
   between('function esc(s)', 'async function run()'),
+  between('const SEARCH_MONTHS = [', 'function _searchSummaryText()'),
   between('const CASH_TIER_CSS = {{', 'function priceTiers(calendar)'),
   between('function cashItineraryHtml(o)', '// Client-side mirror of the backend valid-price rule'),
   between('function isValidCashPrice(v)', 'function decisionGuidanceHtml(guidance)'),
@@ -1329,22 +1436,91 @@ process.stdout.write(html);
         self.assertEqual(out.returncode, 0, out.stderr)
         html = out.stdout
         self.assertIn('class="ccjs-route"', html)
+        self.assertIn('class="journey-strip"', html)
+        self.assertIn('class="journey-node journey-node-main"', html)
         self.assertTrue('class="ccjs-times"' in html or 'class="compact-times"' in html)
         self.assertTrue('class="ccjs-trip-meta"' in html or 'class="compact-trip-meta"' in html)
         self.assertIn("FRA", html)
         self.assertIn("JFK", html)
+        self.assertIn("class=\"journey-node journey-via\"", html)
+        self.assertIn("BOS", html)
+        top_card_start = html.find('class="card recommendation-card')
+        compact_start = html.find('class="card compact-alternative')
+        self.assertGreaterEqual(top_card_start, 0)
+        self.assertGreater(compact_start, top_card_start)
+        top_card_html = html[top_card_start:compact_start]
+        self.assertNotIn('class="journey-node journey-via"', top_card_html)
+        lowered = html.lower()
+        self.assertNotIn("aircraft", lowered)
+        self.assertNotIn("terminal", lowered)
+        self.assertNotIn("baggage", lowered)
+        self.assertNotIn("layover", lowered)
+        self.assertNotIn("self-transfer", lowered)
+        self.assertNotIn("hello@awardradar.app", html)
+        self.assertNotIn("decision-support context", html)
         self.assertIn("Lufthansa", html)
         self.assertIn("LH 400", html)
-        self.assertIn("View fare", html)
+        self.assertIn("Verify current fare", html)
+        self.assertNotIn("View fare", html)
         self.assertIn("Google Flights", html)
+        self.assertNotIn("AwardRadar does not sell or book fares.", top_card_html)
+        self.assertEqual(top_card_html.count('class="link-primary"'), 1)
 
     def test_date_formatter_present(self):
         """Scope D: Date localization helper formatUserDate exists."""
         self.assertIn("function formatUserDate(dateStr)", self.js)
 
+    def test_central_formatters_present(self):
+        self.assertIn("function formatMoney(value, currency = 'EUR')", self.js)
+        self.assertIn("function formatMilesNumber(value)", self.js)
+        self.assertIn("function formatMiles(value, unit = 'miles')", self.js)
+        self.assertIn("function formatCpm(value)", self.js)
+        self.assertIn("function formatTripDate(value)", self.js)
+        self.assertIn("function formatTripDateRange(start, end)", self.js)
+
+    def test_visual_token_primitives_present(self):
+        self.assertIn("--ar-bg-deep", self.css)
+        self.assertIn("--ar-surface-glass", self.css)
+        self.assertIn("--ar-border-subtle", self.css)
+        self.assertIn("--ar-border-focus", self.css)
+        self.assertIn("--ar-accent-cyan", self.css)
+        self.assertIn("--ar-accent-mint", self.css)
+        self.assertIn("--ar-caution-amber", self.css)
+
+    def test_number_formatters_lock_international_locale(self):
+        self.assertIn("num.toLocaleString('en-US'", self.js)
+        self.assertIn("Math.round(num).toLocaleString('en-US')", self.js)
+        self.assertNotIn("toLocaleString(undefined", self.js)
+
+    def test_award_card_miles_keep_split_span_structure(self):
+        self.assertIn('class="aw-card-miles">${esc(formatMilesNumber(p.miles) || \'—\')}</span>', self.js)
+        self.assertIn('<span class="aw-card-miles-unit">miles</span>', self.js)
+        self.assertNotIn('class="aw-card-miles">${esc(formatMiles(p.miles))}', self.js)
+
+    def test_trip_dates_use_central_formatters(self):
+        self.assertIn("const dateContext = formatTripDateRange(r.date, r.returnDate);", self.js)
+        self.assertIn("esc(formatTripDate(r.date))", self.js)
+        self.assertIn("Date: ${formatTripDate(o.available_date)}", self.js)
+        self.assertNotIn("${r.date} -> ${r.returnDate}", self.js)
+        self.assertNotIn("Date: ${o.available_date}", self.js)
+
+    def test_money_displays_use_central_formatter(self):
+        self.assertIn("formatMoney(o.price, o.currency)", self.js)
+        self.assertIn("formatMoney(r.cash_eur)", self.js)
+        self.assertIn("formatMoney(cal.price)", self.js)
+        self.assertIn("formatMoney(fees)", self.js)
+        self.assertNotIn("Potential difference ~${Math.round(r.savings)} EUR vs direct", self.js)
+        self.assertNotIn(" + EUR ${Math.round(fees)}", self.js)
+
+    def test_cpm_unit_is_ct_per_mile(self):
+        self.assertIn("return `${num.toFixed(1)} ct/mi`;", self.js)
+        self.assertNotIn("${cpm.toFixed(1)} ct", self.js)
+
     def test_source_disclosure_present(self):
-        """Scope E: Source disclosure (Compare sources) UI present."""
+        """Source transparency remains available as demoted verification context."""
         self.assertIn("sourceDisclosureHtml", self.js)
+        self.assertIn("Fare sources and verification options", self.js)
+        self.assertNotIn("Compare sources", self.js)
         self.assertIn(".source-disclosure", self.css)
         self.assertIn(".source-toggle", self.css)
         self.assertIn(".source-popover", self.css)
@@ -1384,12 +1560,90 @@ process.stdout.write(html);
         self.assertNotIn("Exceptional value — nonstop and affordable", self.js)
         self.assertNotIn("nonstop and affordable", self.js)
 
-    def test_no_book_now_copy(self):
-        """Scope E: Primary link says 'View fare', not 'Book Now' or 'Buy'."""
-        self.assertIn("View fare", self.js)
+    def test_cash_cta_uses_verification_not_booking_copy(self):
+        self.assertIn("Verify current fare", self.js)
+        self.assertIn("Verify current fare externally", self.js)
+        self.assertIn('target="_blank" rel="noopener"', self.js)
+        self.assertIn("AwardRadar does not sell or book fares.", self.js)
+        self.assertNotIn("View fare", self.js)
         self.assertNotIn("Book Now", self.js)
         self.assertNotIn('label: "Buy"', self.js)
         self.assertNotIn('"Buy"', self.js)
+
+    def test_cash_verification_explainer_is_result_level_not_card_level(self):
+        helper = self.js.split("function linksHtmlWithLabels(obj)", 1)[1].split("function sourceDisclosureHtml", 1)[0]
+        self.assertNotIn("AwardRadar does not sell or book fares.", helper)
+        self.assertIn("function cashVerificationExplainerHtml()", self.js)
+        self.assertIn("External verification", self.js)
+        self.assertIn("AwardRadar does not sell or book fares.", self.js)
+        self.assertIn("cashVerificationExplainerHtml()", self.js)
+        self.assertIn(".cash-result-verification", self.css)
+
+    def test_header_ready_pill_and_value_signal_hint_are_removed(self):
+        self.assertNotIn('id="status"', self.html)
+        self.assertNotIn('>ready<', self.html)
+        legend = self.js.split("function scoreLegendHtml()", 1)[1].split("function cashVerificationExplainerHtml", 1)[0]
+        self.assertIn("What is the Value Signal?", legend)
+        self.assertNotIn("tap to expand", legend)
+        self.assertNotIn("legend-hint", self.css)
+
+    def test_cash_primary_link_hierarchy_keeps_one_verification_path(self):
+        helper = self.js.split("function linksHtmlWithLabels(obj)", 1)[1].split("function sourceDisclosureHtml", 1)[0]
+        self.assertIn("const [, url] = entries[0];", helper)
+        self.assertNotIn("entries.map", helper)
+        disclosure = self.js.split("function sourceDisclosureHtml(obj)", 1)[1].split("function actionLinksHtml", 1)[0]
+        self.assertIn("entries.map", disclosure)
+
+    def test_score_and_grade_are_demoted_from_primary_surface(self):
+        score = self.js.split("function scoreHtml(o)", 1)[1].split("function bestBadgeHtml", 1)[0]
+        self.assertIn('<details class="score-block score-details', score)
+        self.assertIn("<summary>Assessment details</summary>", score)
+        self.assertNotIn("/100", score)
+        self.assertNotIn("score-grade", score)
+        self.assertNotIn("score-num", score)
+        self.assertIn("relativeSignalLabel", score)
+        self.assertIn(".score-details", self.css)
+
+    def test_cash_assessment_hierarchy_demotes_price_and_provider_details(self):
+        self.assertIn("assessment-caution", self.js)
+        self.assertIn("price-evidence", self.js)
+        self.assertIn(".assessment-caution .rec-price-panel", self.css)
+        self.assertIn(".price-evidence .price", self.css)
+        self.assertIn("order:1", self.css)
+        self.assertIn("order:2", self.css)
+
+    def test_compact_cards_use_lowest_returned_fare_not_cheapest_wording(self):
+        facts = self.js.split("function journeyFactsHtml", 1)[1].split("// Client-side mirror", 1)[0]
+        self.assertIn("Lowest returned fare", facts)
+        self.assertNotIn("Cheapest returned option", facts)
+
+    def test_compact_cash_labels_are_neutral(self):
+        self.assertIn("Stronger relative signal", self.js)
+        self.assertIn("Moderate relative signal", self.js)
+        self.assertIn("Weaker relative signal", self.js)
+        self.assertNotIn("C · Pricey", self.js)
+        self.assertNotIn("D · Weak", self.js)
+
+    def test_cash_reason_copy_is_deaggregated_in_display_layer(self):
+        self.assertIn("function cashReasonDisplay(reason)", self.js)
+        self.assertIn("Lowest returned fare", self.js)
+        self.assertIn("Higher than lowest returned fare", self.js)
+        self.assertIn("Nonstop itinerary", self.js)
+        self.assertIn("One-stop itinerary", self.js)
+
+    def test_cash_sort_controls_are_reframed_without_key_changes(self):
+        self.assertIn("Review by:", self.js)
+        self.assertIn(">Assessment</button>", self.js)
+        self.assertIn(">Fare amount</button>", self.js)
+        self.assertIn(">Routing simplicity</button>", self.js)
+        self.assertIn("data-sort=\"score\"", self.js)
+        self.assertIn("data-sort=\"price\"", self.js)
+        self.assertIn("data-sort=\"nonstop\"", self.js)
+
+    def test_cash_note_avoids_beta_cache_wording(self):
+        note = app.TEXT["cheap_note_live"]["en"]
+        self.assertEqual(note, "Fare context from external sources. Confirm the current fare and itinerary details before booking.")
+        self.assertNotIn("Cached during beta", note)
 
     def test_debug_resolved_line_removed(self):
         """Scope G: Debug Resolved block no longer rendered in user-facing HTML."""
@@ -1497,8 +1751,10 @@ process.stdout.write(html);
         self.assertIn('id="searchSummary"', self.html)
         self.assertIn("search-summary", self.html)
         self.assertIn(".shell.has-results #landing-state{display:none}", self.css)
-        self.assertIn(".shell.has-results .panel{padding:14px 16px 14px", self.css)
+        self.assertIn(".shell.has-results .hero{padding:10px 0 12px", self.css)
+        self.assertIn(".shell.has-results .panel{padding:13px 15px 13px", self.css)
         self.assertIn(".shell.has-results .search-summary{gap:8px", self.css)
+        self.assertIn(".shell.has-results .results{margin-top:8px;gap:8px}", self.css)
 
     def test_trust_notices_are_compact_result_context_not_banners(self):
         self.assertIn(".shell.has-results .card.note", self.css)
@@ -1511,6 +1767,71 @@ process.stdout.write(html);
         self.assertIn("decisionActionsHtml()", self.js)
         self.assertIn("switchTabAndRun('awards')", self.js)
         self.assertIn("switchTabAndRun('skiplag')", self.js)
+
+    def test_trust_note_replaces_intelligence_notice(self):
+        """Trust note: quiet verification disclosure replaces Intelligence beta-notice."""
+        self.assertIn("Verify before booking", self.html)
+        self.assertIn(".trust-note", self.css)
+        self.assertNotIn("decision-support context", self.html)
+        self.assertNotIn("provider .", self.html)
+        # Old 'Intelligence' pill removed from this notice context
+        idx = self.html.find("trust-note")
+        if idx >= 0:
+            end = self.html.find("</div>", idx)
+            block = self.html[idx:end] if end > idx else self.html[idx:idx+500]
+            self.assertNotIn("hello@awardradar.app", block)
+            self.assertNotIn("Intelligence", block)
+
+    def test_decision_support_copy_absent_from_index(self):
+        """Old decision-support context copy must not appear in index.html."""
+        self.assertNotIn("decision-support context", self.html)
+
+    def test_provider_punctuation_not_broken(self):
+        """No 'provider .' (space before period) in index.html."""
+        self.assertNotIn("provider .", self.html)
+
+    def test_search_mode_controls_include_all_three_modes(self):
+        """All three search mode tabs must be present."""
+        self.assertIn('data-tab="cheap"', self.html)
+        self.assertIn('data-tab="awards"', self.html)
+        self.assertIn('data-tab="skiplag"', self.html)
+        self.assertIn("Best Value Flights", self.html)
+        self.assertIn("Award Redemptions", self.html)
+        self.assertIn("Hidden Opportunities", self.html)
+
+    def test_popular_airports_progressive_disclosure_exists(self):
+        """Mobile airport disclosure: pa-col-compact class and pa-all-toggle button injected via JS."""
+        self.assertIn("pa-col-compact", self.js)
+        self.assertIn("pa-all-toggle", self.js)
+        self.assertIn("Show all airports", self.js)
+        self.assertIn("Show fewer airports", self.js)
+        self.assertIn(".pa-col.pa-col-compact .pa-group:not(:first-child){display:none}", self.css)
+        self.assertIn(".pa-all-toggle{display:none}", self.css)
+
+    def test_search_cta_validation_still_intact(self):
+        """Search CTA must remain disabled until form is valid."""
+        self.assertIn('id="go"', self.html)
+        self.assertIn('aria-disabled="true"', self.html)
+        self.assertIn('id="searchValidationStatus"', self.html)
+        self.assertIn("validateSearchForm", self.js)
+        self.assertIn("Select origin, destination and departure date to search.", self.html)
+
+    def test_compact_tab_css_present(self):
+        """Mobile tabs rendered as compact segmented control."""
+        self.assertIn(".tab-icon{display:none}", self.css)
+        self.assertIn(".tab-info{display:none}", self.css)
+        self.assertIn("flex-direction:row", self.css)
+
+    def test_mobile_tab_labels_intentional(self):
+        """Mobile tab titles use short intentional labels; desktop keeps full labels."""
+        self.assertIn("tab-label-long", self.html)
+        self.assertIn("tab-label-short", self.html)
+        self.assertIn("Best Value Flights", self.html)
+        self.assertIn("Award Redemptions", self.html)
+        self.assertIn("Hidden Opportunities", self.html)
+        self.assertIn(".tab-label-short{display:none}", self.css)
+        self.assertIn(".tab-label-long{display:none}", self.css)
+        self.assertIn(".tab-label-short{display:inline}", self.css)
 
 
 class InvalidCashPriceValidation(unittest.TestCase):
@@ -1687,9 +2008,9 @@ class CashCardInvalidPriceFrontendDefense(unittest.TestCase):
         self.assertGreater(idx_filter, -1)
         self.assertGreater(idx_sort, idx_filter)
 
-    def test_price_render_uses_math_round(self):
+    def test_price_render_uses_central_money_formatter(self):
         # Guard remains the sole path; invalid prices never reach this line.
-        self.assertIn("Math.round(o.price)", self.js)
+        self.assertIn("formatMoney(o.price, o.currency)", self.js)
 
     def _eval_helper(self, cases_json):
         if not self.node:

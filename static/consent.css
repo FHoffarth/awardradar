@@ -95,3 +95,11 @@
     flex: 1 1 150px;
   }
 }
+
+@media (max-width: 640px) {
+  .consent-preferences {
+    left: auto;
+    right: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom));
+  }
+}

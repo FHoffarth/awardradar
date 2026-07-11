@@ -587,7 +587,10 @@ function payload() {
   };
 }
 
-function setStatus(t) { $('status').textContent = t; }
+function setStatus(t) {
+  const status = $('status');
+  if (status) status.textContent = t;
+}
 
 const RADAR_STAGES = {
   cheap: [
@@ -717,21 +720,20 @@ function linksHtml(obj) {
   return `<div class="links">${Object.entries(obj || {}).map(([k, v]) => `<a target="_blank" rel="noopener" href="${esc(v)}">${esc(k)}</a>`).join('')}</div>`;
 }
 
-// Link rendering for cash cards: first link labeled "View fare", others show provider name
+// Cash cards expose one primary verification path. Additional sources remain in
+// the demoted provenance disclosure below.
 function linksHtmlWithLabels(obj) {
   if (Array.isArray(obj)) {
     return linksHtml(obj);
   }
   const entries = Object.entries(obj || {});
   if (!entries.length) return '';
-  return `<div class="links">${entries.map(([k, v], idx) =>
-    idx === 0
-      ? `<a class="link-primary" target="_blank" rel="noopener" href="${esc(v)}" title="View fare on ${esc(k)}"><span class="link-label">View fare</span><span class="link-provider">${esc(k)}</span></a>`
-      : `<a target="_blank" rel="noopener" href="${esc(v)}">${esc(k)}</a>`
-  ).join('')}</div>`;
+  const [, url] = entries[0];
+  return `<div class="links"><a class="link-primary" target="_blank" rel="noopener" href="${esc(url)}" title="Verify current fare externally"><span class="link-label">Verify current fare</span></a></div>`;
 }
 
-// Source disclosure button + hidden popover for "Compare sources" (Scope E)
+// Source disclosure keeps every returned provider available as provenance and
+// an optional verification path without turning the card into a shopping list.
 function sourceDisclosureHtml(obj) {
   const entries = Object.entries(obj || {});
   if (!entries.length) return '';
@@ -743,7 +745,7 @@ function sourceDisclosureHtml(obj) {
 
   return `<div class="source-disclosure">
     <button type="button" class="source-toggle" aria-expanded="false" aria-controls="${uid}">
-      Compare sources
+      Fare sources and verification options
     </button>
     <div class="source-popover" id="${uid}" hidden>
       <div class="source-links">${sourcesHtml}</div>
@@ -860,6 +862,50 @@ function formatSearchDateRange(depValue, retValue) {
   if (dep.y === ret.y) return `${dep.d} ${SEARCH_MONTHS[dep.m - 1]}–${ret.d} ${SEARCH_MONTHS[ret.m - 1]} ${dep.y}`;
   return `${formatSearchDate(depValue)}–${formatSearchDate(retValue)}`;
 }
+function formatMoney(value, currency = 'EUR') {
+  if (value == null) return '—';
+  const num = Number(value);
+  if (!isFinite(num)) return '—';
+  const hasDecimals = Math.abs(num % 1) > 0;
+  const minDigits = hasDecimals ? 2 : 0;
+  const maxDigits = 2;
+  if (currency === 'EUR') {
+    return `€${num.toLocaleString('en-US', { minimumFractionDigits: minDigits, maximumFractionDigits: maxDigits })}`;
+  }
+  return `${num.toLocaleString('en-US', { minimumFractionDigits: minDigits, maximumFractionDigits: maxDigits })} ${currency}`;
+}
+function formatMilesNumber(value) {
+  if (value == null) return null;
+  const num = Number(value);
+  if (!isFinite(num)) return null;
+  return Math.round(num).toLocaleString('en-US');
+}
+function formatMiles(value, unit = 'miles') {
+  const numStr = formatMilesNumber(value);
+  if (!numStr) return unit === 'miles' ? 'Miles unavailable' : `${unit} unavailable`;
+  return `${numStr} ${unit}`;
+}
+function formatCpm(value) {
+  if (value == null) return null;
+  const num = Number(value);
+  if (!isFinite(num)) return null;
+  return `${num.toFixed(1)} ct/mi`;
+}
+function formatTripDate(value) {
+  return formatUserDate(value);
+}
+function formatTripDateRange(start, end) {
+  if (!start && !end) return '';
+  if (!start) return formatTripDate(end);
+  if (!end) return formatTripDate(start);
+  const dep = parseIsoDateParts(start);
+  const ret = parseIsoDateParts(end);
+  if (dep && ret) {
+    if (dep.y === ret.y && dep.m === ret.m) return `${dep.d}–${ret.d} ${SEARCH_MONTHS[dep.m - 1]} ${dep.y}`;
+    if (dep.y === ret.y) return `${dep.d} ${SEARCH_MONTHS[dep.m - 1]} – ${ret.d} ${SEARCH_MONTHS[ret.m - 1]} ${dep.y}`;
+  }
+  return `${formatTripDate(start)} – ${formatTripDate(end)}`;
+}
 function _searchSummaryText() {
   const o = ($('origin').value || '').trim().toUpperCase().slice(0, 3);
   const d = ($('dest').value || '').trim().toUpperCase().slice(0, 3);
@@ -917,18 +963,35 @@ function scoreHtml(o) {
   const s = o.dealScore;
   if (s == null) return '';
   const info = o.tier && CASH_TIER_CSS[o.tier] ? CASH_TIER_CSS[o.tier] : scoreInfo(s);
-  const grade = o.grade || info.grade;
-  const label = o.label || info.label;
-  const tooltip = o.scoreReason ? esc(o.scoreReason) : esc(label);
+  const signal = relativeSignalLabel(o.tier || info.tier);
+  const tooltip = o.scoreReason ? esc(cashReasonDisplay(o.scoreReason)) : esc(signal);
   const note = CASH_CONTEXT_NOTE[o.scoreContext] || '';
   const conf = o.scoreConfidence && o.scoreConfidence !== 'high'
     ? `<div class="score-conf">${o.scoreConfidence === 'low' ? 'Limited confidence' : 'Moderate confidence'}</div>` : '';
-  return `<div class="score-block ${info.css}" title="${tooltip}" aria-label="Value Signal ${s} out of 100: ${esc(label)}">
-    <span class="score-num">${s}</span><span class="score-denom">/100</span>
-    <div class="score-lbl"><span class="score-grade">${grade}</span> ${esc(label)}</div>
-    ${note ? `<div class="score-context">${esc(note)}</div>` : ''}
-    ${conf}
-  </div>`;
+  return `<details class="score-block score-details ${info.css}" title="${tooltip}">
+    <summary>Assessment details</summary>
+    <div class="score-details-body" aria-label="${esc(signal)}">
+      <div class="score-lbl">${esc(signal)}</div>
+      ${note ? `<div class="score-context">${esc(note)}</div>` : ''}
+      ${conf}
+    </div>
+  </details>`;
+}
+
+function relativeSignalLabel(tier) {
+  if (tier === 'exceptional' || tier === 'great') return 'Stronger relative signal';
+  if (tier === 'good') return 'Moderate relative signal';
+  return 'Weaker relative signal';
+}
+
+function cashReasonDisplay(reason) {
+  return String(reason || '')
+    .replace(/cheapest in this search/gi, 'Lowest returned fare')
+    .replace(/higher than cheapest/gi, 'Higher than lowest returned fare')
+    .replace(/(\d+)% pricier than cheapest/gi, '$1% above lowest returned fare')
+    .replace(/\bnonstop\b/gi, 'Nonstop itinerary')
+    .replace(/\b1 stop\b/gi, 'One-stop itinerary')
+    .replace(/\b(\d+) stops\b/gi, '$1-stop itinerary');
 }
 function bestBadgeHtml(o, sortContext, opts = {}) {
   const guided = !!opts.guided;
@@ -938,7 +1001,7 @@ function bestBadgeHtml(o, sortContext, opts = {}) {
   }
   // Sort context takes precedence over value judgment
   if (sortContext === 'price') {
-    return '<div class="best-badge">Lowest Price</div>';
+    return '<div class="best-badge">Lowest returned fare</div>';
   }
   if (sortContext === 'nonstop') {
     const hasKnownStops =
@@ -948,30 +1011,33 @@ function bestBadgeHtml(o, sortContext, opts = {}) {
       Number.isFinite(Number(o.stops));
 
     const stops = hasKnownStops ? Number(o.stops) : null;
-    const label = stops === 0 ? 'Nonstop' : 'Fewest Stops';
+    const label = stops === 0 ? 'Nonstop itinerary' : 'Simplest routing';
     return `<div class="best-badge">${label}</div>`;
   }
   // Default: use value-tier logic
   const tier = o.tier || scoreInfo(o.dealScore).tier;
   if (o.scoreContext === 'best_available_not_cheap') return '<div class="best-badge">Best Available</div>';
   if (o.scoreContext === 'limited_comparison') return '<div class="best-badge">Only Option</div>';
-  if (tier === 'exceptional') return '<div class="best-badge">A+ · Exceptional Value</div>';
-  if (tier === 'great') return '<div class="best-badge">A · Strong Value</div>';
+  if (tier === 'exceptional' || tier === 'great') return '<div class="best-badge">Stronger relative signal</div>';
   return '<div class="best-badge">Best Match</div>';
 }
 
 function scoreLegendHtml() {
   return `<details class="score-legend">
-    <summary>What is the Value Signal? <span class="legend-hint">tap to expand</span></summary>
+    <summary>What is the Value Signal?</summary>
     <div class="legend-grid">
-      <span class="s-gold score-num" style="font-size:15px">A+</span><span><strong>Exceptional Value</strong> — cheapest, nonstop and genuinely below typical (rare)</span>
-      <span class="s-green score-num" style="font-size:15px">A</span><span><strong>Strong Value</strong> — near the best option in this search</span>
-      <span class="s-cyan score-num" style="font-size:15px">B</span><span><strong>Fair Value</strong> — reasonable relative to the cheapest</span>
-      <span class="s-muted score-num" style="font-size:15px">C</span><span><strong>Pricey for This Search</strong> — materially costlier or worse routing</span>
-      <span class="s-muted score-num" style="font-size:15px">D</span><span><strong>Weak Relative Value</strong> — far from the best in this search</span>
+      <span class="s-gold score-num" style="font-size:15px">+</span><span><strong>Stronger relative signal</strong> — returned fare and routing evidence align more closely</span>
+      <span class="s-cyan score-num" style="font-size:15px">~</span><span><strong>Moderate relative signal</strong> — returned evidence is mixed</span>
+      <span class="s-muted score-num" style="font-size:15px">−</span><span><strong>Weaker relative signal</strong> — returned fare or routing evidence is less compelling</span>
     </div>
     <p class="legend-note">Value Signal is relative to the cheapest comparable result in this search, adjusted for routing quality and a price reality check. Best available is not always cheap.</p>
   </details>`;
+}
+
+function cashVerificationExplainerHtml() {
+  return `<div class="cash-result-verification" role="note">
+    <strong>External verification</strong> — AwardRadar does not sell or book fares. Confirm current fares, seats and rules with the source.
+  </div>`;
 }
 
 function priceTiers(calendar) {
@@ -993,7 +1059,7 @@ function calendarStripHtml(calendar) {
     const label = d.toLocaleDateString('en', { month: 'short', day: 'numeric' });
     const tier = tiers[c.date] || '';
     const cls = (c.isSelected ? ' dc-sel' : c.isBest ? ' dc-best' : tier ? ` dc-${tier}` : '');
-    const priceStr = c.price ? Math.round(c.price) + ' ' + (c.currency || 'EUR') : '—';
+    const priceStr = c.price ? formatMoney(c.price, c.currency || 'EUR') : '—';
     return `<button class="date-cell${cls}" onclick="jumpToDate('${c.date}')">
       <div class="dc-date">${label}</div>
       <div class="dc-price">${priceStr}</div>
@@ -1049,6 +1115,7 @@ function compactCashJourneySummary(o) {
   const tripMeta = [dur, stopsLabel].filter(Boolean).join(' · ');
 
   return `<div class="compact-cash-journey">
+    ${journeyStripHtml(o)}
     <div class="ccjs-route">${route}</div>
     ${viaLine}
     ${times ? `<div class="ccjs-times">${times}</div>` : ''}
@@ -1056,56 +1123,65 @@ function compactCashJourneySummary(o) {
   </div>`;
 }
 
-function cashSegmentTimelineHtml(segments, label) {
-  if (!Array.isArray(segments) || !segments.length) return '';
-  const rows = segments.map(seg => {
-    if (!seg || typeof seg !== 'object') return '';
-    const dep = String(seg.dep_iata || '').trim();
-    const arr = String(seg.arr_iata || '').trim();
-    if (!dep || !arr) return '';
-    const times = [];
-    if (seg.dep_time) times.push(esc(seg.dep_time));
-    if (seg.arr_time) times.push(esc(seg.arr_time));
-    const route = `${esc(dep)}<span class="cash-rt-arrow" aria-hidden="true">→</span>${esc(arr)}`;
-    const meta = [];
-    if (times.length) meta.push(times.join('<span class="cash-rt-arrow" aria-hidden="true">→</span>'));
-    if (seg.duration_min != null && Number.isFinite(Number(seg.duration_min)) && Number(seg.duration_min) > 0) meta.push(esc(fmtDur(Number(seg.duration_min))));
-    if (seg.airline) meta.push(esc(seg.airline));
-    if (seg.flight_number) meta.push(esc(seg.flight_number));
-    return `<li class="cash-rt-segment"><div class="cash-rt-route">${route}</div>${meta.length ? `<div class="cash-rt-meta">${meta.join(' · ')}</div>` : ''}</li>`;
-  }).filter(Boolean).join('');
-  if (!rows) return '';
-  return `<section class="cash-rt-leg" aria-label="${esc(label)}"><div class="cash-rt-label">${esc(label)}</div><ol class="cash-rt-timeline">${rows}</ol></section>`;
+function journeyNodes(o) {
+  const out = [];
+  const push = (code) => {
+    const c = String(code || '').trim().toUpperCase();
+    if (/^[A-Z0-9]{3}$/.test(c) && out[out.length - 1] !== c) out.push(c);
+  };
+  push(o.origin);
+  const viaCodes = Array.isArray(o.via) ? o.via : [];
+  viaCodes.forEach(push);
+  push(o.dest);
+  return out;
 }
 
-function cashRoundTripIntegrityHtml(o, roundTripRequested) {
-  if (!roundTripRequested) return '';
-  const state = o && o.itinerary_state;
-  if (!['complete', 'partial', 'price_only'].includes(state)) return '';
-  if (state === 'price_only') {
-    return '<div class="cash-routing-unavailable">Routing details are not available from the current source.</div>';
-  }
-  const outbound = cashSegmentTimelineHtml(o.outbound_segments, 'Outbound');
-  if (state === 'complete') {
-    const inbound = cashSegmentTimelineHtml(o.return_segments, 'Return');
-    return `${outbound}${inbound}`;
-  }
-  const requestedDate = o.returnDate
-    ? `<div class="cash-ghost-date"><span>Requested return date</span> ${esc(formatUserDate(o.returnDate))}</div>`
-    : '';
-  return `${outbound}<section class="cash-ghost-return" aria-label="Return details unavailable"><div class="cash-rt-label">Return</div><p>Return details were not provided by the current source.</p>${requestedDate}</section>`;
+function journeyStripHtml(o, opts = {}) {
+  const compact = !!opts.compact;
+  const nodes = journeyNodes(o);
+  if (nodes.length < 2) return '';
+  const parts = [];
+  nodes.forEach((code, i) => {
+    const isMain = i === 0 || i === nodes.length - 1;
+    const cls = `journey-node${isMain ? ' journey-node-main' : ' journey-via'}`;
+    parts.push(`<span class="${cls}">${esc(code)}</span>`);
+    if (i < nodes.length - 1) {
+      parts.push('<span class="journey-line" aria-hidden="true"></span>');
+    }
+  });
+  return `<div class="journey-strip${compact ? ' journey-strip-compact' : ''}">${parts.join('')}</div>`;
 }
 
-function priceSignalContextHtml(o) {
-  const route = [o && o.origin, o && o.dest].filter(Boolean).map(esc).join('<span class="cash-rt-arrow" aria-hidden="true">→</span>');
-  const requestedDate = o && o.returnDate
-    ? `<div class="cash-price-signal-date"><span>Requested return date</span> ${esc(formatUserDate(o.returnDate))}</div>`
-    : '';
-  return `<div class="cash-price-signal-context">
-    ${route ? `<div class="cash-price-signal-k">Requested route</div><div class="cash-price-signal-route">${route}</div>` : ''}
-    ${requestedDate}
-    <div class="cash-routing-unavailable">Routing details are not available from the current source.</div>
-  </div>`;
+function journeyViaFact(o) {
+  const viaCodes = (Array.isArray(o.via) ? o.via : [])
+    .map(v => String(v || '').trim().toUpperCase())
+    .filter(v => /^[A-Z0-9]{3}$/.test(v));
+  if (!viaCodes.length) return '';
+  if (viaCodes.length <= 2) return `via ${viaCodes.join(', ')}`;
+  return `via ${viaCodes.slice(0, 2).join(', ')} +${viaCodes.length - 2}`;
+}
+
+function journeyFactsHtml(o, opts = {}) {
+  const facts = [];
+  const maxFacts = Number.isFinite(opts.maxFacts) ? Math.max(1, opts.maxFacts) : 4;
+  const stops = parseInt(o.stops) || 0;
+  const stopsLabel = stops === 0 ? 'nonstop' : stops === 1 ? '1 stop' : `${stops} stops`;
+  const off = (typeof o.arrival_day_offset === 'number' && o.arrival_day_offset > 0) ? o.arrival_day_offset : null;
+
+  if (opts.isRecommended) facts.push('Recommended option');
+  if (opts.isCheapest) facts.push('Lowest returned fare');
+  facts.push(stopsLabel);
+  if (o.durationMin) facts.push(fmtDur(o.durationMin));
+  if (opts.includeViaFact) {
+    const viaFact = journeyViaFact(o);
+    if (viaFact) facts.push(viaFact);
+  }
+  if (off) facts.push(`+${off} day arrival`);
+  if (opts.includeAirlineFlight && o.airline && o.flight_number) facts.push(`${o.airline} ${o.flight_number}`);
+
+  const uniq = facts.filter((f, i) => f && facts.indexOf(f) === i).slice(0, maxFacts);
+  if (!uniq.length) return '';
+  return `<div class="journey-facts">${uniq.map(f => `<span class="journey-fact">${esc(f)}</span>`).join('')}</div>`;
 }
 
 // Client-side mirror of the backend valid-price rule: reject booleans, null,
@@ -1145,7 +1221,6 @@ function needsReturnDisclosure(o, roundTripRequested) {
 }
 
 function returnDisclosureHtml(o, roundTripRequested) {
-  if (roundTripRequested && ['complete', 'partial', 'price_only'].includes(o && o.itinerary_state)) return '';
   if (!needsReturnDisclosure(o, roundTripRequested)) return '';
   return `<div class="rt-disclosure">
     <div class="rt-disclosure-k">Shown itinerary details are from returned fare data.</div>
@@ -1170,45 +1245,23 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
       sorted = [recommended, ...sorted.filter(o => o.offer_id !== recommendedId)];
     }
   }
+  const cheapestPrice = sorted.reduce((min, o) => {
+    const n = Number(o.price);
+    return Number.isFinite(n) && n < min ? n : min;
+  }, Infinity);
 
   return sorted.map((o, i) => {
     const isTop = i === 0;
     const isGuidanceRecommended = !!(recommendedId && o.offer_id === recommendedId);
-    const hasKnownStops = o.stops !== null && o.stops !== undefined && String(o.stops).trim() !== '' && Number.isFinite(Number(o.stops));
-    const stops = hasKnownStops ? Math.max(0, parseInt(o.stops, 10)) : null;
+    const offerTier = o.tier || scoreInfo(o.dealScore).tier;
+    const isWeakAssessment = isGuidanceRecommended &&
+      ['keep_looking', 'limited_evidence'].includes(guidance && guidance.recommendation_state) ||
+      ['fair', 'poor'].includes(offerTier);
+    const isCheapest = Number.isFinite(cheapestPrice) && Number(o.price) === cheapestPrice;
+    const stops = parseInt(o.stops) || 0;
     const airlineLabel = o.airline || 'Airline';
     const logoImg = airlineMarkHtml(airlineLabel, o.airlineCode);
     const flightNoHtml = o.flight_number ? `<span class="cash-flight-no">${esc(o.flight_number)}</span>` : '';
-    const hasIntegrityState = roundTripRequested && ['complete', 'partial', 'price_only'].includes(o.itinerary_state);
-    const airlineHtml = hasIntegrityState && !o.airline
-      ? ''
-      : `<div class="card-airline">${logoImg}<span class="airline-name">${esc(airlineLabel)}</span>${flightNoHtml}</div>`;
-
-    if (roundTripRequested && o.itinerary_state === 'price_only') {
-      const priceSignalContext = priceSignalContextHtml(o);
-      if (isTop) {
-        return `<div class="card recommendation-card top-card price-signal-card">
-          <div class="card-row">
-            <div class="card-main">${priceSignalContext}</div>
-            <div class="card-price">
-              <div class="price">${Math.round(o.price)} <span class="price-currency">${esc(o.currency)}</span></div>
-              <div class="price-sub">per person</div>
-              ${o.scoreReason ? `<div class="score-reason-pills">${o.scoreReason.split(' · ').map(p => `<span class="srp">${esc(p)}</span>`).join('')}</div>` : ''}
-              ${scoreHtml(o)}
-            </div>
-          </div>
-        </div>`;
-      }
-      return `<div class="card compact-alternative price-signal-card">
-        <div class="compact-row">
-          <div class="compact-main">${priceSignalContext}</div>
-          <div class="compact-price">
-            <div class="price">${Math.round(o.price)}</div>
-            <div class="price-cur">${esc(o.currency)}</div>
-          </div>
-        </div>
-      </div>`;
-    }
 
     // R2B-1 RECOMMENDATION CARD (Scope A, B, C, E)
     if (isTop) {
@@ -1217,7 +1270,7 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
       if (sortKey === 'price') {
         verdict = 'Lowest fare in this search';
       } else if (sortKey === 'nonstop') {
-        verdict = !hasKnownStops ? 'Best match for this search' : stops === 0 ? 'Best nonstop option' : 'Fewest stops option';
+        verdict = stops === 0 ? 'Best nonstop option' : 'Fewest stops option';
       } else {
         // Score sort — use existing tier logic
         const tier = o.tier || scoreInfo(o.dealScore).tier;
@@ -1234,51 +1287,67 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
         }
       }
 
-      const formattedDate = formatUserDate(o.date);
-      const returnDateStr = o.returnDate && o.itinerary_state !== 'partial' ? ` → ${formatUserDate(o.returnDate)}` : '';
+      const dateLine = formatTripDateRange(o.date, o.returnDate);
       const guidanceHtml = isGuidanceRecommended ? decisionGuidanceHtml(guidance) : '';
       const verdictHtml = guidanceHtml ? '' : `<div class="rec-verdict">${esc(verdict)}</div>`;
       const recommendationTag = isGuidanceRecommended ? '<div class="cg-tag cg-tag-secondary">Recommended option</div>' : '';
       const topBadge = bestBadgeHtml(o, sortKey, { guided: isGuidanceRecommended });
       const returnDisclosure = returnDisclosureHtml(o, roundTripRequested);
-      const roundTripIntegrity = cashRoundTripIntegrityHtml(o, roundTripRequested);
+      const journeyFacts = journeyFactsHtml(o, {
+        maxFacts: 4,
+        includeViaFact: true,
+        includeAirlineFlight: true,
+        isRecommended: isGuidanceRecommended,
+        isCheapest,
+      });
 
-      return `<div class="card recommendation-card top-card${isGuidanceRecommended ? ' guidance-card' : ''}">
+      return `<div class="card recommendation-card top-card${isGuidanceRecommended ? ' guidance-card' : ''}${isWeakAssessment ? ' assessment-caution' : ''}">
         <div class="recommendation-badges">
           ${topBadge}
           ${recommendationTag}
         </div>
-        ${guidanceHtml}
-        ${returnDisclosure}
-        ${verdictHtml}
-        ${decisionActionsMarkup}
-        <div class="card-row">
-          <div class="card-main">
+        <div class="rec-context">
+          <div class="rec-context-head">
             <h3>${esc(o.origin)}<span class="route-arrow">→</span>${esc(o.dest)}</h3>
-            ${roundTripIntegrity || compactCashJourneySummary(o)}
-            ${airlineHtml}
-            <div class="rec-meta">${formattedDate}${returnDateStr}</div>
-          </div>
-          <div class="card-price">
-            <div class="price">${Math.round(o.price)} <span class="price-currency">${esc(o.currency)}</span></div>
-            <div class="price-sub">per person</div>
-            ${o.scoreReason ? `<div class="score-reason-pills">${o.scoreReason.split(' · ').map(p => `<span class="srp">${esc(p)}</span>`).join('')}</div>` : ''}
-            ${scoreHtml(o)}
+            <div class="rec-meta">${esc(dateLine)}</div>
           </div>
         </div>
-        <div class="rec-cta">
-          ${linksHtmlWithLabels(o.links)}
-          ${sourceDisclosureHtml(o.links)}
+        <div class="rec-brief">
+          <div class="rec-brief-main">
+            ${guidanceHtml}
+            ${returnDisclosure}
+            ${verdictHtml}
+            ${decisionActionsMarkup}
+          </div>
+          <div class="rec-brief-side">
+            <div class="card-price rec-price-panel${isWeakAssessment ? ' price-evidence' : ''}">
+              <div class="price">${esc(formatMoney(o.price, o.currency))}</div>
+              <div class="price-sub">per person</div>
+              ${o.scoreReason ? `<div class="score-reason-pills">${o.scoreReason.split(' · ').map(p => `<span class="srp">${esc(cashReasonDisplay(p))}</span>`).join('')}</div>` : ''}
+              ${scoreHtml(o)}
+            </div>
+          </div>
         </div>
-        <div class="card-fare-source">Fare data: Google Flights</div>
+        <div class="rec-evidence">
+          <div class="rec-evidence-main">
+            ${compactCashJourneySummary(o)}
+            ${journeyFacts}
+            <div class="card-airline">${logoImg}<span class="airline-name">${esc(airlineLabel)}</span>${flightNoHtml}</div>
+          </div>
+          <div class="rec-provider">
+            <div class="rec-cta">
+              ${linksHtmlWithLabels(o.links)}
+              ${sourceDisclosureHtml(o.links)}
+            </div>
+          </div>
+        </div>
       </div>`;
     }
 
     // R2B-1 COMPACT ALTERNATIVES (Scope F)
-    const stopsLabel = !hasKnownStops ? '' : stops === 0 ? 'nonstop' : stops === 1 ? '1 stop' : `${stops} stops`;
+    const stopsLabel = stops === 0 ? 'nonstop' : stops === 1 ? '1 stop' : `${stops} stops`;
     const durStr = o.durationMin ? fmtDur(o.durationMin) : '';
-    const formattedDate = formatUserDate(o.date);
-    const dateLine = formattedDate + (o.returnDate && o.itinerary_state !== 'partial' ? ' → ' + formatUserDate(o.returnDate) : '');
+    const dateLine = formatTripDateRange(o.date, o.returnDate);
     const dep = o.dep_time;
     const arr = o.arr_time;
     const off = (typeof o.arrival_day_offset === 'number' && o.arrival_day_offset > 0) ? o.arrival_day_offset : null;
@@ -1292,31 +1361,35 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
     }
     const viaLine = o.via && o.via.length ? `<div class="compact-via">via ${esc(o.via.join(', '))}</div>` : '';
     const tripMetaLine = [durStr, stopsLabel].filter(Boolean).join(' · ');
+    const compactJourneyFacts = journeyFactsHtml(o, {
+      maxFacts: 2,
+      includeViaFact: false,
+      includeAirlineFlight: false,
+      isRecommended: isGuidanceRecommended,
+      isCheapest,
+    });
 
-    const tier = o.tier || scoreInfo(o.dealScore).tier;
-    let conciseLabel = '';
-    if (tier === 'exceptional') conciseLabel = 'A+ · Exceptional';
-    else if (tier === 'great') conciseLabel = 'A · Strong';
-    else if (tier === 'good') conciseLabel = 'B · Fair';
-    else if (tier === 'fair') conciseLabel = 'C · Pricey';
-    else conciseLabel = 'D · Weak';
+    const tier = offerTier;
+    const conciseLabel = relativeSignalLabel(tier);
     const recommendationTag = isGuidanceRecommended ? '<div class="cg-tag cg-tag-compact">Recommended option</div>' : '';
     const returnDisclosure = returnDisclosureHtml(o, roundTripRequested);
-    const roundTripIntegrity = cashRoundTripIntegrityHtml(o, roundTripRequested);
 
     return `<div class="card compact-alternative${isGuidanceRecommended ? ' guidance-recommended' : ''}">
       <div class="compact-row">
         <div class="compact-main">
           ${recommendationTag}
+          ${journeyStripHtml(o, { compact: true })}
           <div class="compact-route">${esc(o.origin)} → ${esc(o.dest)}</div>
-          ${roundTripIntegrity || `${viaLine}${compactTimes ? `<div class="compact-times">${compactTimes}</div>` : ''}${tripMetaLine ? `<div class="compact-trip-meta">${esc(tripMetaLine)}</div>` : ''}`}
+          ${viaLine}
+          ${compactTimes ? `<div class="compact-times">${compactTimes}</div>` : ''}
+          ${tripMetaLine ? `<div class="compact-trip-meta">${esc(tripMetaLine)}</div>` : ''}
+          ${compactJourneyFacts}
           <div class="compact-date-meta">${esc(dateLine)}</div>
           ${returnDisclosure}
-          ${hasIntegrityState && !o.airline ? '' : `<div class="compact-airline">${logoImg}<span>${esc(airlineLabel)}</span>${flightNoHtml}</div>`}
+          <div class="compact-airline">${logoImg}<span>${esc(airlineLabel)}</span>${flightNoHtml}</div>
         </div>
-        <div class="compact-price">
-          <div class="price">${Math.round(o.price)}</div>
-          <div class="price-cur">${esc(o.currency)}</div>
+        <div class="compact-price${['fair', 'poor'].includes(tier) ? ' price-evidence' : ''}">
+          <div class="price">${esc(formatMoney(o.price, o.currency))}</div>
           <div class="compact-value">${esc(conciseLabel)}</div>
         </div>
       </div>
@@ -1397,12 +1470,13 @@ function render(data) {
       const primaryDecisionActionsHtml = decisionActionsHtml();
       const hasPrimaryDecisionActions = !!String(primaryDecisionActionsHtml || '').trim();
       html += `<div class="sort-bar">
-        <span class="sort-label">Sort:</span>
-        <button class="sort-btn active" data-sort="score" onclick="applySort('score')">Best Value</button>
-        <button class="sort-btn" data-sort="price" onclick="applySort('price')">Lowest Price</button>
-        <button class="sort-btn" data-sort="nonstop" onclick="applySort('nonstop')">Fewest Stops</button>
+        <span class="sort-label">Review by:</span>
+        <button class="sort-btn active" data-sort="score" onclick="applySort('score')">Assessment</button>
+        <button class="sort-btn" data-sort="price" onclick="applySort('price')">Fare amount</button>
+        <button class="sort-btn" data-sort="nonstop" onclick="applySort('nonstop')">Routing simplicity</button>
       </div>
-      ${scoreLegendHtml()}`;
+      ${scoreLegendHtml()}
+      ${cashVerificationExplainerHtml()}`;
       html += `<div id="cards-wrap">${cheapCardsHtml(currentOffers, 'score', currentCashGuidance, { roundTripRequested: currentCheapRoundTripRequested, decisionActionsMarkup: primaryDecisionActionsHtml })}</div>`;
       if (!hasPrimaryDecisionActions) {
         html += relatedAnalysesHtml('cheap');
@@ -1427,10 +1501,10 @@ function render(data) {
         const segChain = r.segmentChain ? `<div class="seg-chain">${esc(r.segmentChain)}</div>` : '';
         const layover = r.layoverDuration ? `<span class="badge">Layover ${r.layoverDuration} min at ${esc(r.hiddenCity)}</span>` : `<span class="badge">Exit at ${esc(r.hiddenCity)}</span>`;
         const savingsLine = r.savings && r.savings > 0
-          ? `<div class="savings-line">Potential difference ~${Math.round(r.savings)} EUR vs direct</div>`
+          ? `<div class="savings-line">Potential difference ~${esc(formatMoney(r.savings))} vs direct</div>`
           : '';
         const priceDisplay = r.candidatePrice
-          ? `<div class="price">${Math.round(r.candidatePrice)} <span class="price-currency">${esc(r.currency || 'EUR')}</span></div><div class="price-sub">fare to ${esc(r.ticketDestination)}</div>`
+          ? `<div class="price">${esc(formatMoney(r.candidatePrice, r.currency || 'EUR'))}</div><div class="price-sub">fare to ${esc(r.ticketDestination)}</div>`
           : `<div class="price tiny">verify current</div>`;
         return `<div class="card${isVerified ? ' top-card' : ''}">
           ${verifiedBadge}
@@ -1439,7 +1513,7 @@ function render(data) {
               <h3>${esc(r.origin)}<span class="route-arrow">→</span><span style="color:var(--gold)">${esc(r.hiddenCity)}</span><span class="route-arrow">→</span>${esc(r.ticketDestination)}</h3>
               ${segChain}
               ${r.airline ? `<div class="card-airline">${logoImg}<span class="airline-name">${esc(r.airline)}</span></div>` : ''}
-              <div class="meta">${layover}<span>${esc(r.date)}</span></div>
+              <div class="meta">${layover}<span>${esc(formatTripDate(r.date))}</span></div>
               ${savingsLine}
             </div>
             <div class="card-price">
@@ -1482,7 +1556,7 @@ function render(data) {
         poor:        { label: 'D',  cls: 'aw-grade-d' },
       };
       html += awardResults.map(r => {
-        const cashStr = r.cash_eur ? `${Math.round(r.cash_eur)} EUR` : null;
+        const cashStr = r.cash_eur ? formatMoney(r.cash_eur) : null;
         const itineraryHtml = buildItinerary(r.flight);
         const scheduleFallback = itineraryHtml
           ? ''
@@ -1533,7 +1607,6 @@ function render(data) {
         const stateOf = sig => sig === 'cash_may_be_stronger' ? 'cash'
           : (sig === 'strong_miles_value' || sig === 'promising_miles_value') ? 'miles'
           : sig === 'mixed_value' ? 'mixed' : 'insufficient';
-        const nfmt = n => Number(n).toLocaleString();
 
         const best = sorted[0];
         const d = r.decision || {};
@@ -1546,7 +1619,7 @@ function render(data) {
           const gm = incompatibleBasis ? null : (GRADE_MAP[g.tier] || null);
           const isLive = p.data_source === 'live';
           const isBest = !incompatibleBasis && idx === 0 && (g.tier === 'exceptional' || g.tier === 'great');
-          const cpmStr = (!incompatibleBasis && p.cpm) ? `${p.cpm.toFixed(1)} ct/mi` : null;
+          const cpmStr = (!incompatibleBasis && p.cpm) ? formatCpm(p.cpm) : null;
           const verifyContext = [r.route, r.date, r.cabin, p.program]
             .filter(Boolean)
             .map(esc)
@@ -1585,10 +1658,10 @@ function render(data) {
               ${gm ? `<span class="aw-grade-pill ${gm.cls}" title="Program-level redemption signal — see the summary card above for AwardRadar's assessment">${gm.label}</span>` : ''}
             </div>
             <div class="aw-card-cost">
-              <span class="aw-card-miles">${p.miles.toLocaleString()}</span>
+              <span class="aw-card-miles">${esc(formatMilesNumber(p.miles) || '—')}</span>
               <span class="aw-card-miles-unit">miles</span>
             </div>
-            <div class="aw-card-surcharge${surchargeClass ? ' ' + surchargeClass : ''}">+ €${p.surcharge} taxes &amp; fees</div>
+            <div class="aw-card-surcharge${surchargeClass ? ' ' + surchargeClass : ''}">+ ${esc(formatMoney(p.surcharge))} taxes &amp; fees</div>
             ${metaParts.length ? `<div class="aw-card-meta">${metaParts.join('<span class="aw-meta-sep">·</span>')}</div>` : ''}
             ${p.airlines ? `<div class="aw-card-airline">${esc(p.airlines)}</div>` : ''}
             ${awardTrustMetaHtml(p)}
@@ -1606,7 +1679,7 @@ function render(data) {
 
         // Header (route + date + cash badge) — position 1 in the hierarchy.
         const requestedTripLabel = r.returnDate ? 'Round trip' : 'One-way';
-        const dateContext = r.returnDate ? `${r.date} -> ${r.returnDate}` : r.date;
+        const dateContext = formatTripDateRange(r.date, r.returnDate);
         const cashBadgeLabel = d.cash_trip_type === 'round_trip' ? 'Round-trip cash fare' : 'Cash fare';
         const headerHtml = `
           <div class="aw-result-header">
@@ -1665,15 +1738,15 @@ function render(data) {
           meaning = 'The cash fare covers the full return trip, while the available award estimate covers the outbound journey only.';
         } else if (st === 'cash') {
           meaning = (netSaved != null && netSaved > 0 && milesAvailable)
-            ? `You would use ${nfmt(evalMiles)} miles to save only €${netSaved}. That is weak value for your miles.`
+            ? `You would use ${formatMiles(evalMiles)} to save only ${formatMoney(netSaved)}. That is weak value for your miles.`
             : 'The current award option does not provide enough value compared with the cash fare.';
         } else if (st === 'miles') {
           meaning = (netSaved != null && netSaved > 0 && valueAdj)
-            ? `The award option saves about €${netSaved} while giving your miles ${valueAdj} value.`
+            ? `The award option saves about ${formatMoney(netSaved)} while giving your miles ${valueAdj} value.`
             : 'The current award option appears promising based on the available value signals.';
         } else if (st === 'mixed') {
           meaning = (netSaved != null && cpm != null)
-            ? `The award option saves €${netSaved}, but the value per mile is only ${cpm.toFixed(1)} ct. Neither option is clearly superior.`
+            ? `The award option saves ${formatMoney(netSaved)}, but the value per mile is only ${formatCpm(cpm)}. Neither option is clearly superior.`
             : 'The available signals do not clearly favor either cash or miles.';
         } else {
           meaning = 'AwardRadar does not yet have enough compatible data to make a reliable comparison.';
@@ -1700,13 +1773,13 @@ function render(data) {
           `<div class="aw-metric"><div class="aw-metric-label">${esc(label)}</div><div class="aw-metric-val">${esc(val)}</div>${sub ? `<div class="aw-metric-sub${subCls ? ' ' + subCls : ''}">${esc(sub)}</div>` : ''}</div>`;
         const metrics = [];
         if (incompatibleBasis) {
-          metrics.push(metricCell('Round-trip cash fare', cash != null ? `€${cash}` : 'Not available'));
-          metrics.push(metricCell('Outbound one-way award estimate', milesAvailable ? `${nfmt(evalMiles)} miles + €${evalSurcharge}` : 'Not available'));
+          metrics.push(metricCell('Round-trip cash fare', cash != null ? formatMoney(cash) : 'Not available'));
+          metrics.push(metricCell('Outbound one-way award estimate', milesAvailable ? `${formatMiles(evalMiles)} + ${formatMoney(evalSurcharge)}` : 'Not available'));
         } else {
-          metrics.push(metricCell('Cash fare', cash != null ? `€${cash}` : 'Not available'));
-          metrics.push(metricCell('Award cost', milesAvailable ? `${nfmt(evalMiles)} miles + €${evalSurcharge}` : 'Not available'));
-          if (netSaved != null && netSaved > 0) metrics.push(metricCell('Net cash saved', `€${netSaved}`));
-          if (cpm != null) metrics.push(metricCell('Value per mile', `${cpm.toFixed(1)} ct`, valueWord, tier ? `aw-vw-${tier}` : ''));
+          metrics.push(metricCell('Cash fare', cash != null ? formatMoney(cash) : 'Not available'));
+          metrics.push(metricCell('Award cost', milesAvailable ? `${formatMiles(evalMiles)} + ${formatMoney(evalSurcharge)}` : 'Not available'));
+          if (netSaved != null && netSaved > 0) metrics.push(metricCell('Net cash saved', formatMoney(netSaved)));
+          if (cpm != null) metrics.push(metricCell('Value per mile', formatCpm(cpm), valueWord, tier ? `aw-vw-${tier}` : ''));
         }
         const metricsHtml = `<div class="aw-metrics">${metrics.join('')}</div>`;
 
@@ -1763,30 +1836,42 @@ function render(data) {
         const programsHtml = `
           <div class="aw-programs">
             <div class="aw-section-kicker">${incompatibleBasis ? 'One-way award signals for the outbound journey' : 'Evaluated redemption'}</div>
-            <div class="aw-cards-grid">${evaluatedCard}</div>
+            <div class="aw-cards-grid aw-cards-grid-briefing">${evaluatedCard}</div>
+          </div>`;
+        const programOptionsHtml = (alternatives.length || hiddenPrograms.length) ? `
+          <div class="aw-program-options">
             ${alternatives.length ? `
               <div class="aw-cards-caption">Other program options · raw estimates, not AwardRadar's final judgment</div>
               <div class="aw-cards-grid">${altCards}</div>` : ''}
             ${showAll}
-          </div>`;
+          </div>` : '';
 
         return `<div class="card${r.best_program ? ' top-card' : ''}">
           <div class="aw-result-shell">
             ${headerHtml}
-            <div class="aw-recommendation">
-              ${verdictHtml}
-              ${meansHtml}
-              ${nextHtml}
-              ${ctaHtml}
+            <div class="aw-briefing">
+              <div class="aw-briefing-main">
+                <div class="aw-recommendation">
+                  ${verdictHtml}
+                  ${meansHtml}
+                  ${nextHtml}
+                  ${ctaHtml}
+                </div>
+              </div>
+              <div class="aw-briefing-side">
+                <div class="aw-tradeoffs">
+                  <div class="aw-section-kicker aw-tradeoffs-kicker">Key trade-offs</div>
+                  ${metricsHtml}
+                </div>
+                ${programsHtml}
+              </div>
             </div>
-            <div class="aw-tradeoffs">
-              <div class="aw-section-kicker aw-tradeoffs-kicker">Key trade-offs</div>
-              ${metricsHtml}
+            <div class="aw-evidence">
+              ${trustHtml}
+              ${journeyMap.html}
+              ${flightHtml}
             </div>
-            ${trustHtml}
-            ${journeyMap.html}
-            ${flightHtml}
-            ${programsHtml}
+            ${programOptionsHtml}
             <p class="legend-note">Final availability, mileage prices, taxes, fees and rules must be confirmed with the airline or loyalty program before any transfer or purchase.</p>
             ${actionLinksHtml(r.links)}
           </div>
@@ -1878,7 +1963,7 @@ function initDatepickers() {
     if (cal) {
       const span = document.createElement('span');
       span.className = 'fp-price';
-      span.textContent = Math.round(cal.price) + '€';
+      span.textContent = formatMoney(cal.price);
       dayElem.appendChild(span);
       if (cal.tier) dayElem.classList.add('fp-day-' + cal.tier);
       if (cal.isBest) dayElem.classList.add('fp-day-best');
@@ -2052,6 +2137,27 @@ document.querySelectorAll('.pa-toggle').forEach(btn => {
     btn.textContent = expanded ? 'Show less' : 'Show more';
   };
 });
+
+// Mobile airport progressive disclosure: collapse all groups except DACH by default
+(function() {
+  const paCol = document.querySelector('.pa-col');
+  if (!paCol) return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'pa-all-toggle';
+  btn.textContent = 'Show all airports';
+  paCol.appendChild(btn);
+  function applyCompact() {
+    const compact = window.innerWidth <= 640;
+    paCol.classList.toggle('pa-col-compact', compact);
+    if (compact) btn.textContent = 'Show all airports';
+  }
+  btn.addEventListener('click', function() {
+    const nowCompact = paCol.classList.toggle('pa-col-compact');
+    btn.textContent = nowCompact ? 'Show all airports' : 'Show fewer airports';
+  });
+  applyCompact();
+})();
 
 function updatePaCodes() {
   const destVal   = ($('dest').value   || '').toUpperCase().trim();
@@ -2878,12 +2984,12 @@ function normalizeDiscoveryOpportunity(raw) {
 
 function formatDiscoveryMiles(value) {
   const miles = discoveryNumber(value);
-  return miles === null ? 'Miles unavailable' : `${Math.round(miles).toLocaleString()} miles`;
+  return formatMiles(miles);
 }
 
 function formatDiscoveryFees(value) {
   const fees = discoveryNumber(value);
-  return fees === null ? '' : ` + EUR ${Math.round(fees)}`;
+  return fees === null ? '' : ` + ${formatMoney(fees)}`;
 }
 
 function discoveryReason(o) {
@@ -2901,7 +3007,7 @@ function discoveryReason(o) {
   const container = $('discovery-cards');
   if (!container) return;
 
-  const STARS_MAP = { exceptional: '★★★★★', great: '★★★★☆' };
+  const SIGNAL_LABEL = { exceptional: 'Strong award signal', great: 'Award signal' };
   const REC_LABEL  = {
     book_miles: 'Verify miles option', lean_miles: 'Lean towards Miles',
     consider:   'Compare options', pay_cash:   'Pay Cash',
@@ -2918,14 +3024,14 @@ function discoveryReason(o) {
         return;
       }
       if (!o) return;
-      const tier = STARS_MAP[o.grade_tier] ? o.grade_tier : 'great';
-      const stars = STARS_MAP[tier] || '';
+      const tier = SIGNAL_LABEL[o.grade_tier] ? o.grade_tier : 'great';
+      const tierLabel = SIGNAL_LABEL[tier] || 'Award signal';
       const recLbl = REC_LABEL[o.recommendation] || 'Verify miles option';
       const reason = discoveryReason(o);
       const roundedSeats = o.seats === null ? null : Math.round(o.seats);
       const seatsLbl = roundedSeats && roundedSeats > 0 ? `${roundedSeats} seat${roundedSeats !== 1 ? 's' : ''} available` : '';
       const airlineLbl = o.airlines ? `Airline signal: ${o.airlines}` : '';
-      const metaLine = [o.direct ? 'Provider reports direct availability' : '', seatsLbl, airlineLbl, o.available_date ? `Date: ${o.available_date}` : ''].filter(Boolean).join(' - ');
+      const metaLine = [o.direct ? 'Provider reports direct availability' : '', seatsLbl, airlineLbl, o.available_date ? `Date: ${formatTripDate(o.available_date)}` : ''].filter(Boolean).join(' - ');
       const milesLine = `${formatDiscoveryMiles(o.miles)}${formatDiscoveryFees(o.surcharge)}`;
       const originLiteral = JSON.stringify(o.origin);
       const destLiteral = JSON.stringify(o.dest);
@@ -2941,8 +3047,7 @@ function discoveryReason(o) {
           <span class="disc-cabin-pill">${esc(o.cabin)}</span>
         </div>
         <div class="disc-verdict-row">
-          ${stars ? `<span class="disc-stars" aria-hidden="true">${stars}</span>` : ''}
-          <span class="disc-tier-label">${esc(o.grade_label || tier)}</span>
+          <span class="disc-tier-label">${esc(tierLabel)}</span>
         </div>
         <div class="disc-rec-label">&nearr; ${esc(recLbl)}</div>
         <div class="disc-offer-row">
@@ -2952,14 +3057,14 @@ function discoveryReason(o) {
         ${reason ? `<div class="disc-reason">${reason}</div>` : ''}
         <div class="disc-footer-row">
           <span class="disc-conf disc-conf-live">Current availability signal</span>
-          ${o.cpm ? `<span class="disc-cpm">${o.cpm.toFixed(1)} ct/mi</span>` : ''}
+          ${o.cpm ? `<span class="disc-cpm">${formatCpm(o.cpm)}</span>` : ''}
         </div>
-        <a href="#" class="disc-cta-btn" onclick="${esc(ctaClick)}">Review this route &rarr;</a>
+        <a href="#" class="disc-cta-btn" onclick="${esc(ctaClick)}">Review value signal &rarr;</a>
       </div>`);
     });
     if (!cards.length) {
       container.innerHTML = `<div class="disc-empty">
-        <div class="disc-empty-title">No exceptional opportunities detected today.</div>
+        <div class="disc-empty-title">No strong opportunity signals are available right now.</div>
         New opportunities are continuously scanned.
       </div>`;
       return;
