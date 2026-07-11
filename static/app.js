@@ -339,6 +339,8 @@ let currentOffers = [];
 let currentSortKey = 'score';
 let currentCashGuidance = null;
 let currentCheapRoundTripRequested = false;
+let currentCheapRequest = null;
+let currentReturnLegAttempts = new Set();
 let calendarPrices = {};
 let fpDep, fpRet;
 
@@ -788,6 +790,8 @@ async function run() {
   const requestPayload = payload();
   if (mode === 'cheap') {
     currentCheapRoundTripRequested = !requestPayload.oneWay && !!String(requestPayload.returnDate || '').trim();
+    currentCheapRequest = requestPayload;
+    currentReturnLegAttempts = new Set();
   }
   startProgress(_origin, _dest);
   const endpoint = mode === 'cheap' ? '/api/cheap' : mode === 'skiplag' ? '/api/skiplag' : '/api/awards';
@@ -1123,6 +1127,83 @@ function compactCashJourneySummary(o) {
   </div>`;
 }
 
+function cashSegmentTimelineHtml(segments, label) {
+  if (!Array.isArray(segments) || !segments.length) return '';
+  const rows = segments.map(seg => {
+    if (!seg || typeof seg !== 'object') return '';
+    const dep = String(seg.dep_iata || '').trim();
+    const arr = String(seg.arr_iata || '').trim();
+    if (!dep || !arr) return '';
+    const times = [];
+    if (seg.dep_time) times.push(esc(seg.dep_time));
+    if (seg.arr_time) times.push(esc(seg.arr_time));
+    const route = `${esc(dep)}<span class="cash-rt-arrow" aria-hidden="true">→</span>${esc(arr)}`;
+    const meta = [];
+    if (times.length) meta.push(times.join('<span class="cash-rt-arrow" aria-hidden="true">→</span>'));
+    if (seg.duration_min != null && Number.isFinite(Number(seg.duration_min)) && Number(seg.duration_min) > 0) meta.push(esc(fmtDur(Number(seg.duration_min))));
+    if (seg.airline) meta.push(esc(seg.airline));
+    if (seg.flight_number) meta.push(esc(seg.flight_number));
+    return `<li class="cash-rt-segment"><div class="cash-rt-route">${route}</div>${meta.length ? `<div class="cash-rt-meta">${meta.join(' · ')}</div>` : ''}</li>`;
+  }).filter(Boolean).join('');
+  if (!rows) return '';
+  return `<section class="cash-rt-leg" aria-label="${esc(label)}"><div class="cash-rt-label">${esc(label)}</div><ol class="cash-rt-timeline">${rows}</ol></section>`;
+}
+
+function cashRoundTripIntegrityHtml(o, roundTripRequested) {
+  if (!roundTripRequested) return '';
+  const state = o && o.itinerary_state;
+  if (!['complete', 'partial', 'price_only'].includes(state)) return '';
+  if (state === 'price_only') return '<div class="cash-routing-unavailable">Routing details are not available from the current source.</div>';
+  const outbound = cashSegmentTimelineHtml(o.outbound_segments, 'Outbound');
+  if (state === 'complete') return `${outbound}${cashSegmentTimelineHtml(o.return_segments, 'Return')}`;
+  const requestedDate = o.returnDate
+    ? `<div class="cash-ghost-date"><span>Requested return date</span> ${esc(formatUserDate(o.returnDate))}</div>`
+    : '';
+  return `${outbound}<section class="cash-ghost-return" aria-label="Return details unavailable"><div class="cash-rt-label">Return</div><p>Return details were not provided by the current source.</p>${requestedDate}</section>`;
+}
+
+async function verifyRecommendedReturnLeg() {
+  try {
+    if (mode !== 'cheap' || !currentCheapRoundTripRequested || !currentCheapRequest) return;
+    const recId = (currentCashGuidance && currentCashGuidance.recommended_offer_id) || '';
+    if (!recId) return;
+    const offer = (currentOffers || []).find(o => o && o.offer_id === recId);
+    if (!offer || offer.itinerary_state !== 'partial' || !String(offer.returnDate || '').trim()) return;
+    const attemptKey = `${recId}|${offer.date || ''}|${offer.returnDate || ''}`;
+    if (currentReturnLegAttempts.has(attemptKey)) return;
+    currentReturnLegAttempts.add(attemptKey);
+    const req = currentCheapRequest;
+    const body = {
+      origin: offer.origin, dest: offer.dest, date: offer.date, returnDate: offer.returnDate,
+      cabins: req.cabins, cabin: (req.cabins && req.cabins[0]) || 'economy',
+      currency: req.currency, mmOnly: req.mmOnly, lang: req.lang, offer_id: offer.offer_id,
+    };
+    const res = await fetch('/api/return-leg', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    let data; try { data = await res.json(); } catch (_) { return; }
+    if (!res.ok || !data || !data.ok || data.itinerary_state !== 'complete'
+        || !Array.isArray(data.return_segments) || !data.return_segments.length) return;
+    if (!currentCashGuidance || currentCashGuidance.recommended_offer_id !== recId) return;
+    if (!(currentOffers || []).some(o => o && o.offer_id === recId)) return;
+    offer.return_segments = data.return_segments;
+    if (Array.isArray(data.outbound_segments) && data.outbound_segments.length) offer.outbound_segments = data.outbound_segments;
+    offer.itinerary_state = 'complete';
+    const slot = document.querySelector('.cash-rt-slot[data-offer-id="' + recId + '"]');
+    if (slot) slot.innerHTML = cashRoundTripIntegrityHtml(offer, true);
+  } catch (_) { /* verification failure leaves the partial result unchanged */ }
+}
+
+function priceSignalContextHtml(o) {
+  const route = [o && o.origin, o && o.dest].filter(Boolean).map(esc).join('<span class="cash-rt-arrow" aria-hidden="true">→</span>');
+  const requestedDate = o && o.returnDate
+    ? `<div class="cash-price-signal-date"><span>Requested return date</span> ${esc(formatUserDate(o.returnDate))}</div>`
+    : '';
+  return `<div class="cash-price-signal-context">
+    ${route ? `<div class="cash-price-signal-k">Requested route</div><div class="cash-price-signal-route">${route}</div>` : ''}
+    ${requestedDate}
+    <div class="cash-routing-unavailable">Routing details are not available from the current source.</div>
+  </div>`;
+}
+
 function journeyNodes(o) {
   const out = [];
   const push = (code) => {
@@ -1258,10 +1339,22 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
       ['keep_looking', 'limited_evidence'].includes(guidance && guidance.recommendation_state) ||
       ['fair', 'poor'].includes(offerTier);
     const isCheapest = Number.isFinite(cheapestPrice) && Number(o.price) === cheapestPrice;
-    const stops = parseInt(o.stops) || 0;
+    const hasKnownStops = o.stops !== null && o.stops !== undefined && String(o.stops).trim() !== '' && Number.isFinite(Number(o.stops));
+    const stops = hasKnownStops ? Math.max(0, parseInt(o.stops, 10)) : null;
     const airlineLabel = o.airline || 'Airline';
     const logoImg = airlineMarkHtml(airlineLabel, o.airlineCode);
     const flightNoHtml = o.flight_number ? `<span class="cash-flight-no">${esc(o.flight_number)}</span>` : '';
+    const hasIntegrityState = roundTripRequested && ['complete', 'partial', 'price_only'].includes(o.itinerary_state);
+    const roundTripIntegrity = cashRoundTripIntegrityHtml(o, roundTripRequested);
+
+    if (roundTripRequested && o.itinerary_state === 'price_only') {
+      return `<div class="card ${isTop ? 'recommendation-card top-card ' : 'compact-alternative '}price-signal-card">
+        <div class="compact-row">
+          <div class="compact-main">${priceSignalContextHtml(o)}</div>
+          <div class="compact-price"><div class="price">${esc(formatMoney(o.price, o.currency))}</div></div>
+        </div>
+      </div>`;
+    }
 
     // R2B-1 RECOMMENDATION CARD (Scope A, B, C, E)
     if (isTop) {
@@ -1270,7 +1363,7 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
       if (sortKey === 'price') {
         verdict = 'Lowest fare in this search';
       } else if (sortKey === 'nonstop') {
-        verdict = stops === 0 ? 'Best nonstop option' : 'Fewest stops option';
+        verdict = !hasKnownStops ? 'Best match for this search' : stops === 0 ? 'Best nonstop option' : 'Fewest stops option';
       } else {
         // Score sort — use existing tier logic
         const tier = o.tier || scoreInfo(o.dealScore).tier;
@@ -1287,7 +1380,8 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
         }
       }
 
-      const dateLine = formatTripDateRange(o.date, o.returnDate);
+      const confirmedReturnDate = o.returnDate && o.itinerary_state !== 'partial' ? o.returnDate : '';
+      const dateLine = formatTripDateRange(o.date, confirmedReturnDate);
       const guidanceHtml = isGuidanceRecommended ? decisionGuidanceHtml(guidance) : '';
       const verdictHtml = guidanceHtml ? '' : `<div class="rec-verdict">${esc(verdict)}</div>`;
       const recommendationTag = isGuidanceRecommended ? '<div class="cg-tag cg-tag-secondary">Recommended option</div>' : '';
@@ -1330,9 +1424,9 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
         </div>
         <div class="rec-evidence">
           <div class="rec-evidence-main">
-            ${compactCashJourneySummary(o)}
-            ${journeyFacts}
-            <div class="card-airline">${logoImg}<span class="airline-name">${esc(airlineLabel)}</span>${flightNoHtml}</div>
+            <div class="cash-rt-slot" data-offer-id="${esc(o.offer_id || '')}">${roundTripIntegrity || compactCashJourneySummary(o)}</div>
+            ${roundTripIntegrity ? '' : journeyFacts}
+            ${hasIntegrityState && !o.airline ? '' : `<div class="card-airline">${logoImg}<span class="airline-name">${esc(airlineLabel)}</span>${flightNoHtml}</div>`}
           </div>
           <div class="rec-provider">
             <div class="rec-cta">
@@ -1345,9 +1439,10 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
     }
 
     // R2B-1 COMPACT ALTERNATIVES (Scope F)
-    const stopsLabel = stops === 0 ? 'nonstop' : stops === 1 ? '1 stop' : `${stops} stops`;
+    const stopsLabel = !hasKnownStops ? '' : stops === 0 ? 'nonstop' : stops === 1 ? '1 stop' : `${stops} stops`;
     const durStr = o.durationMin ? fmtDur(o.durationMin) : '';
-    const dateLine = formatTripDateRange(o.date, o.returnDate);
+    const confirmedReturnDate = o.returnDate && o.itinerary_state !== 'partial' ? o.returnDate : '';
+    const dateLine = formatTripDateRange(o.date, confirmedReturnDate);
     const dep = o.dep_time;
     const arr = o.arr_time;
     const off = (typeof o.arrival_day_offset === 'number' && o.arrival_day_offset > 0) ? o.arrival_day_offset : null;
@@ -1380,13 +1475,10 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
           ${recommendationTag}
           ${journeyStripHtml(o, { compact: true })}
           <div class="compact-route">${esc(o.origin)} → ${esc(o.dest)}</div>
-          ${viaLine}
-          ${compactTimes ? `<div class="compact-times">${compactTimes}</div>` : ''}
-          ${tripMetaLine ? `<div class="compact-trip-meta">${esc(tripMetaLine)}</div>` : ''}
-          ${compactJourneyFacts}
+          ${roundTripIntegrity || `${viaLine}${compactTimes ? `<div class="compact-times">${compactTimes}</div>` : ''}${tripMetaLine ? `<div class="compact-trip-meta">${esc(tripMetaLine)}</div>` : ''}${compactJourneyFacts}`}
           <div class="compact-date-meta">${esc(dateLine)}</div>
           ${returnDisclosure}
-          <div class="compact-airline">${logoImg}<span>${esc(airlineLabel)}</span>${flightNoHtml}</div>
+          ${hasIntegrityState && !o.airline ? '' : `<div class="compact-airline">${logoImg}<span>${esc(airlineLabel)}</span>${flightNoHtml}</div>`}
         </div>
         <div class="compact-price${['fair', 'poor'].includes(tier) ? ' price-evidence' : ''}">
           <div class="price">${esc(formatMoney(o.price, o.currency))}</div>
@@ -1481,6 +1573,7 @@ function render(data) {
       if (!hasPrimaryDecisionActions) {
         html += relatedAnalysesHtml('cheap');
       }
+      setTimeout(verifyRecommendedReturnLeg, 0);
     } else {
       currentCashGuidance = null;
       currentCheapRoundTripRequested = false;
