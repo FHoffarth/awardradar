@@ -1845,6 +1845,52 @@ span.flatpickr-weekday{
 .card-detail{font-size:calc(13px * var(--text-scale))}
 .card-source,.examples-sub,.cash-itin-note,.cash-flight-no{font-size:calc(12px * var(--text-scale))}
 .cash-itin-day,.card-fare-source{font-size:calc(11px * var(--text-scale))}
+
+/* ===== Visual Intelligence Phase 1: material hierarchy ===== */
+.shell.has-results .results{background:transparent}
+.shell.has-results .card{
+  background:var(--vi-material-document);
+  border-color:transparent;
+  box-shadow:var(--vi-elevation-document);
+}
+.shell.has-results .card:hover{border-color:transparent;box-shadow:var(--vi-elevation-document)}
+.recommendation-card{
+  background:var(--vi-material-document);
+  border-color:transparent;
+  box-shadow:var(--vi-elevation-document);
+}
+.cash-guidance,.rec-verdict,.rec-price-panel,.aw-programs{
+  background:var(--vi-material-analysis);
+  border-color:transparent;
+  box-shadow:none;
+}
+.rec-cta,.source-toggle,.source-link{
+  background:var(--vi-material-temporary);
+  border-color:transparent;
+  box-shadow:none;
+}
+.compact-alternative{
+  background:var(--vi-material-temporary);
+  border-color:transparent;
+  box-shadow:none;
+}
+.aw-card,.aw-card-evaluated,.aw-card-live,.aw-card-best{
+  background:var(--vi-material-document);
+  border-color:transparent;
+  box-shadow:var(--vi-elevation-raised);
+}
+.aw-card:hover,.aw-card-live:hover,.aw-card-best:hover{
+  border-color:transparent;
+  box-shadow:var(--vi-elevation-raised);
+}
+.aw-tradeoffs,.aw-evidence,.aw-itin-summary,.aw-evaluated{
+  background:var(--vi-material-analysis);
+  border-color:transparent;
+  box-shadow:none;
+}
+[data-theme="light"] .shell.has-results .card,
+[data-theme="light"] .recommendation-card,
+[data-theme="light"] .aw-card{background:var(--vi-material-document)}
 .score-reason,.disc-stars,.disc-tier-label,.related-label{font-size:calc(11px * var(--text-scale))}
 .srp,.disc-cabin-pill,.disc-conf-live,.disc-cpm,.aw-date-hint,.skiplag-empty-header{font-size:calc(10px * var(--text-scale))}
 .cross-nudge-msg{font-size:calc(14px * var(--text-scale))}
