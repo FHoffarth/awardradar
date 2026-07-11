@@ -339,6 +339,8 @@ let currentOffers = [];
 let currentSortKey = 'score';
 let currentCashGuidance = null;
 let currentCheapRoundTripRequested = false;
+let currentCheapRequest = null;  // snapshot of the last cheap search payload for return-leg verification
+let currentReturnLegAttempts = new Set();
 let calendarPrices = {};
 let fpDep, fpRet;
 
@@ -786,6 +788,8 @@ async function run() {
   const requestPayload = payload();
   if (mode === 'cheap') {
     currentCheapRoundTripRequested = !requestPayload.oneWay && !!String(requestPayload.returnDate || '').trim();
+    currentCheapRequest = requestPayload;
+    currentReturnLegAttempts = new Set();
   }
   startProgress(_origin, _dest);
   const endpoint = mode === 'cheap' ? '/api/cheap' : mode === 'skiplag' ? '/api/skiplag' : '/api/awards';
@@ -1096,6 +1100,40 @@ function cashRoundTripIntegrityHtml(o, roundTripRequested) {
   return `${outbound}<section class="cash-ghost-return" aria-label="Return details unavailable"><div class="cash-rt-label">Return</div><p>Return details were not provided by the current source.</p>${requestedDate}</section>`;
 }
 
+// Asynchronously verify the recommended round-trip's return leg and upgrade
+// its card in place (partial -> complete). Never blocks; any failure is silent and the
+// card simply stays partial, exactly as it already renders.
+async function verifyRecommendedReturnLeg() {
+  try {
+    if (mode !== 'cheap' || !currentCheapRoundTripRequested || !currentCheapRequest) return;
+    const recId = (currentCashGuidance && currentCashGuidance.recommended_offer_id) || '';
+    if (!recId) return;
+    const offer = (currentOffers || []).find(o => o && o.offer_id === recId);
+    if (!offer || offer.itinerary_state !== 'partial' || !String(offer.returnDate || '').trim()) return;
+    const attemptKey = `${recId}|${offer.date || ''}|${offer.returnDate || ''}`;
+    if (currentReturnLegAttempts.has(attemptKey)) return;
+    currentReturnLegAttempts.add(attemptKey);
+    const req = currentCheapRequest;
+    const body = {
+      origin: offer.origin, dest: offer.dest, date: offer.date, returnDate: offer.returnDate,
+      cabins: req.cabins, cabin: (req.cabins && req.cabins[0]) || 'economy',
+      currency: req.currency, mmOnly: req.mmOnly, lang: req.lang, offer_id: offer.offer_id,
+    };
+    const res = await fetch('/api/return-leg', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    let data; try { data = await res.json(); } catch (_) { return; }
+    if (!res.ok || !data || !data.ok || data.itinerary_state !== 'complete'
+        || !Array.isArray(data.return_segments) || !data.return_segments.length) return;
+    // Ignore a stale response if a newer search has since replaced the results.
+    if (!currentCashGuidance || currentCashGuidance.recommended_offer_id !== recId) return;
+    if (!(currentOffers || []).some(o => o && o.offer_id === recId)) return;
+    offer.return_segments = data.return_segments;
+    if (Array.isArray(data.outbound_segments) && data.outbound_segments.length) offer.outbound_segments = data.outbound_segments;
+    offer.itinerary_state = 'complete';
+    const slot = document.querySelector('.cash-rt-slot[data-offer-id="' + recId + '"]');
+    if (slot) slot.innerHTML = cashRoundTripIntegrityHtml(offer, true);
+  } catch (_) { /* best-effort verification — never disturb the recommendation */ }
+}
+
 function priceSignalContextHtml(o) {
   const route = [o && o.origin, o && o.dest].filter(Boolean).map(esc).join('<span class="cash-rt-arrow" aria-hidden="true">→</span>');
   const requestedDate = o && o.returnDate
@@ -1255,7 +1293,7 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
         <div class="card-row">
           <div class="card-main">
             <h3>${esc(o.origin)}<span class="route-arrow">→</span>${esc(o.dest)}</h3>
-            ${roundTripIntegrity || compactCashJourneySummary(o)}
+            <div class="cash-rt-slot" data-offer-id="${esc(o.offer_id || '')}">${roundTripIntegrity || compactCashJourneySummary(o)}</div>
             ${airlineHtml}
             <div class="rec-meta">${formattedDate}${returnDateStr}</div>
           </div>
@@ -1407,6 +1445,8 @@ function render(data) {
       if (!hasPrimaryDecisionActions) {
         html += relatedAnalysesHtml('cheap');
       }
+      // Kick off asynchronous return-leg verification after the DOM is set.
+      setTimeout(verifyRecommendedReturnLeg, 0);
     } else {
       currentCashGuidance = null;
       currentCheapRoundTripRequested = false;

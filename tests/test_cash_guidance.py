@@ -818,7 +818,7 @@ process.stdout.write(JSON.stringify(result));
 
     def test_continuation_http_failure_is_not_retried(self):
         with mock.patch.object(app, "SERPAPI_TOKEN", "test-key"), mock.patch.object(
-            app.requests, "get", side_effect=app.requests.Timeout("prototype timeout")
+            app.requests, "get", side_effect=app.requests.Timeout("continuation timeout")
         ) as request_get:
             payload = app.serpapi_continuation_search(
                 "FRA", "JFK", app.dt.date(2026, 10, 20), app.dt.date(2026, 10, 28),
@@ -826,6 +826,25 @@ process.stdout.write(JSON.stringify(result));
             )
         self.assertIsNone(payload)
         request_get.assert_called_once()
+
+    def test_continuation_failure_logs_do_not_expose_credentials_or_token(self):
+        response = mock.Mock()
+        response.status_code = 400
+        response.content = b'{"error":"invalid"}'
+        response.raise_for_status.side_effect = app.requests.HTTPError(
+            "400 for url https://serpapi.com/search?api_key=test-key&departure_token=one-token"
+        )
+        with mock.patch.object(app, "SERPAPI_TOKEN", "test-key"), mock.patch.object(
+            app.requests, "get", return_value=response
+        ), self.assertLogs(app.app.logger, level="DEBUG") as captured:
+            payload = app.serpapi_continuation_search(
+                "FRA", "JFK", app.dt.date(2026, 10, 20), app.dt.date(2026, 10, 28),
+                "economy", "eur", "one-token", "en"
+            )
+        self.assertIsNone(payload)
+        logs = "\n".join(captured.output)
+        self.assertNotIn("test-key", logs)
+        self.assertNotIn("one-token", logs)
 
 
 class RoundTripContinuationTargeting(unittest.TestCase):
@@ -836,13 +855,17 @@ class RoundTripContinuationTargeting(unittest.TestCase):
     def setUp(self):
         self.client = app.app.test_client()
         self._orig = (app.serpapi_search, app.serpapi_continuation_search,
-                      app.SERPAPI_TOKEN, app.PRICE_SOURCE, app.MAX_CONTINUATIONS_PER_SEARCH)
+                      app.SERPAPI_TOKEN, app.PRICE_SOURCE, app.MAX_CONTINUATIONS_PER_SEARCH,
+                      app.CONTINUATION_INLINE)
         app.SERPAPI_TOKEN = "test"
         app.PRICE_SOURCE = "serpapi"
+        # This class validates the INLINE continuation targeting/isolation path.
+        app.CONTINUATION_INLINE = True
 
     def tearDown(self):
         (app.serpapi_search, app.serpapi_continuation_search,
-         app.SERPAPI_TOKEN, app.PRICE_SOURCE, app.MAX_CONTINUATIONS_PER_SEARCH) = self._orig
+         app.SERPAPI_TOKEN, app.PRICE_SOURCE, app.MAX_CONTINUATIONS_PER_SEARCH,
+         app.CONTINUATION_INLINE) = self._orig
 
     def _out(self, al, fn):
         return [{"departure_airport": {"id": "FRA", "time": "2026-10-20 08:00"},
@@ -969,6 +992,154 @@ class RoundTripContinuationTargeting(unittest.TestCase):
             app.serpapi_continuation_search("FRA", "JFK", app.dt.date(2026, 10, 20),
                                             app.dt.date(2026, 10, 28), "economy", "eur", "tok", "en")
         self.assertEqual(captured["timeout"], 8.0)
+
+
+class AsyncReturnLegVerification(unittest.TestCase):
+    """/api/cheap returns the recommendation immediately as partial; the
+    return leg is verified via /api/return-leg and the offer upgrades to complete."""
+
+    def setUp(self):
+        self.client = app.app.test_client()
+        self._orig = (app.serpapi_search, app.serpapi_continuation_search,
+                      app.SERPAPI_TOKEN, app.PRICE_SOURCE, app.CONTINUATION_INLINE)
+        app.SERPAPI_TOKEN = "test"
+        app.PRICE_SOURCE = "serpapi"
+        app.CONTINUATION_INLINE = False  # async default
+        self._orig_cache = dict(app._SERP_CACHE)
+        app._SERP_CACHE.clear()
+        self.out = [{"departure_airport": {"id": "FRA", "time": "2026-10-20 08:00"},
+                     "arrival_airport": {"id": "JFK", "time": "2026-10-20 11:00"},
+                     "duration": 540, "airline": "Lufthansa", "flight_number": "LH 400"}]
+        self.inb = [{"departure_airport": {"id": "JFK", "time": "2026-10-28 17:00"},
+                     "arrival_airport": {"id": "FRA", "time": "2026-10-29 07:00"},
+                     "duration": 480, "airline": "Lufthansa", "flight_number": "LH 401"}]
+        self.initial_payload = {"best_flights": [
+            {"price": 540, "flights": self.out, "departure_token": "tok"}],
+            "price_insights": {"typical_price_range": [400, 900]}}
+        app.serpapi_search = lambda *a, **k: self.initial_payload
+        cache_key = app._serpapi_cache_key(
+            "FRA", "JFK", app.dt.date(2026, 10, 20), app.dt.date(2026, 10, 28), 1, "eur", "de", "1"
+        )
+        app._SERP_CACHE[cache_key] = (app.time.time(), self.initial_payload)
+        self.seen = []
+        app.serpapi_continuation_search = lambda o, d, dp, rt, cb, cur, tok, lang="de": (
+            self.seen.append(tok) or {"best_flights": [{"flights": self.inb}]})
+
+    def tearDown(self):
+        (app.serpapi_search, app.serpapi_continuation_search,
+         app.SERPAPI_TOKEN, app.PRICE_SOURCE, app.CONTINUATION_INLINE) = self._orig
+        app._SERP_CACHE.clear()
+        app._SERP_CACHE.update(self._orig_cache)
+
+    def _cheap(self):
+        return self.client.post("/api/cheap", json={
+            "origin": "FRA", "dest": "JFK", "date": "2026-10-20", "returnDate": "2026-10-28", "oneWay": False})
+
+    def _return_leg(self, offer_id, **over):
+        body = {"origin": "FRA", "dest": "JFK", "date": "2026-10-20", "returnDate": "2026-10-28",
+                "cabin": "economy", "currency": "eur", "offer_id": offer_id}
+        body.update(over)
+        return self.client.post("/api/return-leg", json=body)
+
+    def test_cheap_is_partial_and_makes_no_continuation(self):
+        d = self._cheap().get_json()
+        self.assertTrue(all(o.get("itinerary_state") == "partial" for o in d["offers"]))
+        self.assertEqual(self.seen, [])  # no continuation on the /api/cheap critical path
+        self.assertFalse(any("return_segments" in o for o in d["offers"]))
+
+    def test_return_leg_upgrades_recommended_offer_end_to_end(self):
+        d = self._cheap().get_json()
+        oid = d["offers"][0]["offer_id"]  # deterministic id from /api/cheap
+        r2 = self._return_leg(oid)
+        self.assertEqual(r2.status_code, 200)
+        d2 = r2.get_json()
+        self.assertTrue(d2["ok"])
+        self.assertEqual(d2["itinerary_state"], "complete")
+        self.assertEqual(d2["return_segments"][0]["dep_iata"], "JFK")
+        self.assertEqual(d2["return_segments"][0]["arr_iata"], "FRA")
+        self.assertEqual(d2["return_segments"][0]["flight_number"], "LH 401")
+        self.assertEqual(self.seen, ["tok"])  # exactly one continuation, on the return-leg call
+
+    def test_return_leg_never_leaks_continuation_token(self):
+        oid = self._cheap().get_json()["offers"][0]["offer_id"]
+        body = self._return_leg(oid).get_data(as_text=True)
+        self.assertNotIn("_continuation_token", body)
+        self.assertNotIn("\"tok\"", body)
+
+    def test_return_leg_unknown_offer_id_stays_partial(self):
+        self._cheap()
+        d2 = self._return_leg("offer_deadbeef0000").get_json()
+        self.assertFalse(d2["ok"])
+        self.assertEqual(d2["itinerary_state"], "partial")
+
+    def test_return_leg_continuation_failure_stays_partial(self):
+        oid = self._cheap().get_json()["offers"][0]["offer_id"]
+        app.serpapi_continuation_search = lambda *a, **k: None
+        d2 = self._return_leg(oid).get_json()
+        self.assertFalse(d2["ok"])
+        self.assertEqual(d2["itinerary_state"], "partial")
+
+    def test_return_leg_malformed_payload_stays_partial(self):
+        oid = self._cheap().get_json()["offers"][0]["offer_id"]
+        app.serpapi_continuation_search = lambda *a, **k: {
+            "best_flights": [{"flights": [{"departure_airport": {"id": "JFK"}}]}]
+        }
+        d2 = self._return_leg(oid).get_json()
+        self.assertFalse(d2["ok"])
+        self.assertEqual(d2["itinerary_state"], "partial")
+
+    def test_duplicate_return_leg_request_consumes_only_one_token(self):
+        oid = self._cheap().get_json()["offers"][0]["offer_id"]
+        first = self._return_leg(oid).get_json()
+        second = self._return_leg(oid).get_json()
+        self.assertTrue(first["ok"])
+        self.assertFalse(second["ok"])
+        self.assertEqual(self.seen, ["tok"])
+
+    def test_cache_miss_never_triggers_initial_or_continuation_request(self):
+        oid = self._cheap().get_json()["offers"][0]["offer_id"]
+        app._SERP_CACHE.clear()
+        with mock.patch.object(app, "serpapi_search") as initial, mock.patch.object(
+            app, "serpapi_continuation_search"
+        ) as continuation:
+            d2 = self._return_leg(oid).get_json()
+        self.assertFalse(d2["ok"])
+        initial.assert_not_called()
+        continuation.assert_not_called()
+
+    def test_expired_cache_entry_is_evicted_without_provider_request(self):
+        oid = self._cheap().get_json()["offers"][0]["offer_id"]
+        for key, (_created, payload) in list(app._SERP_CACHE.items()):
+            app._SERP_CACHE[key] = (app.time.time() - app.SERPAPI_TTL - 1, payload)
+        with mock.patch.object(app, "serpapi_continuation_search") as continuation:
+            d2 = self._return_leg(oid).get_json()
+        self.assertFalse(d2["ok"])
+        continuation.assert_not_called()
+        self.assertEqual(app._SERP_CACHE, {})
+
+    def test_async_endpoint_is_disabled_in_inline_mode(self):
+        oid = self._cheap().get_json()["offers"][0]["offer_id"]
+        app.CONTINUATION_INLINE = True
+        with mock.patch.object(app, "serpapi_continuation_search") as continuation:
+            d2 = self._return_leg(oid).get_json()
+        self.assertFalse(d2["ok"])
+        continuation.assert_not_called()
+
+    def test_return_leg_requires_round_trip(self):
+        oid = self._cheap().get_json()["offers"][0]["offer_id"]
+        d2 = self._return_leg(oid, returnDate="").get_json()
+        self.assertFalse(d2["ok"])
+        self.assertEqual(self.seen, [])  # no continuation without a return date
+
+    def test_frontend_wires_async_verification(self):
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(root, "static", "app.js"), encoding="utf-8") as f:
+            js = f.read()
+        self.assertIn("function verifyRecommendedReturnLeg", js)
+        self.assertIn("/api/return-leg", js)
+        self.assertIn("cash-rt-slot", js)
+        self.assertIn("cashRoundTripIntegrityHtml(offer, true)", js)
+        self.assertIn("currentReturnLegAttempts.has(attemptKey)", js)
 
 
 if __name__ == "__main__":

@@ -28,8 +28,14 @@ http://127.0.0.1:5000/?v=53
 ## Hosting
 
 ```text
-web: gunicorn -w 4 --threads 4 --timeout 90 -b 0.0.0.0:$PORT app:app
+web: gunicorn -w ${WEB_CONCURRENCY:-1} --threads 4 --timeout 90 -b 0.0.0.0:$PORT app:app
 ```
+
+Die asynchrone Round-trip-Continuation ist in der Railway-Beta nur mit genau
+einer Service-Replica und `WEB_CONCURRENCY=1` freigegeben. Die Threads teilen
+sich den prozesslokalen, gesperrten Cache; mehrere Worker oder Replicas tun das
+nicht. Die Skalierungsgrenze und der Redis-Migrationspfad stehen in
+`docs/round_trip_continuation_scaling.md`.
 
 Optionale Umgebungsvariablen:
 
@@ -38,4 +44,8 @@ APP_TOKEN=geheimes-passwort
 TRAVELPAYOUTS_TOKEN=...
 SKIPLAG_MAX_WORKERS=8
 SKIPLAG_MAX_CANDIDATES=16
+WEB_CONCURRENCY=1
+CONTINUATION_INLINE=0
+MAX_CONTINUATIONS_PER_SEARCH=1
+CONTINUATION_TIMEOUT_MS=12000
 ```

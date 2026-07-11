@@ -16,6 +16,7 @@ import math
 import mimetypes
 import os
 import re
+import threading
 import time
 from decimal import Decimal
 from functools import lru_cache
@@ -64,6 +65,10 @@ SERPAPI_DEEP = (os.environ.get("SERPAPI_DEEP", "0") == "1")    # exakt wie im Br
 # single recommended result, never on provider ordering.
 MAX_CONTINUATIONS_PER_SEARCH = int(os.environ.get("MAX_CONTINUATIONS_PER_SEARCH", "1"))
 CONTINUATION_TIMEOUT_MS = int(os.environ.get("CONTINUATION_TIMEOUT_MS", "12000"))  # strict cap; was a hardcoded 30s
+# Safe default: continuation stays inside /api/cheap. Async verification is explicitly
+# enabled for the single-worker Beta with CONTINUATION_INLINE=0. Multiple workers or
+# Railway replicas require the shared atomic cache described in docs.
+CONTINUATION_INLINE = (os.environ.get("CONTINUATION_INLINE", "1") == "1")
 FLEX_MAX_DAYS = int(os.environ.get("FLEX_MAX_DAYS", "3"))       # max. Flex-Tage (Â±N) fÃ¼r Datums-Kalender
 
 # Ensure self-hosted WOFF2 fonts are served as font/woff2 (not application/
@@ -1363,6 +1368,8 @@ def offer_from_tp(row: dict, currency: str, requested_return_date: str | None = 
 
 # --- SerpApi / Google Flights -----------------------------------------------
 _SERP_CACHE: dict[tuple, tuple[float, dict]] = {}
+_SERP_CACHE_LOCK = threading.Lock()
+_SERP_CACHE_MAX_ENTRIES = 256
 CABIN_TO_CLASS = {"economy": 1, "premium eco": 2, "premium economy": 2, "business": 3, "first": 4}
 
 
@@ -1372,18 +1379,28 @@ def iata_from_flight_number(flight_number: str) -> str:
     return m.group(1) if m else ""
 
 
-def _debug_dump_serpapi_payload(payload) -> None:
-    dump_path = os.environ.get("AR_DEBUG_SERPAPI_DUMP", "").strip()
-    if not dump_path:
-        return
-    try:
-        parent = os.path.dirname(os.path.abspath(dump_path))
-        if parent:
-            os.makedirs(parent, exist_ok=True)
-        with open(dump_path, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, ensure_ascii=False, indent=2)
-    except Exception as exc:
-        app.logger.debug("SerpApi debug dump failed: %s", exc)
+def _serpapi_cache_key(origin: str, dest: str, dep: dt.date, ret: dt.date | None,
+                       travel_class: int, currency: str, lang: str, trip_type: str) -> tuple:
+    return (origin, dest, dep.isoformat(), ret.isoformat() if ret else "", travel_class, currency, lang, trip_type)
+
+
+def _prune_serpapi_cache(now: float) -> None:
+    expired = [key for key, (created, _data) in _SERP_CACHE.items() if now - created >= SERPAPI_TTL]
+    for key in expired:
+        _SERP_CACHE.pop(key, None)
+    overflow = len(_SERP_CACHE) - _SERP_CACHE_MAX_ENTRIES
+    if overflow > 0:
+        oldest = sorted(_SERP_CACHE, key=lambda key: _SERP_CACHE[key][0])[:overflow]
+        for key in oldest:
+            _SERP_CACHE.pop(key, None)
+
+
+def _cached_serpapi_payload(key: tuple, now: float | None = None) -> dict | None:
+    checked_at = time.time() if now is None else now
+    with _SERP_CACHE_LOCK:
+        _prune_serpapi_cache(checked_at)
+        cached = _SERP_CACHE.get(key)
+        return cached[1] if cached else None
 
 
 def serpapi_search(origin: str, dest: str, dep: dt.date, ret: dt.date | None, cabin: str, currency: str, lang: str = "de") -> dict:
@@ -1392,11 +1409,11 @@ def serpapi_search(origin: str, dest: str, dep: dt.date, ret: dt.date | None, ca
         raise RuntimeError("SERPAPI_TOKEN fehlt.")
     travel_class = CABIN_TO_CLASS.get((cabin or "economy").lower(), 1)
     trip_type = "1" if ret else "2"  # 1=Round trip (Preis = Gesamtpreis), 2=One way
-    key = (origin, dest, dep.isoformat(), ret.isoformat() if ret else "", travel_class, currency, lang, trip_type)
+    key = _serpapi_cache_key(origin, dest, dep, ret, travel_class, currency, lang, trip_type)
     now = time.time()
-    cached = _SERP_CACHE.get(key)
-    if cached and now - cached[0] < SERPAPI_TTL:
-        return cached[1]
+    cached = _cached_serpapi_payload(key, now)
+    if cached is not None:
+        return cached
     params = {
         "engine": "google_flights",
         "api_key": SERPAPI_TOKEN,
@@ -1421,15 +1438,15 @@ def serpapi_search(origin: str, dest: str, dep: dt.date, ret: dt.date | None, ca
     if r.status_code in (402, 429):
         raise QuotaError("Search quota exhausted.")
     r.raise_for_status()
-    decoded_payload = r.json()
-    _debug_dump_serpapi_payload(decoded_payload)
-    data = decoded_payload or {}
+    data = r.json() or {}
     err = data.get("error", "")
     if err:
         if "run out of searches" in err.lower() or "quota" in err.lower():
             raise QuotaError(err)
         raise RuntimeError(err)
-    _SERP_CACHE[key] = (now, data)
+    with _SERP_CACHE_LOCK:
+        _SERP_CACHE[key] = (now, data)
+        _prune_serpapi_cache(now)
     return data
 
 
@@ -1443,7 +1460,7 @@ def serpapi_continuation_search(
     departure_token: str,
     lang: str = "de",
 ) -> dict | None:
-    """Prototype: retrieve one return-leg response without retries or escalation."""
+    """Retrieve one return-leg response without retries or escalation."""
     if not SERPAPI_TOKEN or not departure_token:
         return None
     params = {
@@ -1479,14 +1496,14 @@ def serpapi_continuation_search(
         response.raise_for_status()
         payload = response.json() or {}
         if payload.get("error"):
-            app.logger.debug("SerpApi continuation provider error: %s", payload.get("error"))
+            app.logger.debug("SerpApi continuation provider_error=true")
             return None
         return payload
     except Exception as exc:
         app.logger.debug(
-            "SerpApi continuation failed seconds=%.3f error=%s",
+            "SerpApi continuation failed seconds=%.3f error_type=%s",
             time.time() - started,
-            exc,
+            type(exc).__name__,
         )
         return None
 
@@ -1635,10 +1652,9 @@ def serpapi_offers(
     insights = data.get("price_insights") or {}
     typical_range = insights.get("typical_price_range")
     items = (data.get("best_flights") or []) + (data.get("other_flights") or [])
-    # P0 (Beta Hardening): this function no longer performs any continuation. It only
-    # fetches + normalizes and carries the provider continuation token on round-trip
-    # offers. The single continuation is spent later, in the endpoint, on AwardRadar's
-    # recommended result — so provider ordering can never determine continuation.
+    # This function only fetches and normalizes. In inline mode it carries the provider
+    # token until the recommendation is selected; provider order never selects the
+    # continuation target.
     offers = []
     for item in items:
         # Per-item guard: a single malformed provider item must not suppress the rest.
@@ -1675,7 +1691,10 @@ def continue_recommended_offer(offer: dict | None, dep: dt.date, ret: dt.date | 
         payload = serpapi_continuation_search(origin, dest, dep, ret, cabin, currency, token, lang)
         raw_return = _continuation_return_segments(payload, origin, dest)
     except Exception as exc:  # defense in depth — continuation must never break the search
-        app.logger.warning("continuation isolated failure %sâ†’%s: %s", origin, dest, exc)
+        app.logger.warning(
+            "continuation isolated failure %sâ†’%s error_type=%s",
+            origin, dest, type(exc).__name__,
+        )
         raw_return = []
     if not raw_return:
         return False
@@ -1687,6 +1706,48 @@ def continue_recommended_offer(offer: dict | None, dep: dt.date, ret: dt.date | 
         offer.get("outbound_segments"), raw_return, ret.isoformat()
     )
     return True
+
+
+def _consume_cached_continuation_offer(
+    origin: str,
+    dest: str,
+    dep: dt.date,
+    ret: dt.date,
+    cabin: str,
+    currency: str,
+    lang: str,
+    mm_only: bool,
+    offer_id: str,
+) -> dict | None:
+    """Atomically resolve and consume one provider token from a fresh local cache entry."""
+    travel_class = CABIN_TO_CLASS.get((cabin or "economy").lower(), 1)
+    key = _serpapi_cache_key(origin, dest, dep, ret, travel_class, currency, lang, "1")
+    now = time.time()
+    with _SERP_CACHE_LOCK:
+        _prune_serpapi_cache(now)
+        cached = _SERP_CACHE.get(key)
+        if not cached:
+            return None
+        payload = cached[1]
+        insights = payload.get("price_insights") or {}
+        typical_range = insights.get("typical_price_range")
+        items = (payload.get("best_flights") or []) + (payload.get("other_flights") or [])
+        for item in items:
+            if not isinstance(item, dict) or not item.get("departure_token"):
+                continue
+            try:
+                offer = _serp_item_to_offer(
+                    dict(item), currency, typical_range, mm_only, ret.isoformat()
+                )
+            except Exception:
+                continue
+            if offer and compute_offer_id(offer) == offer_id:
+                token = item.pop("departure_token", None)
+                if not token:
+                    return None
+                offer["_continuation_token"] = token
+                return offer
+    return None
 
 
 def serpapi_task(args: tuple) -> tuple[str, str, list[dict], str | None]:
@@ -2584,10 +2645,10 @@ def cheap():
 
     if use_serpapi:
         pairs = [(o, d) for o in origins[:2] for d in dests[:2] if o != d][:SERPAPI_MAX_PAIRS]
-        # All pairs carry the continuation token; the single continuation is spent
-        # later on the one recommended result, regardless of which pair it came from.
+        # Inline mode carries tokens only until the recommendation is selected. Async
+        # mode resolves its one token directly from the server-side raw cache instead.
         tasks = [
-            (o, d, dep, ret, currency, mm_only, lang, cabin, True)
+            (o, d, dep, ret, currency, mm_only, lang, cabin, CONTINUATION_INLINE)
             for (o, d) in pairs
         ]
         _t0 = time.time()
@@ -2676,9 +2737,11 @@ def cheap():
                     offers = offers[:7] + [rec_offer]
         t_decision_ms = round((time.time() - _t_dec) * 1000, 1)  # rescore + guidance + ranking
 
-        # P0: spend the single continuation on AwardRadar's recommended result — never
-        # on provider ordering. Round-trip + serpapi only; failure degrades to partial.
-        if use_serpapi and ret and offers:
+        # The single continuation targets AwardRadar's recommended result, never
+        # provider ordering. In async mode the client calls
+        # /api/return-leg and the card upgrades in place); the legacy blocking path is
+        # kept behind CONTINUATION_INLINE for rollback.
+        if CONTINUATION_INLINE and use_serpapi and ret and offers:
             rec_id = cash_guidance.get("recommended_offer_id") if cash_guidance else None
             target = next((o for o in offers if o.get("offer_id") == rec_id), None) or offers[0]
             _tc = time.time()
@@ -2710,6 +2773,51 @@ def cheap():
         "debug": {"origins": origins, "dests": dests, "seconds": round(time.time() - started, 2), "source": PRICE_SOURCE if use_serpapi else "travelpayouts",
                   "timing_ms": {"initial": t_initial_ms, "continuation": t_continuation_ms, "decision": t_decision_ms, "total": round((time.time() - started) * 1000, 1)}},
         "note": tx(note_key, lang),
+    })
+
+
+@app.route("/api/return-leg", methods=["POST"])
+def return_leg():
+    """Asynchronously verify the return leg for one recommended offer.
+
+    Re-uses the already-cached initial search (no billed initial re-fetch in the
+    common case), re-identifies the recommended offer by its deterministic
+    offer_id, and spends the single continuation server-side. The provider token
+    never leaves the server. Any failure returns a partial result — the card
+    simply stays partial, exactly as it already renders."""
+    partial = {"ok": False, "itinerary_state": "partial"}
+    if CONTINUATION_INLINE or MAX_CONTINUATIONS_PER_SEARCH < 1:
+        return jsonify(partial), 200
+    data = request.get_json(silent=True) or {}
+    lang = lang_from_payload(data)
+    if not (PRICE_SOURCE == "serpapi" and SERPAPI_TOKEN):
+        return jsonify(partial), 200
+    origins = resolve_codes(data.get("origin", ""))
+    dests = resolve_codes(data.get("dest", ""))
+    offer_id = str(data.get("offer_id") or "").strip()
+    dep = parse_date(data.get("date", ""), 60)
+    ret = None if not str(data.get("returnDate") or "").strip() else parse_date(data.get("returnDate", ""), 67)
+    if not origins or not dests or not offer_id or not ret:
+        return jsonify(partial), 200
+    origin, dest = origins[0], dests[0]
+    cabin = (data.get("cabins") or [data.get("cabin") or "economy"])[0].lower()
+    currency = (data.get("currency") or "eur").lower()
+    mm_only = bool(data.get("mmOnly", False))
+    target = _consume_cached_continuation_offer(
+        origin, dest, dep, ret, cabin, currency, lang, mm_only, offer_id
+    )
+    if not target:
+        return jsonify(partial), 200
+    merged = continue_recommended_offer(target, dep, ret, cabin, currency, lang)
+    target.pop("_continuation_token", None)
+    if not merged:
+        return jsonify(partial), 200
+    return jsonify({
+        "ok": True,
+        "offer_id": offer_id,
+        "itinerary_state": target.get("itinerary_state"),
+        "outbound_segments": target.get("outbound_segments"),
+        "return_segments": target.get("return_segments"),
     })
 
 
@@ -3157,7 +3265,22 @@ def top_opportunities():
 
 @app.route("/health")
 def health():
-    return jsonify({"ok": True, "app": APP_NAME, "version": "6.1", "price_source": PRICE_SOURCE, "serpapi_token": bool(SERPAPI_TOKEN), "tp_token": bool(TP_TOKEN), "award_source": AWARD_SOURCE, "seatsaero_key": bool(SEATSAERO_KEY), "seatsaero_remaining": _seatsaero_remaining, "serpapi_paid_calls": _serpapi_paid_calls, "serpapi_max_pairs": SERPAPI_MAX_PAIRS})
+    return jsonify({
+        "ok": True,
+        "app": APP_NAME,
+        "version": "6.1",
+        "price_source": PRICE_SOURCE,
+        "serpapi_token": bool(SERPAPI_TOKEN),
+        "tp_token": bool(TP_TOKEN),
+        "award_source": AWARD_SOURCE,
+        "seatsaero_key": bool(SEATSAERO_KEY),
+        "seatsaero_remaining": _seatsaero_remaining,
+        "serpapi_paid_calls": _serpapi_paid_calls,
+        "serpapi_max_pairs": SERPAPI_MAX_PAIRS,
+        "continuation_enabled": MAX_CONTINUATIONS_PER_SEARCH > 0,
+        "continuation_mode": "inline" if CONTINUATION_INLINE else "async",
+        "continuation_timeout_ms": CONTINUATION_TIMEOUT_MS,
+    })
 
 
 def _serve_png(filename: str, fallback_svg: str = "icon.svg"):
