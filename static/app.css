@@ -1935,6 +1935,28 @@ span.flatpickr-weekday{
   .rec-evidence{padding-top:var(--vi-space-4)}
   .compact-alternative{padding:10px 12px}
 }
+
+/* ===== Visual Intelligence Phase 1: border purge ===== */
+.recommendation-card .rec-context,
+.recommendation-card .rec-evidence,
+.recommendation-card .decision-actions,
+.recommendation-card .compact-cash-journey,
+.recommendation-card .source-disclosure,
+.recommendation-card .rec-cta,
+.compact-alternative .compact-cta,
+.guidance-card .card-price{
+  border:0;
+}
+.recommendation-card .rec-context{padding-bottom:var(--vi-space-3)}
+.recommendation-card .rec-evidence{padding-top:var(--vi-space-5)}
+.recommendation-card .rec-cta{padding:var(--vi-space-2) 0;background:transparent}
+.compact-alternative .compact-cta{padding-top:var(--vi-space-2)}
+.aw-card-footer,.aw-action-links,.aw-itin-detail,.aw-evidence .aw-trust{border:0}
+.aw-card-footer,.aw-action-links{padding-top:var(--vi-space-3)}
+.aw-card-best::before{opacity:.55}
+.aw-schedule-note{border-color:transparent;background:var(--vi-material-temporary)}
+.source-toggle{border:0}
+.source-link{border-color:transparent}
 .score-reason,.disc-stars,.disc-tier-label,.related-label{font-size:calc(11px * var(--text-scale))}
 .srp,.disc-cabin-pill,.disc-conf-live,.disc-cpm,.aw-date-hint,.skiplag-empty-header{font-size:calc(10px * var(--text-scale))}
 .cross-nudge-msg{font-size:calc(14px * var(--text-scale))}
