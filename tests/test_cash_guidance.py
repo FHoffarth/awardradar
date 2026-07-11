@@ -4,9 +4,13 @@ Run: python -m unittest tests.test_cash_guidance_corrected -v
 Covers: offer filtering, IDs, canonical selection, guidance generation, signal detection.
 """
 import os
+import json
+import shutil
+import subprocess
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -531,6 +535,161 @@ class SeparatorEncodingRegression(unittest.TestCase):
         js_path = Path(__file__).resolve().parents[1] / "static" / "app.js"
         source = js_path.read_text(encoding="utf-8")
         self.assertNotIn("Â·", source)
+
+
+class CashRoundTripResultIntegrity(unittest.TestCase):
+    def setUp(self):
+        self.outbound = [{
+            "departure_airport": {"id": "FRA", "time": "2026-10-20 08:00"},
+            "arrival_airport": {"id": "JFK", "time": "2026-10-20 11:00"},
+            "duration": 540,
+            "airline": "Lufthansa",
+            "flight_number": "LH 400",
+        }]
+        self.inbound = [{
+            "departure_airport": {"id": "JFK", "time": "2026-10-28 17:00"},
+            "arrival_airport": {"id": "FRA", "time": "2026-10-29 07:00"},
+            "duration": 480,
+            "airline": "Lufthansa",
+            "flight_number": "LH 401",
+        }]
+
+    def test_complete_requires_real_outbound_and_return_segments(self):
+        self.assertEqual(app.derive_cash_itinerary_state(self.outbound, self.inbound, "2026-10-28"), "complete")
+
+    def test_partial_requires_outbound_and_requested_return(self):
+        self.assertEqual(app.derive_cash_itinerary_state(self.outbound, [], "2026-10-28"), "partial")
+
+    def test_price_only_for_missing_or_malformed_outbound(self):
+        malformed_values = [None, [], {}, "segments", [None], [{}], [{"dep_iata": "FRA"}]]
+        for value in malformed_values:
+            with self.subTest(value=value):
+                self.assertEqual(app.derive_cash_itinerary_state(value, self.inbound, "2026-10-28"), "price_only")
+
+    def test_serp_roundtrip_preserves_alias_and_real_return_only(self):
+        item = {"price": 650, "flights": self.outbound, "return_segments": self.inbound, "total_duration": 540}
+        offer = app._serp_item_to_offer(item, "eur", None, False, "2026-10-28")
+        self.assertEqual(offer["returnDate"], "2026-10-28")
+        self.assertEqual(offer["itinerary_state"], "complete")
+        self.assertEqual(offer["segments"], offer["outbound_segments"])
+        self.assertEqual(offer["return_segments"][0]["dep_iata"], "JFK")
+
+    def test_serp_partial_does_not_emit_return_segments(self):
+        item = {"price": 650, "flights": self.outbound, "total_duration": 540}
+        offer = app._serp_item_to_offer(item, "eur", None, False, "2026-10-28")
+        self.assertEqual(offer["itinerary_state"], "partial")
+        self.assertNotIn("return_segments", offer)
+
+    def test_one_way_contract_remains_unchanged(self):
+        item = {"price": 650, "flights": self.outbound, "total_duration": 540}
+        offer = app._serp_item_to_offer(item, "eur", None, False)
+        self.assertNotIn("itinerary_state", offer)
+        self.assertNotIn("outbound_segments", offer)
+        self.assertNotIn("segments", offer)
+
+    def test_travelpayouts_roundtrip_is_price_only_with_input_date(self):
+        row = {"origin": "FRA", "destination": "JFK", "price": 600}
+        offer = app.offer_from_tp(row, "eur", "2026-10-28")
+        self.assertEqual(offer["returnDate"], "2026-10-28")
+        self.assertEqual(offer["itinerary_state"], "price_only")
+        self.assertEqual(offer["segments"], offer["outbound_segments"])
+        self.assertIsNone(offer["stops"])
+        self.assertNotIn("return_segments", offer)
+
+    def test_roundtrip_unknown_stops_never_become_nonstop(self):
+        offers = app.rescore_offer_set([{
+            "price": 600,
+            "stops": None,
+            "itinerary_state": "price_only",
+            "durationMin": None,
+        }])
+        self.assertNotIn("nonstop", offers[0]["scoreReason"])
+
+    def test_frontend_contains_frozen_state_rendering_matrix(self):
+        js_path = Path(__file__).resolve().parents[1] / "static" / "app.js"
+        source = js_path.read_text(encoding="utf-8")
+        self.assertIn("function cashRoundTripIntegrityHtml(o, roundTripRequested)", source)
+        self.assertIn("Return details were not provided by the current source.", source)
+        self.assertIn("Requested return date", source)
+        self.assertIn("Routing details are not available from the current source.", source)
+        self.assertIn("if (!roundTripRequested) return '';", source)
+
+    def test_frontend_renders_complete_partial_and_price_only_states(self):
+        node = shutil.which("node")
+        bundled = Path(r"C:\Users\Flo\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe")
+        if not node and bundled.exists():
+            node = str(bundled)
+        if not node:
+            self.skipTest("Node.js is required for frontend rendering regression tests")
+        js_path = Path(__file__).resolve().parents[1] / "static" / "app.js"
+        script = f"""
+const fs = require('fs');
+const src = fs.readFileSync({json.dumps(str(js_path))}, 'utf8');
+const start = src.indexOf('function cashSegmentTimelineHtml');
+const end = src.indexOf('// Client-side mirror of the backend valid-price rule', start);
+if (start < 0 || end < 0) throw new Error('round-trip renderer block missing');
+function esc(s) {{ return String(s ?? '').replace(/[&<>\"']/g, ''); }}
+function fmtDur(m) {{ return String(m) + 'm'; }}
+function formatUserDate(s) {{ return String(s || ''); }}
+eval(src.slice(start, end));
+const outbound = [{{dep_iata:'FRA',arr_iata:'JFK',dep_time:'08:00',arr_time:'11:00'}}];
+const inbound = [{{dep_iata:'JFK',arr_iata:'FRA',dep_time:'17:00',arr_time:'07:00'}}];
+const result = {{
+  complete: cashRoundTripIntegrityHtml({{itinerary_state:'complete',outbound_segments:outbound,return_segments:inbound,returnDate:'2026-10-28'}}, true),
+  partial: cashRoundTripIntegrityHtml({{itinerary_state:'partial',outbound_segments:outbound,returnDate:'2026-10-28'}}, true),
+  priceOnly: priceSignalContextHtml({{itinerary_state:'price_only',origin:'FRA',dest:'JFK',returnDate:'2026-10-28'}}),
+  oneWay: cashRoundTripIntegrityHtml({{itinerary_state:'partial',outbound_segments:outbound}}, false)
+}};
+process.stdout.write(JSON.stringify(result));
+"""
+        result = subprocess.run([node, "-e", script], capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        rendered = json.loads(result.stdout)
+        self.assertIn('aria-label="Outbound"', rendered["complete"])
+        self.assertIn('aria-label="Return"', rendered["complete"])
+        self.assertNotIn("Return details were not provided", rendered["complete"])
+        self.assertIn('aria-label="Outbound"', rendered["partial"])
+        self.assertIn("Return details were not provided by the current source.", rendered["partial"])
+        self.assertIn("Requested return date", rendered["partial"])
+        self.assertNotIn("JFK</span>", rendered["partial"].split("cash-ghost-return", 1)[-1])
+        self.assertNotIn("cash-rt-timeline", rendered["priceOnly"])
+        self.assertIn("Requested route", rendered["priceOnly"])
+        self.assertIn("Requested return date", rendered["priceOnly"])
+        self.assertIn("Routing details are not available from the current source.", rendered["priceOnly"])
+        self.assertNotIn("airline", rendered["priceOnly"].lower())
+        self.assertNotIn("View fare", rendered["priceOnly"])
+        self.assertEqual(rendered["oneWay"], "")
+
+    def test_partial_date_is_only_rendered_as_requested_provenance(self):
+        js_path = Path(__file__).resolve().parents[1] / "static" / "app.js"
+        source = js_path.read_text(encoding="utf-8")
+        self.assertIn("o.returnDate && o.itinerary_state !== 'partial'", source)
+        self.assertIn("Requested return date", source)
+
+    def test_price_only_branch_omits_flight_and_fare_markup(self):
+        js_path = Path(__file__).resolve().parents[1] / "static" / "app.js"
+        source = js_path.read_text(encoding="utf-8")
+        start = source.index("if (roundTripRequested && o.itinerary_state === 'price_only')")
+        end = source.index("// R2B-1 RECOMMENDATION CARD", start)
+        branch = source[start:end]
+        self.assertIn("priceSignalContextHtml(o)", branch)
+        self.assertNotIn("airlineHtml", branch)
+        self.assertNotIn("linksHtmlWithLabels", branch)
+        self.assertNotIn("sourceDisclosureHtml", branch)
+        self.assertNotIn("compactCashJourneySummary", branch)
+
+    def test_serp_roundtrip_normalization_uses_one_existing_search(self):
+        response = {"best_flights": [{"price": 650, "flights": self.outbound}]}
+        with mock.patch.object(app, "serpapi_search", return_value=response) as search:
+            offers, error = app.serpapi_offers(
+                "FRA", "JFK", app.dt.date(2026, 10, 20), app.dt.date(2026, 10, 28), "eur", False
+            )
+        self.assertIsNone(error)
+        self.assertEqual(len(offers), 1)
+        search.assert_called_once()
+        self.assertEqual(offers[0]["itinerary_state"], "partial")
+        source = Path(app.__file__).read_text(encoding="utf-8")
+        self.assertNotIn("departure_token", source)
 
 
 if __name__ == "__main__":

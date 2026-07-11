@@ -1056,6 +1056,58 @@ function compactCashJourneySummary(o) {
   </div>`;
 }
 
+function cashSegmentTimelineHtml(segments, label) {
+  if (!Array.isArray(segments) || !segments.length) return '';
+  const rows = segments.map(seg => {
+    if (!seg || typeof seg !== 'object') return '';
+    const dep = String(seg.dep_iata || '').trim();
+    const arr = String(seg.arr_iata || '').trim();
+    if (!dep || !arr) return '';
+    const times = [];
+    if (seg.dep_time) times.push(esc(seg.dep_time));
+    if (seg.arr_time) times.push(esc(seg.arr_time));
+    const route = `${esc(dep)}<span class="cash-rt-arrow" aria-hidden="true">→</span>${esc(arr)}`;
+    const meta = [];
+    if (times.length) meta.push(times.join('<span class="cash-rt-arrow" aria-hidden="true">→</span>'));
+    if (seg.duration_min != null && Number.isFinite(Number(seg.duration_min)) && Number(seg.duration_min) > 0) meta.push(esc(fmtDur(Number(seg.duration_min))));
+    if (seg.airline) meta.push(esc(seg.airline));
+    if (seg.flight_number) meta.push(esc(seg.flight_number));
+    return `<li class="cash-rt-segment"><div class="cash-rt-route">${route}</div>${meta.length ? `<div class="cash-rt-meta">${meta.join(' · ')}</div>` : ''}</li>`;
+  }).filter(Boolean).join('');
+  if (!rows) return '';
+  return `<section class="cash-rt-leg" aria-label="${esc(label)}"><div class="cash-rt-label">${esc(label)}</div><ol class="cash-rt-timeline">${rows}</ol></section>`;
+}
+
+function cashRoundTripIntegrityHtml(o, roundTripRequested) {
+  if (!roundTripRequested) return '';
+  const state = o && o.itinerary_state;
+  if (!['complete', 'partial', 'price_only'].includes(state)) return '';
+  if (state === 'price_only') {
+    return '<div class="cash-routing-unavailable">Routing details are not available from the current source.</div>';
+  }
+  const outbound = cashSegmentTimelineHtml(o.outbound_segments, 'Outbound');
+  if (state === 'complete') {
+    const inbound = cashSegmentTimelineHtml(o.return_segments, 'Return');
+    return `${outbound}${inbound}`;
+  }
+  const requestedDate = o.returnDate
+    ? `<div class="cash-ghost-date"><span>Requested return date</span> ${esc(formatUserDate(o.returnDate))}</div>`
+    : '';
+  return `${outbound}<section class="cash-ghost-return" aria-label="Return details unavailable"><div class="cash-rt-label">Return</div><p>Return details were not provided by the current source.</p>${requestedDate}</section>`;
+}
+
+function priceSignalContextHtml(o) {
+  const route = [o && o.origin, o && o.dest].filter(Boolean).map(esc).join('<span class="cash-rt-arrow" aria-hidden="true">→</span>');
+  const requestedDate = o && o.returnDate
+    ? `<div class="cash-price-signal-date"><span>Requested return date</span> ${esc(formatUserDate(o.returnDate))}</div>`
+    : '';
+  return `<div class="cash-price-signal-context">
+    ${route ? `<div class="cash-price-signal-k">Requested route</div><div class="cash-price-signal-route">${route}</div>` : ''}
+    ${requestedDate}
+    <div class="cash-routing-unavailable">Routing details are not available from the current source.</div>
+  </div>`;
+}
+
 // Client-side mirror of the backend valid-price rule: reject booleans, null,
 // empty/whitespace strings, non-numeric, NaN, ±Infinity, zero and negatives.
 // Booleans are excluded explicitly because Number(true) === 1 would slip through.
@@ -1093,6 +1145,7 @@ function needsReturnDisclosure(o, roundTripRequested) {
 }
 
 function returnDisclosureHtml(o, roundTripRequested) {
+  if (roundTripRequested && ['complete', 'partial', 'price_only'].includes(o && o.itinerary_state)) return '';
   if (!needsReturnDisclosure(o, roundTripRequested)) return '';
   return `<div class="rt-disclosure">
     <div class="rt-disclosure-k">Shown itinerary details are from returned fare data.</div>
@@ -1121,10 +1174,41 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
   return sorted.map((o, i) => {
     const isTop = i === 0;
     const isGuidanceRecommended = !!(recommendedId && o.offer_id === recommendedId);
-    const stops = parseInt(o.stops) || 0;
+    const hasKnownStops = o.stops !== null && o.stops !== undefined && String(o.stops).trim() !== '' && Number.isFinite(Number(o.stops));
+    const stops = hasKnownStops ? Math.max(0, parseInt(o.stops, 10)) : null;
     const airlineLabel = o.airline || 'Airline';
     const logoImg = airlineMarkHtml(airlineLabel, o.airlineCode);
     const flightNoHtml = o.flight_number ? `<span class="cash-flight-no">${esc(o.flight_number)}</span>` : '';
+    const hasIntegrityState = roundTripRequested && ['complete', 'partial', 'price_only'].includes(o.itinerary_state);
+    const airlineHtml = hasIntegrityState && !o.airline
+      ? ''
+      : `<div class="card-airline">${logoImg}<span class="airline-name">${esc(airlineLabel)}</span>${flightNoHtml}</div>`;
+
+    if (roundTripRequested && o.itinerary_state === 'price_only') {
+      const priceSignalContext = priceSignalContextHtml(o);
+      if (isTop) {
+        return `<div class="card recommendation-card top-card price-signal-card">
+          <div class="card-row">
+            <div class="card-main">${priceSignalContext}</div>
+            <div class="card-price">
+              <div class="price">${Math.round(o.price)} <span class="price-currency">${esc(o.currency)}</span></div>
+              <div class="price-sub">per person</div>
+              ${o.scoreReason ? `<div class="score-reason-pills">${o.scoreReason.split(' · ').map(p => `<span class="srp">${esc(p)}</span>`).join('')}</div>` : ''}
+              ${scoreHtml(o)}
+            </div>
+          </div>
+        </div>`;
+      }
+      return `<div class="card compact-alternative price-signal-card">
+        <div class="compact-row">
+          <div class="compact-main">${priceSignalContext}</div>
+          <div class="compact-price">
+            <div class="price">${Math.round(o.price)}</div>
+            <div class="price-cur">${esc(o.currency)}</div>
+          </div>
+        </div>
+      </div>`;
+    }
 
     // R2B-1 RECOMMENDATION CARD (Scope A, B, C, E)
     if (isTop) {
@@ -1133,7 +1217,7 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
       if (sortKey === 'price') {
         verdict = 'Lowest fare in this search';
       } else if (sortKey === 'nonstop') {
-        verdict = stops === 0 ? 'Best nonstop option' : 'Fewest stops option';
+        verdict = !hasKnownStops ? 'Best match for this search' : stops === 0 ? 'Best nonstop option' : 'Fewest stops option';
       } else {
         // Score sort — use existing tier logic
         const tier = o.tier || scoreInfo(o.dealScore).tier;
@@ -1151,12 +1235,13 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
       }
 
       const formattedDate = formatUserDate(o.date);
-      const returnDateStr = o.returnDate ? ` → ${formatUserDate(o.returnDate)}` : '';
+      const returnDateStr = o.returnDate && o.itinerary_state !== 'partial' ? ` → ${formatUserDate(o.returnDate)}` : '';
       const guidanceHtml = isGuidanceRecommended ? decisionGuidanceHtml(guidance) : '';
       const verdictHtml = guidanceHtml ? '' : `<div class="rec-verdict">${esc(verdict)}</div>`;
       const recommendationTag = isGuidanceRecommended ? '<div class="cg-tag cg-tag-secondary">Recommended option</div>' : '';
       const topBadge = bestBadgeHtml(o, sortKey, { guided: isGuidanceRecommended });
       const returnDisclosure = returnDisclosureHtml(o, roundTripRequested);
+      const roundTripIntegrity = cashRoundTripIntegrityHtml(o, roundTripRequested);
 
       return `<div class="card recommendation-card top-card${isGuidanceRecommended ? ' guidance-card' : ''}">
         <div class="recommendation-badges">
@@ -1170,8 +1255,8 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
         <div class="card-row">
           <div class="card-main">
             <h3>${esc(o.origin)}<span class="route-arrow">→</span>${esc(o.dest)}</h3>
-            ${compactCashJourneySummary(o)}
-            <div class="card-airline">${logoImg}<span class="airline-name">${esc(airlineLabel)}</span>${flightNoHtml}</div>
+            ${roundTripIntegrity || compactCashJourneySummary(o)}
+            ${airlineHtml}
             <div class="rec-meta">${formattedDate}${returnDateStr}</div>
           </div>
           <div class="card-price">
@@ -1190,10 +1275,10 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
     }
 
     // R2B-1 COMPACT ALTERNATIVES (Scope F)
-    const stopsLabel = stops === 0 ? 'nonstop' : stops === 1 ? '1 stop' : `${stops} stops`;
+    const stopsLabel = !hasKnownStops ? '' : stops === 0 ? 'nonstop' : stops === 1 ? '1 stop' : `${stops} stops`;
     const durStr = o.durationMin ? fmtDur(o.durationMin) : '';
     const formattedDate = formatUserDate(o.date);
-    const dateLine = formattedDate + (o.returnDate ? ' → ' + formatUserDate(o.returnDate) : '');
+    const dateLine = formattedDate + (o.returnDate && o.itinerary_state !== 'partial' ? ' → ' + formatUserDate(o.returnDate) : '');
     const dep = o.dep_time;
     const arr = o.arr_time;
     const off = (typeof o.arrival_day_offset === 'number' && o.arrival_day_offset > 0) ? o.arrival_day_offset : null;
@@ -1217,18 +1302,17 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
     else conciseLabel = 'D · Weak';
     const recommendationTag = isGuidanceRecommended ? '<div class="cg-tag cg-tag-compact">Recommended option</div>' : '';
     const returnDisclosure = returnDisclosureHtml(o, roundTripRequested);
+    const roundTripIntegrity = cashRoundTripIntegrityHtml(o, roundTripRequested);
 
     return `<div class="card compact-alternative${isGuidanceRecommended ? ' guidance-recommended' : ''}">
       <div class="compact-row">
         <div class="compact-main">
           ${recommendationTag}
           <div class="compact-route">${esc(o.origin)} → ${esc(o.dest)}</div>
-          ${viaLine}
-          ${compactTimes ? `<div class="compact-times">${compactTimes}</div>` : ''}
-          ${tripMetaLine ? `<div class="compact-trip-meta">${esc(tripMetaLine)}</div>` : ''}
+          ${roundTripIntegrity || `${viaLine}${compactTimes ? `<div class="compact-times">${compactTimes}</div>` : ''}${tripMetaLine ? `<div class="compact-trip-meta">${esc(tripMetaLine)}</div>` : ''}`}
           <div class="compact-date-meta">${esc(dateLine)}</div>
           ${returnDisclosure}
-          <div class="compact-airline">${logoImg}<span>${esc(airlineLabel)}</span>${flightNoHtml}</div>
+          ${hasIntegrityState && !o.airline ? '' : `<div class="compact-airline">${logoImg}<span>${esc(airlineLabel)}</span>${flightNoHtml}</div>`}
         </div>
         <div class="compact-price">
           <div class="price">${Math.round(o.price)}</div>

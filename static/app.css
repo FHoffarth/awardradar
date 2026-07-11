@@ -1698,3 +1698,109 @@ span.flatpickr-weekday{
   #globe{display:block!important;visibility:visible!important;opacity:.62!important;position:relative!important;width:100%!important;height:220px!important;min-height:220px!important}
   #globe canvas{display:block!important;visibility:visible!important;opacity:1!important;width:100%!important;height:100%!important}
 }
+.cash-rt-leg,
+.cash-ghost-return,
+.cash-routing-unavailable {
+  margin-top: 10px;
+}
+
+.cash-rt-label,
+.cash-ghost-date span {
+  font-weight: 700;
+}
+
+.cash-rt-timeline {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.cash-rt-segment + .cash-rt-segment {
+  margin-top: 6px;
+}
+
+.cash-rt-route {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cash-rt-meta,
+.cash-ghost-return p,
+.cash-ghost-date,
+.cash-routing-unavailable {
+  color: var(--muted);
+  font-size: .88rem;
+}
+
+.cash-ghost-return {
+  border-left: 2px dashed var(--gold);
+  padding-left: 12px;
+}
+
+.cash-ghost-return p {
+  margin: 4px 0;
+}
+
+.cash-price-signal-k,
+.cash-price-signal-date span {
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.cash-price-signal-route {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 3px;
+  font-weight: 700;
+}
+
+.cash-price-signal-date {
+  margin-top: 8px;
+  color: var(--text);
+}
+
+.price-signal-card .cash-routing-unavailable {
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+@media(max-width:640px) {
+  .cash-ghost-return,
+  .cash-rt-leg,
+  .cash-routing-unavailable {
+    overflow-wrap: anywhere;
+  }
+  .cash-ghost-return p,
+  .cash-ghost-date,
+  .cash-rt-meta,
+  .cash-routing-unavailable {
+    line-height: 1.4;
+  }
+  .cash-ghost-date,
+  .cash-price-signal-date {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .price-signal-card .compact-row {
+    grid-template-columns: minmax(0,1fr) auto;
+  }
+}
+
+@media(max-width:360px) {
+  .cash-ghost-return {
+    padding-left: 9px;
+  }
+  .price-signal-card .compact-row {
+    gap: 8px;
+  }
+  .cash-price-signal-route {
+    gap: 5px;
+  }
+}

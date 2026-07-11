@@ -859,10 +859,13 @@ def rescore_offer_set(offers: list[dict]) -> list[dict]:
 
     for o in priced:
         price = float(o["price"])
+        integrity_state = o.get("itinerary_state") in {"complete", "partial", "price_only"}
+        stops_known = o.get("stops") is not None and str(o.get("stops")).strip() != ""
         try:
             stops = int(o.get("stops") or 0)
         except Exception:
             stops = 0
+            stops_known = False
 
         score = float(cfg["base"])
         reasons = []
@@ -880,16 +883,19 @@ def rescore_offer_set(offers: list[dict]) -> list[dict]:
             reasons.append("cheapest in this search")
 
         # 2) Itinerary quality.
-        score -= cfg["stop_penalty"].get(min(stops, 2), cfg["stop_penalty"][2])
-        if stops == 0:
-            score += cfg["nonstop_bonus"]
-            reasons.append("nonstop")
-        elif stops == 1:
-            reasons.append("1 stop")
-        else:
-            reasons.append(f"{stops} stops")
+        if not integrity_state or stops_known:
+            score -= cfg["stop_penalty"].get(min(stops, 2), cfg["stop_penalty"][2])
+            if stops == 0:
+                score += cfg["nonstop_bonus"]
+                reasons.append("nonstop")
+            elif stops == 1:
+                reasons.append("1 stop")
+            else:
+                reasons.append(f"{stops} stops")
 
         confidence = "high"
+        if integrity_state and not stops_known:
+            confidence = "medium"
         dur = o.get("durationMin")
         if dur and best_dur:
             over_h = max(0.0, (dur - best_dur) / 60.0)
@@ -1258,14 +1264,70 @@ def dedup_offers(offers: list[dict]) -> list[dict]:
     return list(seen.values())
 
 
-def offer_from_tp(row: dict, currency: str) -> dict:
+def _normalize_cash_segments(raw_segments) -> list[dict]:
+    """Keep only real, usable provider segment data without inventing values."""
+    if not isinstance(raw_segments, list):
+        return []
+    normalized = []
+    for raw in raw_segments:
+        if not isinstance(raw, dict):
+            continue
+        departure = raw.get("departure_airport") or {}
+        arrival = raw.get("arrival_airport") or {}
+        dep_parts = _provider_datetime_parts(departure.get("time") or raw.get("departure_datetime_raw") or "")
+        arr_parts = _provider_datetime_parts(arrival.get("time") or raw.get("arrival_datetime_raw") or "")
+        dep_iata = departure.get("id") or raw.get("dep_iata")
+        arr_iata = arrival.get("id") or raw.get("arr_iata")
+        if not dep_iata or not arr_iata:
+            continue
+        overnight = raw.get("overnight") if isinstance(raw.get("overnight"), bool) else None
+        segment = {
+            "flight_number": raw.get("flight_number") or None,
+            "airline": raw.get("airline") or None,
+            "aircraft": raw.get("airplane") or raw.get("aircraft") or None,
+            "dep_iata": dep_iata,
+            "departure_datetime_raw": dep_parts["raw"],
+            "departure_date": dep_parts["date"] or raw.get("departure_date"),
+            "dep_time": dep_parts["time"] or raw.get("dep_time"),
+            "arr_iata": arr_iata,
+            "arrival_datetime_raw": arr_parts["raw"],
+            "arrival_date": arr_parts["date"] or raw.get("arrival_date"),
+            "arr_time": arr_parts["time"] or raw.get("arr_time"),
+            "arrival_day_offset": _arrival_day_offset(
+                dep_parts["date"] or raw.get("departure_date"),
+                arr_parts["date"] or raw.get("arrival_date"),
+                overnight,
+            ),
+            "duration_min": raw.get("duration") if raw.get("duration") is not None else raw.get("duration_min"),
+            "overnight": overnight,
+        }
+        normalized.append(segment)
+    return normalized
+
+
+def derive_cash_itinerary_state(outbound_segments, return_segments, return_date: str | None) -> str:
+    """Derive the frozen round-trip integrity state from usable real segments."""
+    outbound = _normalize_cash_segments(outbound_segments)
+    inbound = _normalize_cash_segments(return_segments)
+    if not outbound:
+        return "price_only"
+    if return_date and inbound:
+        return "complete"
+    if return_date:
+        return "partial"
+    # One-way callers do not emit itinerary_state; this return keeps the helper total.
+    return "price_only"
+
+
+def offer_from_tp(row: dict, currency: str, requested_return_date: str | None = None) -> dict:
     origin = row.get("origin", "")
     dest = row.get("destination", "")
     airline = row.get("airline", "")
     dep = fmt_dateish(row.get("departure_at", ""))
-    ret = fmt_dateish(row.get("return_at", "")) or None
+    ret = requested_return_date or fmt_dateish(row.get("return_at", "")) or None
+    transfers = row.get("transfers") if requested_return_date else row.get("transfers", 0)
     link = row.get("link")
-    return {
+    offer = {
         "source": "Travelpayouts",
         "itinerary_source": "cash_offer",
         "displayed_itinerary": "cash",
@@ -1278,12 +1340,19 @@ def offer_from_tp(row: dict, currency: str) -> dict:
         "returnDate": ret,
         "airline": airline,
         "airlineCode": airline,
-        "stops": row.get("transfers", 0),
+        "stops": transfers,
         "bookUrl": "https://www.aviasales.com" + link if link else links_for(origin, dest, dep, ret).get("Aviasales"),
-        "dealScore": deal_score(float(row.get("price") or 0), row.get("transfers", 0), airline),
-        "scoreReason": score_reason(float(row.get("price") or 0), row.get("transfers", 0), airline, None),
+        "dealScore": deal_score(float(row.get("price") or 0), transfers, airline),
+        "scoreReason": score_reason(float(row.get("price") or 0), transfers, airline, None),
         "links": links_for(origin, dest, dep, ret),
     }
+    if requested_return_date:
+        offer.update({
+            "itinerary_state": "price_only",
+            "outbound_segments": [],
+            "segments": [],
+        })
+    return offer
 
 
 # --- SerpApi / Google Flights -----------------------------------------------
@@ -1356,7 +1425,7 @@ def _valid_price(value) -> float | None:
     return price
 
 
-def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, mm_only: bool) -> dict | None:
+def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, mm_only: bool, return_date: str | None = None) -> dict | None:
     segs = item.get("flights") or []
     if not segs:
         return None
@@ -1401,7 +1470,13 @@ def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, m
     # a first-segment number must not stand in for a connecting itinerary.
     flight_number = first.get("flight_number") or None if len(segs) == 1 else None
 
-    return {
+    outbound_segments = _normalize_cash_segments(segs)
+    # Only explicit structured return legs already present in this provider item
+    # qualify. No follow-up request and no inference from outbound data.
+    raw_return_segments = item.get("return_segments")
+    return_segments = _normalize_cash_segments(raw_return_segments)
+
+    offer = {
         "source": "Google Flights (SerpApi)",
         "itinerary_source": "cash_offer",
         "displayed_itinerary": "cash",
@@ -1411,7 +1486,7 @@ def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, m
         "origin": origin,
         "dest": dest,
         "date": dep_date,
-        "returnDate": None,
+        "returnDate": return_date,
         "dep_time": dep_time,
         "arr_time": arr_time,
         "departure_date": dep_parts["date"],
@@ -1429,6 +1504,15 @@ def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, m
         "scoreReason": score_reason(price, stops, airline_code, typical_range),
         "links": links_for(origin, dest, dep_date),
     }
+    if return_date:
+        offer.update({
+            "itinerary_state": derive_cash_itinerary_state(outbound_segments, return_segments, return_date),
+            "outbound_segments": outbound_segments,
+            "segments": outbound_segments,
+        })
+        if return_segments:
+            offer["return_segments"] = return_segments
+    return offer
 
 
 def serpapi_offers(origin: str, dest: str, dep: dt.date, ret: dt.date | None, currency: str, mm_only: bool, lang: str = "de", cabin: str = "economy") -> tuple[list[dict], str | None]:
@@ -1447,7 +1531,7 @@ def serpapi_offers(origin: str, dest: str, dep: dt.date, ret: dt.date | None, cu
     for item in items:
         # Per-item guard: a single malformed provider item must not suppress the rest.
         try:
-            offer = _serp_item_to_offer(item, currency, typical_range, mm_only)
+            offer = _serp_item_to_offer(item, currency, typical_range, mm_only, ret.isoformat() if ret else None)
         except Exception as exc:
             app.logger.warning("skip malformed cheap item %sâ†’%s: %s", origin, dest, exc)
             continue
@@ -2399,7 +2483,7 @@ def cheap():
                     airline = row.get("airline", "")
                     if mm_only and airline and airline not in MM_AIRLINES:
                         continue
-                    offers.append(offer_from_tp(row, currency))
+                    offers.append(offer_from_tp(row, currency, ret.isoformat() if ret else None))
         note_key = "cheap_note"
 
     # Deduplizieren (gleiche Airline + Ziel), dann relativ zum Ergebnis-Set
