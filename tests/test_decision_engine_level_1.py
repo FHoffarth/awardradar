@@ -592,6 +592,34 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("https://awardradar.app/about", response.get_data(as_text=True))
 
 
+class UiNextVisualArchitecture(unittest.TestCase):
+    def setUp(self):
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(root, "static", "ui-next.css"), encoding="utf-8") as handle:
+            self.css = handle.read()
+        with open(os.path.join(root, "templates", "index.html"), encoding="utf-8") as handle:
+            self.index_html = handle.read()
+
+    def test_ui_next_is_an_isolated_last_visual_layer(self):
+        self.assertIn('/static/ui-next.css?v=1', self.index_html)
+        self.assertGreater(
+            self.index_html.index('/static/ui-next.css?v=1'),
+            self.index_html.index('/static/app.css?v=160'),
+        )
+
+    def test_ui_next_defines_dual_font_and_document_materials(self):
+        self.assertIn('--nx-display:"Inter","Source Sans 3"', self.css)
+        self.assertIn('--nx-reading:"Source Sans 3"', self.css)
+        self.assertIn('--nx-canvas:#e8eef4', self.css)
+        self.assertIn('--nx-document:#fcfdfe', self.css)
+        self.assertIn('--nx-canvas:#071525', self.css)
+        self.assertIn('.recommendation-card{border:0', self.css)
+
+    def test_ui_next_keeps_responsive_layout_without_mobile_frames(self):
+        self.assertIn('@media(max-width:640px)', self.css)
+        self.assertIn('.tabs{gap:2px;margin-bottom:18px;padding:3px;border:0}', self.css)
+
+
 class AwardsApiErrorHandling(unittest.TestCase):
     def setUp(self):
         self.client = app.app.test_client()
