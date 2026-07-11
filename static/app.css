@@ -1891,6 +1891,50 @@ span.flatpickr-weekday{
 [data-theme="light"] .shell.has-results .card,
 [data-theme="light"] .recommendation-card,
 [data-theme="light"] .aw-card{background:var(--vi-material-document)}
+
+/* ===== Visual Intelligence Phase 1: typography and rhythm ===== */
+.shell.has-results .results{gap:var(--vi-space-4)}
+.shell.has-results .recommendation-card{padding:clamp(18px,2.4vw,28px);gap:var(--vi-space-4)}
+.recommendation-badges{margin-bottom:var(--vi-space-1)}
+.rec-context{padding-bottom:var(--vi-space-4)}
+.rec-context h3{font-family:var(--font-display);font-weight:700;letter-spacing:-.025em;line-height:1.12}
+.rec-meta{margin-top:var(--vi-space-2);color:var(--vi-text-context)}
+.rec-brief{gap:var(--vi-space-5)}
+.rec-brief-main{gap:var(--vi-space-3)}
+.cg-headline,.rec-verdict{
+  font-family:var(--font-display);
+  font-size:clamp(19px,2vw,24px);
+  font-weight:700;
+  line-height:1.22;
+  letter-spacing:-.025em;
+  color:var(--vi-text-decision);
+}
+.cash-guidance{padding:var(--vi-space-4)}
+.cg-block{margin-bottom:var(--vi-space-3)}
+.cg-block p{margin-top:var(--vi-space-1);line-height:1.6;color:var(--vi-text-evidence)}
+.cg-k,.decision-actions-label,.aw-section-kicker{letter-spacing:.09em;color:var(--vi-text-context)}
+.rec-price-panel{padding:var(--vi-space-4);max-width:270px}
+.rec-price-panel .price{font-family:var(--font-data);font-variant-numeric:tabular-nums;letter-spacing:-.035em}
+.recommendation-card .decision-actions{margin-top:var(--vi-space-2);padding-top:var(--vi-space-3)}
+.rec-evidence{gap:var(--vi-space-3);padding-top:var(--vi-space-5)}
+.rec-evidence-main,.rec-provider{gap:var(--vi-space-3)}
+.compact-alternative{padding:var(--vi-space-3) var(--vi-space-4);margin-bottom:var(--vi-space-2)}
+.compact-row{gap:var(--vi-space-4)}
+.compact-times,.compact-price .price,.ccjs-times{font-family:var(--font-data);font-variant-numeric:tabular-nums}
+.aw-result-shell{gap:var(--vi-space-4)}
+.aw-briefing{gap:var(--vi-space-5)}
+.aw-recommendation{gap:var(--vi-space-4)}
+.aw-tradeoffs,.aw-evidence,.aw-programs{padding:var(--vi-space-4)}
+.aw-card{padding:var(--vi-space-4);gap:var(--vi-space-2)}
+.aw-card-miles{font-family:var(--font-data);font-size:clamp(22px,2.2vw,27px);letter-spacing:-.035em}
+.aw-card-footer{padding-top:var(--vi-space-3)}
+@media(max-width:640px){
+  .shell.has-results .recommendation-card{padding:16px;gap:var(--vi-space-3)}
+  .rec-brief{gap:var(--vi-space-3)}
+  .rec-price-panel{max-width:none}
+  .rec-evidence{padding-top:var(--vi-space-4)}
+  .compact-alternative{padding:10px 12px}
+}
 .score-reason,.disc-stars,.disc-tier-label,.related-label{font-size:calc(11px * var(--text-scale))}
 .srp,.disc-cabin-pill,.disc-conf-live,.disc-cpm,.aw-date-hint,.skiplag-empty-header{font-size:calc(10px * var(--text-scale))}
 .cross-nudge-msg{font-size:calc(14px * var(--text-scale))}
