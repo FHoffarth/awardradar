@@ -2315,3 +2315,32 @@ body::before{
     gap: 5px;
   }
 }
+
+/* ===== Typography Alignment: precision + readability ===== */
+h1,h2,h3,
+.logo,.navbar,.nav-link,.nav-right,
+.hero h1,.about-hero h1,.discovery-title,
+.tab,.tab-title,.tab-sub,
+.fields input,.field-label,.config-section-label,
+.search-summary,.search-summary-text,.search-summary-edit,
+button,.go,.seg,.flex-opt,.date-chip,.sort-btn,.pa-code,.pa-target,
+.badge,.best-badge,.cg-tag,.srp,.journey-node,.journey-fact,
+.price,.price-currency,.score-num,.score-lbl,
+.cg-headline,.rec-verdict,.rec-meta,
+.compact-route,.compact-times,.compact-price,.compact-value,
+.cash-rt-label,.cash-rt-route,.cash-price-signal-route,
+.aw-verdict,.aw-evaluated-title,.aw-card-prog,.aw-card-miles,.aw-card-miles-unit,
+.aw-grade-pill,.aw-metrics,.aw-route-code,.aw-route-times,
+.airport-code,.ac-code,.disc-route,.disc-cabin-pill,.disc-cpm,
+.bdc-price,.bdc-grade,.bdc-route,.bdc-miles,.bdc-cpm{
+  font-family:var(--font-display);
+}
+
+p,.hero p,.about-hero p,.about-section,
+.cg-block p,.cg-evidence,.rt-disclosure,
+.cash-result-verification,.cash-ghost-return p,.cash-ghost-date,
+.cash-routing-unavailable,.source-disclosure,.source-links,
+.aw-explainer,.aw-verify-context,.aw-verify-note,.aw-itin-own-note,
+.methodology,.legal,.tiny,.note,.muted-note{
+  font-family:var(--font-body);
+}

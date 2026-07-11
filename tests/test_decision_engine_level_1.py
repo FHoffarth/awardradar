@@ -493,7 +493,7 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=162", html)
+        self.assertIn("app.css?v=163", html)
         self.assertIn("app.js?v=163", html)
         self.assertNotIn("app.css?v=159", html)
         self.assertNotIn("app.js?v=161", html)
@@ -544,7 +544,7 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("What to verify before booking", html)
         self.assertIn("Independence and commercial links", html)
         self.assertIn("Limitations", html)
-        self.assertIn("app.css?v=162", html)
+        self.assertIn("app.css?v=163", html)
         self.assertIn("consent.css?v=2", html)
         self.assertNotIn("app.js?v=147", html)
 
@@ -554,7 +554,7 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=162", html)
+        self.assertIn("app.css?v=163", html)
         self.assertIn("app.js?v=163", html)
 
     def test_about_copy_avoids_overclaiming(self):
@@ -1311,6 +1311,16 @@ class R2BCashDecisionCard(unittest.TestCase):
         self.assertIn(".search-summary-text{font-family:var(--font-body)}", self.css)
         self.assertIn(".pa-code{letter-spacing:.02em;line-height:1;font-family:var(--font-body)}", self.css)
         self.assertNotIn(".tab-title,.go-main{font-family:var(--font-display)}", self.css)
+
+    def test_dual_font_alignment_keeps_body_copy_and_promotes_interface_roles(self):
+        self.assertIn("/* ===== Typography Alignment: precision + readability ===== */", self.css)
+        self.assertIn(".logo,.navbar,.nav-link,.nav-right,", self.css)
+        self.assertIn(".tab,.tab-title,.tab-sub,", self.css)
+        self.assertIn("button,.go,.seg,.flex-opt,.date-chip,.sort-btn,.pa-code,.pa-target,", self.css)
+        self.assertIn("font-family:var(--font-display);", self.css)
+        self.assertIn("p,.hero p,.about-hero p,.about-section,", self.css)
+        self.assertIn(".methodology,.legal,.tiny,.note,.muted-note{", self.css)
+        self.assertIn("font-family:var(--font-body);", self.css)
 
     def test_compact_journey_summary_present(self):
         """Scope C: Compact Cash journey summary renderer exists."""
