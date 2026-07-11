@@ -2107,6 +2107,203 @@ span.flatpickr-weekday{
   }
 }
 
+/* ===== Visual Language Alignment: continuous intelligence material ===== */
+:root{
+  --ar-bg-deep:#071525;
+  --ar-bg-slate:#0b1c31;
+  --ar-surface:#10213a;
+  --ar-surface-soft:#0b1a2d;
+  --ar-surface-glass:rgba(16,33,58,.98);
+  --ar-border-subtle:rgba(169,194,218,.08);
+  --ar-text-primary:#edf4fb;
+  --ar-text-secondary:#b8c9d9;
+  --ar-text-muted:#7890a7;
+  --ar-caution-amber:#b89b63;
+  --ar-shadow-soft:0 20px 50px rgba(2,8,17,.26);
+  --vi-material-mission-control:#071525;
+  --vi-material-document:#10213a;
+  --vi-material-analysis:#13263f;
+  --vi-material-temporary:#0c1d31;
+  --vi-elevation-document:0 18px 44px rgba(2,8,17,.2);
+  --vi-elevation-raised:0 8px 24px rgba(2,8,17,.16);
+}
+[data-theme="light"]{
+  --ar-bg-deep:#e9eff5;
+  --ar-bg-slate:#dfe8f1;
+  --ar-surface:#f8fafc;
+  --ar-surface-soft:#eef3f7;
+  --ar-surface-glass:#f8fafc;
+  --ar-border-subtle:rgba(24,45,68,.07);
+  --ar-caution-amber:#987a43;
+  --vi-material-mission-control:#e9eff5;
+  --vi-material-document:#f8fafc;
+  --vi-material-analysis:#eef3f7;
+  --vi-material-temporary:#f1f5f8;
+  --vi-elevation-document:0 14px 36px rgba(24,45,68,.07);
+  --vi-elevation-raised:0 6px 18px rgba(24,45,68,.055);
+}
+body::before{
+  background:
+    radial-gradient(circle at 18% 8%,rgba(72,130,170,.12),transparent 34%),
+    linear-gradient(155deg,var(--ar-bg-slate),var(--vi-material-mission-control) 58%);
+}
+[data-theme="light"] body::before{
+  background:
+    radial-gradient(circle at 18% 8%,rgba(88,139,170,.08),transparent 36%),
+    linear-gradient(155deg,var(--ar-bg-slate),var(--vi-material-mission-control) 62%);
+}
+
+/* Search remains the same instrument, expressed as one assured object. */
+.panel{
+  background:var(--vi-material-document);
+  border-color:transparent;
+  backdrop-filter:none;
+  box-shadow:var(--vi-elevation-document);
+  padding:32px 32px 28px;
+}
+.tabs{gap:6px;margin-bottom:26px}
+.tab{
+  border-color:transparent;
+  background:transparent;
+  padding:15px 17px;
+}
+.tab:hover{border-color:transparent;background:var(--vi-material-temporary)}
+.tab.active{
+  border-color:transparent;
+  background:var(--vi-material-analysis);
+  box-shadow:none;
+}
+[data-theme="light"] .tab,
+[data-theme="light"] .tab:hover,
+[data-theme="light"] .tab.active{
+  border-color:transparent;
+  box-shadow:none;
+}
+.fields{gap:12px}
+.fields input{
+  border-color:transparent;
+  background:var(--vi-material-temporary);
+  box-shadow:inset 0 0 0 1px rgba(151,183,210,.045);
+}
+.fields input:focus{
+  border-color:transparent;
+  box-shadow:inset 0 0 0 1px rgba(116,213,255,.42),0 0 0 3px rgba(116,213,255,.08);
+}
+.panel-bottom{margin-top:28px;gap:24px}
+.go{
+  background:#244d73;
+  box-shadow:0 8px 22px rgba(4,18,34,.2);
+  font-weight:650;
+}
+.go:hover{background:#2a587f;box-shadow:0 10px 26px rgba(4,18,34,.24)}
+[data-theme="light"] .go{
+  background:#365f7c;
+  box-shadow:0 8px 22px rgba(24,45,68,.12);
+}
+
+/* Results read as a continuous document, not a framed dashboard. */
+.shell.has-results .panel{
+  background:var(--vi-material-document);
+  border-color:transparent;
+  box-shadow:var(--vi-elevation-raised);
+}
+.shell.has-results .results{gap:22px}
+.shell.has-results .card,
+.shell.has-results .top-card,
+[data-theme="light"] .shell.has-results .card,
+[data-theme="light"] .shell.has-results .top-card{
+  border-color:transparent!important;
+  box-shadow:var(--vi-elevation-document)!important;
+}
+.recommendation-card{
+  border:0;
+  border-radius:var(--vi-radius-document);
+  background:var(--vi-material-document);
+  box-shadow:var(--vi-elevation-document);
+}
+.cash-result-verification,
+.score-legend,
+.aw-result-shell>.note{
+  border-color:transparent;
+  background:transparent;
+  box-shadow:none;
+}
+.rec-context,.rec-evidence,.compact-cash-journey,.source-disclosure,.compact-cta{
+  border:0;
+}
+.cash-guidance,.rec-verdict,.rec-price-panel,.rec-cta,
+.aw-tradeoffs,.aw-evidence,.aw-programs,.aw-itin-summary,.aw-evaluated{
+  border:0;
+  background:var(--vi-material-analysis);
+  box-shadow:none;
+}
+.rec-verdict{padding:0;background:transparent}
+.rec-price-panel{border-radius:10px}
+.rec-cta{padding:10px 0;background:transparent}
+.compact-alternative{
+  border:0;
+  border-radius:8px;
+  background:var(--vi-material-temporary);
+  box-shadow:none;
+}
+.aw-card,.aw-card-evaluated,.aw-card-live,.aw-card-best,
+[data-theme="light"] .aw-card,[data-theme="light"] .aw-card-live,[data-theme="light"] .aw-card-best{
+  border-color:transparent;
+  background:var(--vi-material-analysis);
+  box-shadow:none;
+}
+.aw-card-best::before{display:none}
+.aw-cards-grid-secondary{opacity:.62}
+
+/* Typography carries priority; metadata recedes. */
+.cg-headline,.rec-verdict,.aw-verdict{
+  letter-spacing:-.035em;
+  line-height:1.16;
+}
+.cg-k,.cg-evidence,.rec-meta,.compact-date-meta,.compact-trip-meta,
+.aw-section-kicker,.aw-card-meta,.aw-card-airline,.aw-verify-context,
+.source-disclosure,.card-fare-source{
+  color:var(--vi-text-context);
+  opacity:.72;
+}
+.recommendation-card .decision-actions{
+  border:0;
+  padding-top:14px;
+}
+.shell.has-results .decision-actions .decision-action,
+.cross-link,.links a,.source-link,.source-toggle{
+  border-color:transparent;
+  background:transparent;
+  box-shadow:none;
+}
+.shell.has-results .decision-actions .decision-action:hover,
+.cross-link:hover,.links a:hover,.source-link:hover,.source-toggle:hover{
+  border-color:transparent;
+  background:var(--vi-material-temporary);
+}
+.links a.link-primary,.rec-cta .links a.link-primary,.compact-cta .links a.link-primary{
+  border-color:transparent;
+  background:rgba(116,213,255,.07);
+}
+
+/* Mobile keeps the same skeleton without restoring dashboard frames. */
+@media(max-width:640px){
+  .panel{padding:16px 14px;border-radius:18px}
+  .tabs{
+    border:0;
+    background:var(--vi-material-temporary);
+    padding:3px;
+  }
+  [data-theme="light"] .tabs{border:0;background:var(--vi-material-temporary)}
+  .tab,.tab.active,[data-theme="light"] .tab,[data-theme="light"] .tab.active{
+    border:0;
+    box-shadow:none;
+  }
+  .tab.active{background:var(--vi-material-analysis)}
+  .shell.has-results .recommendation-card{padding:18px 16px}
+  .shell.has-results .results{gap:14px}
+}
+
 @media(max-width:360px) {
   .cash-ghost-return {
     padding-left: 9px;
