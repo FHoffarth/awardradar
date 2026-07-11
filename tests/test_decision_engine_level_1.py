@@ -493,7 +493,7 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Provider reports direct availability", js)
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
-        self.assertIn("app.css?v=160", html)
+        self.assertIn("app.css?v=161", html)
         self.assertIn("app.js?v=163", html)
         self.assertNotIn("app.css?v=159", html)
         self.assertNotIn("app.js?v=161", html)
@@ -544,7 +544,7 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("What to verify before booking", html)
         self.assertIn("Independence and commercial links", html)
         self.assertIn("Limitations", html)
-        self.assertIn("app.css?v=160", html)
+        self.assertIn("app.css?v=161", html)
         self.assertIn("consent.css?v=2", html)
         self.assertNotIn("app.js?v=147", html)
 
@@ -554,7 +554,7 @@ class AboutMethodologyPage(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
-        self.assertIn("app.css?v=160", html)
+        self.assertIn("app.css?v=161", html)
         self.assertIn("app.js?v=163", html)
 
     def test_about_copy_avoids_overclaiming(self):
