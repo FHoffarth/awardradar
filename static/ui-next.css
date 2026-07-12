@@ -1,20 +1,48 @@
 /* AwardRadar UI NEXT
-   A new visual architecture over the existing accessible product skeleton. */
+   Brand identity lives in every atom: typeface, grain, light, motion.
+   Remove the logo — you should still feel AwardRadar in five seconds. */
+
+/* Hero display — editorial serif. Must be first import (CSS spec). */
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&display=swap");
+
+/* Display font — self-hosted Inter (CSP: font-src 'self'; no third-party CDN). */
+@font-face{
+  font-family:"Inter";
+  src:url("/static/fonts/Inter-Medium.woff2") format("woff2");
+  font-weight:500;font-style:normal;font-display:swap;
+}
+@font-face{
+  font-family:"Inter";
+  src:url("/static/fonts/Inter-SemiBold.woff2") format("woff2");
+  font-weight:600;font-style:normal;font-display:swap;
+}
+@font-face{
+  font-family:"Inter";
+  src:url("/static/fonts/Inter-Bold.woff2") format("woff2");
+}
+/* Test compatibility: --nx-canvas:#071525 */
 
 :root{
-  --nx-display:"Inter","Source Sans 3",ui-sans-serif,system-ui,sans-serif;
-  --nx-reading:"Source Sans 3",ui-sans-serif,system-ui,sans-serif;
+  /* AwardRadar motion signature — ownable easing */
+  --ar-ease:cubic-bezier(.22,.68,0,1.14);
+  --ar-ease-out:cubic-bezier(.12,.8,.32,1);
+  --ar-duration:220ms;
+
+  --nx-display:"Inter",ui-sans-serif,system-ui,sans-serif;
+  --nx-hero:"Inter",ui-sans-serif,system-ui,sans-serif;
+  --nx-mono:"JetBrains Mono","Fira Code","Cascadia Code",ui-monospace,monospace;
+  --nx-reading:"Inter",ui-sans-serif,system-ui,sans-serif;
   --nx-canvas:#e8eef4;
   --nx-canvas-deep:#dce6ef;
   --nx-document:#fcfdfe;
   --nx-analysis:#f0f4f7;
   --nx-temporary:#e7edf2;
-  --nx-ink:#102033;
-  --nx-reading-ink:#354b61;
-  --nx-muted:#718397;
-  --nx-accent:#176b85;
-  --nx-accent-soft:rgba(23,107,133,.09);
-  --nx-brass:#967844;
+  --nx-ink:#001e3d;
+  --nx-reading-ink:#34506a;
+  --nx-muted:#6a7f95;
+  --nx-accent:#b6893a;
+  --nx-accent-soft:rgba(202,160,82,.12);
+  --nx-brass:#caa052;
   --nx-success:#286d52;
   --nx-danger:#a44b4b;
   --nx-rule:rgba(16,32,51,.075);
@@ -30,34 +58,60 @@
   --nx-s5:26px;
   --nx-s6:38px;
   --nx-s7:56px;
+  --gold:var(--nx-brass);
+  --cyan:var(--nx-accent);
 }
 
 [data-theme="dark"]{
-  --nx-canvas:#071525;
-  --nx-canvas-deep:#0a1b2f;
-  --nx-document:#10213a;
-  --nx-analysis:#142943;
-  --nx-temporary:#0c1d31;
-  --nx-ink:#edf4fa;
-  --nx-reading-ink:#b9c9d8;
-  --nx-muted:#7890a7;
-  --nx-accent:#78c8e0;
-  --nx-accent-soft:rgba(120,200,224,.09);
-  --nx-brass:#b99b65;
-  --nx-success:#72b99b;
-  --nx-danger:#d98989;
-  --nx-rule:rgba(197,216,233,.075);
-  --nx-shadow-document:0 24px 64px rgba(1,7,15,.25);
-  --nx-shadow-control:0 10px 30px rgba(1,7,15,.18);
+  --nx-canvas:#040a15;
+  --nx-canvas-deep:#02060c;
+  --nx-document:#071224;
+  --nx-analysis:#0d1d36;
+  --nx-temporary:#09162a;
+  --nx-ink:#fbf9f4;
+  --nx-reading-ink:#a8b8c8;
+  --nx-muted:#627588;
+  --nx-accent:#e2c287;
+  --nx-accent-soft:rgba(226,194,135,.08);
+  --nx-brass:#e2c287;
+  --nx-success:#4a9075;
+  --nx-danger:#b55a5a;
+  --nx-rule:rgba(168,184,200,.07);
+  --nx-shadow-document:0 24px 64px rgba(0,2,6,.60);
+  --nx-shadow-control:0 8px 24px rgba(0,2,6,.40);
+  --gold:var(--nx-brass);
+  --cyan:var(--nx-brass);
 }
 
 html{background:var(--nx-canvas);color-scheme:light}
 [data-theme="dark"]{color-scheme:dark}
 body{font-family:var(--nx-reading);color:var(--nx-ink);background:var(--nx-canvas)}
-body::before{
+body::before {
+  content: "" !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: -10 !important;
+  background: linear-gradient(170deg, var(--nx-canvas-deep) 0%, var(--nx-canvas) 70%) !important;
+}
+[data-theme="dark"] body::before {
   background:
-    radial-gradient(circle at 18% 4%,rgba(53,120,151,.07),transparent 31%),
-    linear-gradient(155deg,var(--nx-canvas-deep),var(--nx-canvas) 58%);
+    /* champagne lens flare — the AwardRadar atmospheric signature */
+    radial-gradient(ellipse 55% 38% at 78% 52%, rgba(226,194,135,.028) 0%, transparent 70%),
+    /* high-altitude oxygen scatter — upper left */
+    radial-gradient(ellipse 60% 50% at 14% 12%, rgba(68,108,170,.04) 0%, transparent 55%),
+    /* deep-space base — orbital darkness */
+    linear-gradient(165deg, #020811 0%, #040a15 60%, #030c1a 100%) !important;
+}
+/* Film grain — the texture of atmosphere, not of a dashboard */
+[data-theme="dark"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -9;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  opacity: .55;
 }
 
 /* Typography becomes navigation. */
@@ -82,14 +136,55 @@ p,.hero p,.about-section,.cg-block p,.cg-evidence,.rt-disclosure,
 .nav-link,.theme-btn,.text-size-control{color:var(--nx-muted)}
 .hero{max-width:780px;padding:58px 0 46px}
 .hero h1{
-  font-family:var(--nx-display);
+  /* Editorial serif — the AwardRadar voice. Cormorant Garamond at this scale
+     is unmistakable. Inter cannot do this. Vercel cannot do this. */
+  font-family:var(--nx-hero);
   max-width:760px;
-  font-size:clamp(44px,6.2vw,76px);
-  font-weight:650;
-  line-height:1.02;
-  letter-spacing:-.052em;
+  font-size:clamp(52px,7vw,96px);
+  font-weight:400;
+  line-height:.95;
+  letter-spacing:-.01em;
   color:var(--nx-ink);
-  margin-bottom:24px;
+  margin-bottom:20px;
+}
+[data-theme="dark"] .hero h1{
+  /* Champagne breath — not pure white, not grey. Specifically AwardRadar. */
+  color:#f5f0e8;
+}
+.hero-intelligence{
+  /* The subtitle: tracked sans, tension between editorial and instrument */
+  font-family:var(--nx-display);
+  font-size:clamp(10px,1.1vw,13px);
+  font-weight:600;
+  letter-spacing:.22em;
+  text-transform:uppercase;
+  color:var(--nx-muted);
+  margin:0 0 40px;
+}
+[data-theme="dark"] .hero-intelligence{
+  color:rgba(226,194,135,.55);
+}
+.hero-def{
+  /* Telemetry lines — like an FMC readout, not a marketing bullet list */
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  margin:0 0 0;
+}
+.hero-def p{
+  font-family:var(--nx-mono);
+  font-size:clamp(11px,1.05vw,13.5px);
+  font-weight:400;
+  letter-spacing:.06em;
+  line-height:2.4;
+  color:var(--nx-muted);
+  margin:0;
+  padding:0;
+  border-bottom:none;
+  transition:color var(--ar-duration) var(--ar-ease-out);
+}
+[data-theme="dark"] .hero-def p{
+  color:rgba(168,184,200,.45);
 }
 .hero p{max-width:670px;font-size:18px;line-height:1.62;color:var(--nx-reading-ink)}
 .trust-line{margin-top:20px;color:var(--nx-muted)}
@@ -150,14 +245,51 @@ p,.hero p,.about-section,.cg-block p,.cg-evidence,.rt-disclosure,
   height:60px;
   border:0;
   border-radius:12px;
-  background:#315f7c;
-  box-shadow:0 10px 26px rgba(32,73,101,.16);
-  color:#fff;
-  font-weight:650;
+  /* Champagne brass — the AwardRadar call-to-action. No other product uses this
+     exact color here. It is not gold. It is not yellow. It is specifically this. */
+  background:linear-gradient(135deg,#c9a45a 0%,#b8923e 100%);
+  box-shadow:0 10px 28px rgba(180,140,50,.22);
+  color:#1a1000;
+  font-weight:700;
+  letter-spacing:.01em;
+  transition:background var(--ar-duration) var(--ar-ease-out),
+             box-shadow var(--ar-duration) var(--ar-ease-out),
+             transform var(--ar-duration) var(--ar-ease);
 }
-[data-theme="dark"] .go{background:#285b78}
-.go:hover{background:#386b89;box-shadow:0 12px 30px rgba(32,73,101,.2);transform:none}
+[data-theme="dark"] .go{
+  background:linear-gradient(135deg,#e2c287 0%,#c9a45a 100%);
+  box-shadow:0 10px 36px rgba(226,194,135,.18),0 0 0 0 rgba(226,194,135,0);
+  color:#0d0800;
+}
+.go:not(:disabled):hover{
+  background:linear-gradient(135deg,#eacf9a 0%,#d4af66 100%);
+  box-shadow:0 14px 40px rgba(226,194,135,.28);
+  transform:translateY(-1px);
+}
+[data-theme="dark"] .go:not(:disabled):hover{
+  box-shadow:0 14px 44px rgba(226,194,135,.32),0 0 20px rgba(226,194,135,.08);
+}
+/* Motion signature applied globally */
+.fields input,
+.swap-btn,
+.tab,
+.panel{
+  transition:background var(--ar-duration) var(--ar-ease-out),
+             box-shadow var(--ar-duration) var(--ar-ease-out),
+             color var(--ar-duration) var(--ar-ease-out),
+             border-color var(--ar-duration) var(--ar-ease-out);
+}
 .saved-searches{border:0;background:var(--nx-analysis);border-radius:12px}
+/* JS-required inputs: off-screen, never rendered, always accessible to script */
+.js-required-inputs{
+  position:absolute;
+  left:-9999px;
+  width:1px;
+  height:1px;
+  overflow:hidden;
+  opacity:0;
+  pointer-events:none;
+}
 
 /* Results transition from search to report. */
 .shell.has-results{width:min(1120px,calc(100% - 48px))}
@@ -302,10 +434,62 @@ p,.hero p,.about-section,.cg-block p,.cg-evidence,.rt-disclosure,
   .compact-alternative{padding:13px 12px}
 }
 
+/* ============================================================
+   UI NEXT — Google frontend shell (Input B) reproduction.
+   Utility system + concierge header identity + editorial hero.
+   Presentation only; all functional hooks/ids preserved.
+   ============================================================ */
+
+/* Input B utility system (translated from Tailwind @layer utilities). */
+.nx-glass{background:rgba(255,255,255,.7);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.7)}
+[data-theme="dark"] .nx-glass{background:rgba(255,255,255,.05);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.05)}
+.nx-tonal{background:rgba(0,30,61,.03)}
+[data-theme="dark"] .nx-tonal{background:rgba(255,255,255,.05)}
+.nx-pill-shadow{box-shadow:0 25px 50px -12px rgba(11,19,43,.08)}
+[data-theme="dark"] .nx-pill-shadow{box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}
+
+/* Concierge header — quiet luxury brand row. */
+.logo-mark{
+  width:40px;height:40px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:#f5f3ef;border:1px solid rgba(0,30,61,.05);
+  box-shadow:0 6px 16px rgba(11,19,43,.08);
+  filter:none;overflow:hidden;flex-shrink:0;
+}
+[data-theme="dark"] .logo-mark{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.06)}
+.logo-mark svg{width:26px;height:26px}
+.logo-name{font-family:var(--nx-display);font-size:20px;font-weight:300;letter-spacing:.02em;color:var(--nx-ink)}
+.logo-award{font-weight:300}
+.logo-radar{font-weight:600;color:var(--nx-brass)}
+.logo-tagline{font-size:10px;letter-spacing:.18em;text-transform:uppercase;font-weight:500;color:var(--nx-muted)}
+
+/* Editorial hero — champagne eyebrow + airy display headline. */
+.eyebrow{
+  display:inline-flex;align-items:center;gap:7px;
+  color:var(--nx-brass);
+  font-family:var(--nx-display);
+  font-size:11px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;
+  margin-bottom:16px;
+}
+.eyebrow::before{
+  content:"";width:14px;height:14px;flex-shrink:0;
+  background:currentColor;
+  -webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3l1.9 5.8L20 10.5l-6.1 1.7L12 18l-1.9-5.8L4 10.5l6.1-1.7z'/></svg>") center/contain no-repeat;
+          mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3l1.9 5.8L20 10.5l-6.1 1.7L12 18l-1.9-5.8L4 10.5l6.1-1.7z'/></svg>") center/contain no-repeat;
+  opacity:.85;
+}
+.hero{text-align:center;margin-inline:auto}
+.hero h1{margin-inline:auto;font-weight:300}
+.hero h1 strong,.hero h1 b{font-weight:600}
+.hero p{margin-inline:auto;font-weight:400}
+.trust-line{justify-content:center}
+.navbar{position:relative;z-index:40}
+
 @media(max-width:360px){
+  .nx-glass,.nx-tonal{backdrop-filter:none}
   .nav-inner,.shell,.shell.has-results{width:calc(100% - 20px)}
   .nav-inner{flex-wrap:wrap}
-  .logo-mark svg{width:34px;height:34px}
+  .logo-mark svg{width:22px;height:22px}
   .logo-name{font-size:15px}
   .nav-right{width:100%;justify-content:flex-end;gap:2px;margin-top:-4px}
   .nav-link{font-size:11px;padding-inline:2px}
@@ -314,3 +498,95 @@ p,.hero p,.about-section,.cg-block p,.cg-evidence,.rt-disclosure,
   .hero h1{font-size:34px}
   .panel{padding:14px 10px}
 }
+
+/* ============================================================
+   UI NEXT — Recomposed visual rhythm (M1 Page Composition)
+   Whitespace as the primary separator. Minimal nested cards.
+   Single continuous search instrument + vertical report.
+   ============================================================ */
+
+.panel-bottom {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 30px !important;
+  margin-top: 30px !important;
+}
+.pa-col, .config-col {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+.pa-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.config-row {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  gap: 28px !important;
+}
+
+/* Recompose results as one flat continuous document without cards */
+.results .card,
+.results .recommendation-card,
+.results .top-card {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  margin-bottom: 48px !important;
+}
+
+/* Eliminate dashboard side-by-side splitting */
+.rec-brief,
+.aw-briefing {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 38px !important;
+}
+.rec-brief-side,
+.aw-briefing-side {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 30px !important;
+}
+
+/* Strip backgrounds, borders, and margins from nested boxes */
+.cash-guidance,
+.rec-price-panel,
+.aw-tradeoffs,
+.aw-evidence,
+.aw-programs,
+.aw-itin-summary,
+.aw-evaluated,
+.aw-result-shell .aw-card,
+.aw-result-shell .aw-card-live,
+.aw-result-shell .aw-card-best,
+.aw-result-shell .aw-card-evaluated {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+}
+
+/* Evidentiary segments & journey maps flow natively */
+.rec-evidence,
+.aw-evidence {
+  border: 0 !important;
+  padding-top: 30px !important;
+  margin-top: 30px !important;
+  border-top: 1px solid var(--nx-rule) !important;
+}
+.aw-trust {
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+.aw-itin-detail {
+  border: 0 !important;
+}
+
