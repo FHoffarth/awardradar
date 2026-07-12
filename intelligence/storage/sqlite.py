@@ -195,12 +195,12 @@ class SQLiteStorage:
 
         return self._delete(Rule, rule_id)
 
-    def save_fact_collection(self, collection: FactCollection) -> None:
+    def save_collection(self, collection: FactCollection) -> None:
         """Insert or replace a fact collection by identifier."""
 
         self._save(collection)
 
-    def get_fact_collection(self, collection_id: UUID) -> FactCollection | None:
+    def load_collection(self, collection_id: UUID) -> FactCollection | None:
         """Return a fact collection by identifier, or ``None`` when absent."""
 
         return self._get(FactCollection, collection_id)
