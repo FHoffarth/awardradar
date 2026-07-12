@@ -506,8 +506,8 @@ function validateSearchForm(options = {}) {
   const status = $('searchValidationStatus');
   if (status) {
     status.textContent = valid
-      ? 'Ready to search.'
-      : (searchSubmitAttempted ? (Object.values(errors)[0] || 'Complete the required fields to search.') : 'Select origin, destination and departure date to search.');
+      ? 'Ready to analyze.'
+      : (searchSubmitAttempted ? (Object.values(errors)[0] || 'Complete the required journey details.') : 'Select origin, destination and departure date to analyze.');
   }
   return { valid, errors, firstInvalid: Object.keys(errors)[0] || null };
 }
@@ -606,12 +606,6 @@ const RADAR_STAGES = {
     'Aligning trip basis',
     'Evaluating redemption value',
     'Preparing verification guidance',
-  ],
-  skiplag: [
-    'Resolving airports',
-    'Checking routing patterns',
-    'Reviewing risk context',
-    'Preparing verification context',
   ],
 };
 
@@ -788,7 +782,7 @@ async function run() {
   }
   collapseSearch();
   startProgress(_origin, _dest);
-  const endpoint = mode === 'cheap' ? '/api/cheap' : mode === 'skiplag' ? '/api/skiplag' : '/api/awards';
+  const endpoint = mode === 'cheap' ? '/api/cheap' : '/api/awards';
   try {
     const headers = { 'Content-Type': 'application/json' };
     const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(requestPayload) });
@@ -811,22 +805,15 @@ async function run() {
     console.debug('[AwardRadar]', e.message);
     let userMsg;
     if (e.isQuota) {
-      userMsg = `<div class="card skiplag-empty">
-        <div class="skiplag-empty-header">Capacity Limit</div>
-        <div class="skiplag-empty-title">Search capacity temporarily reached.</div>
-        <p class="skiplag-empty-reason">Live data refreshes periodically. Please try again in a few minutes.</p>
-      </div>`;
-    } else if (mode === 'skiplag') {
-      userMsg = `<div class="card skiplag-empty">
-        <div class="skiplag-empty-header">Hidden Opportunities Analysis</div>
-        <div class="skiplag-empty-title">Analysis could not be completed.</div>
-        <p class="skiplag-empty-reason">No viable overlooked routing opportunities found for this route and date.</p>
-        <button class="cross-btn" onclick="switchTabAndRun('cheap')">Compare Fare Context</button>
+      userMsg = `<div class="card analysis-empty">
+        <div class="analysis-empty-header">Capacity Limit</div>
+        <div class="analysis-empty-title">Analysis capacity temporarily reached.</div>
+        <p class="analysis-empty-reason">Live data refreshes periodically. Please try again in a few minutes.</p>
       </div>`;
     } else {
-      userMsg = `<div class="card skiplag-empty">
-        <div class="skiplag-empty-title">Search temporarily unavailable.</div>
-        <p class="skiplag-empty-reason">Please try again in a moment.</p>
+      userMsg = `<div class="card analysis-empty">
+        <div class="analysis-empty-title">Journey analysis is temporarily unavailable.</div>
+        <p class="analysis-empty-reason">Please try again in a moment.</p>
       </div>`;
     }
     $('results').innerHTML = userMsg;
@@ -906,40 +893,13 @@ function formatTripDateRange(start, end) {
   }
   return `${formatTripDate(start)} – ${formatTripDate(end)}`;
 }
-function _searchSummaryText() {
-  const o = ($('origin').value || '').trim().toUpperCase().slice(0, 3);
-  const d = ($('dest').value || '').trim().toUpperCase().slice(0, 3);
-  const date = ($('date').value || '').trim();
-  const cabin = activeCabin();
-  const oneWay = $('oneWay').checked;
-  const ret = ($('returnDate').value || '').trim();
-  const parts = [`${o || '—'} → ${d || '—'}`];
-  const dateText = oneWay ? formatSearchDate(date) : formatSearchDateRange(date, ret);
-  if (dateText) parts.push(dateText);
-  if (cabin) parts.push(cabin);
-  parts.push(oneWay ? 'One-way' : 'Round trip');
-  return parts.join(' · ');
-}
 function collapseSearch() {
-  const pf = $('panelForm'), ss = $('searchSummary'), st = $('searchSummaryText'), eb = $('editSearchBtn');
-  if (!pf || !ss || !st) return;
-  const origin = ($('origin').value || '').trim().toUpperCase().slice(0, 3);
-  const dest = ($('dest').value || '').trim().toUpperCase().slice(0, 3);
-  const date = formatSearchDate(($('date').value || '').trim());
-  st.innerHTML = `
-    <span class="freeze-search-cell"><span class="freeze-search-label">From</span><span class="freeze-search-value">${esc(origin || '—')}</span></span>
-    <span class="freeze-search-cell"><span class="freeze-search-label">To</span><span class="freeze-search-value">${esc(dest || '—')}</span></span>
-    <span class="freeze-search-cell freeze-search-date"><span class="freeze-search-label">Date</span><span class="freeze-search-value">${esc(date || '—')}</span></span>`;
-  pf.hidden = true;
-  ss.hidden = false;
-  if (eb) eb.setAttribute('aria-expanded', 'false');
+  const pf = $('panelForm');
+  if (pf) pf.hidden = false;
 }
 function expandSearch() {
-  const pf = $('panelForm'), ss = $('searchSummary'), eb = $('editSearchBtn');
-  if (!pf || !ss) return;
-  ss.hidden = true;
-  pf.hidden = false;
-  if (eb) eb.setAttribute('aria-expanded', 'true');
+  const pf = $('panelForm');
+  if (pf) pf.hidden = false;
   const origin = $('origin');
   if (origin) origin.focus();
 }
@@ -1277,17 +1237,31 @@ function isValidCashPrice(v) {
   return Number.isFinite(n) && n > 0;
 }
 
-function decisionGuidanceHtml(guidance) {
+function decisionGuidanceHtml(guidance, offer) {
   if (!guidance || typeof guidance !== 'object') return '';
   const recommendation = guidance.headline || guidance.next_step || 'Review the strongest returned option.';
-  const whyItems = [guidance.why || 'This is the strongest option supported by the returned fare evidence.'].slice(0, 3);
+  const whyItems = [guidance.why || 'This is the strongest option supported by the returned fare evidence.'];
   const rawConfidence = String(guidance.evidence_level || '').toLowerCase();
   const confidence = rawConfidence.includes('high') ? 'High' : rawConfidence.includes('moderate') || rawConfidence.includes('medium') ? 'Moderate' : 'Limited';
+  const confidenceSupport = confidence === 'High'
+    ? 'Based on aligned fare and routing evidence.'
+    : confidence === 'Moderate'
+      ? 'Based on available fare data; some journey details still require confirmation.'
+      : 'Some fare or routing evidence could not be independently verified.';
+  const evidenceItems = [];
+  if (offer && isValidCashPrice(offer.price)) evidenceItems.push(`Cash fare compared at ${formatMoney(offer.price, offer.currency)}`);
+  if (offer && offer.time_data_status === 'complete') evidenceItems.push('Journey timing reviewed');
+  if (offer && offer.stops !== null && offer.stops !== undefined && String(offer.stops).trim() !== '') evidenceItems.push('Routing complexity evaluated');
+  if (guidance.evidence_level) evidenceItems.push('Evidence quality assessed');
+  if (!evidenceItems.length) evidenceItems.push('Returned fare evidence reviewed');
+  evidenceItems.forEach(item => {
+    if (whyItems.length < 3 && !whyItems.includes(item)) whyItems.push(item);
+  });
   const verificationItems = ['Verify the current fare and seat availability', guidance.watch_out || 'Verify routing and fare conditions'];
   return `<section class="decision-document cash-guidance" aria-label="Our recommendation">
     <div class="decision-section decision-recommendation"><div class="decision-label">Our Recommendation</div><h2>${esc(recommendation)}</h2></div>
     <div class="decision-section decision-why"><div class="decision-label">Why</div><ul>${whyItems.map(item => `<li>${esc(item)}</li>`).join('')}</ul></div>
-    <div class="decision-section decision-confidence"><div class="decision-label">Decision Confidence</div><div class="decision-confidence-value">${confidence}</div></div>
+    <div class="decision-section decision-confidence"><div class="decision-label">Decision Confidence</div><div class="decision-confidence-value">${confidence}</div><p class="decision-confidence-support">${esc(confidenceSupport)}</p></div>
     <div class="decision-section decision-verification"><div class="decision-label">Verification Protocol</div><ul>${verificationItems.map(item => `<li>${esc(item)}</li>`).join('')}</ul></div>
   </section>`;
 }
@@ -1388,8 +1362,13 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
 
       const confirmedReturnDate = o.returnDate && o.itinerary_state !== 'partial' ? o.returnDate : '';
       const dateLine = formatTripDateRange(o.date, confirmedReturnDate);
-      const guidanceHtml = isGuidanceRecommended ? decisionGuidanceHtml(guidance) : '';
-      const verdictHtml = guidanceHtml ? '' : `<div class="rec-verdict">${esc(verdict)}</div>`;
+      const displayGuidance = guidance || {
+        headline: verdict,
+        why: o.scoreReason || 'This is the strongest option supported by the returned fare evidence.',
+        evidence_level: o.scoreConfidence || 'limited',
+      };
+      const guidanceHtml = decisionGuidanceHtml(displayGuidance, o);
+      const verdictHtml = '';
       const recommendationTag = isGuidanceRecommended ? '<div class="cg-tag cg-tag-secondary">Recommended option</div>' : '';
       const topBadge = bestBadgeHtml(o, sortKey, { guided: isGuidanceRecommended });
       const returnDisclosure = returnDisclosureHtml(o, roundTripRequested);
@@ -1425,19 +1404,6 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
               <div class="price-sub">per person</div>
               ${o.scoreReason ? `<div class="score-reason-pills">${o.scoreReason.split(' · ').map(p => `<span class="srp">${esc(cashReasonDisplay(p))}</span>`).join('')}</div>` : ''}
               ${scoreHtml(o)}
-            </div>
-          </div>
-        </div>
-        <div class="rec-evidence">
-          <div class="rec-evidence-main">
-            <div class="cash-rt-slot" data-offer-id="${esc(o.offer_id || '')}">${roundTripIntegrity || compactCashJourneySummary(o)}</div>
-            ${roundTripIntegrity ? '' : journeyFacts}
-            ${hasIntegrityState && !o.airline ? '' : `<div class="card-airline">${logoImg}<span class="airline-name">${esc(airlineLabel)}</span>${flightNoHtml}</div>`}
-          </div>
-          <div class="rec-provider">
-            <div class="rec-cta">
-              ${linksHtmlWithLabels(o.links)}
-              ${sourceDisclosureHtml(o.links)}
             </div>
           </div>
         </div>
@@ -1491,10 +1457,6 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
           <div class="compact-value">${esc(conciseLabel)}</div>
         </div>
       </div>
-      <div class="compact-cta">
-        ${linksHtmlWithLabels(o.links)}
-        ${sourceDisclosureHtml(o.links)}
-      </div>
     </div>`;
   }).join('');
 }
@@ -1528,9 +1490,8 @@ function switchTabAndRun(targetMode) {
 
 function relatedAnalysesHtml(currentMode) {
   const others = {
-    cheap:   [{ tab: 'awards', label: 'Evaluate Award Redemptions' }, { tab: 'skiplag', label: 'Check Hidden Opportunities' }],
-    awards:  [{ tab: 'cheap',  label: 'Compare Fare Context' },         { tab: 'skiplag', label: 'Check Hidden Opportunities' }],
-    skiplag: [{ tab: 'cheap',  label: 'Compare Standard Fare Context' },     { tab: 'awards',  label: 'Evaluate Award Redemptions' }],
+    cheap:  [{ tab: 'awards', label: 'Evaluate Award Redemptions' }],
+    awards: [{ tab: 'cheap', label: 'Compare Fare Context' }],
   }[currentMode] || [];
   const links = others.map(o =>
     `<button class="cross-link" onclick="switchTabAndRun('${o.tab}')">${esc(o.label)}</button>`
@@ -1538,24 +1499,49 @@ function relatedAnalysesHtml(currentMode) {
   return `<div class="related-analyses"><span class="related-label">Related analyses</span>${links}</div>`;
 }
 
-function decisionActionsHtml() {
-  return `<div class="decision-actions" aria-label="Primary decision actions">
-    <span class="decision-actions-label">Execution</span>
+function decisionActionsHtml(offer) {
+  const verificationLinks = offer && offer.links ? linksHtmlWithLabels(offer.links) : '';
+  return `<section class="decision-section decision-execution" aria-label="Execution">
+    <div class="decision-label">Execution</div>
+    <div class="decision-actions">
+    ${verificationLinks}
     <button class="cross-link decision-action" onclick="switchTabAndRun('awards')">Compare award options</button>
-    <button class="cross-link decision-action" onclick="switchTabAndRun('skiplag')">Check hidden opportunities</button>
-  </div>`;
+    </div>
+  </section>`;
+}
+
+function decisionCompleteHtml(data) {
+  const freshness = data && (data.freshness_label || data.fetched_at)
+    ? String(data.freshness_label || data.fetched_at)
+    : 'Current returned evidence';
+  const assessedAt = new Date().toLocaleString(undefined, {
+    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+  return `<footer class="decision-complete">
+    <div class="decision-label">Decision Complete</div>
+    <dl>
+      <div><dt>Sources</dt><dd>Verification links and returned journey evidence</dd></div>
+      <div><dt>Freshness</dt><dd>${esc(freshness)}</dd></div>
+      <div><dt>Assessment</dt><dd>${esc(assessedAt)}</dd></div>
+    </dl>
+  </footer>`;
 }
 
 function render(data) {
   const workspaceOrigin = ($('origin').value || '').trim().toUpperCase().slice(0, 3);
   const workspaceDest = ($('dest').value || '').trim().toUpperCase().slice(0, 3);
-  const workspaceMode = mode === 'awards' ? 'Award decision' : mode === 'skiplag' ? 'Hidden opportunity' : 'Decision summary';
-  let html = `<header class="result-workspace-head">
-    <div class="result-kicker">${workspaceMode}</div>
-    <h1>${esc(workspaceOrigin)} <span aria-hidden="true">→</span> ${esc(workspaceDest)}</h1>
-    <p>Understand the strongest option before you book.</p>
+  const workspaceMode = mode === 'awards' ? 'Award decision' : 'Decision summary';
+  const workspaceDate = formatSearchDate(($('date').value || '').trim()) || 'Not specified';
+  let html = `<header class="result-workspace-head" aria-label="Decision summary">
+    <div class="result-kicker">Decision Summary</div>
+    <dl class="decision-summary-grid">
+      <div><dt>Origin</dt><dd>${esc(workspaceOrigin || '—')}</dd></div>
+      <div><dt>Destination</dt><dd>${esc(workspaceDest || '—')}</dd></div>
+      <div><dt>Travel date</dt><dd>${esc(workspaceDate)}</dd></div>
+      <div><dt>Mode</dt><dd>${esc(workspaceMode)}</dd></div>
+    </dl>
   </header>`;
-  if (data.note) html += `<div class="card note">${esc(data.note)}</div>`;
+  if (data.note) console.debug('[AwardRadar context]', data.note);
   // Warnings: log internally only — never expose raw provider errors to users
   if (data.warnings?.length) console.debug('[AwardRadar warnings]', data.warnings);
 
@@ -1567,86 +1553,34 @@ function render(data) {
     currentSortKey = 'score';
     updateCalendarPrices(data.calendar);
 
-    if (data.calendar && data.calendar.length > 1) {
-      html += calendarStripHtml(data.calendar);
-    }
-
     if (currentOffers.length) {
-      const primaryDecisionActionsHtml = decisionActionsHtml();
-      const hasPrimaryDecisionActions = !!String(primaryDecisionActionsHtml || '').trim();
-      html += `<div class="sort-bar">
-        <span class="sort-label">Review by:</span>
-        <button class="sort-btn active" data-sort="score" onclick="applySort('score')">Assessment</button>
-        <button class="sort-btn" data-sort="price" onclick="applySort('price')">Fare amount</button>
-        <button class="sort-btn" data-sort="nonstop" onclick="applySort('nonstop')">Routing simplicity</button>
-      </div>
-      ${scoreLegendHtml()}
-      ${cashVerificationExplainerHtml()}`;
-      html += `<div id="cards-wrap">${cheapCardsHtml(currentOffers, 'score', currentCashGuidance, { roundTripRequested: currentCheapRoundTripRequested, decisionActionsMarkup: primaryDecisionActionsHtml })}</div>`;
-      if (!hasPrimaryDecisionActions) {
-        html += relatedAnalysesHtml('cheap');
-      }
+      html += `<div id="cards-wrap">${cheapCardsHtml(currentOffers, 'score', currentCashGuidance, { roundTripRequested: currentCheapRoundTripRequested })}</div>`;
+      html += `<section class="workspace-secondary-controls" aria-label="Alternative pathways">
+        <div class="decision-label">Alternative pathways</div>
+        ${data.calendar && data.calendar.length > 1 ? calendarStripHtml(data.calendar) : ''}
+        <div class="sort-bar">
+          <span class="sort-label">Review by:</span>
+          <button class="sort-btn active" data-sort="score" onclick="applySort('score')">Assessment</button>
+          <button class="sort-btn" data-sort="price" onclick="applySort('price')">Fare amount</button>
+          <button class="sort-btn" data-sort="nonstop" onclick="applySort('nonstop')">Routing simplicity</button>
+        </div>
+        ${scoreLegendHtml()}
+      </section>`;
+      html += decisionActionsHtml(currentOffers[0]);
+      html += decisionCompleteHtml(data);
       setTimeout(verifyRecommendedReturnLeg, 0);
     } else {
       currentCashGuidance = null;
       currentCheapRoundTripRequested = false;
-      html += `<div class="card"><h3>No fare context found — try the verification links below</h3><p class="tiny" style="margin-top:6px">No cached fare context for this route right now. Use the links to verify current pricing.</p></div>`;
-    }
-    html += (data.fallback || []).map(f => `<div class="card"><h3>${esc(f.route)}</h3>${linksHtml(f.links)}</div>`).join('');
-  }
-
-  if (mode === 'skiplag') {
-    const skipResults = (data.results || []);
-    if (skipResults.length) {
-      html += skipResults.map(r => {
-        const isVerified = r.verified === true;
-        const logoImg = airlineMarkHtml(r.airline, r.airlineCode);
-        const verifiedBadge = isVerified
-          ? `<div class="verified-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Segment context available</div>`
-          : `<div class="unverified-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Risk context — verify routing</div>`;
-        const segChain = r.segmentChain ? `<div class="seg-chain">${esc(r.segmentChain)}</div>` : '';
-        const layover = r.layoverDuration ? `<span class="badge">Layover ${r.layoverDuration} min at ${esc(r.hiddenCity)}</span>` : `<span class="badge">Exit at ${esc(r.hiddenCity)}</span>`;
-        const savingsLine = r.savings && r.savings > 0
-          ? `<div class="savings-line">Potential difference ~${esc(formatMoney(r.savings))} vs direct</div>`
-          : '';
-        const priceDisplay = r.candidatePrice
-          ? `<div class="price">${esc(formatMoney(r.candidatePrice, r.currency || 'EUR'))}</div><div class="price-sub">fare to ${esc(r.ticketDestination)}</div>`
-          : `<div class="price tiny">verify current</div>`;
-        return `<div class="card${isVerified ? ' top-card' : ''}">
-          ${verifiedBadge}
-          <div class="card-row">
-            <div class="card-main">
-              <h3>${esc(r.origin)}<span class="route-arrow">→</span><span style="color:var(--gold)">${esc(r.hiddenCity)}</span><span class="route-arrow">→</span>${esc(r.ticketDestination)}</h3>
-              ${segChain}
-              ${r.airline ? `<div class="card-airline">${logoImg}<span class="airline-name">${esc(r.airline)}</span></div>` : ''}
-              <div class="meta">${layover}<span>${esc(formatTripDate(r.date))}</span></div>
-              ${savingsLine}
-            </div>
-            <div class="card-price">
-              ${priceDisplay}
-            </div>
-          </div>
-          <p class="tiny muted-note" style="margin-top:8px">One-way only · no checked baggage · verify airline T&amp;Cs before purchase</p>
-          ${linksHtml(r.links)}
-        </div>`;
-      }).join('');
-      html += relatedAnalysesHtml('skiplag');
-    } else {
-      const origin = ($('origin').value || '').trim().toUpperCase().slice(0,3);
-      const dest   = ($('dest').value   || '').trim().toUpperCase().slice(0,3);
-      const routeLabel = (origin && dest) ? `${origin} → ${dest}` : 'this route';
-      const providerNote = data.provider_available === false
-        ? `<p class="tiny muted-note">Verification context was unavailable for this search.</p>`
-        : `<p class="tiny muted-note">Overlooked routing opportunities are shown only when routing structure and fare context meet validation criteria.</p>`;
-      html += `<div class="card skiplag-empty">
-        <div class="skiplag-empty-header">Hidden Opportunities Analysis</div>
-        <div class="skiplag-empty-route">${esc(routeLabel)}</div>
-        <div class="skiplag-empty-title">No viable overlooked routing opportunities found.</div>
-        <p class="skiplag-empty-reason">No stronger overlooked routing pattern was identified for the selected route and date.</p>
-        <p class="skiplag-empty-rec">Recommendation: compare standard cash fare context instead.</p>
-        <button class="cross-btn" onclick="switchTabAndRun('cheap')">Show Fare Context</button>
-        ${providerNote}
+      const fallbackActions = (data.fallback || []).map(f => linksHtml(f.links)).join('');
+      html += `<div class="decision-document empty-decision">
+        <section class="decision-section decision-recommendation"><div class="decision-label">Our Recommendation</div><h2>More evidence is required before making a decision.</h2></section>
+        <section class="decision-section decision-why"><div class="decision-label">Why</div><ul><li>Current fare evidence is not available for this journey.</li><li>A reliable cash-versus-miles comparison cannot yet be established.</li></ul></section>
+        <section class="decision-section decision-confidence"><div class="decision-label">Decision Confidence</div><div class="decision-confidence-value">Limited</div><p class="decision-confidence-support">The available evidence is not sufficient for a reliable recommendation.</p></section>
+        <section class="decision-section decision-verification"><div class="decision-label">Verification Protocol</div><ul><li>Verify the current fare with an official airline source</li><li>Confirm availability and routing</li><li>Review final fare conditions before booking</li></ul></section>
+        <section class="decision-section decision-execution"><div class="decision-label">Execution</div><div class="decision-actions">${fallbackActions}</div></section>
       </div>`;
+      html += decisionCompleteHtml(data);
     }
   }
 
@@ -1661,7 +1595,7 @@ function render(data) {
         fair:        { label: 'C',  cls: 'aw-grade-c' },
         poor:        { label: 'D',  cls: 'aw-grade-d' },
       };
-      html += awardResults.map(r => {
+      html += awardResults.slice(0, 1).map(r => {
         const cashStr = r.cash_eur ? formatMoney(r.cash_eur) : null;
         const itineraryHtml = buildItinerary(r.flight);
         const scheduleFallback = itineraryHtml
@@ -1736,10 +1670,6 @@ function render(data) {
           const cabinAvailabilityNote = isLive
             ? ''
             : `<div class="aw-verify-note">Cabin-specific availability is not confirmed for this estimate. Verify with the official program before transferring points.</div>`;
-          const verifyLink = p.url
-            ? `<a href="${esc(p.url)}" target="_blank" rel="noopener" class="aw-book-link">Verify with official program <span aria-hidden="true">-&gt;</span></a>`
-            : `<span class="aw-link-unavailable">Manual official-program verification required</span>`;
-
           // Compact meta row: provider direct signal · seats · cpm
           const metaParts = [];
           if (p.direct) metaParts.push('<span class="aw-meta-nonstop">Provider reports direct availability</span>');
@@ -1758,7 +1688,7 @@ function render(data) {
           return `<div class="${cardClasses.join(' ')}">
             <div class="aw-card-header">
               <div class="aw-card-prog">
-                <a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.program)}</a>
+                <span>${esc(p.program)}</span>
                 ${isLive ? '<span class="aw-source-live">Live</span>' : '<span class="aw-source-est">Est.</span>'}
               </div>
               ${gm ? `<span class="aw-grade-pill ${gm.cls}" title="Program-level redemption signal — see the summary card above for AwardRadar's assessment">${gm.label}</span>` : ''}
@@ -1774,9 +1704,6 @@ function render(data) {
             <div class="aw-verify-context">Search to verify: ${verifyContext}</div>
             ${verificationNote}
             ${cabinAvailabilityNote}
-            <div class="aw-card-footer">
-              ${verifyLink}
-            </div>
           </div>`;
         };
 
@@ -1799,13 +1726,15 @@ function render(data) {
 
         // Empty guard: a result with no programs cannot be compared.
         if (!best) {
-          return `<div class="card"><div class="aw-result-shell">
-            ${headerHtml}
-            <div class="aw-verdict aw-verdict-insufficient"><h4 class="aw-verdict-h">More information is needed before comparing.</h4></div>
-            <div class="aw-means"><div class="aw-block-k">What this means</div><p>AwardRadar does not yet have enough compatible data to make a reliable comparison.</p></div>
-            <div class="aw-next"><div class="aw-block-k">Your next best step</div><p>No award options were returned for this route. Verify current availability with the official program.</p></div>
-            <p class="legend-note">Final availability, mileage prices, taxes, fees and rules must be confirmed with the airline or loyalty program before any transfer or purchase.</p>
-            ${actionLinksHtml(r.links)}
+          return `<div class="card decision-document-card"><div class="aw-result-shell">
+            <div class="decision-document">
+              <section class="decision-section decision-recommendation"><div class="decision-label">Our Recommendation</div><h2>More evidence is required before making a decision.</h2></section>
+              <section class="decision-section decision-why"><div class="decision-label">Why</div><ul><li>No compatible award options were returned for this journey.</li></ul></section>
+              <section class="decision-section decision-confidence"><div class="decision-label">Decision Confidence</div><div class="decision-confidence-value">Limited</div><p class="decision-confidence-support">The available evidence is not sufficient for a reliable comparison.</p></section>
+              <section class="decision-section decision-verification"><div class="decision-label">Verification Protocol</div><ul><li>Verify current availability with the official loyalty program</li><li>Confirm mileage prices, taxes and program rules</li></ul></section>
+              <section class="decision-section decision-execution"><div class="decision-label">Execution</div>${actionLinksHtml(r.links)}</section>
+            </div>
+            ${decisionCompleteHtml({ freshness_label: d.freshness_label })}
           </div></div>`;
         }
 
@@ -1919,12 +1848,26 @@ function render(data) {
           !routingVerified ? 'Routing still requires confirmation' : null,
         ].filter(Boolean).slice(0, 3);
         if (!whyItems.length) whyItems.push('The available evidence is not sufficient for a reliable comparison');
+        const confidenceSupport = decisionConfidence === 'High'
+          ? 'Based on aligned fare, award and routing evidence.'
+          : decisionConfidence === 'Moderate'
+            ? 'Based on available fare and award data; some details still require verification.'
+            : 'Some partner availability or routing evidence could not be independently verified.';
+        const evidenceItems = [];
+        if (cash != null) evidenceItems.push(`Cash fare compared at ${formatMoney(cash)}`);
+        if (milesAvailable) evidenceItems.push(`Award cost evaluated at ${formatMiles(evalMiles)}`);
+        if (d.evaluated_surcharge != null || evaluated.surcharge != null) evidenceItems.push(`Taxes and fees included at ${formatMoney(evalSurcharge)}`);
+        if (routingVerified) evidenceItems.push('Routing evaluated on a comparable itinerary');
+        if (evaluated && evaluated.program) evidenceItems.push(`${evaluated.program} program source identified`);
+        if (!evidenceItems.length) evidenceItems.push('Available fare and award evidence reviewed');
+        evidenceItems.forEach(item => {
+          if (whyItems.length < 3 && !whyItems.includes(item)) whyItems.push(item);
+        });
         const decisionDocumentHtml = `<div class="decision-document">
           <section class="decision-section decision-recommendation"><div class="decision-label">Our Recommendation</div><h2>${esc(recommendationSentence)}</h2></section>
           <section class="decision-section decision-why"><div class="decision-label">Why</div><ul>${whyItems.map(item => `<li>${esc(item)}</li>`).join('')}</ul></section>
-          <section class="decision-section decision-confidence"><div class="decision-label">Decision Confidence</div><div class="decision-confidence-value">${decisionConfidence}</div></section>
-          <section class="decision-section decision-verification"><div class="decision-label">Verification Protocol</div><ul><li>Verify award availability</li><li>Verify taxes and fees</li><li>Verify routing and program rules</li></ul></section>
-          <section class="decision-section decision-execution"><div class="decision-label">Execution</div>${ctaHtml}</section>
+          <section class="decision-section decision-confidence"><div class="decision-label">Decision Confidence</div><div class="decision-confidence-value">${decisionConfidence}</div><p class="decision-confidence-support">${esc(confidenceSupport)}</p></section>
+          <section class="decision-section decision-verification"><div class="decision-label">Verification Protocol</div><ul><li>Verify current award availability</li><li>Confirm taxes and fees</li><li>Review airline booking conditions</li></ul></section>
         </div>`;
 
         // 6 — Trust metadata (subordinate)
@@ -1971,33 +1914,26 @@ function render(data) {
 
         return `<div class="card decision-document-card${r.best_program ? ' top-card' : ''}">
           <div class="aw-result-shell">
-            ${headerHtml}
             <div class="aw-briefing">
               <div class="aw-briefing-main">
                 <div class="aw-recommendation">
                   ${decisionDocumentHtml}
                 </div>
               </div>
-              <div class="aw-briefing-side">
-                <div class="aw-tradeoffs">
-                  <div class="aw-section-kicker aw-tradeoffs-kicker">Key trade-offs</div>
-                  ${metricsHtml}
-                </div>
-                ${programsHtml}
-              </div>
             </div>
-            <div class="aw-evidence">
-              ${trustHtml}
-              ${journeyMap.html}
-              ${flightHtml}
-            </div>
-            ${programOptionsHtml}
-            <p class="legend-note">Final availability, mileage prices, taxes, fees and rules must be confirmed with the airline or loyalty program before any transfer or purchase.</p>
-            ${actionLinksHtml(r.links)}
+            <section class="decision-section decision-alternatives" aria-label="Alternative pathways">
+              <div class="decision-label">Alternative Pathways</div>
+              ${programsHtml}
+              ${programOptionsHtml}
+            </section>
+            <section class="decision-section decision-execution" aria-label="Execution">
+              <div class="decision-label">Execution</div>
+              ${ctaHtml}
+            </section>
+            ${decisionCompleteHtml({ freshness_label: d.freshness_label || r.freshness_label })}
           </div>
         </div>`;
       }).join('');
-      html += relatedAnalysesHtml('awards');
     } else {
       html += `<div class="card cross-nudge">
         <div class="cross-nudge-msg">No strong award redemption value signals were identified for this route.</div>
@@ -3197,7 +3133,7 @@ function discoveryReason(o) {
 
   function renderError() {
     container.innerHTML = `<div class="disc-error">
-      <div class="disc-error-title">Live opportunity scanning is temporarily unavailable.</div>
+      <div class="disc-error-title">Current award signals are temporarily unavailable.</div>
       Check back soon.
     </div>`;
   }

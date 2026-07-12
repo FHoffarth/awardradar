@@ -22,7 +22,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>AwardRadar – Find where your miles go further.</title>
-  <meta name="description" content="Travel intelligence platform for award flights. Discover award opportunities, compare cash and miles, and uncover hidden travel value — worldwide.">
+  <meta name="description" content="Travel decision intelligence for comparing award redemption value and cash fare context worldwide.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://awardradar.app/">
   <!-- Open Graph -->
@@ -37,7 +37,7 @@
   <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="AwardRadar – Find where your miles go further.">
-  <meta name="twitter:description" content="Travel intelligence for award travelers. Compare mileage value, cash fare context and overlooked routing opportunities.">
+  <meta name="twitter:description" content="Travel intelligence for award travelers. Compare mileage value and cash fare context.">
   <meta name="twitter:image" content="https://awardradar.app/static/og-image.png">
   <!-- Schema.org -->
   <script type="application/ld+json">
@@ -50,7 +50,7 @@
         "url": "https://awardradar.app",
         "applicationCategory": "TravelApplication",
         "operatingSystem": "Any",
-        "description": "Travel intelligence platform for award redemption value, cash fare context and overlooked routing opportunities.",
+        "description": "Travel intelligence platform for award redemption value and cash fare context.",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
       },
       {
@@ -448,12 +448,9 @@
       margin-top: 48px !important; padding-top: 24px !important;
       border-top: 1px solid rgba(255,255,255,.09) !important;
     }
-    @keyframes ar-earth-drift {
-      from { margin-left: -10px; margin-bottom: -6px; }
-      to { margin-left: 10px; margin-bottom: 8px; }
-    }
     @media (prefers-reduced-motion: reduce) {
       body:has(.shell.has-results) #globe-wrap { animation: none !important; }
+      #globe-wrap::before { animation: none !important; }
       .shell.has-results .hero, .shell.has-results .panel, .shell.has-results .results { transition: none !important; }
     }
     @media (max-width: 640px) {
@@ -471,11 +468,16 @@
       left: 49.5% !important; right: 0 !important; top: 0 !important; bottom: 0 !important;
       width: 50.5vw !important; height: 100vh !important; min-width: 0 !important; min-height: 0 !important;
       transform: none !important; opacity: .82 !important; overflow: hidden;
-      animation: ar-earth-drift 28s ease-in-out infinite alternate !important;
+      animation: none !important;
     }
     body:has(.shell.has-results) #globe {
-      width: 112% !important; height: 112% !important; margin-left: -8% !important; margin-top: 4% !important;
-      opacity: .72 !important; filter: saturate(.72) brightness(.62) contrast(1.08) !important;
+      display: none !important;
+    }
+    body:has(.shell.has-results) #globe-wrap::before {
+      content: ""; position: absolute; inset: -2%;
+      background: url('/static/orbital-earth-nasa-v2.jpg') center / cover no-repeat;
+      opacity: .72; transform-origin: 56% 58%;
+      animation: ar-earth-ambient 720s linear infinite alternate;
     }
     body:has(.shell.has-results)::after {
       content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
@@ -609,6 +611,18 @@
     .shell.has-results .decision-confidence-value {
       color: rgba(242,241,238,.88); font: 400 20px/1.2 'Inter',sans-serif; letter-spacing: -.01em;
     }
+    .shell.has-results .decision-confidence-support {
+      max-width: 520px; margin: 12px 0 0; color: rgba(235,232,226,.48);
+      font: 400 13px/1.55 'Inter',sans-serif;
+    }
+    .shell.has-results .decision-evidence-list { gap: 14px; }
+    .shell.has-results .decision-evidence-list li {
+      display: flex; align-items: baseline; gap: 12px; padding-left: 0;
+    }
+    .shell.has-results .decision-evidence-list li::before { display: none; }
+    .shell.has-results .decision-evidence-list li span {
+      color: rgba(199,122,50,.68); font-size: 11px; line-height: 1;
+    }
     .shell.has-results .decision-verification {
       padding-top: 32px; border-top: 1px solid rgba(255,255,255,.08);
     }
@@ -634,6 +648,7 @@
     .shell.has-results .decision-document-card .aw-briefing-side {
       margin-top: 72px; padding-top: 40px; border-top: 1px solid rgba(255,255,255,.08);
     }
+    .shell.has-results .recommendation-card:has(.decision-document) .rec-brief-side { display: none !important; }
     .shell.has-results .recommendation-card:has(.decision-document) .rec-evidence {
       margin-top: 72px; padding-top: 40px; border-top: 1px solid rgba(255,255,255,.08);
     }
@@ -669,6 +684,207 @@
       margin-top: 24px; color: rgba(235,232,226,.32);
       font: 400 10px/1.4 'Inter',sans-serif; letter-spacing: .08em;
     }
+    .shell.has-results .workspace-secondary-controls,
+    .shell.has-results .aw-program-options {
+      margin-top: 96px; padding-top: 40px; border-top: 1px solid rgba(255,255,255,.06);
+      opacity: .64;
+    }
+    .shell.has-results .workspace-secondary-controls .sort-bar,
+    .shell.has-results .workspace-secondary-controls .score-legend { opacity: 1; }
+    .shell.has-results .aw-program-options .aw-card {
+      background: transparent !important; border-color: rgba(255,255,255,.06) !important;
+      box-shadow: none !important;
+    }
+
+    /* Sprint W2 — one linear executive decision document. */
+    .shell.has-results .results { width: min(680px, 46vw); }
+    .shell.has-results .result-workspace-head {
+      margin-bottom: 104px; padding-bottom: 32px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .shell.has-results .decision-summary-grid {
+      display: grid; grid-template-columns: repeat(4,minmax(0,1fr));
+      gap: 24px; margin: 24px 0 0;
+    }
+    .shell.has-results .decision-summary-grid div { min-width: 0; }
+    .shell.has-results .decision-summary-grid dt,
+    .shell.has-results .decision-complete dt {
+      margin-bottom: 8px; color: rgba(255,255,255,.38);
+      font: 600 8px/1.2 'Inter',sans-serif; letter-spacing: .18em; text-transform: uppercase;
+    }
+    .shell.has-results .decision-summary-grid dd {
+      margin: 0; overflow-wrap: anywhere; color: rgba(242,241,238,.82);
+      font: 400 13px/1.45 'Inter',sans-serif;
+    }
+    .shell.has-results .top-card::before { display: none !important; }
+    .shell.has-results .decision-document { max-width: 680px; }
+    .shell.has-results .decision-section { margin-bottom: 80px; }
+    .shell.has-results .decision-recommendation { margin-bottom: 88px; }
+    .shell.has-results .decision-recommendation h2 {
+      max-width: 660px; font-size: clamp(38px,3.8vw,56px) !important;
+    }
+    .shell.has-results .decision-confidence-value {
+      font-size: clamp(28px,2.8vw,40px); font-weight: 400;
+    }
+    .shell.has-results .decision-verification {
+      padding-top: 0; border-top: 0;
+    }
+    .shell.has-results #cards-wrap > .compact-alternative,
+    .shell.has-results .decision-alternatives {
+      opacity: .68;
+    }
+    .shell.has-results #cards-wrap > .compact-alternative:first-of-type {
+      margin-top: 96px !important; padding-top: 40px !important;
+      border-top: 1px solid rgba(255,255,255,.07) !important;
+    }
+    .shell.has-results #cards-wrap > .compact-alternative:first-of-type::before {
+      content: "ALTERNATIVE PATHWAYS";
+    }
+    .shell.has-results .workspace-secondary-controls {
+      margin-top: 56px; padding-top: 0; border-top: 0; opacity: .5;
+    }
+    .shell.has-results .decision-alternatives {
+      margin-top: 96px; padding-top: 40px;
+      border-top: 1px solid rgba(255,255,255,.07);
+    }
+    .shell.has-results .decision-alternatives .aw-programs::before { display: none; }
+    .shell.has-results .decision-execution {
+      margin: 112px 0 0; padding-top: 40px;
+      border-top: 1px solid rgba(255,255,255,.09);
+    }
+    .shell.has-results .decision-execution .links,
+    .shell.has-results .decision-execution .aw-cta-row,
+    .shell.has-results .decision-execution .decision-actions {
+      display: flex; flex-wrap: wrap; gap: 12px;
+    }
+    .shell.has-results .decision-complete {
+      position: static; display: block !important; margin: 104px 0 0 !important;
+      padding: 32px 0 96px !important; border: solid rgba(255,255,255,.08) !important;
+      border-width: 1px 0 0 !important; background: transparent !important;
+      color: rgba(235,232,226,.5); font: 400 11px/1.5 'Inter',sans-serif;
+    }
+    .shell.has-results .decision-complete dl {
+      display: grid; grid-template-columns: repeat(3,minmax(0,1fr));
+      gap: 24px; margin: 24px 0 0;
+    }
+    .shell.has-results .decision-complete dd { margin: 0; color: rgba(235,232,226,.5); }
+    [data-theme="light"] body:has(.shell.has-results) { background: #eef1f3 !important; }
+    [data-theme="light"] body:has(.shell.has-results)::after {
+      background: linear-gradient(90deg,#eef1f3 0%,#eef1f3 58%,rgba(238,241,243,.72) 76%,transparent 100%);
+    }
+    [data-theme="light"] .shell.has-results .hero .ar-philosophy,
+    [data-theme="light"] .shell.has-results .decision-recommendation h2 { color: #18212a !important; }
+    [data-theme="light"] .shell.has-results .results { color: #202a34; }
+    [data-theme="light"] .shell.has-results .decision-label,
+    [data-theme="light"] .shell.has-results .result-kicker,
+    [data-theme="light"] .shell.has-results .decision-summary-grid dt,
+    [data-theme="light"] .shell.has-results .decision-complete dt { color: rgba(34,45,56,.48) !important; }
+    [data-theme="light"] .shell.has-results .decision-summary-grid dd,
+    [data-theme="light"] .shell.has-results .decision-confidence-value { color: rgba(24,33,42,.84); }
+    [data-theme="light"] .shell.has-results .decision-section li { color: rgba(34,45,56,.72); }
+    [data-theme="light"] .shell.has-results .decision-confidence-support,
+    [data-theme="light"] .shell.has-results .decision-complete dd { color: rgba(34,45,56,.56); }
+    [data-theme="light"] .shell.has-results .result-workspace-head,
+    [data-theme="light"] .shell.has-results .decision-alternatives,
+    [data-theme="light"] .shell.has-results .decision-execution,
+    [data-theme="light"] .shell.has-results .decision-complete {
+      border-color: rgba(34,45,56,.12) !important;
+    }
+
+    /* Sprint W2.1: restore the frozen journey instrument and clean handoff. */
+    body:has(.shell.has-results) .navbar {
+      height: auto !important; padding-top: 5.5vh !important;
+    }
+    body:has(.shell.has-results) .nav-inner {
+      width: calc(100% - (2 * clamp(64px,7.5vw,120px))) !important;
+      margin-inline: clamp(64px,7.5vw,120px) !important;
+    }
+    body:has(.shell.has-results) .brand-watermark { margin: 0; align-self: flex-start; }
+    body:has(.shell.has-results) .brand-wordmark {
+      color: #e7e0d5; font-size: 13px; font-weight: 400; letter-spacing: .06em; line-height: 1;
+    }
+    body:has(.shell.has-results) .brand-wordmark em { color: #c77a32; }
+    .shell.has-results { padding-top: 140px !important; }
+    .shell.has-results .panel { width: 560px !important; }
+    .shell.has-results .panel::before {
+      content: "JOURNEY ANALYSIS"; position: absolute; left: 0; top: -24px;
+      color: rgba(190,181,168,.72); font-size: 8px; font-weight: 500;
+      letter-spacing: .26em; text-transform: uppercase;
+    }
+    .shell.has-results .tabs,
+    .shell.has-results .panel-bottom { display: none !important; }
+    .shell.has-results #panelForm .field-divider { display: none; }
+    .shell.has-results #panelForm .fields {
+      position: relative; display: grid !important;
+      grid-template-columns: repeat(4,minmax(0,1fr)) 108px !important;
+      width: calc(100% + 108px) !important; height: 116px !important;
+      padding: 0 !important; gap: 0 !important; align-items: stretch;
+      overflow: visible !important; background: #111317 !important;
+      border: .5px solid rgba(255,255,255,.05) !important;
+      border-top-color: rgba(255,255,255,.075) !important; border-radius: 1px !important;
+    }
+    .shell.has-results #panelForm .fields.no-return {
+      grid-template-columns: repeat(3,minmax(0,1fr)) 108px !important;
+    }
+    .shell.has-results #panelForm .fields.no-return .return-slot { display: none !important; }
+    .shell.has-results #panelForm .fields::before {
+      content: ""; position: absolute; left: 28px; top: -.5px;
+      width: 30px; height: 1px; background: #c77a32;
+    }
+    .shell.has-results #panelForm .field-slot {
+      display: flex !important; height: 116px !important; padding: 26px 48px 24px !important;
+      align-items: flex-start !important; justify-content: flex-start;
+      border-right: .5px solid rgba(245,242,236,.035);
+    }
+    .shell.has-results #panelForm .date-slot,
+    .shell.has-results #panelForm .return-slot { padding-inline: 28px !important; }
+    .shell.has-results #panelForm .field-slot::before {
+      left: 48px; top: 26px; color: rgba(209,200,187,.62);
+      font-size: 9.5px; font-weight: 600; letter-spacing: .22em;
+    }
+    .shell.has-results #panelForm .date-slot::before,
+    .shell.has-results #panelForm .return-slot::before { left: 28px; }
+    .shell.has-results #panelForm .return-slot::before { content: "RETURN"; }
+    .shell.has-results #panelForm .fields input {
+      height: 24px !important; min-height: 24px !important; margin-top: 22px !important;
+      padding: 0 !important; color: #f5f2ec !important; background: transparent !important;
+      border: 0 !important; font-size: 21px !important; font-weight: 400 !important;
+      line-height: 1 !important; caret-color: #c77a32;
+    }
+    .shell.has-results #panelForm .date-slot input,
+    .shell.has-results #panelForm .return-slot input { font-size: 15px !important; font-weight: 520 !important; }
+    .shell.has-results #panelForm .fields input::placeholder { color: #82796d !important; opacity: 1; }
+    .shell.has-results #panelForm .glass-go {
+      width: 108px !important; height: 115px !important; color: #c77a32 !important;
+      border: 0 !important; border-left: .5px solid rgba(245,242,236,.035) !important;
+      background: transparent !important; flex-direction: column; gap: 9px;
+    }
+    .shell.has-results #panelForm .glass-go svg { width: 14px; height: 9px; }
+    .shell.has-results #panelForm .fields:focus-within {
+      border-color: rgba(199,122,50,.32) !important;
+      box-shadow: inset 0 1px 0 rgba(199,122,50,.16) !important;
+    }
+    .shell.has-results.is-transitioning .hero { opacity: .12 !important; pointer-events: none; }
+    .shell.has-results:not(.is-transitioning) .hero { display: none !important; }
+    [data-theme="light"] body:has(.shell.has-results) .brand-wordmark { color: #202830; }
+    [data-theme="light"] .shell.has-results #panelForm .fields {
+      border-color: rgba(21,29,38,.16) !important;
+      border-top-color: rgba(255,255,255,.2) !important;
+      box-shadow: 0 18px 46px rgba(19,27,36,.12), 0 2px 8px rgba(19,27,36,.07),
+        inset 0 1px 0 rgba(255,255,255,.045) !important;
+    }
+    [data-theme="light"] .shell.has-results .panel::before { color: rgba(68,79,90,.76); }
+
+    .shell:not(.has-results) .fields.no-return {
+      grid-template-columns: repeat(3,minmax(0,1fr)) 108px !important;
+    }
+    .shell:not(.has-results) .fields.no-return .return-slot { display: none !important; }
+    .shell:not(.has-results) .fields:not(.no-return) {
+      grid-template-columns: repeat(4,minmax(0,1fr)) 108px !important;
+    }
+    .shell:not(.has-results) .return-slot { padding-inline: 28px !important; }
+    .shell:not(.has-results) .return-slot::before { content: "RETURN"; left: 28px; }
+    .shell:not(.has-results) .return-slot input { font-size: 15px !important; font-weight: 520 !important; }
     @media (max-width: 900px) {
       body:has(.shell.has-results) #globe-wrap { left: 44% !important; width: 56vw !important; opacity: .42 !important; }
       body:has(.shell.has-results)::after { background: linear-gradient(90deg,#020207 0%,#020207 60%,rgba(2,2,7,.72) 100%); }
@@ -679,12 +895,18 @@
       body:has(.shell.has-results) #globe-wrap { left: 0 !important; top: 50vh !important; width: 100vw !important; opacity: .25 !important; }
       .shell.has-results { padding: 0 18px 96px !important; }
       .shell.has-results .panel { margin-top: 14px !important; }
-      .shell.has-results .search-summary { grid-template-columns: 1fr 1fr 56px; }
+      .shell.has-results .search-summary,
+      .shell.has-results .search-summary.has-return { grid-template-columns: 1fr 1fr 56px; min-height: 84px; }
       .freeze-search-date { display: none; }
+      .freeze-search-return { display: none; }
       .freeze-search-cell { padding: 0 14px; }
+      .shell.has-results .freeze-search-cell,
+      .shell.has-results .search-summary-edit { min-height: 84px; height: 84px; }
       .shell.has-results .hero { margin-top: 42px !important; width: 100% !important; }
       .shell.has-results .results { width: 100% !important; padding-top: 34px; }
       .result-workspace-head { margin-bottom: 64px; }
+      .shell.has-results .decision-summary-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .shell.has-results .decision-complete dl { grid-template-columns: 1fr; }
     }
 
     /* Approved homepage — Design Freeze v1 restoration. */
@@ -826,7 +1048,8 @@
     body:has(.shell:not(.has-results)) #globe-wrap::before {
       inset: 0; background: url('/static/orbital-earth-nasa-v2.jpg') -94px -3px / 1248px 1060px no-repeat;
       mix-blend-mode: normal; opacity: .88;
-      animation: ar-photo-drift 420s ease-in-out infinite alternate;
+      transform-origin: 56% 58%;
+      animation: ar-earth-ambient 720s linear infinite alternate;
     }
     body:has(.shell:not(.has-results)) .navbar {
       height: auto !important; padding-top: 5.5vh !important;
@@ -940,9 +1163,9 @@
     [data-theme="light"] .shell:not(.has-results) ~ footer .footer-links a,
     [data-theme="light"] .shell:not(.has-results) ~ footer .footer-links button { color: #70685e; }
     [data-theme="light"] .freeze-coordinates { color: #8a8175; }
-    @keyframes ar-photo-drift {
-      from { transform: translateX(-4px) scale(1.006); }
-      to { transform: translateX(4px) scale(1.006); }
+    @keyframes ar-earth-ambient {
+      from { transform: rotate(-.12deg); }
+      to { transform: rotate(.12deg); }
     }
     @media (max-width: 800px) {
       body:has(.shell:not(.has-results)) #globe-wrap {
@@ -1042,10 +1265,58 @@
     [data-theme="light"] .flatpickr-current-month .numInputWrapper input,
     [data-theme="light"] .flatpickr-monthDropdown-month,
     [data-theme="light"] .flatpickr-day { color: #28251f !important; }
+
+    /* Sprint P1.2 — light-mode material refinement only. */
+    [data-theme="light"] body:has(.shell:not(.has-results)) {
+      background: #eef1f3 !important;
+    }
+    [data-theme="light"] body:has(.shell:not(.has-results))::after {
+      background: linear-gradient(to right,
+        #eef1f3 0%,
+        #eef1f3 39%,
+        rgba(238,241,243,.86) 47%,
+        rgba(238,241,243,.24) 58%,
+        transparent 70%);
+    }
+    [data-theme="light"] body:has(.shell:not(.has-results)) #globe-wrap::before {
+      opacity: 1;
+      filter: saturate(1.03) contrast(1.055) brightness(.985);
+    }
+    [data-theme="light"] .shell:not(.has-results) .fields {
+      border-color: rgba(21,29,38,.16) !important;
+      border-top-color: rgba(255,255,255,.2) !important;
+      box-shadow:
+        0 18px 46px rgba(19,27,36,.12),
+        0 2px 8px rgba(19,27,36,.07),
+        inset 0 1px 0 rgba(255,255,255,.045) !important;
+    }
+    [data-theme="light"] .brand-wordmark { color: #202830; }
+    [data-theme="light"] .freeze-nav-links a { color: #3e4852; }
+    [data-theme="light"] .shell:not(.has-results) .ar-tag { color: rgba(67,78,89,.76); }
+    [data-theme="light"] .shell:not(.has-results) .ar-philosophy { color: #202830 !important; }
+    [data-theme="light"] .shell:not(.has-results) .ar-philosophy .freeze-secondary { color: rgba(55,66,77,.72); }
+    [data-theme="light"] .shell:not(.has-results) .ar-philosophy .freeze-final {
+      color: #111820;
+      font-weight: 410;
+    }
+    [data-theme="light"] .shell:not(.has-results) .panel::before { color: rgba(68,79,90,.76); }
+    [data-theme="light"] .shell:not(.has-results) ~ footer .footer-links a,
+    [data-theme="light"] .shell:not(.has-results) ~ footer .footer-links button { color: #4c5762; }
+    [data-theme="light"] .freeze-coordinates { color: #65717c; }
+    @media (max-width: 800px) {
+      [data-theme="light"] body:has(.shell:not(.has-results))::after {
+        background: linear-gradient(to bottom,
+          #eef1f3 0%,
+          #eef1f3 55%,
+          rgba(238,241,243,.78) 68%,
+          rgba(238,241,243,.18) 86%,
+          transparent 100%);
+      }
+    }
   </style>
 </head>
 <body>
-  <a class="skip-link" href="#results">Skip to search results</a>
+  <a class="skip-link" href="#results">Skip to decision workspace</a>
   <div id="progress-bar" aria-hidden="true"><div id="progress-fill"></div></div>
     <nav class="navbar" aria-label="Main navigation">
     <div class="nav-inner">
@@ -1070,17 +1341,13 @@
     </section>
 
     <section class="panel">
-      <div id="searchSummary" class="search-summary" hidden>
-        <div class="search-summary-text" id="searchSummaryText"></div>
-        <button type="button" class="search-summary-edit" id="editSearchBtn" aria-expanded="false" aria-controls="panelForm">Edit search</button>
-      </div>
       <div id="panelForm">
       <!-- Tabs -->
-      <div class="tabs" role="tablist" aria-label="Search mode">
+      <div class="tabs" role="tablist" aria-label="Analysis mode">
         <button class="tab active" role="tab" data-tab="cheap" aria-selected="true" aria-controls="results" id="tab-cheap">
           <div class="tab-icon ti-cheap" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
           <div class="tab-body">
-            <div class="tab-title"><span class="tab-label-long">Best Value Flights</span><span class="tab-label-short" aria-hidden="true">Best Value</span></div>
+            <div class="tab-title"><span class="tab-label-long">Fare Assessment</span><span class="tab-label-short" aria-hidden="true">Fares</span></div>
             <div class="tab-sub">Compare fare and mileage value</div>
           </div>
           <span class="tab-info" aria-label="Compare cash fare context against mileage value." tabindex="0">
@@ -1097,17 +1364,6 @@
           <span class="tab-info" aria-label="Evaluate whether using miles offers better value than paying cash." tabindex="0">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
             <span class="tab-tooltip">Evaluate whether using miles offers better value than paying cash.</span>
-          </span>
-        </button>
-        <button class="tab" role="tab" data-tab="skiplag" aria-selected="false" aria-controls="results" id="tab-skiplag" tabindex="-1">
-          <div class="tab-icon ti-skiplag" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg></div>
-          <div class="tab-body">
-            <div class="tab-title"><span class="tab-label-long">Hidden Opportunities</span><span class="tab-label-short" aria-hidden="true">Hidden</span></div>
-            <div class="tab-sub">Review risk and verification context</div>
-          </div>
-          <span class="tab-info" aria-label="Review overlooked routing patterns with risk context." tabindex="0">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-            <span class="tab-tooltip">Review overlooked routing patterns with risk context. One-way only.</span>
           </span>
         </button>
       </div>
@@ -1138,6 +1394,11 @@
           <div class="field-error" id="dateError" aria-live="polite" style="display:none"></div>
         </div>
 
+        <div class="field-slot return-slot return-field" id="returnFieldWrap">
+          <input id="returnDate" placeholder="Return" autocomplete="off" aria-label="Return date" aria-describedby="returnDateError">
+          <div class="field-error" id="returnDateError" aria-live="polite" style="display:none"></div>
+        </div>
+
         <button class="go glass-go" id="go" aria-label="Analyze journey">
           <span class="freeze-search-action">Analyze Journey</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
@@ -1145,8 +1406,6 @@
 
         <!-- Hidden legacy elements to prevent JS errors -->
         <button class="swap-btn" id="swapBtn" type="button" style="display:none">Swap</button>
-        <input id="returnDate" type="hidden">
-        <div class="field-error" id="returnDateError" style="display:none"></div>
       </div>
 
       <!-- Panel bottom: 2-column -->
@@ -1305,18 +1564,18 @@
             </span>
             <span class="go-label">
               <span class="go-main">Analyze Flight Value</span>
-              <span class="go-sub">Cash fares &middot; Award redemptions &middot; Hidden opportunities</span>
+              <span class="go-sub">Cash fares &middot; Award redemptions</span>
             </span>
             <svg class="go-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </button>
-          <div id="searchValidationStatus" class="search-validation-status" aria-live="polite">Select origin, destination and departure date to search.</div>
-          <section class="saved-searches" aria-label="Saved searches">
+          <div id="searchValidationStatus" class="search-validation-status" aria-live="polite">Select origin, destination and departure date to analyze.</div>
+          <section class="saved-searches" aria-label="Saved journeys">
             <div class="saved-searches-head">
               <div>
                 <div class="saved-searches-kicker">MEMORY</div>
-                <h2>Saved searches</h2>
+                <h2>Saved journeys</h2>
               </div>
-              <button type="button" class="saved-searches-save" id="saveSearchBtn">Save search</button>
+              <button type="button" class="saved-searches-save" id="saveSearchBtn">Save journey</button>
             </div>
             <div id="savedSearchesList" class="saved-searches-list" aria-live="polite"></div>
           </section>
@@ -1331,7 +1590,7 @@
       <div class="usp-card usp-active" data-usp="cheap">
         <div class="usp-icon-wrap"><div class="usp-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div></div>
         <div class="usp-content">
-          <div class="usp-title">Best Value Flights <span class="usp-arrow">→</span></div>
+          <div class="usp-title">Fare Assessment <span class="usp-arrow">→</span></div>
           <div class="usp-desc">Compare cash fare context against mileage value — cent-per-mile calculated instantly.</div>
         </div>
       </div>
@@ -1342,20 +1601,13 @@
           <div class="usp-desc">See where your miles may go further. Economy to First.</div>
         </div>
       </div>
-      <div class="usp-card" data-usp="skiplag">
-        <div class="usp-icon-wrap"><div class="usp-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg></div></div>
-        <div class="usp-content">
-          <div class="usp-title">Hidden Opportunities <span class="usp-arrow">→</span></div>
-          <div class="usp-desc">Overlooked routing patterns. Risk context and verification details included. One-way only.</div>
-        </div>
-      </div>
     </div>
 
     <!-- Discovery Widget -->
     <section class="discovery-section" id="discovery-section">
       <div class="discovery-header">
         <div>
-          <h2 class="discovery-title">Top Opportunities Today</h2>
+          <h2 class="discovery-title">Current Award Signals</h2>
           <p class="discovery-sub">Award redemption value signals surfaced for review.</p>
         </div>
         <button class="discovery-cta-top" onclick="document.querySelector('.tab[data-tab=\'awards\']').click();document.getElementById('panel')?.scrollIntoView({behavior:'smooth'})">
@@ -1391,17 +1643,11 @@
           <div class="ex-value">Estimated value: 3.8 ct/mile</div>
           <div class="ex-verdict ex-verdict--award">Estimated value looks promising</div>
         </div>
-        <div class="ex-card">
-          <div class="ex-type">Hidden Opportunities Analysis</div>
-          <div class="ex-route">BRU <span class="ex-arrow">&rarr;</span> MAD <span class="ex-arrow">&middot;</span> Economy</div>
-          <div class="ex-value">Potential routing pattern detected</div>
-          <div class="ex-verdict ex-verdict--skip">Risk context included &middot; Verify before booking</div>
-        </div>
       </div>
     </section>
     </div><!-- /#landing-state -->
 
-    <section id="results" class="results" aria-live="polite" aria-atomic="false" aria-label="Search results" tabindex="-1"></section>
+    <section id="results" class="results" aria-live="polite" aria-atomic="false" aria-label="Decision workspace" tabindex="-1"></section>
   </main>
 
       <footer>
