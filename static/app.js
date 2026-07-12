@@ -1950,9 +1950,16 @@ function toggleReturn(initial = false) {
   const on = $('oneWay').checked;
   const fields = document.querySelector('.fields');
   const wrap = $('returnFieldWrap');
+  const returnAltInput = fpRet && fpRet.altInput ? fpRet.altInput : null;
+  const tripTypeLabel = $('oneWay').closest('label')?.querySelector('span');
   if (fields) fields.classList.toggle('no-return', on);
   if (wrap) wrap.style.display = on ? 'none' : '';
   $('returnDate').disabled = on;
+  if (tripTypeLabel) tripTypeLabel.textContent = on ? 'One-way' : 'Round-trip';
+  if (returnAltInput) {
+    returnAltInput.hidden = on;
+    returnAltInput.disabled = on;
+  }
   if (initial) validateSearchForm();
   else markSearchFieldTouched('returnDate', { show: on ? [] : ['returnDate'] });
 }
