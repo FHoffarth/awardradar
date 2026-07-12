@@ -1,4 +1,4 @@
-﻿const $ = id => document.getElementById(id);
+const $ = id => document.getElementById(id);
 
 // User-visible date formatter: 22 Oct 2026 format (en), 22.10.2026 (de)
 // Safely handles date-only strings without timezone conversion that shifts dates
@@ -345,8 +345,7 @@ let calendarPrices = {};
 let fpDep, fpRet;
 
 // Theme
-let theme = localStorage.getItem('awardradar_theme')
-  || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+let theme = localStorage.getItem('awardradar_theme') || 'dark';
 
 function applyTheme(t) {
   theme = t;
@@ -784,7 +783,9 @@ async function run() {
   }
   setStatus('searching…');
   $('results').innerHTML = '';
-  document.querySelector('.shell').classList.add('has-results');
+  const shell = document.querySelector('.shell');
+  shell.classList.add('is-transitioning');
+  shell.classList.add('has-results');
   const _origin = ($('origin').value || '').trim().toUpperCase().slice(0, 3);
   const _dest = ($('dest').value || '').trim().toUpperCase().slice(0, 3);
   const requestPayload = payload();
@@ -808,6 +809,7 @@ async function run() {
     if (typeof globePulseRoute === 'function') globePulseRoute(_origin, _dest);
     render(data);
     collapseSearch();               // compact editable summary — only on success
+    requestAnimationFrame(() => requestAnimationFrame(() => shell.classList.remove('is-transitioning')));
     setStatus('ready');
     $('results').focus({ preventScroll: false });
   } catch (e) {
@@ -835,6 +837,7 @@ async function run() {
       </div>`;
     }
     $('results').innerHTML = userMsg;
+    shell.classList.remove('is-transitioning');
     setStatus('error');
   }
 }
@@ -927,7 +930,13 @@ function _searchSummaryText() {
 function collapseSearch() {
   const pf = $('panelForm'), ss = $('searchSummary'), st = $('searchSummaryText'), eb = $('editSearchBtn');
   if (!pf || !ss || !st) return;
-  st.textContent = _searchSummaryText();
+  const origin = ($('origin').value || '').trim().toUpperCase().slice(0, 3);
+  const dest = ($('dest').value || '').trim().toUpperCase().slice(0, 3);
+  const date = formatSearchDate(($('date').value || '').trim());
+  st.innerHTML = `
+    <span class="freeze-search-cell"><span class="freeze-search-label">From</span><span class="freeze-search-value">${esc(origin || '—')}</span></span>
+    <span class="freeze-search-cell"><span class="freeze-search-label">To</span><span class="freeze-search-value">${esc(dest || '—')}</span></span>
+    <span class="freeze-search-cell freeze-search-date"><span class="freeze-search-label">Date</span><span class="freeze-search-value">${esc(date || '—')}</span></span>`;
   pf.hidden = true;
   ss.hidden = false;
   if (eb) eb.setAttribute('aria-expanded', 'false');
@@ -1277,13 +1286,17 @@ function isValidCashPrice(v) {
 
 function decisionGuidanceHtml(guidance) {
   if (!guidance || typeof guidance !== 'object') return '';
-  const headline = guidance.headline ? `<h3 class="cg-headline">${esc(guidance.headline)}</h3>` : '';
-  const why = guidance.why ? `<div class="cg-block"><div class="cg-k">Why</div><p>${esc(guidance.why)}</p></div>` : '';
-  const watchOut = guidance.watch_out ? `<div class="cg-block"><div class="cg-k">Watch out</div><p>${esc(guidance.watch_out)}</p></div>` : '';
-  const nextStep = guidance.next_step ? `<div class="cg-block"><div class="cg-k">Next step</div><p>${esc(guidance.next_step)}</p></div>` : '';
-  const evidence = guidance.evidence_level ? `<div class="cg-evidence">Evidence level: ${esc(guidance.evidence_level)}</div>` : '';
-  if (!headline && !why && !watchOut && !nextStep && !evidence) return '';
-  return `<section class="cash-guidance" aria-label="Decision guidance">${headline}${why}${watchOut}${nextStep}${evidence}</section>`;
+  const recommendation = guidance.headline || guidance.next_step || 'Review the strongest returned option.';
+  const whyItems = [guidance.why || 'This is the strongest option supported by the returned fare evidence.'].slice(0, 3);
+  const rawConfidence = String(guidance.evidence_level || '').toLowerCase();
+  const confidence = rawConfidence.includes('high') ? 'High' : rawConfidence.includes('moderate') || rawConfidence.includes('medium') ? 'Moderate' : 'Limited';
+  const verificationItems = ['Verify the current fare and seat availability', guidance.watch_out || 'Verify routing and fare conditions'];
+  return `<section class="decision-document cash-guidance" aria-label="Our recommendation">
+    <div class="decision-section decision-recommendation"><div class="decision-label">Our Recommendation</div><h2>${esc(recommendation)}</h2></div>
+    <div class="decision-section decision-why"><div class="decision-label">Why</div><ul>${whyItems.map(item => `<li>${esc(item)}</li>`).join('')}</ul></div>
+    <div class="decision-section decision-confidence"><div class="decision-label">Decision Confidence</div><div class="decision-confidence-value">${confidence}</div></div>
+    <div class="decision-section decision-verification"><div class="decision-label">Verification Protocol</div><ul>${verificationItems.map(item => `<li>${esc(item)}</li>`).join('')}</ul></div>
+  </section>`;
 }
 
 function hasExplicitReturnLegDetails(o) {
@@ -1534,14 +1547,21 @@ function relatedAnalysesHtml(currentMode) {
 
 function decisionActionsHtml() {
   return `<div class="decision-actions" aria-label="Primary decision actions">
-    <span class="decision-actions-label">Next actions</span>
+    <span class="decision-actions-label">Execution</span>
     <button class="cross-link decision-action" onclick="switchTabAndRun('awards')">Compare award options</button>
     <button class="cross-link decision-action" onclick="switchTabAndRun('skiplag')">Check hidden opportunities</button>
   </div>`;
 }
 
 function render(data) {
-  let html = '';
+  const workspaceOrigin = ($('origin').value || '').trim().toUpperCase().slice(0, 3);
+  const workspaceDest = ($('dest').value || '').trim().toUpperCase().slice(0, 3);
+  const workspaceMode = mode === 'awards' ? 'Award decision' : mode === 'skiplag' ? 'Hidden opportunity' : 'Decision summary';
+  let html = `<header class="result-workspace-head">
+    <div class="result-kicker">${workspaceMode}</div>
+    <h1>${esc(workspaceOrigin)} <span aria-hidden="true">→</span> ${esc(workspaceDest)}</h1>
+    <p>Understand the strongest option before you book.</p>
+  </header>`;
   if (data.note) html += `<div class="card note">${esc(data.note)}</div>`;
   // Warnings: log internally only — never expose raw provider errors to users
   if (data.warnings?.length) console.debug('[AwardRadar warnings]', data.warnings);
@@ -1695,7 +1715,7 @@ function render(data) {
           },
         };
         const VALUE_LABEL = { exceptional: 'Excellent value', great: 'Strong value', good: 'Good value', fair: 'Fair value', poor: 'Poor value' };
-        const CONF_WORD = { high: 'High', medium: 'Medium', low: 'Low' };
+        const CONF_WORD = { high: 'High', medium: 'Moderate', low: 'Limited' };
         const confBucket = c => (c === 'high' ? 'high' : c === 'medium' ? 'medium' : 'low');
         const stateOf = sig => sig === 'cash_may_be_stronger' ? 'cash'
           : (sig === 'strong_miles_value' || sig === 'promising_miles_value') ? 'miles'
@@ -1823,7 +1843,9 @@ function render(data) {
         const valueAdj = valueWord ? valueWord.toLowerCase().replace(' value', '') : null;
 
         // 1 — Verdict Layer (dominant, confidence-aware heading; readable without colour)
-        const verdictHtml = `<div class="aw-verdict aw-verdict-${st}"><h4 class="aw-verdict-h">${esc(hl)}</h4></div>`;
+        const recommendationSentence = incompatibleBasis
+          ? 'We recommend verifying both options before deciding.'
+          : ({ cash: 'We recommend paying cash.', miles: 'We recommend using miles.', mixed: 'We recommend comparing both options.', insufficient: 'We need more evidence before recommending.' }[st]);
 
         // 2 — What this means (plain language, safe fallbacks)
         let meaning;
@@ -1895,6 +1917,22 @@ function render(data) {
           insufficient: { p: ['Verify current availability', 'award'], s: ['Review available signals', 'scroll'] },
         }[st];
         const ctaHtml = `<div class="aw-cta-row">${ctaBtn(CTA.p[0], CTA.p[1], true)}${ctaBtn(CTA.s[0], CTA.s[1], false)}</div>`;
+        const decisionConfidence = d.confidence === 'high' ? 'High' : d.confidence === 'medium' ? 'Moderate' : 'Limited';
+        const whyItems = [
+          st === 'cash' ? 'Cash preserves your miles for a stronger redemption' : null,
+          st === 'miles' ? (valueWord || 'The award shows the stronger value signal') : null,
+          st === 'mixed' ? 'Cash and award value signals are closely matched' : null,
+          incompatibleBasis ? 'The available prices cover different journey scopes' : null,
+          !routingVerified ? 'Routing still requires confirmation' : null,
+        ].filter(Boolean).slice(0, 3);
+        if (!whyItems.length) whyItems.push('The available evidence is not sufficient for a reliable comparison');
+        const decisionDocumentHtml = `<div class="decision-document">
+          <section class="decision-section decision-recommendation"><div class="decision-label">Our Recommendation</div><h2>${esc(recommendationSentence)}</h2></section>
+          <section class="decision-section decision-why"><div class="decision-label">Why</div><ul>${whyItems.map(item => `<li>${esc(item)}</li>`).join('')}</ul></section>
+          <section class="decision-section decision-confidence"><div class="decision-label">Decision Confidence</div><div class="decision-confidence-value">${decisionConfidence}</div></section>
+          <section class="decision-section decision-verification"><div class="decision-label">Verification Protocol</div><ul><li>Verify award availability</li><li>Verify taxes and fees</li><li>Verify routing and program rules</li></ul></section>
+          <section class="decision-section decision-execution"><div class="decision-label">Execution</div>${ctaHtml}</section>
+        </div>`;
 
         // 6 — Trust metadata (subordinate)
         const journeyMap = awardJourneyMapHtml(r);
@@ -1904,7 +1942,6 @@ function render(data) {
         ].filter(Boolean);
         const trustHtml = `
           <div class="aw-trust">
-            <div class="aw-trust-item"><span class="aw-trust-k">Confidence</span><span class="aw-trust-v aw-conf-${d.confidence || 'low'}"${d.confidence_reason ? ` title="${esc(d.confidence_reason)}"` : ''}>${CONF_WORD[d.confidence] || 'Low'}</span></div>
             ${d.freshness_label ? `<div class="aw-trust-item"><span class="aw-trust-k">Freshness</span><span class="aw-trust-v">${esc(d.freshness_label)}</span></div>` : ''}
             <div class="aw-trust-note">${trustNotes.map(esc).join('<br>')}</div>
           </div>`;
@@ -1939,16 +1976,13 @@ function render(data) {
             ${showAll}
           </div>` : '';
 
-        return `<div class="card${r.best_program ? ' top-card' : ''}">
+        return `<div class="card decision-document-card${r.best_program ? ' top-card' : ''}">
           <div class="aw-result-shell">
             ${headerHtml}
             <div class="aw-briefing">
               <div class="aw-briefing-main">
                 <div class="aw-recommendation">
-                  ${verdictHtml}
-                  ${meansHtml}
-                  ${nextHtml}
-                  ${ctaHtml}
+                  ${decisionDocumentHtml}
                 </div>
               </div>
               <div class="aw-briefing-side">
@@ -2084,7 +2118,7 @@ function initDatepickers() {
       markSearchFieldTouched('date', { show });
     }
   });
-  fpDep.altInput.placeholder = 'Select date';
+  fpDep.altInput.placeholder = 'Tomorrow';
   fpDep.altInput.setAttribute('aria-label', 'Departure date');
 
   fpRet = flatpickr('#returnDate', {
@@ -2093,6 +2127,8 @@ function initDatepickers() {
   });
   fpRet.altInput.placeholder = 'Select date';
   fpRet.altInput.setAttribute('aria-label', 'Return date');
+  fpRet.altInput.classList.add('return-alt-input');
+  fpRet.altInput.hidden = true;
 }
 
 // Segmented cabin control
@@ -2410,14 +2446,14 @@ function globeAnimation() {
   };
 
   // Drag-to-spin interaction
-  let dragging = false, dragX = 0, velX = 0, autoSpin = true;
+  let dragging = false, dragX = 0, velX = 0, autoSpin = false;
   let hoveredAirport = null, mouseX = 0, mouseY = 0;
-  const R_screen = () => isMobile() ? Math.min(w, h) * 0.40 : Math.min(w, h) * 0.32;
-  const cx_screen = () => isMobile() ? w * 0.50 : w * 0.78;
-  const cy_screen = () => isMobile() ? h * 0.50 : h * 0.36;
+  const R_screen = () => isMobile() ? Math.max(w, h) * 0.75 : Math.max(w, h) * 0.75;
+  const cx_screen = () => w * 0.50;
+  const cy_screen = () => isMobile() ? h * 0.50 : h * 0.50;
 
   function onDragStart(x, y) {
-    const dx = x * devicePixelRatio - cx_screen();
+    const dx = x * devicePixelRatio - w * 0.50;
     const dy = y * devicePixelRatio - cy_screen();
     if (Math.sqrt(dx*dx + dy*dy) > R_screen() * 1.4) return;
     dragging = true; dragX = x; velX = 0; autoSpin = false;
@@ -2434,9 +2470,9 @@ function globeAnimation() {
     if (!dragging) return;
     dragging = false;
     c.style.cursor = 'grab';
-    // Resume auto-spin after 2s of no drag
+    // Keep the map itself still; the result canvas drifts as a whole via CSS.
     clearTimeout(c._resumeTimer);
-    c._resumeTimer = setTimeout(() => { autoSpin = true; }, 2000);
+    autoSpin = false;
   }
 
   // Enable pointer events on canvas — only pass through clicks outside globe
@@ -2450,7 +2486,7 @@ function globeAnimation() {
     [mouseX, mouseY] = canvasPos(e.clientX, e.clientY);
     onDragMove(e.clientX);
     // Update cursor based on position
-    const dx = mouseX * devicePixelRatio - cx_screen();
+    const dx = mouseX * devicePixelRatio - w * 0.50;
     const dy = mouseY * devicePixelRatio - cy_screen();
     const inside = Math.sqrt(dx*dx + dy*dy) < R_screen() * 1.2;
     if (!dragging) c.style.cursor = inside ? 'grab' : 'default';
@@ -2512,9 +2548,9 @@ function globeAnimation() {
     const y2 = py * Math.cos(tilt) - pz * Math.sin(tilt);
     const z2 = py * Math.sin(tilt) + pz * Math.cos(tilt);
     const mob = isMobile();
-    const R = Math.min(w, h) * (mob ? 0.40 : 0.32);
-    const cx = mob ? w * 0.50 : w * 0.78;
-    const cy = mob ? h * 0.50 : h * 0.36;
+    const R = Math.min(w, h) * (mob ? 0.90 : 0.85);
+    const cx = w * 0.50;
+    const cy = mob ? h * 0.50 : h * 0.50;
     return { x: cx + px * R, y: cy - y2 * R, z: z2, R, cx, cy };
   }
 
@@ -2541,28 +2577,24 @@ function globeAnimation() {
 
   // Major city clusters for night lights (dark mode)
   const NIGHT_CITIES = [
-    // Europe
-    [51.5,-0.1],[48.9,2.3],[52.5,13.4],[41.9,12.5],[40.4,-3.7],[50.1,8.7],
-    [48.2,16.4],[47.5,19.0],[55.8,37.6],[59.9,30.3],[52.2,21.0],[50.1,14.4],
-    [59.3,18.1],[55.7,12.6],[60.4,5.3],[63.4,10.4],[37.0,-8.0],[38.7,-9.1],
-    // North America
-    [40.7,-74.0],[34.0,-118.2],[41.8,-87.6],[29.8,-95.4],[33.7,-84.4],[42.4,-71.1],
-    [45.5,-73.6],[43.7,-79.4],[49.3,-123.1],[32.7,-117.2],[37.8,-122.4],
-    [47.6,-122.3],[25.8,-80.3],[36.2,-86.8],[39.1,-94.6],[44.9,-93.2],[35.5,-97.5],
-    // East Asia
-    [35.7,139.7],[34.7,135.5],[35.2,136.9],[33.6,130.4],[37.6,127.0],
-    [39.9,116.4],[31.2,121.5],[23.1,113.3],[22.3,114.2],[22.6,120.3],[25.0,121.6],
-    [1.3,103.9],[3.1,101.7],[6.9,79.8],
+    // Europe (Populated, warm golden glow)
+    [51.5,-0.1, 2.8],[48.9,2.3, 2.5],[52.5,13.4, 2.0],[41.9,12.5, 1.8],[40.4,-3.7, 1.9],[50.1,8.7, 2.1],
+    [48.2,16.4, 1.5],[47.5,19.0, 1.4],[55.8,37.6, 2.8],[59.9,30.3, 1.6],[52.2,21.0, 1.3],[50.1,14.4, 1.3],
+    [59.3,18.1, 1.4],[55.7,12.6, 1.2],[38.7,-9.1, 1.3],
+    // North America (Dense East/West coast clusters)
+    [40.7,-74.0, 3.2],[34.0,-118.2, 3.0],[41.8,-87.6, 2.4],[29.8,-95.4, 2.2],[33.7,-84.4, 2.1],[42.4,-71.1, 2.0],
+    [45.5,-73.6, 1.6],[43.7,-79.4, 1.9],[37.8,-122.4, 2.2],[47.6,-122.3, 1.8],[25.8,-80.3, 2.0],
+    // East Asia (Mega-metropolis density)
+    [35.7,139.7, 3.8],[34.7,135.5, 2.8],[37.6,127.0, 2.6],[39.9,116.4, 3.0],[31.2,121.5, 3.2],
+    [23.1,113.3, 2.7],[22.3,114.2, 2.8],[1.3,103.9, 2.4],[3.1,101.7, 1.7],
     // South/SE Asia
-    [28.6,77.2],[19.1,72.9],[12.9,77.6],[22.5,88.4],[13.8,100.5],[14.1,121.0],
+    [28.6,77.2, 2.8],[19.1,72.9, 2.6],[12.9,77.6, 2.1],[13.8,100.5, 2.2],[14.1,121.0, 2.1],
     // Middle East
-    [25.3,55.4],[24.7,46.7],[33.5,36.3],[31.8,35.2],[30.1,31.4],
-    // Africa
-    [-33.9,18.4],[-26.2,28.0],[6.5,3.4],[-4.3,15.3],[9.1,7.4],[36.8,3.1],
+    [25.3,55.4, 2.5],[24.7,46.7, 1.8],[30.1,31.4, 2.2],
     // South America
-    [-23.5,-46.6],[-34.6,-58.4],[4.7,-74.1],[-12.0,-77.0],[10.5,-66.9],[-22.9,-43.2],
+    [-23.5,-46.6, 2.8],[-34.6,-58.4, 2.3],[-22.9,-43.2, 2.2],
     // Australia
-    [-33.9,151.2],[-37.8,145.0],[-27.5,153.0],[-31.9,115.9],
+    [-33.9,151.2, 1.9],[-37.8,145.0, 1.7]
   ];
 
   function frame() {
@@ -2581,35 +2613,35 @@ function globeAnimation() {
       rot += velX;
       velX *= 0.88; // friction
     } else if (autoSpin) {
-      rot += isMobile() ? 0.0009 : 0.0014;
+      rot += 0.00003;
     }
     ctx.clearRect(0, 0, w, h);
 
     const isLight = document.documentElement.dataset.theme === 'light';
-    const lineColor  = isLight ? [8, 72, 120]    : [106,215,255];
-    const ringAlpha  = isLight ? 0.55 : 0.38;
-    const latEqAlpha = isLight ? 0.42 : 0.26;
-    const latAlpha   = isLight ? 0.22 : 0.13;
-    const lonAlpha   = isLight ? 0.14 : 0.10;
-    const glowColor  = isLight ? '8,72,120'     : '106,215,255';
-    const glowAlpha  = isLight ? 0.06 : 0.14;
-    const arcAlpha   = isLight ? 0.55 : 0.42;
-    const dotColor   = isLight ? '8,72,120'     : '106,215,255';
-    const dotAlpha   = isLight ? 0.70 : 0.95;
-    const lblColor   = isLight ? '100,55,8'     : '245,199,107';
+    const lineColor  = isLight ? [8, 72, 120]    : [184,196,212];
+    const ringAlpha  = isLight ? 0.55 : 0.18;
+    const latEqAlpha = isLight ? 0.42 : 0.01;
+    const latAlpha   = isLight ? 0.22 : 0.005;
+    const lonAlpha   = isLight ? 0.14 : 0.005;
+    const glowColor  = isLight ? '8,72,120'     : '223,196,147';
+    const glowAlpha  = isLight ? 0.06 : 0.05;
+    const arcAlpha   = isLight ? 0.55 : 0.20;
+    const dotColor   = isLight ? '8,72,120'     : '223,196,147';
+    const dotAlpha   = isLight ? 0.70 : 0.45;
+    const lblColor   = isLight ? '100,55,8'     : '223,196,147';
     const [lr,lg,lb] = lineColor;
 
     const mob = isMobile();
-    const R = Math.min(w, h) * (mob ? 0.40 : 0.32);
-    const cx = mob ? w * 0.50 : w * 0.78;
-    const cy = mob ? h * 0.50 : h * 0.36;
+    const R = Math.min(w, h) * (mob ? 0.90 : 0.85);
+    const cx = w * 0.50;
+    const cy = mob ? h * 0.50 : h * 0.50;
 
     // Deep ocean base fill
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
     if (isLight) {
       ctx.fillStyle = 'rgba(185,215,240,0.55)';
     } else {
-      ctx.fillStyle = 'rgba(4,18,48,0.88)';
+      ctx.fillStyle = 'rgba(1, 2, 5, 0.95)';
     }
     ctx.fill();
 
@@ -2620,9 +2652,9 @@ function globeAnimation() {
       sphereFill.addColorStop(0.5, 'rgba(180,215,240,0.08)');
       sphereFill.addColorStop(1, 'rgba(100,155,210,0.18)');
     } else {
-      sphereFill.addColorStop(0, 'rgba(120,200,255,0.10)');
-      sphereFill.addColorStop(0.5, 'rgba(40,100,180,0.04)');
-      sphereFill.addColorStop(1, 'rgba(0,10,60,0.20)');
+      sphereFill.addColorStop(0, 'rgba(0,0,0,0.92)');
+      sphereFill.addColorStop(0.8, 'rgba(2,5,12,0.9)');
+      sphereFill.addColorStop(1, 'rgba(10,25,50,0.4)');
     }
     ctx.fillStyle = sphereFill;
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
@@ -2630,23 +2662,23 @@ function globeAnimation() {
     // Atmosphere glow — multi-stop, wider halo
     const atmoInner = ctx.createRadialGradient(cx, cy, R * 0.85, cx, cy, R * 1.0);
     atmoInner.addColorStop(0, 'transparent');
-    atmoInner.addColorStop(1, isLight ? `rgba(80,140,220,0.18)` : `rgba(${glowColor},0.28)`);
+    atmoInner.addColorStop(1, isLight ? `rgba(80,140,220,0.18)` : `rgba(180,215,255,0.35)`);
     ctx.fillStyle = atmoInner;
     ctx.beginPath(); ctx.arc(cx, cy, R * 1.0, 0, Math.PI * 2); ctx.fill();
 
     // Cap the halo so it fades out inside the canvas — on mobile the canvas is
     // only ~260px tall and an uncapped 2.2R glow gets cut into a hard rectangle.
-    const atmoOuterR = mob ? Math.max(R * 1.05, Math.min(R * 2.2, cy, h - cy, cx, w - cx)) : R * 2.2;
+    const atmoOuterR = R * 1.35;
     const atmoOuter = ctx.createRadialGradient(cx, cy, R * 0.95, cx, cy, atmoOuterR);
-    atmoOuter.addColorStop(0, isLight ? `rgba(80,140,220,0.16)` : `rgba(${glowColor},${glowAlpha * 1.4})`);
-    atmoOuter.addColorStop(0.3, isLight ? `rgba(80,140,220,0.07)` : `rgba(${glowColor},${glowAlpha * 0.6})`);
-    atmoOuter.addColorStop(0.7, isLight ? `rgba(80,140,220,0.02)` : `rgba(${glowColor},${glowAlpha * 0.2})`);
+    atmoOuter.addColorStop(0, isLight ? `rgba(80,140,220,0.16)` : `rgba(140,195,255,0.28)`);
+    atmoOuter.addColorStop(0.15, isLight ? `rgba(80,140,220,0.07)` : `rgba(100,145,220,0.05)`);
+    // atmoOuter.addColorStop(0.7, ...)
     atmoOuter.addColorStop(1, 'transparent');
     ctx.fillStyle = atmoOuter;
     ctx.beginPath(); ctx.arc(cx, cy, atmoOuterR, 0, Math.PI * 2); ctx.fill();
 
     // Globe ring
-    ctx.strokeStyle = `rgba(${lr},${lg},${lb},${ringAlpha})`;
+    ctx.strokeStyle = `rgba(${lr},${lg},${lb},${ringAlpha * 0.05})`;
     ctx.lineWidth = (isLight ? 1.6 : 1.4) * devicePixelRatio;
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
 
@@ -2654,8 +2686,8 @@ function globeAnimation() {
     // are replaced by arcs along the limb circle, connected in rim order.
     // This is the only fill approach that produces neither straight chords
     // nor rim blobs while the globe rotates.
-    const landFill    = isLight ? 'rgba(148,188,128,0.46)' : 'rgba(6,16,34,0.90)';
-    const coastStroke = isLight ? 'rgba(70,120,70,0.45)'  : 'rgba(50,110,170,0.50)';
+    const landFill    = isLight ? 'rgba(180,210,230,0.46)' : 'rgba(0, 0, 0, 0.4)';
+    const coastStroke = isLight ? 'rgba(120,150,180,0.45)' : 'rgba(40,60,90,0.02)';
     const TAU = Math.PI * 2;
 
     const buildLandFillPath = (poly) => {
@@ -2754,7 +2786,7 @@ function globeAnimation() {
         if (p.z > 0) { if (first) { ctx.moveTo(p.x, p.y); first = false; } else ctx.lineTo(p.x, p.y); }
         else first = true;
       }
-      ctx.strokeStyle = `rgba(${lr},${lg},${lb},${lat === 0 ? latEqAlpha : latAlpha})`;
+      ctx.strokeStyle = isLight ? `rgba(${lr},${lg},${lb},${lat === 0 ? latEqAlpha : latAlpha})` : 'transparent';
       ctx.lineWidth = 0.7 * devicePixelRatio;
       ctx.stroke();
     }
@@ -2768,7 +2800,7 @@ function globeAnimation() {
         if (p.z > 0) { if (first) { ctx.moveTo(p.x, p.y); first = false; } else ctx.lineTo(p.x, p.y); }
         else first = true;
       }
-      ctx.strokeStyle = `rgba(${lr},${lg},${lb},${lonAlpha})`;
+      ctx.strokeStyle = isLight ? `rgba(${lr},${lg},${lb},${lonAlpha})` : 'transparent';
       ctx.stroke();
     }
 
@@ -2794,13 +2826,13 @@ function globeAnimation() {
       // Glow layer
       drawArcPath();
       ctx.lineWidth = 4.5 * devicePixelRatio;
-      ctx.strokeStyle = `rgba(245,199,107,${arcAlpha * 0.22})`;
+      ctx.strokeStyle = `rgba(255,180,80,${arcAlpha * 0.8})`;
       ctx.setLineDash([]);
       ctx.stroke();
       // Main arc — solid, thin
       drawArcPath();
       ctx.lineWidth = 1.2 * devicePixelRatio;
-      ctx.strokeStyle = `rgba(245,199,107,${arcAlpha})`;
+      ctx.strokeStyle = `rgba(255,200,100,${arcAlpha * 1.5})`;
       ctx.setLineDash([4 * devicePixelRatio, 5 * devicePixelRatio]);
       ctx.stroke();
       ctx.setLineDash([]);
@@ -2897,20 +2929,21 @@ function globeAnimation() {
 
     // Night city lights — warm amber glow dots, dark mode only
     if (!isLight) {
-      NIGHT_CITIES.forEach(([lat, lon]) => {
+      NIGHT_CITIES.forEach(([lat, lon, size]) => {
         const p = project(lat, lon);
         if (p.z <= 0.05) return;
+        const weight = size || 1.0;
         const a = Math.min(1, (p.z - 0.05) * 3.5) * 0.88;
-        const r = 3.2 * devicePixelRatio;
-        const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 4.0);
-        grd.addColorStop(0, `rgba(255,220,120,${a})`);
-        grd.addColorStop(0.35, `rgba(255,170,60,${a * 0.60})`);
-        grd.addColorStop(0.7, `rgba(220,110,20,${a * 0.18})`);
+        const r = 2.4 * devicePixelRatio * weight;
+        const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 8.0);
+        grd.addColorStop(0, `rgba(255,220,130,${a * 1.6})`);
+        grd.addColorStop(0.15, `rgba(255,170,40,${a * 1.2})`);
+        grd.addColorStop(0.4, `rgba(220,100,10,${a * 0.6})`);
         grd.addColorStop(1, 'transparent');
         ctx.fillStyle = grd;
-        ctx.beginPath(); ctx.arc(p.x, p.y, r * 4.0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = `rgba(255,240,200,${a})`;
-        ctx.beginPath(); ctx.arc(p.x, p.y, 1.2 * devicePixelRatio, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x, p.y, r * 8.0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = `rgba(255,250,220,${a * 1.8})`;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 1.2 * devicePixelRatio * Math.sqrt(weight), 0, Math.PI * 2); ctx.fill();
       });
     }
 

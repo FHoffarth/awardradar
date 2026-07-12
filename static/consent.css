@@ -1,105 +1,93 @@
-.consent-banner {
+/* Premium Consent Dialog */
+#ar-consent {
   position: fixed;
-  left: 16px;
-  right: 16px;
-  bottom: 16px;
-  z-index: 100000;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  max-width: 920px;
-  margin: 0 auto;
-  padding: 16px;
-  border: 1px solid rgba(255,255,255,.14);
-  border-radius: 8px;
-  background: rgba(6,16,31,.96);
-  color: var(--text);
-  box-shadow: 0 18px 60px rgba(0,0,0,.42);
+  bottom: 32px;
+  left: 32px;
+  width: calc(100% - 64px);
+  max-width: 360px;
+  background: rgba(10, 25, 47, 0.65); /* Matches deep midnight theme */
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 24px;
+  z-index: 99999;
+  box-sizing: border-box;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
+  transform: translateY(20px);
+  opacity: 0;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s ease;
+  pointer-events: none;
 }
-.consent-copy {
-  max-width: 620px;
-}
-.consent-copy strong {
-  display: block;
-  margin-bottom: 4px;
-  color: var(--gold);
-  font-size: 14px;
-}
-.consent-copy p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.45;
-}
-.consent-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-}
-.consent-btn,
-.consent-preferences {
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-}
-.consent-btn {
-  padding: 10px 12px;
-}
-.consent-btn-primary {
-  border-color: transparent;
-  background: var(--gold);
-  color: #06101f;
-}
-.consent-btn-secondary {
-  background: rgba(255,255,255,.04);
-  color: var(--text);
-}
-.consent-preferences {
-  position: fixed;
-  left: 12px;
-  bottom: 12px;
-  z-index: 99990;
-  padding: 7px 10px;
-  background: rgba(6,16,31,.78);
-  color: var(--muted);
-  opacity: .72;
-}
-.consent-preferences:hover,
-.consent-preferences:focus-visible {
+
+#ar-consent.ar-visible {
+  transform: translateY(0);
   opacity: 1;
-  color: var(--text);
+  pointer-events: auto;
 }
-[data-theme="light"] .consent-banner {
-  border-color: rgba(7,18,36,.12);
-  background: rgba(255,255,255,.98);
-  box-shadow: 0 18px 54px rgba(7,18,36,.18);
+
+#ar-consent h3 {
+  font-family: Inter, ui-sans-serif, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0 0 8px 0;
+  line-height: 1.4;
 }
-[data-theme="light"] .consent-btn-secondary,
-[data-theme="light"] .consent-preferences {
-  background: rgba(7,18,36,.05);
+
+#ar-consent p {
+  font-family: Inter, ui-sans-serif, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 24px 0;
+  line-height: 1.5;
 }
-@media (max-width: 700px) {
-  .consent-banner {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .consent-actions {
-    justify-content: stretch;
-  }
-  .consent-btn {
-    flex: 1 1 150px;
-  }
+
+#ar-consent .ar-consent-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+#ar-consent button {
+  flex: 1;
+  height: 40px;
+  border-radius: 8px;
+  font-family: Inter, ui-sans-serif, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+#ar-consent button.ar-accept {
+  background: rgba(226, 194, 135, 0.1);
+  color: #e2c287;
+  border: 1px solid rgba(226, 194, 135, 0.2);
+}
+
+#ar-consent button.ar-accept:hover {
+  background: rgba(226, 194, 135, 0.15);
+  border-color: rgba(226, 194, 135, 0.3);
+}
+
+#ar-consent button.ar-reject {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#ar-consent button.ar-reject:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 @media (max-width: 640px) {
-  .consent-preferences {
-    left: auto;
-    right: 12px;
-    bottom: max(12px, env(safe-area-inset-bottom));
+  #ar-consent {
+    bottom: 24px;
+    left: 24px;
+    width: calc(100% - 48px);
   }
 }

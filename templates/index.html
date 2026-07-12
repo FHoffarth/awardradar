@@ -78,90 +78,885 @@
   <link rel="stylesheet" href="/static/consent.css?v=2">
   <link rel="stylesheet" href="/static/saved_searches.css?v=1">
   <link rel="stylesheet" href="/static/flatpickr.min.css">
+  <link rel="stylesheet" href="/static/ui-next.css?v=1">
   <script src="/static/consent.js?v=1" defer></script>
+  <style>
+    /* ── BASE SYSTEM ── */
+    body {
+      background: #020203 !important;
+      color: #eae7e0 !important;
+      font-family: 'Inter', sans-serif !important;
+      overflow-x: hidden;
+    }
+    
+    /* Hide scrollbars during landing */
+    .shell:not(.has-results) { overflow: hidden; height: 100vh; }
+
+    /* The Monument: Huge glowing Earth bleeding off the bottom of the viewport */
+    #globe-wrap {
+      position: fixed !important;
+      left: 50% !important;
+      bottom: -68vh !important; /* Extremely low, bleeding off the bottom */
+      top: auto !important;
+      transform: translateX(-50%) !important;
+      width: 120vh !important;
+      height: 120vh !important;
+      min-width: 1000px !important;
+      min-height: 1000px !important;
+      z-index: 0 !important;
+      pointer-events: none !important;
+      animation: ar-fade 4.5s ease-in-out 0ms both;
+    }
+    
+    #globe {
+      width: 100% !important; height: 100% !important;
+      opacity: 0.95 !important;
+      filter: saturate(1.15) brightness(1.05) !important;
+    }
+
+    /* ── LAYOUT SHELL ── */
+    .shell {
+      position: relative; z-index: 1;
+      width: 100%;
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      padding: 0 24px;
+    }
+
+    /* ── WATERMARK HEADER ── */
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 72px;
+      position: relative;
+      z-index: 10;
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+    }
+    .nav-inner {
+      display: flex !important;
+      justify-content: space-between !important;
+      width: 100% !important;
+      align-items: center !important;
+      max-width: 100% !important;
+      padding: 0 !important;
+      border: none !important;
+    }
+    
+    .brand-watermark {
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.45);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    
+    .brand-watermark:hover {
+      color: #ffffff;
+    }
+    
+    .nav-about {
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 400;
+      color: rgba(255, 255, 255, 0.35);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    
+    .nav-about:hover {
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    /* ── THE HERO SCENE (Suspended, monumental) ── */
+    .shell:not(.has-results) .ar-stage {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding-top: 5vh;
+      padding-bottom: 25vh; /* Push search block slightly up */
+    }
+    
+    .shell:not(.has-results) .hero {
+      text-align: center;
+      margin-bottom: 64px;
+      width: 100%;
+      max-width: 720px;
+    }
+    
+    .shell:not(.has-results) .ar-tag {
+      font-family: 'Inter', sans-serif;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      color: rgba(226, 194, 135, 0.2); /* Engraved metal look */
+      margin-bottom: 56px;
+      line-height: 1;
+    }
+    
+    .shell:not(.has-results) .ar-philosophy {
+      font-family: 'Inter', sans-serif;
+      font-size: clamp(26px, 3.4vw, 36px);
+      font-weight: 300;
+      color: rgba(245, 240, 232, 0.95) !important; /* Absolute visual center */
+      line-height: 1.32;
+      letter-spacing: -0.02em;
+      margin-bottom: 24px;
+    }
+    
+    .shell:not(.has-results) .ar-byline {
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 400;
+      color: rgba(255, 255, 255, 0.22);
+      letter-spacing: 0.05em;
+      margin: 0;
+      pointer-events: none;
+    }
+
+    /* ── THE PRECISION INSTRUMENT (Leica/Nothing Slab) ── */
+    .shell:not(.has-results) .panel {
+      width: 100%;
+      max-width: 640px;
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+    }
+    
+    .shell:not(.has-results) .fields {
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      background: rgba(13, 16, 22, 0.8) !important;
+      backdrop-filter: blur(48px) !important;
+      -webkit-backdrop-filter: blur(48px) !important;
+      border-radius: 6px !important; /* Leica sharpness */
+      border: 1px solid rgba(255, 255, 255, 0.08) !important; /* Razor thin seam */
+      padding: 0 !important;
+      height: 52px !important;
+      width: 100% !important;
+      box-shadow: 0 30px 70px rgba(0,0,0,0.95), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+      gap: 0 !important;
+      transition: border-color 0.25s, box-shadow 0.25s !important;
+    }
+    
+    .shell:not(.has-results) .fields:focus-within {
+      border-color: rgba(255, 255, 255, 0.2) !important;
+      box-shadow: 0 30px 70px rgba(0,0,0,0.95), 0 0 0 1px rgba(255,255,255,0.05) !important;
+    }
+    
+    .shell:not(.has-results) .field-slot {
+      flex: 1 !important;
+      height: 100% !important;
+      display: flex !important;
+      align-items: center !important;
+      position: relative !important;
+    }
+    
+    .shell:not(.has-results) .field-divider {
+      width: 1px !important;
+      height: 20px !important;
+      background: rgba(255, 255, 255, 0.06) !important;
+      flex-shrink: 0 !important;
+    }
+    
+    .shell:not(.has-results) .fields input {
+      background: transparent !important;
+      border: none !important;
+      color: #eae7e0 !important;
+      font-family: 'Inter', sans-serif !important;
+      font-weight: 500 !important;
+      padding: 0 20px !important;
+      height: 100% !important;
+      width: 100% !important;
+      outline: none !important;
+      text-align: center !important;
+    }
+    
+    .shell:not(.has-results) .fields input::placeholder {
+      color: rgba(255, 255, 255, 0.28) !important;
+      letter-spacing: 0.06em !important;
+    }
+    
+    /* Clean custom drop-down styling */
+    .shell:not(.has-results) .ac-drop {
+      background: rgba(13, 16, 22, 0.95) !important;
+      border: 1px solid rgba(255,255,255,0.1) !important;
+      border-radius: 6px !important;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.9) !important;
+      top: calc(100% + 8px) !important;
+      z-index: 1000 !important;
+    }
+    
+    .shell:not(.has-results) .glass-go {
+      width: 52px !important;
+      height: 100% !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      background: transparent !important;
+      border: none !important;
+      color: rgba(255, 255, 255, 0.4) !important;
+      cursor: pointer !important;
+      transition: color 0.15s !important;
+    }
+    
+    .shell:not(.has-results) .glass-go:hover {
+      color: rgba(255, 255, 255, 0.95) !important;
+    }
+
+    /* ── PROGRESSIVE DISCLOSURE AND CLEANUP ── */
+    
+    /* Delete all landing distractions */
+    .shell:not(.has-results) .navbar-brand,
+    .shell:not(.has-results) .nav-right,
+    .shell:not(.has-results) .tabs,
+    .shell:not(.has-results) .search-summary,
+    .shell:not(.has-results) .pa-col,
+    .shell:not(.has-results) .config-row,
+    .shell:not(.has-results) .saved-searches,
+    .shell:not(.has-results) .panel-bottom,
+    .shell:not(.has-results) .search-validation-status,
+    .shell:not(.has-results) .js-sentinel,
+    .shell:not(.has-results) #landing-state {
+      display: none !important;
+    }
+    
+    .shell:not(.has-results) ~ footer {
+      display: none !important;
+    }
+    
+    /* ── FOOTER ── */
+    .site-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px 0;
+      position: relative;
+      z-index: 10;
+      margin-top: auto;
+    }
+    .footer-links {
+      display: flex;
+      gap: 24px;
+    }
+    .footer-links a, .footer-links button {
+      color: rgba(255, 255, 255, 0.22);
+      text-decoration: none;
+      background: transparent;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 11px;
+      transition: color 0.15s;
+      letter-spacing: 0.02em;
+    }
+    .footer-links a:hover, .footer-links button:hover {
+      color: rgba(255, 255, 255, 0.65);
+    }
+
+    /* Result experience: the landing canvas continuing into a decision. */
+    body:has(.shell.has-results) { background: #020203 !important; }
+    body:has(.shell.has-results) #globe-wrap {
+      opacity: .38 !important; filter: none !important;
+      transform: translateX(-50%) !important;
+      animation: ar-earth-drift 24s ease-in-out infinite alternate !important;
+    }
+    body:has(.shell.has-results) #globe {
+      opacity: .62 !important; filter: saturate(.86) brightness(.72) !important;
+      pointer-events: none !important;
+    }
+    .shell.has-results {
+      width: min(980px, calc(100% - 48px)) !important; max-width: 980px !important;
+      overflow: visible; padding-bottom: 120px;
+    }
+    .shell.has-results .hero {
+      order: 2; max-width: 720px !important; margin: 76px auto 28px !important;
+      padding: 0 !important; text-align: center; opacity: .18;
+      transition: opacity 900ms cubic-bezier(.22,1,.36,1), transform 900ms cubic-bezier(.22,1,.36,1);
+    }
+    .shell.has-results .ar-tag { margin-bottom: 34px; }
+    .shell.has-results .ar-philosophy {
+      font-size: clamp(26px, 3.4vw, 36px) !important; font-weight: 300 !important; line-height: 1.32 !important;
+    }
+    .shell.has-results .panel {
+      order: 1; position: sticky; top: 16px; z-index: 50;
+      width: min(760px, 100%) !important; margin: 8px auto 0 !important; padding: 0 !important;
+      background: transparent !important; border: 0 !important; box-shadow: none !important;
+      transform: translateY(0);
+      transition: transform 850ms cubic-bezier(.22,1,.36,1), width 850ms cubic-bezier(.22,1,.36,1);
+    }
+    .shell.has-results .search-summary {
+      min-height: 54px; padding: 0 10px 0 22px;
+      border: 1px solid rgba(255,255,255,.09); border-radius: 6px;
+      background: rgba(13,16,22,.82); -webkit-backdrop-filter: blur(48px); backdrop-filter: blur(48px);
+      box-shadow: 0 24px 64px rgba(0,0,0,.58), inset 0 1px 0 rgba(255,255,255,.04);
+    }
+    .shell.has-results .search-summary-text {
+      color: rgba(245,240,232,.88) !important; font-family: 'Inter', sans-serif !important;
+      font-size: 12px !important; font-weight: 500 !important; letter-spacing: .035em;
+    }
+    .shell.has-results .search-summary-edit {
+      min-height: 36px; padding: 0 14px; border: 0 !important;
+      border-left: 1px solid rgba(255,255,255,.08) !important; border-radius: 0 !important;
+      background: transparent !important; color: rgba(226,194,135,.78) !important;
+      font: 500 10px/1 'Inter', sans-serif !important; letter-spacing: .12em; text-transform: uppercase;
+    }
+    .shell.has-results .results {
+      order: 3; display: block !important; width: min(780px, 100%); margin: 0 auto !important;
+      opacity: 1; transform: translateY(0);
+      transition: opacity 850ms ease 160ms, transform 950ms cubic-bezier(.22,1,.36,1) 80ms;
+    }
+    .shell.has-results.is-transitioning .hero { opacity: 1; transform: translateY(-22px); }
+    .shell.has-results.is-transitioning .panel { transform: translateY(34vh); }
+    .shell.has-results.is-transitioning .results { opacity: 0; transform: translateY(72px); }
+    .shell.has-results .results > * { margin-bottom: 72px !important; }
+    .shell.has-results #cards-wrap > * { margin-bottom: 96px !important; }
+    .shell.has-results #cards-wrap > .compact-alternative {
+      padding-top: 52px !important; border-top: 1px solid rgba(255,255,255,.09) !important;
+    }
+    .shell.has-results .sort-bar, .shell.has-results .score-legend, .shell.has-results .card.note { opacity: .62; }
+    .shell.has-results .rec-context h3, .shell.has-results .aw-result-route,
+    .shell.has-results .cg-headline, .shell.has-results .aw-verdict-h {
+      font-family: 'Inter', sans-serif !important; font-weight: 300 !important; letter-spacing: -.025em !important;
+    }
+    .shell.has-results .cg-headline, .shell.has-results .aw-verdict-h {
+      font-size: clamp(30px, 5vw, 48px) !important; line-height: 1.12 !important;
+    }
+    .shell.has-results .price { color: #e2c287 !important; font-weight: 400 !important; }
+    .shell.has-results .badge, .shell.has-results .verified-badge,
+    .shell.has-results .unverified-badge, .shell.has-results .cg-tag {
+      background: transparent !important; border-color: rgba(226,194,135,.24) !important;
+      color: rgba(226,194,135,.78) !important;
+    }
+    .shell.has-results .source-disclosure, .shell.has-results .aw-action-links,
+    .shell.has-results .related-analyses {
+      margin-top: 48px !important; padding-top: 24px !important;
+      border-top: 1px solid rgba(255,255,255,.09) !important;
+    }
+    @keyframes ar-earth-drift {
+      from { margin-left: -10px; margin-bottom: -6px; }
+      to { margin-left: 10px; margin-bottom: 8px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      body:has(.shell.has-results) #globe-wrap { animation: none !important; }
+      .shell.has-results .hero, .shell.has-results .panel, .shell.has-results .results { transition: none !important; }
+    }
+    @media (max-width: 640px) {
+      .shell.has-results { width: calc(100% - 28px) !important; padding-inline: 0; }
+      .shell.has-results .panel { top: 8px; }
+      .shell.has-results .hero { margin-top: 52px !important; }
+      .shell.has-results .search-summary { padding-left: 14px; }
+      .shell.has-results .search-summary-text { max-width: calc(100% - 94px); }
+      .shell.has-results .search-summary-edit { width: auto !important; }
+      .shell.has-results .results > *, .shell.has-results #cards-wrap > * { margin-bottom: 64px !important; }
+    }
+
+    /* Design Freeze v1 — exact result-state continuation of the reference. */
+    body:has(.shell.has-results) #globe-wrap {
+      left: 49.5% !important; right: 0 !important; top: 0 !important; bottom: 0 !important;
+      width: 50.5vw !important; height: 100vh !important; min-width: 0 !important; min-height: 0 !important;
+      transform: none !important; opacity: .82 !important; overflow: hidden;
+      animation: ar-earth-drift 28s ease-in-out infinite alternate !important;
+    }
+    body:has(.shell.has-results) #globe {
+      width: 112% !important; height: 112% !important; margin-left: -8% !important; margin-top: 4% !important;
+      opacity: .72 !important; filter: saturate(.72) brightness(.62) contrast(1.08) !important;
+    }
+    body:has(.shell.has-results)::after {
+      content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background: linear-gradient(90deg, #020207 0%, #020207 42%, rgba(2,2,7,.92) 49%, rgba(2,2,7,.08) 63%);
+    }
+    .shell.has-results {
+      width: 100% !important; max-width: none !important; margin: 0 !important;
+      padding: 0 0 128px clamp(40px, 7.35vw, 116px) !important;
+      align-items: flex-start; min-height: 100vh;
+    }
+    .shell.has-results .panel {
+      width: min(538px, 40vw) !important; margin: 18px 0 0 !important; top: 14px;
+    }
+    .shell.has-results .search-summary {
+      position: relative; display: grid !important; grid-template-columns: 1fr 1fr 1.22fr 64px;
+      gap: 0 !important; min-height: 84px; padding: 0 !important;
+      border: 1px solid rgba(255,255,255,.10); border-radius: 0;
+      background: rgba(18,20,24,.94); box-shadow: none;
+    }
+    .shell.has-results .search-summary::before {
+      content: "JOURNEY ANALYSIS"; position: absolute; left: 0; top: -24px;
+      color: rgba(255,255,255,.44); font: 600 8px/1 'Inter', sans-serif;
+      letter-spacing: .25em;
+    }
+    .shell.has-results .search-summary::after {
+      content: ""; position: absolute; left: 28px; top: 0; width: 30px; height: 1px; background: #9a642c;
+    }
+    .shell.has-results .search-summary-text { display: contents; }
+    .freeze-search-cell {
+      display: flex; flex-direction: column; justify-content: center; gap: 9px;
+      min-width: 0; padding: 0 24px; border-right: 1px solid rgba(255,255,255,.07);
+    }
+    .freeze-search-label {
+      color: rgba(255,255,255,.48); font: 600 9px/1 'Inter', sans-serif;
+      letter-spacing: .21em; text-transform: uppercase;
+    }
+    .freeze-search-value {
+      overflow: hidden; color: rgba(232,228,219,.68); font: 400 14px/1.15 'Inter', sans-serif;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+    .shell.has-results .search-summary-edit {
+      width: 64px !important; height: 100%; min-height: 84px; padding: 0 !important;
+      border: 0 !important; color: transparent !important; font-size: 0 !important;
+    }
+    .shell.has-results .search-summary-edit::after {
+      content: "→"; color: #9a642c; font: 400 18px/1 'Inter', sans-serif;
+    }
+    .shell.has-results .hero {
+      order: 2; width: min(600px, 42vw); max-width: 600px !important;
+      margin: 58px 0 24px !important; text-align: left; opacity: .16;
+    }
+    .shell.has-results .ar-tag, .shell.has-results .ar-byline { display: none; }
+    .shell.has-results .ar-philosophy {
+      margin: 0 !important; color: #f3f2ef !important;
+      font-size: clamp(34px, 3.1vw, 48px) !important; font-weight: 500 !important;
+      line-height: 1.22 !important; letter-spacing: -.035em !important;
+    }
+    .shell.has-results .results {
+      order: 3; width: min(620px, 42vw); margin: 0 !important; padding-top: 54px;
+      color: rgba(235,232,226,.9);
+    }
+    .result-workspace-head { margin: 0 0 88px; }
+    .result-kicker, .shell.has-results .cg-k, .shell.has-results .aw-block-k,
+    .shell.has-results .aw-section-kicker, .shell.has-results .related-label {
+      color: rgba(255,255,255,.43) !important; font: 600 8px/1.2 'Inter', sans-serif !important;
+      letter-spacing: .24em !important; text-transform: uppercase;
+    }
+    .result-workspace-head h1 {
+      margin: 18px 0 14px; color: #f2f1ee; font: 500 clamp(34px, 3.8vw, 54px)/1.06 'Inter', sans-serif;
+      letter-spacing: -.04em;
+    }
+    .result-workspace-head h1 span { color: #9a642c; font-weight: 300; }
+    .result-workspace-head p {
+      margin: 0; color: rgba(230,228,224,.55); font: 400 16px/1.55 'Inter', sans-serif;
+    }
+    .shell.has-results .results .card, .shell.has-results .results .top-card,
+    .shell.has-results .results .recommendation-card {
+      background: transparent !important; border: 0 !important; border-radius: 0 !important;
+      box-shadow: none !important; padding: 0 !important;
+    }
+    .shell.has-results .top-card::before {
+      content: "BEST OVERALL OPTION"; display: block; margin-bottom: 24px;
+      color: rgba(255,255,255,.43); font: 600 8px/1 'Inter', sans-serif; letter-spacing: .24em;
+    }
+    .shell.has-results .rec-context h3, .shell.has-results .aw-result-route {
+      color: #f2f1ee !important; font-size: clamp(26px, 2.7vw, 38px) !important; font-weight: 500 !important;
+    }
+    .shell.has-results .cg-headline, .shell.has-results .aw-verdict-h {
+      color: #f2f1ee !important; font-size: clamp(28px, 3vw, 42px) !important; font-weight: 400 !important;
+    }
+    .shell.has-results .compact-alternative::before {
+      content: "CASH ALTERNATIVE"; display: block; margin-bottom: 24px;
+      color: rgba(255,255,255,.43); font: 600 8px/1 'Inter', sans-serif; letter-spacing: .24em;
+    }
+    .shell.has-results .aw-programs::before {
+      content: "AWARD ALTERNATIVE"; display: block; margin-bottom: 24px;
+      color: rgba(255,255,255,.43); font: 600 8px/1 'Inter', sans-serif; letter-spacing: .24em;
+    }
+    .shell.has-results .source-toggle, .shell.has-results .aw-action-label {
+      color: rgba(255,255,255,.43) !important; letter-spacing: .12em; text-transform: uppercase;
+    }
+    .shell.has-results .cross-link, .shell.has-results .decision-action,
+    .shell.has-results .aw-cta, .shell.has-results .cross-btn {
+      border: 1px solid rgba(255,255,255,.11) !important; border-radius: 0 !important;
+      background: rgba(18,20,24,.72) !important; color: rgba(238,235,229,.76) !important;
+      box-shadow: none !important;
+    }
+
+    /* Decision Workspace v1 â€” an executive document, not a card stack. */
+    .shell.has-results .decision-document { max-width: 600px; }
+    .shell.has-results .decision-section { margin: 0 0 64px; }
+    .shell.has-results .decision-label {
+      margin-bottom: 16px; color: rgba(255,255,255,.44);
+      font: 600 8px/1.2 'Inter',sans-serif; letter-spacing: .24em; text-transform: uppercase;
+    }
+    .shell.has-results .decision-recommendation h2 {
+      max-width: 580px; margin: 0; color: #f2f1ee;
+      font: 400 clamp(34px,3.5vw,52px)/1.1 'Inter',sans-serif; letter-spacing: -.035em;
+    }
+    .shell.has-results .decision-section ul {
+      display: grid; gap: 12px; margin: 0; padding: 0; list-style: none;
+    }
+    .shell.has-results .decision-section li {
+      position: relative; padding-left: 18px; color: rgba(235,232,226,.72);
+      font: 400 15px/1.5 'Inter',sans-serif;
+    }
+    .shell.has-results .decision-section li::before {
+      content: ""; position: absolute; left: 0; top: .7em; width: 4px; height: 4px;
+      border-radius: 50%; background: #9a642c;
+    }
+    .shell.has-results .decision-confidence-value {
+      color: rgba(242,241,238,.88); font: 400 20px/1.2 'Inter',sans-serif; letter-spacing: -.01em;
+    }
+    .shell.has-results .decision-verification {
+      padding-top: 32px; border-top: 1px solid rgba(255,255,255,.08);
+    }
+    .shell.has-results .decision-execution { margin-bottom: 0; padding-top: 8px; }
+    .shell.has-results .decision-execution .aw-cta-row,
+    .shell.has-results .decision-actions { margin: 0 !important; padding: 0 !important; border: 0 !important; }
+    .shell.has-results .decision-actions-label {
+      width: 100%; margin: 0 0 16px; color: rgba(255,255,255,.44) !important;
+      font: 600 8px/1.2 'Inter',sans-serif; letter-spacing: .24em; text-transform: uppercase;
+    }
+    .shell.has-results .decision-action:first-of-type,
+    .shell.has-results .aw-cta-primary {
+      border-color: rgba(199,122,50,.48) !important; color: #e7e0d5 !important;
+    }
+    .shell.has-results .decision-document-card.top-card::before,
+    .shell.has-results .recommendation-card:has(.decision-document) .recommendation-badges { display: none !important; }
+    .shell.has-results .recommendation-card:has(.decision-document) .rec-price-panel {
+      background: transparent !important; border: 0 !important; box-shadow: none !important;
+    }
+    .shell.has-results .recommendation-card:has(.decision-document) .rec-brief,
+    .shell.has-results .decision-document-card .aw-briefing { display: block !important; }
+    .shell.has-results .recommendation-card:has(.decision-document) .rec-brief-side,
+    .shell.has-results .decision-document-card .aw-briefing-side {
+      margin-top: 72px; padding-top: 40px; border-top: 1px solid rgba(255,255,255,.08);
+    }
+    .shell.has-results .recommendation-card:has(.decision-document) .rec-evidence {
+      margin-top: 72px; padding-top: 40px; border-top: 1px solid rgba(255,255,255,.08);
+    }
+    @media (max-width: 900px) {
+      body:has(.shell.has-results) #globe-wrap { left: 44% !important; width: 56vw !important; opacity: .42 !important; }
+      body:has(.shell.has-results)::after { background: linear-gradient(90deg,#020207 0%,#020207 60%,rgba(2,2,7,.72) 100%); }
+      .shell.has-results { padding-left: 28px !important; padding-right: 28px !important; }
+      .shell.has-results .panel, .shell.has-results .hero, .shell.has-results .results { width: min(620px, 100%) !important; }
+    }
+    @media (max-width: 640px) {
+      body:has(.shell.has-results) #globe-wrap { left: 0 !important; top: 50vh !important; width: 100vw !important; opacity: .25 !important; }
+      .shell.has-results { padding: 0 18px 96px !important; }
+      .shell.has-results .panel { margin-top: 14px !important; }
+      .shell.has-results .search-summary { grid-template-columns: 1fr 1fr 56px; }
+      .freeze-search-date { display: none; }
+      .freeze-search-cell { padding: 0 14px; }
+      .shell.has-results .hero { margin-top: 42px !important; width: 100% !important; }
+      .shell.has-results .results { width: 100% !important; padding-top: 34px; }
+      .result-workspace-head { margin-bottom: 64px; }
+    }
+
+    /* Approved homepage — Design Freeze v1 restoration. */
+    .shell:not(.has-results) { height: 100vh; min-height: 720px; overflow: hidden; }
+    body:has(.shell:not(.has-results)) { background: #020207 !important; }
+    body:has(.shell:not(.has-results)) #globe-wrap {
+      position: fixed !important; inset: 0 0 0 49.5% !important;
+      width: 50.5vw !important; height: 100vh !important; min-width: 0 !important; min-height: 0 !important;
+      transform: none !important; opacity: 1 !important; filter: none !important;
+      overflow: hidden; animation: none !important; pointer-events: none !important;
+    }
+    body:has(.shell:not(.has-results)) #globe-wrap::before {
+      content: ""; position: absolute; inset: 0;
+      background: url('/static/design-freeze-v1.png') right top / 100vw 100vh no-repeat;
+    }
+    body:has(.shell:not(.has-results)) #globe { display: none !important; }
+    body:has(.shell:not(.has-results))::after {
+      content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background: linear-gradient(90deg,#020207 0%,#020207 42%,rgba(2,2,7,.95) 49.5%,transparent 62%);
+    }
+    .shell:not(.has-results) {
+      width: 50% !important; max-width: none !important; margin: 0 !important;
+      padding: 0 0 0 clamp(48px,7.35vw,116px) !important;
+      display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start;
+    }
+    .shell:not(.has-results) .hero {
+      width: min(560px,40vw) !important; max-width: none !important;
+      margin: 126px 0 0 !important; padding: 0 !important; text-align: left !important;
+    }
+    .shell:not(.has-results) .ar-tag, .shell:not(.has-results) .ar-byline { display: none !important; }
+    .shell:not(.has-results) .ar-philosophy {
+      margin: 0 !important; color: #f2f1ee !important; font-family: 'Inter',sans-serif !important;
+      font-size: clamp(38px,3vw,48px) !important; font-weight: 500 !important;
+      line-height: 1.22 !important; letter-spacing: -.04em !important;
+    }
+    .shell:not(.has-results) .ar-philosophy .freeze-secondary {
+      display: block; margin-top: 108px; color: rgba(225,225,229,.72); font-weight: 300;
+    }
+    .shell:not(.has-results) .ar-philosophy .freeze-final {
+      display: block; margin-top: 58px; color: #f2f1ee; font-weight: 400;
+    }
+    .shell:not(.has-results) .panel {
+      position: relative; width: min(538px,40vw) !important; max-width: none !important;
+      margin: 82px 0 0 !important; padding: 0 !important; background: transparent !important;
+      border: 0 !important; box-shadow: none !important;
+    }
+    .shell:not(.has-results) .panel::before {
+      content: "JOURNEY ANALYSIS"; position: absolute; left: 0; top: -23px;
+      color: rgba(255,255,255,.44); font: 600 8px/1 'Inter',sans-serif; letter-spacing: .25em;
+    }
+    .shell:not(.has-results) .fields {
+      display: grid !important; grid-template-columns: 1fr 1fr 1.12fr 64px !important;
+      width: 100% !important; height: 116px !important; padding: 16px 0 !important; gap: 0 !important;
+      border: 1px solid rgba(255,255,255,.10) !important; border-radius: 0 !important;
+      background: rgba(18,20,24,.94) !important; backdrop-filter: none !important;
+      box-shadow: none !important;
+    }
+    .shell:not(.has-results) .fields::before {
+      content: ""; position: absolute; left: 28px; top: 0; width: 30px; height: 1px; background: #9a642c;
+    }
+    .shell:not(.has-results) .field-slot {
+      display: flex !important; align-items: center !important; height: 80px !important;
+      padding: 20px 26px 0 !important; border-right: 1px solid rgba(255,255,255,.07);
+    }
+    .shell:not(.has-results) .field-slot::before {
+      position: absolute; left: 26px; top: 13px;
+      color: rgba(255,255,255,.46); font: 600 9px/1 'Inter',sans-serif; letter-spacing: .2em;
+    }
+    .shell:not(.has-results) .origin-slot::before { content: "FROM"; }
+    .shell:not(.has-results) .dest-slot::before { content: "TO"; }
+    .shell:not(.has-results) .date-slot::before { content: "DATE"; }
+    .shell:not(.has-results) .field-divider { display: none !important; }
+    .shell:not(.has-results) .fields input {
+      height: 42px !important; padding: 0 !important; text-align: left !important;
+      color: rgba(226,221,211,.68) !important; font: 400 18px/1 'Inter',sans-serif !important;
+      letter-spacing: -.015em !important;
+    }
+    .shell:not(.has-results) .fields input::placeholder { color: rgba(226,221,211,.45) !important; letter-spacing: 0 !important; }
+    .shell:not(.has-results) .fields > input.form-control { display: none !important; }
+    .shell:not(.has-results) .glass-go {
+      width: 64px !important; height: 114px !important; color: #9a642c !important;
+      border: 0 !important; background: transparent !important;
+    }
+    .shell:not(.has-results) .glass-go svg { width: 18px; height: 18px; }
+    .shell:not(.has-results) ~ footer {
+      display: block !important; position: fixed; left: clamp(48px,7.35vw,116px); bottom: 22px;
+      z-index: 20; margin: 0; padding: 0; background: transparent; border: 0;
+    }
+    .shell:not(.has-results) ~ footer .footer-links { justify-content: flex-start; gap: 28px; margin: 0; }
+    .shell:not(.has-results) ~ footer .footer-links a,
+    .shell:not(.has-results) ~ footer .footer-links button {
+      min-height: 0; padding: 0; border: 0; border-radius: 0;
+      color: rgba(255,255,255,.48); font: 500 9px/1 'Inter',sans-serif; letter-spacing: .04em;
+    }
+    .freeze-nav-links { display: flex; align-items: center; gap: 34px; }
+    .freeze-nav-links a {
+      color: rgba(255,255,255,.58); text-decoration: none; font: 600 12px/1 'Inter',sans-serif; letter-spacing: .03em;
+    }
+    .freeze-nav-dot { color: #9a642c; margin-left: -25px; }
+    .brand-wordmark { color: rgba(245,242,236,.76); font-weight: 700; letter-spacing: -.01em; }
+    .brand-wordmark em { color: #9a642c; font-style: normal; }
+    .brand-subtitle { display: block; margin-top: 2px; color: rgba(255,255,255,.42); font-size: 9px; letter-spacing: .25em; }
+    body:has(.shell:not(.has-results)) .navbar {
+      position: fixed !important; inset: 0 0 auto 0; height: 104px !important;
+      z-index: 30;
+    }
+    body:has(.shell:not(.has-results)) .nav-inner {
+      width: calc(100% - (2 * clamp(48px,7.35vw,116px))) !important;
+      margin-inline: clamp(48px,7.35vw,116px) !important;
+    }
+    @media (max-width: 800px) {
+      body:has(.shell:not(.has-results)) #globe-wrap { inset: 44vh 0 0 0 !important; width: 100vw !important; height: 56vh !important; opacity: .45 !important; }
+      body:has(.shell:not(.has-results)) #globe-wrap::before { background-size: 178vw 100vh; background-position: right bottom; }
+      body:has(.shell:not(.has-results))::after { background: linear-gradient(180deg,#020207 0%,#020207 52%,rgba(2,2,7,.35) 100%); }
+      .shell:not(.has-results) { width: 100% !important; padding: 0 22px !important; min-height: 700px; }
+      .shell:not(.has-results) .hero { width: 100% !important; margin-top: 105px !important; }
+      .shell:not(.has-results) .ar-philosophy { font-size: 34px !important; }
+      .shell:not(.has-results) .ar-philosophy .freeze-secondary { margin-top: 48px; }
+      .shell:not(.has-results) .ar-philosophy .freeze-final { margin-top: 24px; }
+      .shell:not(.has-results) .panel { width: 100% !important; margin-top: 54px !important; }
+      .shell:not(.has-results) .fields { grid-template-columns: 1fr 1fr 56px !important; height: 96px !important; }
+      .shell:not(.has-results) .date-slot { display: none !important; }
+      .shell:not(.has-results) .glass-go { width: 56px !important; height: 94px !important; }
+      .shell:not(.has-results) ~ footer { left: 22px; bottom: 16px; }
+      .freeze-nav-links a:not(:first-child), .freeze-nav-dot { display: none; }
+    }
+
+    /* Figma Make source: AwardRadar 2.0 Homepage Redesign. */
+    body:has(.shell:not(.has-results)) { background: #03030a !important; }
+    body:has(.shell:not(.has-results))::after {
+      background:
+        linear-gradient(to right,#03030a 22%,rgba(3,3,10,.88) 46%,rgba(3,3,10,.22) 68%,transparent 100%),
+        linear-gradient(to bottom,rgba(3,3,10,.6) 0%,transparent 18%,transparent 78%,rgba(3,3,10,.7) 100%);
+    }
+    body:has(.shell:not(.has-results)) #globe-wrap {
+      inset: 50% -353px auto auto !important; width: 1060px !important; height: 1060px !important;
+      transform: translateY(-51%) !important; overflow: visible;
+    }
+    body:has(.shell:not(.has-results)) #globe-wrap::before {
+      inset: 0; background: url('/static/orbital-earth-nasa-v2.jpg') -94px -3px / 1248px 1060px no-repeat;
+      mix-blend-mode: normal; opacity: .88;
+      animation: ar-photo-drift 420s ease-in-out infinite alternate;
+    }
+    body:has(.shell:not(.has-results)) .navbar {
+      height: auto !important; padding-top: 5.5vh !important;
+    }
+    body:has(.shell:not(.has-results)) .nav-inner {
+      width: calc(100% - (2 * clamp(64px,7.5vw,120px))) !important;
+      margin-inline: clamp(64px,7.5vw,120px) !important;
+    }
+    .brand-wordmark { color: #e7e0d5; font-size: 13px; font-weight: 400; letter-spacing: .06em; }
+    .brand-wordmark em { color: #c77a32; }
+    .brand-subtitle { display: none; }
+    .freeze-nav-links { gap: 32px; }
+    .freeze-nav-links a { color: #c9c1b5; font-size: 11.5px; font-weight: 400; letter-spacing: .09em; }
+    .freeze-nav-dot { display: none; }
+    .shell:not(.has-results) {
+      width: 560px !important; height: 100vh; min-height: 0;
+      padding: 0 0 8vh clamp(64px,7.5vw,120px) !important;
+      justify-content: center; overflow: visible;
+    }
+    .shell:not(.has-results) .hero {
+      width: 560px !important; margin: 0 !important; padding: 0 !important;
+    }
+    .shell:not(.has-results) .ar-tag {
+      display: block !important; margin: 0 0 56px !important;
+      color: #6f7480; font: 500 10px/1 'Inter',sans-serif; letter-spacing: .24em;
+      text-transform: uppercase;
+    }
+    .shell:not(.has-results) .ar-philosophy {
+      color: #f3f4f6 !important; font-size: clamp(28px,3vw,42px) !important;
+      font-weight: 500 !important; line-height: 1.22 !important; letter-spacing: -.018em !important;
+    }
+    .shell:not(.has-results) .ar-philosophy .freeze-secondary {
+      margin-top: calc(2em + 24px); color: #b8bbc3; font-weight: 340; letter-spacing: -.012em;
+    }
+    .shell:not(.has-results) .ar-philosophy .freeze-final {
+      margin-top: 1.4em; color: #f3f4f6; font-weight: 380; letter-spacing: -.014em;
+    }
+    .shell:not(.has-results) .panel {
+      width: 560px !important; margin: 88px 0 0 !important;
+    }
+    .shell:not(.has-results) .panel::before {
+      content: "JOURNEY ANALYSIS"; top: -24px; color: rgba(190,181,168,.72);
+      font-size: 8px; font-weight: 500; letter-spacing: .26em;
+    }
+    .shell:not(.has-results) .fields {
+      grid-template-columns: minmax(0,1fr) minmax(0,1fr) 158px 108px !important;
+      width: calc(100% + 108px) !important; height: 116px !important; padding: 0 !important;
+      background: #111317 !important; border: .5px solid rgba(255,255,255,.05) !important;
+      border-top-color: rgba(255,255,255,.075) !important; border-radius: 1px !important;
+      overflow: visible !important;
+    }
+    .shell:not(.has-results) .fields::before { left: 28px; top: -.5px; background: #c77a32; }
+    .shell:not(.has-results) .field-slot {
+      height: 116px !important; padding: 26px 48px 24px !important;
+      align-items: flex-start !important; justify-content: flex-start; border-right: .5px solid rgba(245,242,236,.035);
+    }
+    .shell:not(.has-results) .date-slot { padding-inline: 28px !important; }
+    .shell:not(.has-results) .field-slot::before {
+      left: 48px; top: 26px; color: rgba(209,200,187,.62);
+      font-size: 9.5px; font-weight: 600; letter-spacing: .22em;
+    }
+    .shell:not(.has-results) .date-slot::before { left: 28px; }
+    .shell:not(.has-results) .fields input {
+      height: 24px !important; min-height: 24px !important; margin-top: 22px !important; color: #f5f2ec !important;
+      font-size: 21px !important; font-weight: 400 !important; line-height: 1 !important;
+      caret-color: #c77a32;
+    }
+    .shell:not(.has-results) .date-slot input { font-size: 15px !important; font-weight: 520 !important; }
+    .shell:not(.has-results) .fields input::placeholder { color: #82796d !important; opacity: 1; }
+    .freeze-code {
+      position: absolute; left: 48px; bottom: 22px; color: rgba(209,200,187,.6);
+      font: 600 11px/1 'Inter',sans-serif; letter-spacing: .19em; text-transform: uppercase;
+      pointer-events: none;
+    }
+    .shell:not(.has-results) .glass-go {
+      width: 108px !important; height: 115px !important; color: #c77a32 !important;
+      border-left: .5px solid rgba(245,242,236,.035) !important;
+      flex-direction: column; gap: 9px;
+    }
+    .shell:not(.has-results) .glass-go svg { width: 14px; height: 9px; }
+    .freeze-search-action {
+      color: #c77a32; font: 600 8px/1.15 'Inter',sans-serif; letter-spacing: .14em; text-transform: uppercase;
+    }
+    .shell:not(.has-results) ~ footer {
+      left: clamp(64px,7.5vw,120px); right: clamp(64px,7.5vw,120px); bottom: clamp(20px,2.8vh,32px);
+      display: flex !important; align-items: center; justify-content: space-between;
+    }
+    .shell:not(.has-results) ~ footer .footer-links { gap: 24px; }
+    .shell:not(.has-results) ~ footer .footer-links a,
+    .shell:not(.has-results) ~ footer .footer-links button {
+      color: #beb6aa; font-size: 9px; font-weight: 400; letter-spacing: .09em;
+    }
+    .freeze-coordinates {
+      color: #999186; font: 500 7px/1 'Inter',sans-serif; letter-spacing: .22em; text-transform: uppercase;
+    }
+    [data-theme="light"] body:has(.shell:not(.has-results)) { background: #f2eee6 !important; }
+    [data-theme="light"] body:has(.shell:not(.has-results))::after {
+      background:
+        linear-gradient(to right,#f2eee6 0%,#f2eee6 43%,rgba(242,238,230,.985) 54%,rgba(242,238,230,.58) 69%,transparent 82%),
+        linear-gradient(to bottom,rgba(242,238,230,.08) 0%,transparent 16%,transparent 84%,rgba(242,238,230,.14) 100%);
+    }
+    [data-theme="light"] body:has(.shell:not(.has-results)) #globe-wrap { background: #050505; }
+    [data-theme="light"] body:has(.shell:not(.has-results)) #globe-wrap::before { opacity: 1; }
+    [data-theme="light"] .brand-wordmark { color: #28251f; }
+    [data-theme="light"] .freeze-nav-links a { color: #5b554c; }
+    [data-theme="light"] .shell:not(.has-results) .ar-tag { color: rgba(117,109,98,.8); }
+    [data-theme="light"] .shell:not(.has-results) .ar-philosophy { color: #28251f !important; }
+    [data-theme="light"] .shell:not(.has-results) .ar-philosophy .freeze-secondary { color: rgba(81,74,65,.7); }
+    [data-theme="light"] .shell:not(.has-results) .ar-philosophy .freeze-final { color: #1e1b17; }
+    [data-theme="light"] .shell:not(.has-results) .panel::before { color: rgba(112,103,92,.7); }
+    [data-theme="light"] .shell:not(.has-results) ~ footer .footer-links a,
+    [data-theme="light"] .shell:not(.has-results) ~ footer .footer-links button { color: #70685e; }
+    [data-theme="light"] .freeze-coordinates { color: #8a8175; }
+    @keyframes ar-photo-drift {
+      from { transform: translateX(-4px) scale(1.006); }
+      to { transform: translateX(4px) scale(1.006); }
+    }
+    @media (max-width: 800px) {
+      body:has(.shell:not(.has-results)) #globe-wrap {
+        inset: 50% -560px auto auto !important; width: 960px !important; height: 960px !important;
+      }
+      body:has(.shell:not(.has-results))::after {
+        background: linear-gradient(to bottom,#03030a 0%,#03030a 58%,rgba(3,3,10,.88) 72%,rgba(3,3,10,.35) 100%);
+      }
+      [data-theme="light"] body:has(.shell:not(.has-results))::after {
+        background: linear-gradient(to bottom,#f2eee6 0%,#f2eee6 58%,rgba(242,238,230,.94) 72%,rgba(242,238,230,.55) 100%);
+      }
+      .shell:not(.has-results) { width: 100% !important; min-height: 100svh; height: auto; padding: 112px 22px 112px !important; justify-content: flex-start; }
+      .shell:not(.has-results) .hero, .shell:not(.has-results) .panel { width: min(100%,560px) !important; }
+      .shell:not(.has-results) .ar-tag { margin-bottom: 36px !important; }
+      .shell:not(.has-results) .ar-philosophy .freeze-secondary { margin-top: 34px; }
+      .shell:not(.has-results) .ar-philosophy .freeze-final { margin-top: 22px; }
+      .shell:not(.has-results) .panel { margin-top: 48px !important; }
+      .shell:not(.has-results) .fields {
+        width: 100% !important; grid-template-columns: 1fr 1fr !important;
+        grid-template-rows: 96px 82px !important; height: 178px !important;
+      }
+      .shell:not(.has-results) .field-slot { height: 96px !important; padding: 20px 22px 16px !important; }
+      .shell:not(.has-results) .field-slot::before, .freeze-code { left: 22px; }
+      .shell:not(.has-results) .date-slot {
+        display: flex !important; grid-column: 1; grid-row: 2; width: 100%; height: 82px !important;
+        padding: 16px 22px 12px !important; border-top: .5px solid rgba(245,242,236,.05);
+      }
+      .shell:not(.has-results) .date-slot::before { left: 22px; top: 16px; }
+      .shell:not(.has-results) .date-slot input { margin-top: 19px !important; }
+      .shell:not(.has-results) .glass-go {
+        grid-column: 2; grid-row: 2; width: 100% !important; height: 81px !important;
+        border-top: .5px solid rgba(245,242,236,.05) !important;
+      }
+      .shell:not(.has-results) ~ footer { left: 22px; right: 22px; bottom: 18px; }
+      .shell:not(.has-results) ~ footer .footer-links { gap: 15px; flex-wrap: wrap; }
+      .freeze-coordinates { display: none; }
+    }
+  </style>
 </head>
 <body>
   <a class="skip-link" href="#results">Skip to search results</a>
   <div id="progress-bar" aria-hidden="true"><div id="progress-fill"></div></div>
-  <nav class="navbar">
+    <nav class="navbar" aria-label="Main navigation">
     <div class="nav-inner">
-      <a href="/" class="logo">
-        <div class="logo-mark">
-          <svg width="52" height="52" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <defs>
-              <linearGradient id="lg-arc" x1="0" y1="1" x2="1" y2="0">
-                <stop offset="0%" stop-color="#f5c76b"/>
-                <stop offset="100%" stop-color="#f5c76b" stop-opacity=".6"/>
-              </linearGradient>
-              <radialGradient id="lg-glow" cx="38%" cy="32%" r="65%">
-                <stop offset="0%" stop-color="#6ad7ff" stop-opacity=".18"/>
-                <stop offset="100%" stop-color="#6ad7ff" stop-opacity="0"/>
-              </radialGradient>
-              <clipPath id="globe-clip">
-                <circle cx="22" cy="22" r="13"/>
-              </clipPath>
-            </defs>
-
-            <!-- Outer radar ring — subtle, slightly larger than globe -->
-            <circle cx="22" cy="22" r="19.5" stroke="#6ad7ff" stroke-width=".7" stroke-dasharray="3 4.5" opacity=".25"/>
-            <circle cx="22" cy="22" r="16" stroke="#6ad7ff" stroke-width=".5" opacity=".18"/>
-
-            <!-- Globe sphere fill + glow -->
-            <circle cx="22" cy="22" r="13" fill="url(#lg-glow)"/>
-
-            <!-- Globe outline -->
-            <circle cx="22" cy="22" r="13" stroke="#6ad7ff" stroke-width="1.1" opacity=".7"/>
-
-            <!-- Latitude lines (horizontal ellipses, clipped to sphere) -->
-            <g clip-path="url(#globe-clip)" opacity=".45">
-              <!-- Equator -->
-              <ellipse cx="22" cy="22" rx="13" ry="4.5" stroke="#6ad7ff" stroke-width=".7" fill="none"/>
-              <!-- Upper lat ~30° -->
-              <ellipse cx="22" cy="16" rx="11.3" ry="3.8" stroke="#6ad7ff" stroke-width=".55" fill="none"/>
-              <!-- Lower lat ~30° -->
-              <ellipse cx="22" cy="28" rx="11.3" ry="3.8" stroke="#6ad7ff" stroke-width=".55" fill="none"/>
-            </g>
-
-            <!-- Longitude line — single vertical ellipse -->
-            <g clip-path="url(#globe-clip)" opacity=".3">
-              <ellipse cx="22" cy="22" rx="5" ry="13" stroke="#6ad7ff" stroke-width=".65" fill="none"/>
-            </g>
-
-            <!-- Flight route arc — gold, prominent, from SW to NE -->
-            <!-- Approximates transatlantic / long-haul great-circle: Americas → Europe/Asia -->
-            <path d="M 10 32 Q 18 6 34 14" stroke="url(#lg-arc)" stroke-width="2" stroke-linecap="round" fill="none"/>
-
-            <!-- Airport dots at arc endpoints -->
-            <circle cx="10" cy="32" r="2" fill="#f5c76b" opacity=".95"/>
-            <circle cx="34" cy="14" r="2" fill="#f5c76b" opacity=".95"/>
-
-            <!-- Glow halos on dots -->
-            <circle cx="10" cy="32" r="4" fill="#f5c76b" opacity=".18"/>
-            <circle cx="34" cy="14" r="4" fill="#f5c76b" opacity=".18"/>
-
-            <!-- Center radar ping -->
-            <circle cx="22" cy="22" r="1.6" fill="#6ad7ff" opacity=".9"/>
-            <circle cx="22" cy="22" r="3.5" stroke="#6ad7ff" stroke-width=".6" opacity=".3" fill="none"/>
-          </svg>
-        </div>
-        <div>
-          <div class="logo-name"><span class="logo-award">Award</span><span class="logo-radar">Radar</span></div>
-          <div class="logo-tagline">Travel Intelligence</div>
-        </div>
-      </a>
-      <div class="nav-right">
-        <a class="nav-link" href="/about">About</a>
-        <div class="text-size-control" role="group" aria-label="Text size">
-          <button type="button" class="text-size-btn" data-text-size-option="small" aria-label="Use small text size" title="Small text" aria-pressed="false">A&minus;</button>
-          <button type="button" class="text-size-btn" data-text-size-option="default" aria-label="Use default text size" title="Default text" aria-pressed="true">A</button>
-          <button type="button" class="text-size-btn" data-text-size-option="large" aria-label="Use large text size" title="Large text" aria-pressed="false">A+</button>
-        </div>
-        <button class="theme-btn" id="themeBtn" aria-label="Toggle light/dark mode">
-          <svg id="themeIconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          <svg id="themeIconSun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-        </button>
-        <span class="sr-only" id="textSizeStatus" aria-live="polite" aria-atomic="true">Text size Default</span>
-      </div>
+      <a href="/" class="brand-watermark" aria-label="AwardRadar home"><span class="brand-wordmark">Award<em>Radar</em></span></a>
+      <div class="freeze-nav-links"><a href="/about">About</a><span class="freeze-nav-dot" aria-hidden="true">•</span><a href="/about">Methodology</a><a href="#sign-in">Sign in</a></div>
     </div>
   </nav>
 
@@ -170,15 +965,14 @@
   </div>
 
   <main class="shell">
-    <section class="hero">
-      <div class="eyebrow">Cash Fares &middot; Award Redemptions &middot; Hidden Opportunities</div>
-      <h1>Know what&rsquo;s worth checking.</h1>
-      <p>Compare cash fares, award redemptions and overlooked routing opportunities &mdash; with clear trade-offs, confidence signals and official verification guidance.</p>
-      <div class="trust-line">
-        <span><span class="trust-dot"></span>Fare context</span>
-        <span><span class="trust-dot"></span>Award value</span>
-        <span><span class="trust-dot"></span>Verification guidance</span>
+        <section class="hero">
+      <div class="ar-tag">TRAVEL DECISION INTELLIGENCE</div>
+      <div class="ar-philosophy">
+        We don't tell you<br>what to book.
+        <span class="freeze-secondary">We help you understand</span>
+        <span class="freeze-final">why.</span>
       </div>
+      <div class="ar-byline">@AwardRadar</div>
     </section>
 
     <section class="panel">
@@ -225,54 +1019,42 @@
       </div>
 
       <!-- Search fields -->
-      <div class="fields" role="search" aria-label="Flight search">
-        <div class="from-group">
-          <label for="origin">
-            <span class="field-label">FROM</span>
-            <div class="field-input-wrap">
-              <svg class="field-icon-left" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-              <input id="origin" placeholder="City or airport" aria-label="Origin airport or city" autocomplete="off" aria-describedby="originError">
-              <div class="ac-drop" id="ac-origin" role="listbox" aria-label="Airport suggestions"></div>
-            </div>
-            <div class="field-error" id="originError" aria-live="polite"></div>
-          </label>
-          <div id="extra-origins"></div>
-          <button type="button" id="addOriginBtn" class="add-origin-btn" aria-label="Add another departure airport">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add airport
-          </button>
+            <div class="fields" role="search" aria-label="Journey analysis">
+        
+        <div class="field-slot origin-slot">
+          <input id="origin" placeholder="Frankfurt" aria-label="Origin airport" autocomplete="off" aria-describedby="originError">
+          <span class="freeze-code" aria-hidden="true">FRA</span>
+          <div class="ac-drop" id="ac-origin" role="listbox" aria-label="Airport suggestions"></div>
+          <div class="field-error" id="originError" aria-live="polite" style="display:none"></div>
+          <div id="extra-origins" style="display:none"></div>
+          <button type="button" id="addOriginBtn" class="add-origin-btn" style="display:none">+ Add</button>
         </div>
-        <button class="swap-btn" id="swapBtn" type="button" aria-label="Swap origin and destination">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 16V4m0 0L3 8m4-4 4 4"/><path d="M17 8v12m0 0 4-4m-4 4-4-4"/></svg>
+
+        <div class="field-divider"></div>
+
+        <div class="field-slot dest-slot">
+          <input id="dest" placeholder="New York" autocomplete="off" aria-describedby="destError">
+          <span class="freeze-code" aria-hidden="true">JFK</span>
+          <div class="ac-drop" id="ac-dest" role="listbox" aria-label="Airport suggestions"></div>
+          <div class="field-error" id="destError" aria-live="polite" style="display:none"></div>
+        </div>
+
+        <div class="field-divider"></div>
+
+        <div class="field-slot date-slot">
+          <input id="date" placeholder="Date" autocomplete="off" aria-label="Departure date" aria-describedby="dateError">
+          <div class="field-error" id="dateError" aria-live="polite" style="display:none"></div>
+        </div>
+
+        <button class="go glass-go" id="go" aria-label="Analyze journey">
+          <span class="freeze-search-action">Analyze Journey</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
         </button>
-        <label for="dest">
-          <span class="field-label">TO</span>
-          <div class="field-input-wrap">
-            <svg class="field-icon-left" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            <input id="dest" placeholder="City or airport" data-ph-sub="e.g. Tokyo, New York or SIN"
-              aria-label="Destination airport or city" autocomplete="off" aria-describedby="destError">
-            <div class="ac-drop" id="ac-dest" role="listbox" aria-label="Airport suggestions"></div>
-          </div>
-          <div class="field-error" id="destError" aria-live="polite"></div>
-        </label>
-        <label for="date">
-          <span class="field-label">DEPARTURE DATE</span>
-          <div class="field-input-wrap">
-            <svg class="field-icon-left" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            <input id="date" placeholder="Select date" autocomplete="off" aria-label="Departure date" aria-describedby="dateError">
-            <svg class="field-icon-right" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
-          <div class="field-error" id="dateError" aria-live="polite"></div>
-        </label>
-        <label class="return-field" id="returnFieldWrap" for="returnDate">
-          <span class="field-label">RETURN DATE</span>
-          <div class="field-input-wrap">
-            <svg class="field-icon-left" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            <input id="returnDate" placeholder="Select date" autocomplete="off" aria-label="Return date" aria-describedby="returnDateError">
-            <svg class="field-icon-right" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
-          <div class="field-error" id="returnDateError" aria-live="polite"></div>
-        </label>
+
+        <!-- Hidden legacy elements to prevent JS errors -->
+        <button class="swap-btn" id="swapBtn" type="button" style="display:none">Swap</button>
+        <input id="returnDate" type="hidden">
+        <div class="field-error" id="returnDateError" style="display:none"></div>
       </div>
 
       <!-- Panel bottom: 2-column -->
@@ -530,23 +1312,20 @@
     <section id="results" class="results" aria-live="polite" aria-atomic="false" aria-label="Search results" tabindex="-1"></section>
   </main>
 
-  <footer>
-    <div class="trust-note">
-      <strong>Verify before booking</strong> — AwardRadar highlights useful fare and award signals. Final prices, seats and rules should always be confirmed with the airline or loyalty program.
-    </div>
-    <div class="footer-links">
-      <a href="mailto:hello@awardradar.app">Contact</a>
-      <a href="/about">About</a>
-      <a href="/impressum">Imprint</a>
-      <a href="/datenschutz">Privacy</a>
-      <a href="/privacy">English privacy</a>
-    </div>
-    <p>© 2026 AwardRadar</p>
-  </footer>
+      <footer>
+      <div class="footer-links">
+        <a href="/datenschutz">Privacy</a>
+        <a href="/impressum">Imprint</a>
+        <button type="button" class="theme-link-btn" aria-label="Accessibility options">Accessibility</button>
+        <button type="button" class="theme-link-btn" id="themeBtn" aria-label="Toggle light/dark mode">Theme</button>
+        <a href="#awardradar">@AwardRadar</a>
+      </div>
+      <div class="freeze-coordinates" aria-hidden="true">51&deg;N 0&deg;E &middot; 35,786 KM</div>
+    </footer>
 
   <script src="/static/flatpickr.min.js"></script>
   <script src="/static/world-land.js"></script>
-  <script src="/static/app.js?v=163"></script>
+  <script src="/static/app.js?v=168"></script>
   <script src="/static/saved_searches.js?v=1"></script>
 </body>
 </html>
