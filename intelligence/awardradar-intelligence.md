@@ -1,0 +1,423 @@
+# AwardRadar Intelligence
+
+**Version:** 1.0 (Sprint 0)
+**Status:** Foundation
+**Project:** AwardRadar
+
+> "Never sound more certain than the data allows."
+
+---
+
+# Executive Summary
+
+AwardRadar Intelligence is the analytical core of AwardRadar.
+
+It is **not** a chatbot.
+
+It is **not** an LLM wrapper.
+
+It is **not** a travel assistant.
+
+AwardRadar Intelligence is a deterministic decision engine that transforms heterogeneous aviation and loyalty data into explainable travel recommendations with quantified confidence.
+
+Language models may assist in collecting information or generating explanations, but they never make booking decisions.
+
+The reasoning always belongs to AwardRadar.
+
+---
+
+# Philosophy
+
+AwardRadar exists to reduce uncertainty.
+
+Most travel products optimize for clicks.
+
+AwardRadar optimizes for confidence.
+
+The purpose of AwardRadar Intelligence is therefore not to answer questions.
+
+Its purpose is to produce trustworthy decisions.
+
+Every recommendation must be:
+
+- explainable
+- reproducible
+- testable
+- evidence-based
+- transparent about uncertainty
+
+---
+
+# Core Principles
+
+## 1. Facts before language
+
+Facts are permanent assets.
+
+Summaries are disposable.
+
+AwardRadar stores facts, not generated text.
+
+---
+
+## 2. Deterministic first
+
+Every calculation should be reproducible.
+
+If the same inputs are provided twice, the engine should produce the same result.
+
+---
+
+## 3. LLMs are optional
+
+Large Language Models are presentation components.
+
+They explain.
+
+They summarize.
+
+They never decide.
+
+Replacing Gemini with Claude or another future model must require changing only a provider implementation.
+
+---
+
+## 4. Evidence before recommendation
+
+Every recommendation must be backed by evidence.
+
+Evidence always precedes confidence.
+
+Confidence always precedes action.
+
+---
+
+## 5. Humility
+
+AwardRadar never pretends to know something it cannot verify.
+
+Unknown data must remain unknown.
+
+Missing information must never be invented.
+
+---
+
+## 6. User trust is more important than conversion
+
+AwardRadar does not optimize for bookings.
+
+AwardRadar optimizes for correct decisions.
+
+Long-term trust always wins over short-term clicks.
+
+---
+
+# System Architecture
+
+```
+                    USER QUERY
+                         │
+                         ▼
+              Data Collection Layer
+                         │
+                         ▼
+               Normalization Layer
+                         │
+                         ▼
+             Intelligence Reasoners
+                         │
+                         ▼
+             Decision Package Builder
+                         │
+                         ▼
+              Verification Protocol
+                         │
+                         ▼
+              Decision Workspace UI
+```
+
+---
+
+# The Intelligence Stack
+
+AwardRadar Intelligence consists of independent layers.
+
+## Layer 1
+
+Data Collection
+
+Responsible for gathering information from:
+
+- airline programs
+- award APIs
+- cash fares
+- transfer partners
+- airport metadata
+- routing information
+
+---
+
+## Layer 2
+
+Knowledge Harvesting
+
+Transforms external information into structured facts.
+
+Output:
+
+Atomic Facts.
+
+Never summaries.
+
+---
+
+## Layer 3
+
+Knowledge Store
+
+Stores validated information.
+
+Current implementation:
+
+SQLite
+
+Future options:
+
+- PostgreSQL
+- Firestore
+- BigQuery
+
+The storage layer must remain independent from the reasoning layer.
+
+---
+
+## Layer 4
+
+Reasoners
+
+Independent deterministic modules.
+
+Initially:
+
+- Value Reasoner
+- Risk Reasoner
+- Routing Reasoner
+- Confidence Reasoner
+
+Future:
+
+- Transfer Reasoner
+- Status Reasoner
+- Open Jaw Reasoner
+- Hidden Opportunity Reasoner
+
+Every reasoner answers exactly one question.
+
+---
+
+## Layer 5
+
+Decision Package
+
+The final product of AwardRadar Intelligence.
+
+The UI never computes.
+
+The UI renders.
+
+The Decision Package contains:
+
+- recommendation
+- evidence
+- confidence
+- verification
+- alternatives
+- execution guidance
+
+---
+
+## Layer 6
+
+LLM Provider
+
+Optional.
+
+Purpose:
+
+Transform structured facts into readable language.
+
+Responsibilities:
+
+- explanation
+- summarization
+- localization
+
+Forbidden:
+
+- invent facts
+- modify numbers
+- override engine decisions
+
+---
+
+# Knowledge Objects
+
+AwardRadar stores knowledge as structured objects.
+
+Example:
+
+```
+
+Topic
+
+↓
+
+Atomic Facts
+
+↓
+
+Rules
+
+↓
+
+Sources
+
+↓
+
+Confidence
+
+↓
+
+Verification Date
+
+```
+
+The engine must always reason over facts.
+
+Never over generated paragraphs.
+
+---
+
+# Decision Package
+
+Every search produces exactly one Decision Package.
+
+Example:
+
+Decision
+
+↓
+
+Evidence
+
+↓
+
+Confidence
+
+↓
+
+Verification
+
+↓
+
+Alternative Pathways
+
+↓
+
+Execution
+
+This package becomes the Decision Workspace.
+
+---
+
+# AwardRadar Vocabulary
+
+AwardRadar intentionally uses its own terminology.
+
+Approved vocabulary:
+
+Decision Workspace
+
+Decision Summary
+
+Verification Protocol
+
+Decision Confidence
+
+Alternative Pathways
+
+Hidden Opportunity
+
+Execution
+
+Recommendation Summary
+
+Generated by AwardRadar Intelligence
+
+Avoid:
+
+Search Results
+
+Deals
+
+Cheapest Flight
+
+Best Price
+
+Book Now
+
+Discount
+
+Hack
+
+---
+
+# Development Rules
+
+All new Intelligence components must satisfy:
+
+✔ deterministic
+
+✔ testable
+
+✔ modular
+
+✔ documented
+
+✔ independently deployable
+
+---
+
+# Long-Term Vision
+
+AwardRadar Intelligence will evolve from a recommendation engine into an Aviation Decision System.
+
+Future capabilities include:
+
+- loyalty intelligence
+- transfer intelligence
+- award availability intelligence
+- routing intelligence
+- risk prediction
+- status optimization
+- opportunity discovery
+
+Language models will continue to assist.
+
+The intelligence itself will always remain proprietary.
+
+---
+
+# Mission Statement
+
+AwardRadar Intelligence exists to remove uncertainty from travel decisions.
+
+We do not sell flights.
+
+We build confidence.
+
+---
+
+*"Never sound more certain than the data allows."*
+
+— AwardRadar Intelligence
