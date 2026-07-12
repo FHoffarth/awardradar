@@ -637,6 +637,38 @@
     .shell.has-results .recommendation-card:has(.decision-document) .rec-evidence {
       margin-top: 72px; padding-top: 40px; border-top: 1px solid rgba(255,255,255,.08);
     }
+
+    /* Sprint W0.5 â€” the homepage becomes the workspace immediately. */
+    .shell.has-results.is-transitioning .hero {
+      opacity: .16 !important; transform: none !important;
+    }
+    .shell.has-results.is-transitioning .panel,
+    .shell.has-results.is-transitioning .results {
+      opacity: 1 !important; transform: none !important;
+    }
+    .shell.has-results .workspace-pending { min-height: 420px; }
+    .shell.has-results .workspace-pending .decision-recommendation { margin-bottom: 56px; }
+    .shell.has-results .workspace-pending-route {
+      margin: 18px 0 0; color: rgba(235,232,226,.48);
+      font: 400 13px/1.4 'Inter',sans-serif; letter-spacing: .08em;
+    }
+    .shell.has-results .workspace-pending-stages {
+      display: grid; gap: 14px; max-width: 420px; padding-top: 30px;
+      border-top: 1px solid rgba(255,255,255,.08);
+    }
+    .shell.has-results .workspace-pending .radar-stage {
+      display: flex; align-items: center; gap: 12px; color: rgba(235,232,226,.38);
+      font: 400 12px/1.4 'Inter',sans-serif; letter-spacing: .015em;
+    }
+    .shell.has-results .workspace-pending .radar-stage.active { color: rgba(235,232,226,.78); }
+    .shell.has-results .workspace-pending .radar-stage.done { color: rgba(235,232,226,.48); }
+    .shell.has-results .workspace-pending .radar-stage-dot {
+      width: 4px; height: 4px; border-radius: 50%; background: rgba(199,122,50,.72);
+    }
+    .shell.has-results .workspace-pending .radar-elapsed {
+      margin-top: 24px; color: rgba(235,232,226,.32);
+      font: 400 10px/1.4 'Inter',sans-serif; letter-spacing: .08em;
+    }
     @media (max-width: 900px) {
       body:has(.shell.has-results) #globe-wrap { left: 44% !important; width: 56vw !important; opacity: .42 !important; }
       body:has(.shell.has-results)::after { background: linear-gradient(90deg,#020207 0%,#020207 60%,rgba(2,2,7,.72) 100%); }
@@ -948,6 +980,68 @@
       .shell:not(.has-results) ~ footer .footer-links { gap: 15px; flex-wrap: wrap; }
       .freeze-coordinates { display: none; }
     }
+
+    /* Sprint W0.6 â€” remove the remaining legacy-blue interaction layer. */
+    .shell:not(.has-results) .fields:focus-within {
+      border-color: rgba(199,122,50,.32) !important;
+      box-shadow: inset 0 1px 0 rgba(199,122,50,.16) !important;
+    }
+    .shell:not(.has-results) .fields input:focus,
+    .shell:not(.has-results) .fields input:focus-visible {
+      outline: 0 !important; border-color: transparent !important; box-shadow: none !important;
+    }
+    .shell:not(.has-results) .glass-go:focus-visible {
+      outline: 1px solid rgba(199,122,50,.58) !important; outline-offset: -5px; border-radius: 0 !important;
+    }
+    .shell:not(.has-results) .ac-drop {
+      background: #111317 !important; border: .5px solid rgba(245,242,236,.10) !important;
+      border-radius: 1px !important; box-shadow: 0 20px 48px rgba(0,0,0,.44) !important;
+    }
+    .ac-item { color: rgba(245,242,236,.76); }
+    .ac-item:hover, .ac-item.ac-active {
+      background: rgba(199,122,50,.10) !important;
+    }
+    .ac-item:focus-visible { outline: 1px solid rgba(199,122,50,.5); outline-offset: -1px; }
+    .ac-code { color: #c77a32 !important; font-weight: 600; }
+    .ac-label { color: rgba(209,200,187,.68) !important; }
+    .flatpickr-calendar {
+      background: #111317 !important; border: .5px solid rgba(245,242,236,.10) !important;
+      border-radius: 1px !important; box-shadow: 0 24px 56px rgba(0,0,0,.5) !important;
+    }
+    .flatpickr-current-month, .flatpickr-current-month .numInputWrapper input,
+    .flatpickr-monthDropdown-month { color: #e7e0d5 !important; }
+    .flatpickr-weekday { color: rgba(209,200,187,.48) !important; }
+    .flatpickr-day { color: rgba(245,242,236,.76) !important; border-radius: 1px !important; }
+    .flatpickr-day:hover, .flatpickr-day:focus {
+      background: rgba(199,122,50,.10) !important; border-color: rgba(199,122,50,.22) !important;
+    }
+    .flatpickr-day.selected, .flatpickr-day.selected:hover,
+    .flatpickr-day.startRange, .flatpickr-day.endRange {
+      background: #c77a32 !important; border-color: #c77a32 !important; color: #111317 !important;
+      box-shadow: none !important;
+    }
+    .flatpickr-day.today { border-color: rgba(199,122,50,.55) !important; }
+    .flatpickr-day.fp-day-best, .flatpickr-day.fp-day-cheap,
+    .flatpickr-day.fp-day-range {
+      background: rgba(199,122,50,.07) !important; border-color: rgba(199,122,50,.2) !important;
+      box-shadow: none !important;
+    }
+    .flatpickr-day.fp-day-best .fp-price, .flatpickr-day.fp-day-cheap .fp-price,
+    .flatpickr-day.fp-day-mid .fp-price { color: #c77a32 !important; }
+    .flatpickr-months .flatpickr-prev-month:hover,
+    .flatpickr-months .flatpickr-next-month:hover { color: #c77a32 !important; fill: #c77a32 !important; }
+    [data-theme="light"] .shell:not(.has-results) .ac-drop, [data-theme="light"] .flatpickr-calendar {
+      background: #f2eee6 !important; border-color: rgba(40,37,31,.16) !important;
+      box-shadow: 0 20px 48px rgba(40,37,31,.14) !important;
+    }
+    [data-theme="light"] .ac-item { color: #28251f; }
+    [data-theme="light"] .ac-item:hover, [data-theme="light"] .ac-item.ac-active,
+    [data-theme="light"] .flatpickr-day:hover { background: rgba(199,122,50,.11) !important; }
+    [data-theme="light"] .ac-label, [data-theme="light"] .flatpickr-weekday { color: rgba(81,74,65,.68) !important; }
+    [data-theme="light"] .flatpickr-current-month,
+    [data-theme="light"] .flatpickr-current-month .numInputWrapper input,
+    [data-theme="light"] .flatpickr-monthDropdown-month,
+    [data-theme="light"] .flatpickr-day { color: #28251f !important; }
   </style>
 </head>
 <body>
@@ -1022,8 +1116,7 @@
             <div class="fields" role="search" aria-label="Journey analysis">
         
         <div class="field-slot origin-slot">
-          <input id="origin" placeholder="Frankfurt" aria-label="Origin airport" autocomplete="off" aria-describedby="originError">
-          <span class="freeze-code" aria-hidden="true">FRA</span>
+          <input id="origin" placeholder="Origin" aria-label="Origin airport" autocomplete="off" aria-describedby="originError">
           <div class="ac-drop" id="ac-origin" role="listbox" aria-label="Airport suggestions"></div>
           <div class="field-error" id="originError" aria-live="polite" style="display:none"></div>
           <div id="extra-origins" style="display:none"></div>
@@ -1033,8 +1126,7 @@
         <div class="field-divider"></div>
 
         <div class="field-slot dest-slot">
-          <input id="dest" placeholder="New York" autocomplete="off" aria-describedby="destError">
-          <span class="freeze-code" aria-hidden="true">JFK</span>
+          <input id="dest" placeholder="Destination" autocomplete="off" aria-describedby="destError">
           <div class="ac-drop" id="ac-dest" role="listbox" aria-label="Airport suggestions"></div>
           <div class="field-error" id="destError" aria-live="polite" style="display:none"></div>
         </div>
@@ -1042,7 +1134,7 @@
         <div class="field-divider"></div>
 
         <div class="field-slot date-slot">
-          <input id="date" placeholder="Date" autocomplete="off" aria-label="Departure date" aria-describedby="dateError">
+          <input id="date" placeholder="Departure" autocomplete="off" aria-label="Departure date" aria-describedby="dateError">
           <div class="field-error" id="dateError" aria-live="polite" style="display:none"></div>
         </div>
 
@@ -1325,7 +1417,7 @@
 
   <script src="/static/flatpickr.min.js"></script>
   <script src="/static/world-land.js"></script>
-  <script src="/static/app.js?v=168"></script>
+  <script src="/static/app.js?v=171"></script>
   <script src="/static/saved_searches.js?v=1"></script>
 </body>
 </html>

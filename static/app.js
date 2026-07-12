@@ -625,26 +625,18 @@ let _searchStart = 0;
 function radarHtml(origin, dest, currentMode = mode) {
   const route = (origin && dest) ? `${origin} → ${dest}` : '';
   const stagesForMode = RADAR_STAGES[currentMode] || RADAR_STAGES.cheap;
-  const dots = [
-    [48, 2], [95, 48], [48, 95], [2, 48],
-    [82, 14], [82, 82], [14, 82], [14, 14],
-  ].map(([x, y]) => `<div class="radar-ring-dot" style="left:${x}%;top:${y}%"></div>`).join('');
   const stages = stagesForMode.map((s, i) =>
     `<div class="radar-stage" id="rs${i}"><span class="radar-stage-dot"></span>${s}</div>`
   ).join('');
-  return `<div class="radar-state" role="status" aria-live="polite" aria-label="AwardRadar is analyzing flight value">
-    ${route ? `<div class="radar-route"><strong>${esc(route)}</strong></div>` : ''}
-    <div class="radar-ring-wrap" aria-hidden="true">
-      <div class="radar-ring radar-ring-outer"></div>
-      <div class="radar-ring radar-ring-mid"></div>
-      <div class="radar-ring radar-ring-inner"></div>
-      ${dots}
-      <div class="radar-ring-sweep"></div>
-      <div class="radar-center"></div>
+  return `<section class="decision-document workspace-pending" role="status" aria-live="polite" aria-label="AwardRadar is analyzing this journey">
+    <div class="decision-section decision-recommendation">
+      <div class="decision-label">Our Recommendation</div>
+      <h2>Analyzing this journey.</h2>
+      ${route ? `<p class="workspace-pending-route">${esc(route)}</p>` : ''}
     </div>
-    <div class="radar-stages">${stages}</div>
-    <div class="radar-elapsed" id="radarElapsed">AwardRadar is analyzing</div>
-  </div>`;
+    <div class="workspace-pending-stages" aria-label="Analysis progress">${stages}</div>
+    <div class="radar-elapsed" id="radarElapsed">Preparing the decision workspace</div>
+  </section>`;
 }
 
 function startProgress(origin, dest) {
@@ -794,6 +786,7 @@ async function run() {
     currentCheapRequest = requestPayload;
     currentReturnLegAttempts = new Set();
   }
+  collapseSearch();
   startProgress(_origin, _dest);
   const endpoint = mode === 'cheap' ? '/api/cheap' : mode === 'skiplag' ? '/api/skiplag' : '/api/awards';
   try {
@@ -2118,7 +2111,7 @@ function initDatepickers() {
       markSearchFieldTouched('date', { show });
     }
   });
-  fpDep.altInput.placeholder = 'Tomorrow';
+  fpDep.altInput.placeholder = 'Departure';
   fpDep.altInput.setAttribute('aria-label', 'Departure date');
 
   fpRet = flatpickr('#returnDate', {
@@ -2322,6 +2315,10 @@ document.querySelectorAll('.date-chip').forEach(btn => {
 });
 
 // Init Flatpickr
+['origin', 'dest', 'date', 'returnDate'].forEach(id => {
+  const input = $(id);
+  if (input) input.value = '';
+});
 initDatepickers();
 // Init return field visibility
 toggleReturn(true);
