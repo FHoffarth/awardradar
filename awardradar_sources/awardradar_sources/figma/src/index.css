@@ -136,4 +136,65 @@ input:focus          { outline: none; }
 .ar-field--from .ar-technical-code,
 .ar-field--to .ar-technical-code { letter-spacing: 0.19em; }
 
+/* ─── Mobile layout hotfixes ─────────────────────────────────────────────────── */
+html, body, #root {
+  overflow-x: hidden;
+}
 
+/* Base mobile styles (under 768px) */
+.ar-nav-links {
+  display: none !important;
+}
+.ar-instrument {
+  width: 100% !important;
+  flex-direction: column !important;
+}
+.ar-field {
+  padding: 16px 20px 14px !important;
+}
+.ar-search-button {
+  width: 100% !important;
+  flex: 0 0 56px !important;
+}
+.ar-divider {
+  width: 100% !important;
+  height: 0.5px !important;
+  margin: 0 !important;
+}
+
+.ar-footer {
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 16px !important;
+}
+.ar-footer-links {
+  flex-wrap: wrap !important;
+  gap: 12px 24px !important;
+}
+
+/* Desktop styles (over 768px) */
+@media (min-width: 768px) {
+  .ar-nav-links {
+    display: flex !important;
+  }
+  .ar-instrument {
+    width: calc(100% + 96px) !important;
+    flex-direction: row !important;
+  }
+  .ar-field {
+    padding: 24px 48px 22px !important;
+  }
+  .ar-search-button {
+    width: 96px !important;
+    flex: 0 0 96px !important;
+  }
+  .ar-divider {
+    width: 0.5px !important;
+    height: auto !important;
+    margin: 17px 0 !important;
+  }
+  .ar-footer {
+    flex-direction: row !important;
+    align-items: center !important;
+  }
+}
