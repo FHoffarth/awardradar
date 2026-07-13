@@ -3,3 +3,14 @@ __pycache__/
 .env
 .venv/
 .DS_Store
+
+# Node / frontend build artifacts
+node_modules/
+*/node_modules/
+**/node_modules/
+
+# Source archives (do not commit)
+*.zip
+
+# Vite dev cache
+.vite/
