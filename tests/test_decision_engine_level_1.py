@@ -561,8 +561,8 @@ class AboutMethodologyPage(unittest.TestCase):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("index-DORpu8-5.js", html)
-        self.assertIn("index-DkiF1waf.css", html)
+        self.assertIn("index-kWjaLhcZ.js", html)
+        self.assertIn("index-BbhzMao4.css", html)
 
     def test_new_app_route_serves_google_bundle(self):
         response = self.client.get("/app")
