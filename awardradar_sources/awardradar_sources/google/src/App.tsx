@@ -302,7 +302,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#05050A] text-zinc-200 font-sans selection:bg-amber-500/30 overflow-x-hidden">
       {/* Split Background */}
-      <div className="fixed inset-0 z-0 pointer-events-none" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh' }}>
+      <div className="fixed inset-0 z-0 pointer-events-none" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%' }}>
          <div className="flex w-full h-full">
             <div className="w-full md:w-1/2 h-full bg-[#05050A] z-10 md:z-0"></div>
             <div className="absolute md:relative w-full md:w-1/2 h-full top-0 right-0">

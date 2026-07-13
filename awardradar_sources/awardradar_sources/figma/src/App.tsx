@@ -344,7 +344,7 @@ function Field({
   t: typeof T['dark']
 }) {
   return (
-    <div className={`ar-field ar-field--${label.toLowerCase()}`} style={{ flex, padding: '24px 48px 22px', display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0 }}>
+    <div className={`ar-field ar-field--${label.toLowerCase()}`} style={{ flex, display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0 }}>
       {technicalCode ? (
         <>
           <span className="ar-field-label" style={{ color: t.fieldLabel }}>
@@ -485,8 +485,8 @@ export default function App() {
       data-theme={theme}
       style={{
         position: 'relative',
-        width: '100vw',
-        height: '100vh',
+        width: '100%',
+        height: '100%',
         overflow: 'hidden',
         background: t.bg,
         fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
@@ -626,7 +626,6 @@ export default function App() {
 
           <form className="ar-instrument-form" onSubmit={handleSearch}>
             <div className="ar-instrument" style={{
-              width: 'calc(100% + 96px)',
               display: 'flex',
               alignItems: 'stretch',
               background: t.instrBg,
