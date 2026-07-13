@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """AwardRadar v6.0 â€“ Find miles. Fly better.
 
 ProduktionsnÃ¤herer Flask-Build:
@@ -2596,6 +2596,17 @@ def award_links(origin: str, dest: str, dep: str, ret: str | None, cabin: str) -
 
 @app.route("/")
 def index():
+    return render_template("landing.html")
+
+
+@app.route("/app")
+def app_tool():
+    return render_template("app.html")
+
+
+@app.route("/tool")
+def tool_legacy():
+    """Legacy redirect: old /app content now at /tool for backward compat."""
     return render_template("index.html", app_name=APP_NAME, tagline=TAGLINE, version="v6.0")
 
 
