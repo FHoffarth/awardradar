@@ -1,7 +1,7 @@
 {
   "name": "AwardRadar",
   "short_name": "AwardRadar",
-  "description": "Find where your miles go further — Award Intelligence Platform",
+  "description": "Travel Decision Intelligence",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",

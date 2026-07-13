@@ -548,14 +548,28 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("consent.css?v=2", html)
         self.assertNotIn("app.js?v=147", html)
 
-    def test_about_navigation_exists_on_main_page(self):
-        response = self.client.get("/")
+    def test_about_navigation_exists_on_legacy_tool(self):
+        response = self.client.get("/tool")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
         self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
         self.assertIn("app.css?v=160", html)
         self.assertIn("app.js?v=163", html)
+
+    def test_new_landing_route_serves_figma_bundle(self):
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("index-DZG0CHVA.js", html)
+        self.assertIn("index-BlXMwLXF.css", html)
+
+    def test_new_app_route_serves_google_bundle(self):
+        response = self.client.get("/app")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("index-CONf60Qj.js", html)
+        self.assertIn("index-3fM9CZCL.css", html)
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()
@@ -762,7 +776,7 @@ class AwardsApiErrorHandling(unittest.TestCase):
         self.assertTrue(response.get_json()["ok"])
 
     def test_key_query_does_not_set_token_cookie(self):
-        response = self.client.get("/?key=secret-test-token")
+        response = self.client.get("/tool?key=secret-test-token")
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("app_token", response.headers.get("Set-Cookie", ""))
 
@@ -1095,7 +1109,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
             self.assertIn("awardradar_theme", html)
 
     def test_footers_link_to_english_privacy(self):
-        for path in ("/", "/about"):
+        for path in ("/tool", "/about"):
             html = self.client.get(path).get_data(as_text=True)
             self.assertIn('<a href="/privacy">English privacy</a>', html)
 
@@ -1105,7 +1119,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
         self.assertIn("https://awardradar.app/privacy", response.get_data(as_text=True))
 
     def test_related_legal_and_core_routes_remain_healthy(self):
-        for path in ("/datenschutz", "/impressum", "/about", "/"):
+        for path in ("/datenschutz", "/impressum", "/about", "/", "/tool", "/app"):
             self.assertEqual(self.client.get(path).status_code, 200)
 
 
