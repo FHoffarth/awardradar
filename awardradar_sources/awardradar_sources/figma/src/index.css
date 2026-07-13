@@ -1,0 +1,139 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures contextual;
+  font-synthesis: none;
+}
+
+[data-theme='dark'] ::placeholder  { color: #82796D; }
+[data-theme='light'] ::placeholder { color: #92897D; }
+
+::-webkit-scrollbar { display: none; }
+input:focus          { outline: none; }
+
+/* ─── Globe motion ─────────────────────────────────────────────────────────── */
+
+@keyframes ar-photo-drift {
+  0%   { transform: translateX(-4px) scale(1.006); }
+  100% { transform: translateX(4px) scale(1.006); }
+}
+
+/* ─── AwardRadar route instrument ────────────────────────────────────────── */
+.ar-instrument-form { width: 100%; }
+
+.ar-instrument {
+  border-radius: 1px;
+  position: relative;
+  isolation: isolate;
+  cursor: text;
+  transition: border-color 140ms linear;
+}
+
+.ar-instrument::before {
+  content: '';
+  position: absolute;
+  z-index: 3;
+  top: -0.5px;
+  left: 28px;
+  width: 30px;
+  height: 1px;
+  background: #C77A32;
+  pointer-events: none;
+}
+
+.ar-instrument::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  transition: box-shadow 140ms linear;
+}
+
+.ar-instrument:hover { border-color: rgba(199, 122, 50, 0.11) !important; }
+.ar-instrument:focus-within::after { box-shadow: inset 0 0 0 1px rgba(199, 122, 50, 0.24); }
+
+.ar-field { position: relative; }
+.ar-field--from,
+.ar-field--to { flex-grow: 1.08; }
+.ar-field--date { flex-grow: 0; }
+
+.ar-input {
+  caret-color: #C77A32;
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 0;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-variant-ligatures: none;
+  text-indent: 0.01em;
+  transition: color 140ms linear, caret-color 140ms linear;
+}
+.ar-input:focus-visible { outline: none; }
+.ar-input::selection { background: rgba(199, 122, 50, 0.14); color: inherit; }
+
+.ar-search-button {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 0;
+  touch-action: manipulation;
+  user-select: none;
+}
+.ar-search-button svg { display: block; }
+
+.ar-field-label {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  line-height: 1;
+  text-transform: uppercase;
+  user-select: none;
+}
+.ar-field--from .ar-field-label,
+.ar-field--to .ar-field-label { letter-spacing: 0.23em; }
+
+.ar-place-input {
+  flex: 1 1 auto;
+  min-height: 23px;
+  margin-top: 1px !important;
+}
+
+.ar-technical-code {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  line-height: 1;
+  text-transform: uppercase;
+  user-select: none;
+}
+.ar-field--from .ar-technical-code,
+.ar-field--to .ar-technical-code { letter-spacing: 0.19em; }
+
+
