@@ -75,10 +75,10 @@
   <link rel="icon" href="/static/favicon-96x96.png" type="image/png" sizes="96x96">
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" sizes="180x180">
   <link rel="stylesheet" href="/static/app.css?v=160">
-  <link rel="stylesheet" href="/static/consent.css?v=2">
+  <link rel="stylesheet" href="/static/consent.css?v=3">
   <link rel="stylesheet" href="/static/saved_searches.css?v=1">
   <link rel="stylesheet" href="/static/flatpickr.min.css">
-  <link rel="stylesheet" href="/static/ui-next.css?v=1">
+  <link rel="stylesheet" href="/static/ui-next.css?v=2">
   <script src="/static/consent.js?v=1" defer></script>
   <style>
     /* ── BASE SYSTEM ── */
@@ -369,6 +369,8 @@
       color: rgba(255, 255, 255, 0.65);
     }
 
+    /* Legacy result presentation is intentionally retired by Workspace v3. */
+    @media not all {
     /* Result experience: the landing canvas continuing into a decision. */
     body:has(.shell.has-results) { background: #020203 !important; }
     body:has(.shell.has-results) #globe-wrap {
@@ -907,6 +909,8 @@
       .result-workspace-head { margin-bottom: 64px; }
       .shell.has-results .decision-summary-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
       .shell.has-results .decision-complete dl { grid-template-columns: 1fr; }
+    }
+
     }
 
     /* Approved homepage — Design Freeze v1 restoration. */
@@ -1491,6 +1495,7 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="/static/workspace.css?v=4">
 </head>
 <body>
   <a class="skip-link" href="#results">Skip to decision workspace</a>
@@ -1829,7 +1834,7 @@
 
       <footer>
       <div class="footer-links">
-        <a href="/datenschutz">Privacy</a>
+        <a href="/privacy">Privacy</a>
         <a href="/impressum">Imprint</a>
         <button type="button" class="theme-link-btn" aria-label="Accessibility options">Accessibility</button>
         <button type="button" class="theme-link-btn" id="themeBtn" aria-label="Toggle light/dark mode">Theme</button>
@@ -1840,7 +1845,7 @@
 
   <script src="/static/flatpickr.min.js"></script>
   <script src="/static/world-land.js"></script>
-  <script src="/static/app.js?v=173"></script>
+  <script src="/static/app.js?v=175"></script>
   <script src="/static/saved_searches.js?v=1"></script>
 </body>
 </html>

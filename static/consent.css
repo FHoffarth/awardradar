@@ -1,93 +1,98 @@
-/* Premium Consent Dialog */
-#ar-consent {
+.consent-preferences {
   position: fixed;
-  bottom: 32px;
-  left: 32px;
-  width: calc(100% - 64px);
-  max-width: 360px;
-  background: rgba(10, 25, 47, 0.65); /* Matches deep midnight theme */
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  padding: 24px;
-  z-index: 99999;
-  box-sizing: border-box;
-  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
-  transform: translateY(20px);
-  opacity: 0;
-  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s ease;
-  pointer-events: none;
-}
-
-#ar-consent.ar-visible {
-  transform: translateY(0);
-  opacity: 1;
-  pointer-events: auto;
-}
-
-#ar-consent h3 {
-  font-family: Inter, ui-sans-serif, sans-serif;
-  font-size: 14px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.95);
-  margin: 0 0 8px 0;
-  line-height: 1.4;
-}
-
-#ar-consent p {
-  font-family: Inter, ui-sans-serif, sans-serif;
-  font-size: 13px;
-  font-weight: 400;
-  color: rgba(255, 255, 255, 0.5);
-  margin: 0 0 24px 0;
-  line-height: 1.5;
-}
-
-#ar-consent .ar-consent-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-#ar-consent button {
-  flex: 1;
-  height: 40px;
-  border-radius: 8px;
-  font-family: Inter, ui-sans-serif, sans-serif;
-  font-size: 13px;
-  font-weight: 500;
+  z-index: 9998;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  min-height: 44px;
+  padding: 0 14px;
+  color: rgba(235, 232, 226, .62);
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 0;
+  background: #0b0b0e;
+  font: 500 10px/1 Inter, ui-sans-serif, sans-serif;
+  letter-spacing: .04em;
   cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
 }
 
-#ar-consent button.ar-accept {
-  background: rgba(226, 194, 135, 0.1);
-  color: #e2c287;
-  border: 1px solid rgba(226, 194, 135, 0.2);
+.consent-banner {
+  position: fixed;
+  z-index: 9999;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(72px, calc(env(safe-area-inset-bottom) + 58px));
+  width: min(390px, calc(100vw - 36px));
+  padding: 24px;
+  box-sizing: border-box;
+  color: #f2f1ee;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 0;
+  background: #0b0b0e;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .28);
 }
 
-#ar-consent button.ar-accept:hover {
-  background: rgba(226, 194, 135, 0.15);
-  border-color: rgba(226, 194, 135, 0.3);
+.consent-copy strong {
+  display: block;
+  margin: 0 0 8px;
+  font: 500 13px/1.35 Inter, ui-sans-serif, sans-serif;
 }
 
-#ar-consent button.ar-reject {
+.consent-copy p {
+  margin: 0;
+  color: rgba(235, 232, 226, .58);
+  font: 400 12px/1.55 Inter, ui-sans-serif, sans-serif;
+}
+
+.consent-actions {
+  display: flex;
+  gap: 18px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, .09);
+}
+
+.consent-btn {
+  min-height: 44px;
+  padding: 0;
+  color: rgba(235, 232, 226, .68);
+  border: 0;
+  border-bottom: 1px solid rgba(154, 100, 44, .72);
+  border-radius: 0;
   background: transparent;
-  color: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  font: 500 10px/1 Inter, ui-sans-serif, sans-serif;
+  letter-spacing: .04em;
+  cursor: pointer;
 }
 
-#ar-consent button.ar-reject:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.8);
+.consent-btn-primary { color: #f2f1ee; }
+.consent-btn:hover,
+.consent-preferences:hover { color: #f2f1ee; }
+
+[data-theme="light"] .consent-preferences,
+[data-theme="light"] .consent-banner {
+  color: #18212a;
+  border-color: rgba(34, 45, 56, .16);
+  background: #f7f8f9;
+  box-shadow: 0 12px 28px rgba(34, 45, 56, .12);
 }
+
+[data-theme="light"] .consent-copy p,
+[data-theme="light"] .consent-btn { color: rgba(34, 45, 56, .66); }
+[data-theme="light"] .consent-btn-primary,
+[data-theme="light"] .consent-btn:hover,
+[data-theme="light"] .consent-preferences:hover { color: #18212a; }
+[data-theme="light"] .consent-actions { border-color: rgba(34, 45, 56, .12); }
 
 @media (max-width: 640px) {
-  #ar-consent {
-    bottom: 24px;
-    left: 24px;
-    width: calc(100% - 48px);
+  .consent-preferences {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
   }
+
+  .consent-banner {
+    right: 12px;
+    bottom: max(66px, calc(env(safe-area-inset-bottom) + 62px));
+    width: calc(100vw - 24px);
+    padding: 20px;
+  }
+
+  .consent-actions { flex-direction: column; gap: 6px; }
 }

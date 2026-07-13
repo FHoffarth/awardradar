@@ -21,35 +21,24 @@
   <title>Privacy Notice – AwardRadar</title>
   <meta name="robots" content="noindex, follow">
   <link rel="stylesheet" href="/static/app.css?v=160">
-  <link rel="stylesheet" href="/static/consent.css?v=2">
+  <link rel="stylesheet" href="/static/consent.css?v=3">
   <link rel="stylesheet" href="/static/ui-next.css?v=12">
-  <link rel="stylesheet" href="/static/public.css?v=1">
+  <link rel="stylesheet" href="/static/public.css?v=3">
   <script src="/static/consent.js?v=1" defer></script>
-  <style>
-    .legal { max-width: 760px; margin: 0 auto; padding: 48px 20px 80px; min-width: 0; overflow-wrap: break-word; }
-    .legal h1 { font-size: clamp(24px, 8vw, 36px); line-height: 1.15; margin-bottom: 8px; overflow-wrap: anywhere; hyphens: auto; }
-    .legal h2 { color: var(--nx-brass); font-size: 16px; margin: 32px 0 6px; }
-    .legal p, .legal ul { color: var(--nx-reading-ink); line-height: 1.7; }
-    .legal ul { padding-left: 20px; }
-    .legal a { color: var(--nx-accent); }
-    .legal code { color: var(--nx-accent); }
-    .back { display: inline-block; margin-bottom: 32px; color: var(--nx-accent); text-decoration: none; font-size: 14px; }
-  </style>
 </head>
 <body class="about-page">
   <nav class="navbar">
     <div class="nav-inner">
-      <a href="/" class="nav-link">Search</a>
+      <a href="/" class="public-brand" aria-label="AwardRadar home">Award<span>Radar</span></a>
       <div class="nav-right">
-        <button class="theme-btn" id="themeBtn" aria-label="Toggle light/dark mode">
-          <svg id="themeIconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          <svg id="themeIconSun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-        </button>
+        <a class="nav-link" href="/about">About</a>
+        <a class="nav-link" href="/about#decision-layer">Methodology</a>
+        <a class="nav-link" href="/#sign-in">Sign in</a>
       </div>
     </div>
   </nav>
   <div class="legal">
-    <a href="/" class="back">← Back to AwardRadar</a>
+    <a href="/" class="back">← Analyze another journey</a>
     <h1>Privacy Notice</h1>
     <p>This English version is provided for information only. The German version is legally controlling.</p>
     <p>Legally controlling German version: <a href="/datenschutz">Datenschutzerklärung</a></p>
@@ -127,7 +116,7 @@
     <p>This privacy notice may be updated if functions, providers or legal assessments change. Last updated: July 2026.</p>
   </div>
   <footer class="public-footer">
-    <div class="footer-links"><a href="/">AwardRadar</a><a href="/about">About</a><a href="/impressum">Imprint</a><a href="/datenschutz">Privacy</a></div>
+    <div class="footer-links"><a href="/">Journey Analysis</a><a href="/about">About</a><a href="/impressum">Imprint</a><a href="/datenschutz">Privacy</a><button type="button" class="public-footer-button" id="themeBtn" aria-label="Toggle light/dark mode">Theme</button></div>
     <p>&copy; 2026 AwardRadar</p>
   </footer>
   <script>

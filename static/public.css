@@ -6,17 +6,17 @@
   --public-quiet: rgba(241, 240, 238, .45);
   --public-line: rgba(241, 240, 238, .12);
   --public-amber: #a9692d;
-  --public-gutter: clamp(24px, 7.3vw, 116px);
+  --public-gutter: clamp(34px, 3.35vw, 52px);
 }
 
 [data-theme="light"] {
-  --public-bg: #f2efe8;
-  --public-surface: #e9e5dc;
-  --public-text: #171614;
-  --public-muted: rgba(23, 22, 20, .68);
-  --public-quiet: rgba(23, 22, 20, .48);
-  --public-line: rgba(23, 22, 20, .14);
-  --public-amber: #93561f;
+  --public-bg: #eef1f3;
+  --public-surface: #e7eaec;
+  --public-text: #18212a;
+  --public-muted: rgba(34, 45, 56, .68);
+  --public-quiet: rgba(34, 45, 56, .48);
+  --public-line: rgba(34, 45, 56, .14);
+  --public-amber: #8f5a29;
 }
 
 body.about-page {
@@ -48,44 +48,16 @@ body.about-page {
   box-sizing: border-box;
 }
 
-.about-page .logo,
-.about-page .nav-inner > .nav-link:first-child {
+.about-page .public-brand {
   display: inline-flex;
-  flex-direction: column;
-  gap: 2px;
   color: var(--public-text);
   text-decoration: none;
-  font-size: 15px;
-  font-weight: 650;
-  line-height: 1;
-  letter-spacing: .01em;
-}
-
-.about-page .nav-inner > .nav-link:first-child {
-  font-size: 0;
-}
-
-.about-page .nav-inner > .nav-link:first-child::before {
-  content: "AwardRadar";
-  font-size: 15px;
-  color: var(--public-text);
-}
-
-.about-page .nav-inner > .nav-link:first-child::after,
-.about-page .logo::after {
-  content: "TRAVEL DECISION INTELLIGENCE";
-  color: var(--public-quiet);
-  font-size: 9px;
+  font-size: 13px;
   font-weight: 500;
-  letter-spacing: .24em;
-  line-height: 1.2;
+  line-height: 1;
+  letter-spacing: .04em;
 }
-
-.about-page .logo-mark { display: none; }
-.about-page .logo-name { font-size: 15px; line-height: 1; }
-.about-page .logo-award { color: var(--public-text); }
-.about-page .logo-radar { color: var(--public-amber); }
-.about-page .logo-tagline { display: none; }
+.about-page .public-brand span { color: var(--public-amber); }
 
 .about-page .nav-right {
   display: flex;
@@ -95,7 +67,8 @@ body.about-page {
 
 .about-page .nav-link,
 .about-page .theme-btn,
-.about-page .text-size-btn {
+.about-page .text-size-btn,
+.public-footer-button {
   color: var(--public-muted);
   border: 0;
   background: transparent;
@@ -111,6 +84,7 @@ body.about-page {
 .about-page .nav-link-active { color: var(--public-text); }
 .about-page .theme-btn { padding: 8px; }
 .about-page .text-size-control { border-color: var(--public-line); }
+.public-footer-button { padding: 0; cursor: pointer; }
 
 .about-shell,
 .about-page .legal {
@@ -121,7 +95,7 @@ body.about-page {
   box-sizing: border-box;
 }
 
-.about-page .legal { max-width: 760px; }
+.about-page .legal { max-width: 760px; overflow-wrap: break-word; }
 
 .about-hero,
 .about-page .legal > h1:first-of-type {
@@ -158,6 +132,9 @@ body.about-page {
   font-size: clamp(15px, 1.4vw, 17px);
   line-height: 1.75;
 }
+.about-page .legal address { font-style: normal; }
+.about-page .legal ul { padding-left: 20px; }
+.about-page .legal code { color: var(--public-amber); }
 
 .about-hero p { max-width: 720px; }
 
@@ -254,6 +231,16 @@ body.about-page {
   text-decoration: none;
 }
 
+[data-theme="light"] .about-primary-link,
+[data-theme="light"] .about-secondary-link {
+  color: var(--public-text);
+  border: 0;
+  border-bottom: 1px solid var(--public-amber);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .about-page footer,
 .public-footer {
   margin: 0 var(--public-gutter);
@@ -276,6 +263,8 @@ body.about-page {
   :root { --public-gutter: 22px; }
   .about-page .nav-inner { min-height: 94px; padding-top: 26px; }
   .about-page .nav-right { gap: 10px; }
+  .about-page .nav-right .nav-link:nth-child(2),
+  .about-page .nav-right .nav-link:nth-child(3) { display: none; }
   .about-page .text-size-control { display: none; }
   .about-shell,
   .about-page .legal { width: calc(100% - 44px); padding-top: 54px; }

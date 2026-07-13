@@ -506,7 +506,7 @@ p,.hero p,.about-section,.cg-block p,.cg-evidence,.rt-disclosure,
    ============================================================ */
 
 .panel-bottom {
-  display: flex !important;
+  display: flex;
   flex-direction: column !important;
   gap: 30px !important;
   margin-top: 30px !important;

@@ -622,14 +622,12 @@ function radarHtml(origin, dest, currentMode = mode) {
   const stages = stagesForMode.map((s, i) =>
     `<div class="radar-stage" id="rs${i}"><span class="radar-stage-dot"></span>${s}</div>`
   ).join('');
-  return `<section class="decision-document workspace-pending" role="status" aria-live="polite" aria-label="AwardRadar is analyzing this journey">
-    <div class="decision-section decision-recommendation">
-      <div class="decision-label">Our Recommendation</div>
-      <h2>Analyzing this journey.</h2>
-      ${route ? `<p class="workspace-pending-route">${esc(route)}</p>` : ''}
-    </div>
-    <div class="workspace-pending-stages" aria-label="Analysis progress">${stages}</div>
-    <div class="radar-elapsed" id="radarElapsed">Preparing the decision workspace</div>
+  return `<section class="ar-ws-pending" role="status" aria-live="polite" aria-label="AwardRadar is analyzing this journey">
+    <div class="ar-ws-label">Our Recommendation</div>
+    <h1>Analyzing this journey.</h1>
+    ${route ? `<p class="ar-ws-pending-route">${esc(route)}</p>` : ''}
+    <div class="ar-ws-pending-stages" aria-label="Analysis progress">${stages}</div>
+    <div class="ar-ws-pending-elapsed" id="radarElapsed">Preparing the decision workspace</div>
   </section>`;
 }
 
@@ -782,19 +780,36 @@ async function run() {
   }
   collapseSearch();
   startProgress(_origin, _dest);
-  const endpoint = mode === 'cheap' ? '/api/cheap' : '/api/awards';
   try {
     const headers = { 'Content-Type': 'application/json' };
-    const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(requestPayload) });
-    let data;
-    try { data = await res.json(); } catch (_) { throw new Error(res.status + ' ' + res.statusText); }
-    if (!res.ok || !data.ok) {
-      if (data && data.error === 'quota_exhausted') throw Object.assign(new Error('quota_exhausted'), { isQuota: true });
-      throw new Error((data && data.error) || res.statusText || 'Error');
+    const fetchAssessment = async endpoint => {
+      try {
+        const response = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(requestPayload) });
+        let data;
+        try { data = await response.json(); } catch (_) { throw new Error(response.status + ' ' + response.statusText); }
+        return response.ok && data && data.ok
+          ? { ok: true, data, error: '' }
+          : { ok: false, data, error: (data && data.error) || response.statusText || 'Error' };
+      } catch (error) {
+        return { ok: false, data: null, error: error && error.message ? error.message : 'Error' };
+      }
+    };
+    const hiddenRequest = requestPayload.oneWay
+      ? fetchAssessment('/api/skiplag')
+      : Promise.resolve({ ok: true, data: { ok: true, results: [], provider_available: false }, error: '', notApplicable: true });
+    const [cashAssessment, awardAssessment, hiddenAssessment] = await Promise.all([
+      fetchAssessment('/api/cheap'),
+      fetchAssessment('/api/awards'),
+      hiddenRequest,
+    ]);
+    if (!cashAssessment.ok && !awardAssessment.ok) {
+      const quotaReached = [cashAssessment, awardAssessment].some(layer => layer.data && layer.data.error === 'quota_exhausted');
+      if (quotaReached) throw Object.assign(new Error('quota_exhausted'), { isQuota: true });
+      throw new Error(cashAssessment.error || awardAssessment.error || 'Error');
     }
     stopProgress(true);
     if (typeof globePulseRoute === 'function') globePulseRoute(_origin, _dest);
-    render(data);
+    renderDecisionWorkspace({ cash: cashAssessment, awards: awardAssessment, hidden: hiddenAssessment }, requestPayload);
     collapseSearch();               // compact editable summary — only on success
     requestAnimationFrame(() => requestAnimationFrame(() => shell.classList.remove('is-transitioning')));
     setStatus('ready');
@@ -805,16 +820,17 @@ async function run() {
     console.debug('[AwardRadar]', e.message);
     let userMsg;
     if (e.isQuota) {
-      userMsg = `<div class="card analysis-empty">
-        <div class="analysis-empty-header">Capacity Limit</div>
-        <div class="analysis-empty-title">Analysis capacity temporarily reached.</div>
-        <p class="analysis-empty-reason">Live data refreshes periodically. Please try again in a few minutes.</p>
-      </div>`;
+      userMsg = `<section class="ar-ws-error" aria-labelledby="workspace-error-title">
+        <p class="ar-ws-kicker">Decision Workspace</p>
+        <h2 id="workspace-error-title">Analysis capacity temporarily reached.</h2>
+        <p>Live data refreshes periodically. Please try again in a few minutes.</p>
+      </section>`;
     } else {
-      userMsg = `<div class="card analysis-empty">
-        <div class="analysis-empty-title">Journey analysis is temporarily unavailable.</div>
-        <p class="analysis-empty-reason">Please try again in a moment.</p>
-      </div>`;
+      userMsg = `<section class="ar-ws-error" aria-labelledby="workspace-error-title">
+        <p class="ar-ws-kicker">Decision Workspace</p>
+        <h2 id="workspace-error-title">Journey analysis is temporarily unavailable.</h2>
+        <p>Please try again in a moment.</p>
+      </section>`;
     }
     $('results').innerHTML = userMsg;
     shell.classList.remove('is-transitioning');
@@ -910,7 +926,7 @@ const CASH_TIER_CSS = {
   exceptional: { css: 's-gold',  grade: 'A+', label: 'Exceptional Value' },
   great:       { css: 's-green', grade: 'A',  label: 'Strong Value' },
   good:        { css: 's-cyan',  grade: 'B',  label: 'Fair Value' },
-  fair:        { css: 's-muted', grade: 'C',  label: 'Pricey for This Search' },
+  fair:        { css: 's-muted', grade: 'C',  label: 'Pricey for This Journey' },
   poor:        { css: 's-muted', grade: 'D',  label: 'Weak Relative Value' },
 };
 // Numeric fallback only when backend tier is absent (e.g. legacy/TP offers).
@@ -922,7 +938,7 @@ function scoreInfo(s) {
   return { tier: 'poor', ...CASH_TIER_CSS.poor };
 }
 const CASH_CONTEXT_NOTE = {
-  best_available_not_cheap: 'Best available in this search, but the fare remains high.',
+  best_available_not_cheap: 'The current fare remains high relative to the available context.',
   limited_comparison: 'Only one option found — limited comparison.',
 };
 function scoreHtml(o) {
@@ -952,7 +968,7 @@ function relativeSignalLabel(tier) {
 
 function cashReasonDisplay(reason) {
   return String(reason || '')
-    .replace(/cheapest in this search/gi, 'Lowest returned fare')
+    .replace(/cheapest in this search/gi, 'Lowest evaluated fare')
     .replace(/higher than cheapest/gi, 'Higher than lowest returned fare')
     .replace(/(\d+)% pricier than cheapest/gi, '$1% above lowest returned fare')
     .replace(/\bnonstop\b/gi, 'Nonstop itinerary')
@@ -996,7 +1012,7 @@ function scoreLegendHtml() {
       <span class="s-cyan score-num" style="font-size:15px">~</span><span><strong>Moderate relative signal</strong> — returned evidence is mixed</span>
       <span class="s-muted score-num" style="font-size:15px">−</span><span><strong>Weaker relative signal</strong> — returned fare or routing evidence is less compelling</span>
     </div>
-    <p class="legend-note">Value Signal is relative to the cheapest comparable result in this search, adjusted for routing quality and a price reality check. Best available is not always cheap.</p>
+    <p class="legend-note">Value Signal reflects comparable journey evidence, routing quality and available fare context.</p>
   </details>`;
 }
 
@@ -1149,8 +1165,10 @@ async function verifyRecommendedReturnLeg() {
     offer.return_segments = data.return_segments;
     if (Array.isArray(data.outbound_segments) && data.outbound_segments.length) offer.outbound_segments = data.outbound_segments;
     offer.itinerary_state = 'complete';
-    const slot = document.querySelector('.cash-rt-slot[data-offer-id="' + recId + '"]');
-    if (slot) slot.innerHTML = cashRoundTripIntegrityHtml(offer, true);
+    const workspaceSlot = document.querySelector('.ar-ws-itinerary-slot[data-offer-id="' + recId + '"]');
+    if (workspaceSlot) workspaceSlot.innerHTML = workspaceJourneyLeg('Outbound', offer.outbound_segments) + workspaceJourneyLeg('Return', offer.return_segments);
+    const legacySlot = document.querySelector('.cash-rt-slot[data-offer-id="' + recId + '"]');
+    if (legacySlot) legacySlot.innerHTML = cashRoundTripIntegrityHtml(offer, true);
   } catch (_) { /* verification failure leaves the partial result unchanged */ }
 }
 
@@ -1341,22 +1359,22 @@ function cheapCardsHtml(offers, sortKey, cashGuidance, opts = {}) {
       // Verdict copy based on sort context and existing signals
       let verdict = '';
       if (sortKey === 'price') {
-        verdict = 'Lowest fare in this search';
+        verdict = 'Lowest evaluated fare';
       } else if (sortKey === 'nonstop') {
-        verdict = !hasKnownStops ? 'Best match for this search' : stops === 0 ? 'Best nonstop option' : 'Fewest stops option';
+        verdict = !hasKnownStops ? 'Current routing evidence' : stops === 0 ? 'Nonstop pathway' : 'Fewest-stops pathway';
       } else {
         // Score sort — use existing tier logic
         const tier = o.tier || scoreInfo(o.dealScore).tier;
         if (o.scoreContext === 'best_available_not_cheap') {
-          verdict = 'Best available option';
+          verdict = 'Current fare evidence';
         } else if (o.scoreContext === 'limited_comparison') {
           verdict = 'Only option found';
         } else if (tier === 'exceptional') {
-          verdict = 'Exceptional value for this search';
+          verdict = 'Exceptional relative value';
         } else if (tier === 'great') {
-          verdict = 'Strong value for this search';
+          verdict = 'Strong relative value';
         } else {
-          verdict = 'Best match for this search';
+          verdict = 'Current journey evidence';
         }
       }
 
@@ -1514,7 +1532,7 @@ function decisionCompleteHtml(data) {
   const freshness = data && (data.freshness_label || data.fetched_at)
     ? String(data.freshness_label || data.fetched_at)
     : 'Current returned evidence';
-  const assessedAt = new Date().toLocaleString(undefined, {
+  const assessedAt = new Date().toLocaleString('en-US', {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
   return `<footer class="decision-complete">
@@ -1525,6 +1543,372 @@ function decisionCompleteHtml(data) {
       <div><dt>Assessment</dt><dd>${esc(assessedAt)}</dd></div>
     </dl>
   </footer>`;
+}
+
+function workspaceLayerData(layer) {
+  return layer && layer.ok && layer.data ? layer.data : null;
+}
+
+function workspaceSentence(value, fallback = '') {
+  const text = String(value || fallback || '')
+    .replace(/\bthis search\b/gi, 'this journey')
+    .replace(/\bin this search\b/gi, 'for this journey')
+    .replace(/\breturned option\b/gi, 'evaluated pathway')
+    .replace(/\bsearch result\b/gi, 'journey evidence')
+    .trim();
+  if (!text) return '';
+  return /[.!?]$/.test(text) ? text : `${text}.`;
+}
+
+function workspaceCashModel(layer) {
+  const data = workspaceLayerData(layer);
+  const offers = data && Array.isArray(data.offers) ? data.offers.filter(offer => offer && isValidCashPrice(offer.price)) : [];
+  const guidance = data && data.cash_guidance && typeof data.cash_guidance === 'object' ? data.cash_guidance : null;
+  const recommendedId = guidance && guidance.recommended_offer_id;
+  const offer = offers.find(item => item.offer_id === recommendedId) || offers[0] || null;
+  return { data, offers, guidance, offer };
+}
+
+function workspaceAwardModel(layer) {
+  const data = workspaceLayerData(layer);
+  const result = data && Array.isArray(data.results) ? data.results[0] || null : null;
+  const decision = result && result.decision && typeof result.decision === 'object' ? result.decision : null;
+  const programs = result && Array.isArray(result.programs) ? result.programs : [];
+  const programName = decision && decision.evaluated_program ? decision.evaluated_program : result && result.best_program;
+  const program = programs.find(item => item && item.program === programName) || programs[0] || null;
+  return { data, result, decision, programs, program };
+}
+
+function workspaceHiddenModel(layer) {
+  const data = workspaceLayerData(layer);
+  const opportunities = data && Array.isArray(data.results) ? data.results : [];
+  return { data, opportunities, opportunity: opportunities[0] || null, notApplicable: !!(layer && layer.notApplicable) };
+}
+
+function workspaceConfidence(award, cash) {
+  const raw = String((award.decision && award.decision.confidence) || (cash.guidance && cash.guidance.evidence_level) || '').toLowerCase();
+  if (raw === 'high' || raw === 'strong') return 'High';
+  if (raw === 'medium' || raw === 'moderate') return 'Moderate';
+  return 'Limited';
+}
+
+function workspaceRecommendation(award, cash) {
+  if (award.decision && award.decision.label) return workspaceSentence(award.decision.label);
+  const state = cash.guidance && cash.guidance.recommendation_state;
+  if (state === 'strongest_option_found') return 'The current cash pathway deserves consideration.';
+  if (state === 'keep_looking') return 'Wait for stronger value.';
+  if (cash.guidance && cash.guidance.headline) return workspaceSentence(cash.guidance.headline);
+  return 'More evidence is required before making a decision.';
+}
+
+function workspaceWhyParagraph(award, cash, hidden) {
+  const items = [
+    award.decision && award.decision.explanation,
+    cash.guidance && cash.guidance.why,
+    hidden.opportunity && hidden.opportunity.verified ? 'A verified routing opportunity was included in the assessment.' : null,
+  ].filter(Boolean).map(item => workspaceSentence(item));
+  return [...new Set(items)].slice(0, 3).join(' ');
+}
+
+function workspaceFacts(award, cash) {
+  const facts = [];
+  if (cash.offer) facts.push(['Cash fare', formatMoney(cash.offer.price, cash.offer.currency)]);
+  if (award.program && award.program.miles != null) facts.push(['Requirement', formatMiles(award.program.miles)]);
+  if (award.program && award.program.program) facts.push(['Program', award.program.program]);
+  if (award.decision && award.decision.estimated_value != null) facts.push(['Value', formatCpm(award.decision.estimated_value)]);
+  return facts.slice(0, 4);
+}
+
+function workspaceDefinitionList(items, className = '') {
+  const rows = items.filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '');
+  return rows.length ? `<dl${className ? ` class="${className}"` : ''}>${rows.map(([label, value]) => `<div><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl>` : '';
+}
+
+function workspaceSegmentRow(segment) {
+  const origin = segment.dep_iata || segment.origin || '';
+  const destination = segment.arr_iata || segment.dest || '';
+  const route = [origin, destination].filter(Boolean).join(' → ');
+  const times = [segment.dep_time, segment.arr_time].filter(Boolean).join(' – ');
+  const detail = [times, segment.flight_number, segment.airline].filter(Boolean).join(' · ');
+  return route ? `<li><strong>${esc(route)}</strong>${detail ? `<span>${esc(detail)}</span>` : ''}</li>` : '';
+}
+
+function workspaceJourneyLeg(label, segments) {
+  const rows = Array.isArray(segments) ? segments.map(workspaceSegmentRow).filter(Boolean).join('') : '';
+  return rows ? `<div class="ar-ws-itinerary-leg"><div class="ar-ws-label">${esc(label)}</div><ol>${rows}</ol></div>` : '';
+}
+
+function workspaceItineraryHtml(offer, roundTripRequested) {
+  if (!offer) return '';
+  const outbound = workspaceJourneyLeg('Outbound', offer.outbound_segments);
+  const inbound = workspaceJourneyLeg('Return', offer.return_segments);
+  const fallback = !outbound && (offer.origin || offer.dest)
+    ? `<div class="ar-ws-itinerary-leg"><div class="ar-ws-label">Outbound</div><p>${esc([offer.origin, offer.dest].filter(Boolean).join(' → '))}</p></div>`
+    : '';
+  const returnState = roundTripRequested && !inbound
+    ? `<div class="ar-ws-itinerary-leg ar-ws-itinerary-pending"><div class="ar-ws-label">Return</div><p>Return itinerary details require verification.</p></div>`
+    : '';
+  return `<div class="ar-ws-itinerary-slot" data-offer-id="${esc(offer.offer_id || '')}">${outbound || fallback}${inbound || returnState}</div>`;
+}
+
+function workspaceCashAssessment(cash, requestPayload) {
+  const guidance = cash.guidance;
+  const offer = cash.offer;
+  const heading = offer ? `${formatMoney(offer.price, offer.currency)} is the reference cash fare.` : 'No reliable cash fare was returned.';
+  const summary = guidance && guidance.why
+    ? workspaceSentence(guidance.why)
+    : 'The available cash evidence is not sufficient for a stronger assessment.';
+  const stops = offer && Number.isFinite(Number(offer.stops))
+    ? Number(offer.stops) === 0 ? 'Nonstop' : `${Number(offer.stops)} stop${Number(offer.stops) === 1 ? '' : 's'}`
+    : 'Not confirmed';
+  const facts = [
+    ['Relative fare', guidance && guidance.price_context_band ? String(guidance.price_context_band).replaceAll('_', ' ') : 'Unavailable'],
+    ['Routing', stops],
+    ['Evidence', guidance && guidance.evidence_level ? guidance.evidence_level : 'Limited'],
+    ['Airline', offer && offer.airline ? offer.airline : 'Not confirmed'],
+  ];
+  return `<section class="ar-ws-section ar-ws-assessment ar-ws-cash" aria-labelledby="cash-assessment-title">
+    <div class="ar-ws-label">Cash Assessment</div>
+    <h2 id="cash-assessment-title">${esc(heading)}</h2>
+    <p>${esc(summary)}</p>
+    ${workspaceDefinitionList(facts)}
+    ${workspaceItineraryHtml(offer, !requestPayload.oneWay)}
+    ${guidance && guidance.watch_out ? `<div class="ar-ws-assessment-note">${esc(workspaceSentence(guidance.watch_out))}</div>` : ''}
+  </section>`;
+}
+
+function workspaceAwardAssessment(award) {
+  const decision = award.decision;
+  const program = award.program;
+  const heading = decision && decision.label ? workspaceSentence(decision.label) : 'No reliable award recommendation was returned.';
+  const summary = decision && decision.explanation
+    ? workspaceSentence(decision.explanation)
+    : 'The available award evidence is not sufficient for a stronger assessment.';
+  const facts = [
+    ['Program', program && program.program ? program.program : 'Not identified'],
+    ['Requirement', program && program.miles != null ? formatMiles(program.miles) : 'Not available'],
+    ['Taxes and fees', program && program.surcharge != null ? formatMoney(program.surcharge) : 'Not available'],
+    ['Cent per mile', decision && decision.estimated_value != null ? formatCpm(decision.estimated_value) : 'Not available'],
+  ];
+  const transferGuidance = program && (program.verification_note || program.transfer_note);
+  return `<section class="ar-ws-section ar-ws-assessment ar-ws-award" aria-labelledby="award-assessment-title">
+    <div class="ar-ws-label">Award Assessment</div>
+    <h2 id="award-assessment-title">${esc(heading)}</h2>
+    <p>${esc(summary)}</p>
+    ${workspaceDefinitionList(facts)}
+    ${transferGuidance ? `<div class="ar-ws-assessment-note">${esc(transferGuidance)}</div>` : ''}
+  </section>`;
+}
+
+function workspaceHiddenAssessment(hidden) {
+  const opportunity = hidden.opportunity;
+  const heading = opportunity
+    ? workspaceSentence(opportunity.candidateLabel || 'A hidden routing opportunity requires review')
+    : 'No meaningful hidden opportunity was detected.';
+  const summary = opportunity
+    ? workspaceSentence(opportunity.verifyRouting || 'The routing and airline conditions require independent verification.')
+    : hidden.notApplicable
+      ? 'Hidden Opportunities apply to one-way journeys and were not evaluated for this round trip.'
+      : 'The current route evidence did not support an additional hidden opportunity.';
+  const facts = opportunity ? [
+    ['Routing', opportunity.segmentChain || [opportunity.origin, opportunity.hiddenCity, opportunity.ticketDestination].filter(Boolean).join(' → ')],
+    ['Candidate fare', opportunity.candidatePrice != null ? formatMoney(opportunity.candidatePrice, opportunity.currency) : 'Not available'],
+    ['Potential difference', opportunity.savings != null ? formatMoney(opportunity.savings, opportunity.currency) : 'Not available'],
+    ['Verification', opportunity.verified ? 'Segment chain verified' : 'Independent review required'],
+  ] : [];
+  return `<section class="ar-ws-section ar-ws-assessment ar-ws-hidden" aria-labelledby="hidden-assessment-title">
+    <div class="ar-ws-label">Hidden Opportunities</div>
+    <h2 id="hidden-assessment-title">${esc(heading)}</h2>
+    <p>${esc(summary)}</p>
+    ${workspaceDefinitionList(facts)}
+  </section>`;
+}
+
+function workspaceAlternatives(cash, award) {
+  const cashAlternatives = cash.offers.filter(offer => offer !== cash.offer).slice(0, 2).map(offer => ({
+    type: 'Cash alternative',
+    title: offer.airline || `${offer.origin || ''} → ${offer.dest || ''}`,
+    meta: [offer.stops === 0 ? 'Nonstop' : Number.isFinite(Number(offer.stops)) ? `${offer.stops} stops` : '', offer.durationMin ? fmtDur(offer.durationMin) : ''].filter(Boolean).join(' · '),
+    value: formatMoney(offer.price, offer.currency),
+  }));
+  const awardAlternatives = award.programs.filter(program => program !== award.program).slice(0, 2).map(program => ({
+    type: 'Award alternative',
+    title: program.program || 'Award program',
+    meta: program.miles != null ? formatMiles(program.miles) : 'Requirement not available',
+    value: program.cpm != null ? formatCpm(program.cpm) : '',
+  }));
+  const alternatives = [...cashAlternatives, ...awardAlternatives].slice(0, 3);
+  const rows = alternatives.length ? alternatives : [{
+    type: 'Assessment',
+    title: 'No additional pathway is supported by the current evidence.',
+    meta: '',
+    value: '',
+  }];
+  return `<section class="ar-ws-section ar-ws-alternatives" aria-labelledby="alternative-pathways-title">
+    <div class="ar-ws-label" id="alternative-pathways-title">Alternative Pathways</div>
+    <div class="ar-ws-alternative-list">${rows.map(item => `<div class="ar-ws-alternative">
+      <div class="ar-ws-alternative-type">${esc(item.type)}</div>
+      <div class="ar-ws-alternative-main"><strong>${esc(item.title)}</strong>${item.meta ? `<span>${esc(item.meta)}</span>` : ''}</div>
+      ${item.value ? `<div class="ar-ws-alternative-value">${esc(item.value)}</div>` : ''}
+    </div>`).join('')}</div>
+  </section>`;
+}
+
+function workspaceReferenceAlternatives(cash, award, hidden) {
+  const pathways = [];
+  if (cash.offer) {
+    pathways.push({
+      type: 'Cash alternative',
+      title: cash.offer.airline || [cash.offer.origin, cash.offer.dest].filter(Boolean).join(' → '),
+      meta: [
+        cash.guidance && cash.guidance.price_context_band ? String(cash.guidance.price_context_band).replaceAll('_', ' ') : '',
+        cash.offer.stops === 0 ? 'Nonstop' : Number.isFinite(Number(cash.offer.stops)) ? `${cash.offer.stops} stops` : '',
+      ].filter(Boolean).join(' · '),
+      value: formatMoney(cash.offer.price, cash.offer.currency),
+    });
+  }
+  if (award.program) {
+    pathways.push({
+      type: 'Award alternative',
+      title: award.program.program || 'Award program',
+      meta: [
+        award.program.miles != null ? formatMiles(award.program.miles) : '',
+        award.program.surcharge != null ? `${formatMoney(award.program.surcharge)} surcharges` : '',
+      ].filter(Boolean).join(' · '),
+      value: award.decision && award.decision.estimated_value != null ? formatCpm(award.decision.estimated_value) : '',
+    });
+  }
+  if (hidden.opportunity) {
+    pathways.push({
+      type: 'Hidden opportunity',
+      title: hidden.opportunity.candidateLabel || 'Routing opportunity',
+      meta: hidden.opportunity.segmentChain || [hidden.opportunity.origin, hidden.opportunity.hiddenCity, hidden.opportunity.ticketDestination].filter(Boolean).join(' → '),
+      value: hidden.opportunity.savings != null
+        ? formatMoney(hidden.opportunity.savings, hidden.opportunity.currency)
+        : hidden.opportunity.verified ? 'Verified routing' : 'Review routing',
+      hidden: true,
+    });
+  }
+  const rows = pathways.length ? pathways.slice(0, 3) : [{
+    type: 'Assessment',
+    title: 'No additional pathway is supported by the current evidence.',
+    meta: '',
+    value: '',
+  }];
+  return `<section class="ar-ws-section ar-ws-alternatives" aria-labelledby="alternative-pathways-title">
+    <div class="ar-ws-label" id="alternative-pathways-title">Alternative Pathways</div>
+    <div class="ar-ws-alternative-list">${rows.map(item => `<div class="ar-ws-alternative">
+      <div class="ar-ws-alternative-type${item.hidden ? ' ar-ws-alternative-type-hidden' : ''}">${esc(item.type)}</div>
+      <div class="ar-ws-alternative-main"><strong>${esc(item.title)}</strong>${item.meta ? `<span>${esc(item.meta)}</span>` : ''}</div>
+      ${item.value ? `<div class="ar-ws-alternative-value">${esc(item.value)}</div>` : ''}
+    </div>`).join('')}</div>
+  </section>`;
+}
+
+function workspaceExecution(cash, award) {
+  const links = [];
+  if (cash.offer && cash.offer.links && typeof cash.offer.links === 'object') {
+    Object.entries(cash.offer.links).forEach(([label, url]) => {
+      if (url && !links.some(item => item.url === url)) links.push({ label, url });
+    });
+  }
+  if (award.program && award.program.url && !links.some(item => item.url === award.program.url)) {
+    links.unshift({ label: award.program.program || 'Award program', url: award.program.url });
+  }
+  const actionLinks = links.slice(0, 2).map(item => `<a class="ar-ws-action" href="${esc(item.url)}" target="_blank" rel="noopener">${esc(item.label)}</a>`).join('');
+  const nextStep = cash.guidance && cash.guidance.next_step ? workspaceSentence(cash.guidance.next_step) : 'Review the selected pathway against the current journey details.';
+  const verification = award.decision && award.decision.verification_guidance
+    ? workspaceSentence(award.decision.verification_guidance)
+    : 'Confirm final availability, prices and conditions with the official source.';
+  return `<section class="ar-ws-section ar-ws-execution" aria-labelledby="execution-title">
+    <div class="ar-ws-label">Execution</div>
+    <h2 id="execution-title">How to secure this itinerary</h2>
+    <div class="ar-ws-execution-steps">
+      <div class="ar-ws-execution-step"><strong>Review pathway</strong><span>${esc(nextStep)}</span></div>
+      <div class="ar-ws-execution-step"><strong>Verify evidence</strong><span>${esc(verification)}</span></div>
+      <div class="ar-ws-execution-step"><strong>Confirm booking</strong><span>Review the final itinerary and booking conditions before purchase.</span></div>
+    </div>
+    <div class="ar-ws-actions"><span class="ar-ws-actions-note">Intelligence reviewed. Final verification remains required.</span><div class="ar-ws-actions-links">${actionLinks}</div></div>
+  </section>`;
+}
+
+function workspaceComplete(layers, award) {
+  const cashData = workspaceLayerData(layers.cash);
+  const awardData = workspaceLayerData(layers.awards);
+  const hiddenData = workspaceLayerData(layers.hidden);
+  const sources = [
+    cashData && cashData.debug && cashData.debug.source,
+    awardData && awardData.award_source && (awardData.award_source.provider_mode || awardData.award_source.source),
+    hiddenData && hiddenData.provider_available ? 'Routing verification' : null,
+  ].filter(Boolean).join(' · ') || 'Available journey evidence';
+  const freshness = award.decision && award.decision.freshness_label
+    ? award.decision.freshness_label
+    : 'Current returned evidence';
+  const assessedAt = new Date().toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return `<footer class="ar-ws-complete">
+    <h2>Decision complete</h2>
+    <p>Recommendation generated by AwardRadar Intelligence</p>
+    ${workspaceDefinitionList([['Assessment', assessedAt], ['Knowledge freshness', freshness], ['Sources', sources]])}
+  </footer>`;
+}
+
+function renderDecisionWorkspace(layers, requestPayload) {
+  const cash = workspaceCashModel(layers.cash);
+  const award = workspaceAwardModel(layers.awards);
+  const hidden = workspaceHiddenModel(layers.hidden);
+  currentOffers = cash.offers;
+  currentCashGuidance = cash.guidance;
+  currentCheapRoundTripRequested = !requestPayload.oneWay && !!requestPayload.returnDate;
+  const confidence = workspaceConfidence(award, cash);
+  const recommendation = workspaceRecommendation(award, cash);
+  const whyParagraph = workspaceWhyParagraph(award, cash, hidden);
+  const facts = workspaceFacts(award, cash);
+  const origin = String(requestPayload.origin || '').toUpperCase().slice(0, 3);
+  const destination = String(requestPayload.dest || '').toUpperCase().slice(0, 3);
+  const summary = [
+    ['Origin', origin || '—'],
+    ['Destination', destination || '—'],
+    ['Departure', formatSearchDate(requestPayload.date) || 'Not specified'],
+    ...(requestPayload.oneWay ? [] : [['Return', formatSearchDate(requestPayload.returnDate) || 'Not specified']]),
+  ];
+  const confidenceSupport = award.decision && award.decision.confidence_reason
+    ? workspaceSentence(award.decision.confidence_reason)
+    : confidence === 'Limited'
+      ? 'Some fare, award or routing evidence could not be independently verified.'
+      : 'Based on the available fare, award and routing evidence.';
+  const verificationItems = [
+    (award.decision && award.decision.verification_guidance)
+      || (cash.guidance && cash.guidance.watch_out)
+      || (award.program ? 'Verify current award availability.' : 'Confirm current fare and seat availability.'),
+    'Confirm taxes, fees and booking conditions.',
+    requestPayload.oneWay ? 'Review the final routing.' : 'Verify both outbound and return routing.',
+  ].map(item => workspaceSentence(item));
+  const lead = award.decision && award.decision.explanation
+    ? workspaceSentence(award.decision.explanation)
+    : cash.guidance && cash.guidance.why
+      ? workspaceSentence(cash.guidance.why)
+      : 'The available evidence does not yet support a stronger conclusion.';
+  const routeMeta = [origin && destination ? `${origin} → ${destination}` : '', requestPayload.oneWay ? 'One-way' : 'Round-trip'].filter(Boolean).join(' · ');
+  $('results').innerHTML = `<article class="ar-ws-document" aria-labelledby="workspace-recommendation-title">
+    <header class="ar-ws-summary"><div class="ar-ws-kicker">Decision Summary</div>${workspaceDefinitionList(summary, 'ar-ws-meta')}</header>
+    <section class="ar-ws-section ar-ws-recommendation">
+      <div class="ar-ws-label">Our Recommendation</div>
+      <h1 id="workspace-recommendation-title">${esc(recommendation)}</h1>
+      <p class="ar-ws-recommendation-lead">${esc(lead)}</p>
+      <div class="ar-ws-route-line">${esc(routeMeta)}</div>
+      <div class="ar-ws-why"><div class="ar-ws-label">Why</div><p>${esc(whyParagraph || 'The available evidence requires additional verification.')}</p></div>
+      ${workspaceDefinitionList(facts, 'ar-ws-recommendation-facts')}
+      ${workspaceItineraryHtml(cash.offer, !requestPayload.oneWay)}
+    </section>
+    <section class="ar-ws-section ar-ws-trust">
+      <div class="ar-ws-confidence"><div class="ar-ws-label">Decision Confidence</div><div class="ar-ws-confidence-value">${esc(confidence)}</div><p>${esc(confidenceSupport)}</p></div>
+      <div class="ar-ws-verification"><div class="ar-ws-label">Verification Protocol</div><ul>${verificationItems.map(item => `<li>${esc(item)}</li>`).join('')}</ul></div>
+    </section>
+    ${workspaceReferenceAlternatives(cash, award, hidden)}
+    ${workspaceExecution(cash, award)}
+    ${workspaceComplete(layers, award)}
+  </article>`;
+  if (currentCheapRoundTripRequested) setTimeout(verifyRecommendedReturnLeg, 0);
 }
 
 function render(data) {
