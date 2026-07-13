@@ -485,9 +485,9 @@ export default function App() {
       data-theme={theme}
       style={{
         position: 'relative',
-        width: '100vw',
-        height: '100vh',
-        overflow: 'hidden',
+        width: '100%',
+        minHeight: '100dvh',
+        overflowX: 'hidden',
         background: t.bg,
         fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
         transition: 'background 0.4s ease',
@@ -525,7 +525,7 @@ export default function App() {
           <span style={{ color: t.wordmarkRadar, transition: 'color 0.4s ease' }}>Radar</span>
         </span>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+        <div className="ar-nav-links" style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
           <NavLink t={t}>About</NavLink>
           <NavLink t={t}>Methodology</NavLink>
           <NavLink t={t}>Sign in</NavLink>
@@ -637,9 +637,9 @@ export default function App() {
               transition: 'none',
             }}>
               <Field label="From" value={from} onChange={setFrom} placeholder="Frankfurt" technicalCode="FRA" t={t} />
-              <div style={{ width: '0.5px', background: t.divider, margin: '17px 0', flexShrink: 0 }} />
+              <div className="ar-divider" style={{ width: '0.5px', background: t.divider, margin: '17px 0', flexShrink: 0 }} />
               <Field label="To" value={to} onChange={setTo} placeholder="New York" technicalCode="JFK" t={t} />
-              <div style={{ width: '0.5px', background: t.divider, margin: '17px 0', flexShrink: 0 }} />
+              <div className="ar-divider" style={{ width: '0.5px', background: t.divider, margin: '17px 0', flexShrink: 0 }} />
               <Field
                 label="Date"
                 value={date}
@@ -689,19 +689,18 @@ export default function App() {
       </div>
 
       {/* ── Footer ── */}
-      <footer style={{
+      <footer className="ar-footer" style={{
         position: 'absolute',
         bottom: 0, left: 0, right: 0,
         zIndex: 10,
         display: 'flex',
-        alignItems: 'center',
         justifyContent: 'space-between',
-        paddingBottom: 'clamp(20px, 2.8vh, 32px)',
+        paddingBottom: '3.5vh',
         paddingLeft: PX,
         paddingRight: PX,
       }}>
         {/* Left — legal + identity */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+        <div className="ar-footer-links" style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
           <FooterLink t={t}>Privacy</FooterLink>
           <FooterLink t={t}>Imprint</FooterLink>
           <FooterLink t={t}>Accessibility</FooterLink>
