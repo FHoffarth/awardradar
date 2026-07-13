@@ -482,6 +482,7 @@ export default function App() {
 
   return (
     <div
+      className="ar-root"
       data-theme={theme}
       style={{
         position: 'relative',
@@ -504,7 +505,7 @@ export default function App() {
       }} />
 
       {/* ── Navigation ── */}
-      <nav style={{
+      <nav className="ar-nav" style={{
         position: 'absolute',
         top: 0, left: 0, right: 0,
         zIndex: 10,
@@ -533,7 +534,7 @@ export default function App() {
       </nav>
 
       {/* ── Editorial content — left column, perfectly still ── */}
-      <div style={{
+      <div className="ar-editorial" style={{
         position: 'absolute',
         top: 0, bottom: 0, left: 0,
         zIndex: 5,
@@ -541,6 +542,7 @@ export default function App() {
         flexDirection: 'column',
         justifyContent: 'center',
         paddingLeft: PX,
+        paddingRight: PX,
         paddingBottom: '8vh',
         maxWidth: '560px',
       }}>
