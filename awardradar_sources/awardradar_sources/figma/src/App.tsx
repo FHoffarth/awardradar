@@ -69,196 +69,7 @@ const T = {
   },
 } as const
 
-// ─── CITY LIGHTS ──────────────────────────────────────────────────────────────
-// [cx, cy, radius, opacity] — SVG 880×880, sphere center (440,440), radius 440
-//
-// Philosophy: civilizational topology, not city lists.
-// The pattern of lights — the corridors, the voids, the clusters —
-// should be instantly legible as Earth, not a data visualization.
-//
-const LIGHTS: [number, number, number, number][] = [
 
-  // ── NORTHWESTERN EUROPE — the original industrial constellation ─────────────
-  // UK
-  [388, 247, 3.8, 1.0],   // London core
-  [387, 244, 1.6, 0.52],  // Greater London sprawl
-  [385, 252, 1.4, 0.46],  // Birmingham
-  [382, 241, 1.2, 0.38],  // Manchester
-  [380, 234, 1.0, 0.34],  // Edinburgh
-
-  // Randstad → Rhine-Ruhr corridor (the most densely lit region on Earth)
-  [400, 244, 2.6, 0.88],  // Amsterdam
-  [399, 246, 1.8, 0.62],  // Rotterdam
-  [398, 249, 1.6, 0.55],  // Brussels/Antwerp
-  [402, 253, 1.7, 0.6],   // Cologne
-  [404, 251, 1.5, 0.54],  // Ruhr valley
-  [404, 248, 2.1, 0.72],  // Hamburg
-  [401, 242, 1.2, 0.42],  // Bremen
-  [414, 253, 2.9, 0.95],  // Berlin
-  [411, 261, 2.4, 0.82],  // Frankfurt–Mannheim
-  [407, 260, 1.5, 0.52],  // Stuttgart
-  [413, 268, 2.1, 0.72],  // Munich
-
-  // France
-  [395, 261, 3.2, 1.0],   // Paris
-  [390, 273, 1.2, 0.42],  // Lyon
-  [393, 280, 1.4, 0.46],  // Marseille
-
-  // Po Valley — Italy's industrial plain, one of Europe's brightest corridors
-  [409, 271, 1.4, 0.52],  // Turin
-  [412, 274, 2.7, 0.9],   // Milan
-  [414, 275, 1.3, 0.54],  // Brescia
-  [416, 274, 1.2, 0.48],  // Venice/Padova
-  [414, 278, 1.5, 0.54],  // Bologna
-  [417, 288, 2.0, 0.7],   // Rome
-  [416, 295, 1.2, 0.4],   // Naples
-
-  // Iberia
-  [373, 279, 1.9, 0.64],  // Madrid
-  [378, 284, 1.5, 0.52],  // Barcelona
-  [366, 290, 1.4, 0.46],  // Lisbon
-
-  // Scandinavia
-  [408, 231, 1.5, 0.5],   // Copenhagen
-  [413, 222, 1.5, 0.46],  // Stockholm
-  [404, 222, 1.1, 0.38],  // Oslo
-
-  // Eastern Europe
-  [428, 250, 2.3, 0.78],  // Warsaw
-  [422, 257, 1.6, 0.54],  // Prague
-  [417, 266, 1.4, 0.5],   // Vienna
-  [410, 266, 1.3, 0.46],  // Zurich
-  [425, 267, 1.9, 0.65],  // Budapest
-  [429, 277, 1.9, 0.65],  // Bucharest
-  [430, 239, 1.5, 0.5],   // Vilnius/Riga
-  [434, 230, 1.2, 0.38],  // Helsinki
-  [420, 288, 1.4, 0.44],  // Athens
-
-  // ── RUSSIA ─────────────────────────────────────────────────────────────────
-  // Vast darkness punctuated by a few bright nodes
-  [445, 237, 3.0, 0.96],  // Moscow
-  [467, 228, 1.5, 0.46],  // St. Petersburg
-  [440, 251, 2.1, 0.7],   // Kyiv
-  [434, 245, 1.3, 0.46],  // Minsk
-  [490, 231, 1.4, 0.44],  // Kazan
-  [509, 227, 1.5, 0.46],  // Yekaterinburg
-
-  // ── TURKEY / LEVANT / GULF ─────────────────────────────────────────────────
-  [459, 278, 2.3, 0.8],   // Istanbul
-  [465, 293, 1.6, 0.54],  // Ankara
-  [472, 305, 2.2, 0.75],  // Beirut/Damascus
-  [469, 310, 2.6, 0.88],  // Tel Aviv
-  [474, 324, 3.0, 0.98],  // Cairo delta core
-  [471, 321, 1.6, 0.56],  // Alexandria/Nile delta west
-  [477, 322, 1.4, 0.5],   // Nile delta east
-  [491, 317, 1.5, 0.52],  // Amman
-  [499, 328, 1.9, 0.64],  // Baghdad
-  [510, 343, 2.7, 0.92],  // Riyadh
-  [517, 355, 3.0, 0.98],  // Dubai/Abu Dhabi
-  [504, 359, 1.7, 0.58],  // Doha
-  [499, 350, 1.3, 0.44],  // Kuwait
-
-  // ── NORTH / WEST AFRICA ────────────────────────────────────────────────────
-  [427, 319, 1.6, 0.54],  // Tunis
-  [418, 325, 1.4, 0.5],   // Algiers
-  [410, 329, 1.1, 0.38],  // Casablanca
-
-  // ── SUB-SAHARAN AFRICA ─────────────────────────────────────────────────────
-  [449, 362, 1.4, 0.44],  // Khartoum
-  [448, 388, 1.5, 0.5],   // Nairobi
-  [449, 445, 1.9, 0.6],   // Johannesburg
-  [444, 459, 1.4, 0.44],  // Cape Town
-  [431, 411, 1.3, 0.4],   // Kinshasa
-  [417, 391, 1.2, 0.38],  // Lagos
-  [414, 373, 1.1, 0.36],  // Abuja
-
-  // ── SOUTH ASIA — the subcontinent arc + Ganges plain corridor ──────────────
-  // The Ganges corridor from Delhi to Kolkata is one of the most recognizable
-  // features of Earth at night — a river of amber light across north India.
-  [539, 327, 2.8, 0.98],  // Karachi
-  [547, 337, 2.6, 0.92],  // Mumbai
-  [543, 322, 1.3, 0.44],  // Islamabad
-  [550, 327, 2.8, 0.98],  // Delhi/NCR
-  [553, 328, 1.5, 0.54],  // Delhi sprawl east
-  [556, 331, 1.6, 0.58],  // Agra (Ganges corridor)
-  [558, 333, 1.5, 0.56],  // Kanpur (corridor)
-  [560, 335, 1.4, 0.52],  // Allahabad (corridor)
-  [561, 337, 1.3, 0.5],   // Varanasi (corridor)
-  [563, 340, 1.8, 0.64],  // Kolkata
-  [570, 327, 1.4, 0.46],  // Dhaka
-  [556, 353, 2.2, 0.76],  // Bangalore/Chennai/Hyderabad cluster
-  [553, 347, 1.4, 0.52],  // Hyderabad
-  [567, 352, 1.4, 0.46],  // Colombo
-
-  // ── EAST ASIA — the most luminous region on the planet ─────────────────────
-
-  // Japan: Tokaido megalopolis — Tokyo to Osaka, one continuous corridor
-  // The gap over Hakone Mountains between Tokyo and Nagoya is real.
-  [614, 294, 3.0, 1.0],   // Tokyo–Yokohama core
-  [614, 295, 1.5, 0.68],  // Tokyo sprawl
-  [612, 296, 1.2, 0.55],  // Shizuoka (corridor bridge)
-  [611, 297, 1.8, 0.82],  // Nagoya
-  [610, 298, 2.4, 0.95],  // Osaka–Kobe
-  [611, 298, 1.3, 0.65],  // Kyoto (binding node)
-  [617, 286, 1.4, 0.44],  // Sapporo
-
-  // Korean Peninsula: the South brilliant, the North void —
-  // one of the most striking contrasts visible from orbit.
-  [607, 293, 2.8, 0.96],  // Seoul/Incheon
-  [608, 295, 1.5, 0.64],  // Daejeon (corridor south)
-  [609, 297, 1.8, 0.76],  // Busan/Daegu
-
-  // China
-  [601, 299, 2.3, 0.82],  // Beijing/Tianjin
-  [603, 301, 1.6, 0.62],  // Tianjin sprawl
-  [597, 307, 1.8, 0.65],  // Wuhan
-  [599, 312, 1.6, 0.6],   // Changsha
-  [609, 310, 2.7, 0.92],  // Shanghai
-  [613, 315, 2.3, 0.8],   // Taipei
-  [615, 321, 2.3, 0.8],   // Hong Kong/Shenzhen
-  [613, 322, 1.6, 0.58],  // Guangzhou
-  [596, 318, 1.8, 0.62],  // Chengdu/Chongqing
-
-  // ── SOUTHEAST ASIA ─────────────────────────────────────────────────────────
-  [588, 321, 1.6, 0.56],  // Yangon
-  [604, 329, 1.9, 0.64],  // Bangkok
-  [610, 343, 2.1, 0.72],  // Singapore
-  [607, 337, 1.4, 0.52],  // Kuala Lumpur
-  [621, 329, 1.3, 0.44],  // Manila
-  [615, 350, 1.4, 0.46],  // Jakarta
-
-  // ── EASTERN NORTH AMERICA — BosWash corridor (left sphere edge) ────────────
-  // One unbroken river of light from Boston to Washington.
-  [282, 277, 1.5, 0.42],  // Boston
-  [288, 283, 2.7, 0.62],  // New York core
-  [289, 286, 1.3, 0.48],  // New York sprawl / Philadelphia
-  [292, 293, 2.0, 0.55],  // Washington DC
-  [298, 307, 1.5, 0.42],  // Atlanta
-  [302, 320, 1.4, 0.38],  // Miami
-  [265, 287, 1.9, 0.5],   // Chicago/Great Lakes
-  [269, 293, 1.5, 0.46],  // Detroit/Cleveland
-
-  // ── AUSTRALIA ──────────────────────────────────────────────────────────────
-  [637, 430, 1.5, 0.48],  // Sydney
-  [631, 436, 1.2, 0.42],  // Melbourne
-  [644, 418, 1.1, 0.36],  // Brisbane
-]
-
-// ─── BREATHE GROUPS ───────────────────────────────────────────────────────────
-const BREATHE = [
-  { kf: 'ar-breathe-a', dur: '4.3s',  delay: '0s'    },
-  { kf: 'ar-breathe-b', dur: '6.7s',  delay: '-2.2s' },
-  { kf: 'ar-breathe-c', dur: '5.6s',  delay: '-1.1s' },
-  { kf: 'ar-breathe-d', dur: '7.4s',  delay: '-3.5s' },
-  { kf: 'ar-breathe-e', dur: '4.9s',  delay: '-0.7s' },
-] as const
-
-const BREATHE_GROUPS = Array.from(
-  { length: 5 },
-  (_, gi) => LIGHTS.filter((_, li) => li % 5 === gi)
-)
-
-// ─── GLOBE ────────────────────────────────────────────────────────────────────
 
 function Globe({ theme }: { theme: Theme }) {
   return (
@@ -290,9 +101,15 @@ function Globe({ theme }: { theme: Theme }) {
         }}
       />
 
-      <svg width="1060" height="1060" viewBox="0 0 880 880" style={{ overflow: 'visible' }}>
+      <svg width="1060" height="1060" viewBox="0 0 880 880">
         <defs>
-          {/* The source image already contains the real atmospheric scattering. */}
+          <mask id="globe-fade">
+            <radialGradient id="globe-grad" cx="50%" cy="50%" r="50%">
+              <stop offset="90%" stopColor="white" />
+              <stop offset="100%" stopColor="black" />
+            </radialGradient>
+            <rect x="0" y="0" width="880" height="880" fill="url(#globe-grad)" />
+          </mask>
         </defs>
 
         {/* ── Authentic orbital plate ─────────────────────────────────────
@@ -300,7 +117,7 @@ function Globe({ theme }: { theme: Theme }) {
             cloud scatter and black field determine where Earth resolves into space.
             Screen blending makes the photographic blacks inherit the page canvas,
             so there is no composited edge, glow, or geometric boundary. */}
-        <g style={{ animation: 'ar-photo-drift 420s ease-in-out infinite alternate' }}>
+        <g style={{ animation: 'ar-photo-drift 420s ease-in-out infinite alternate', mask: 'url(#globe-fade)' }}>
           <image
             href={`${import.meta.env.BASE_URL}images/orbital-earth-nasa-v2.jpg`}
             x="-78"
@@ -311,7 +128,6 @@ function Globe({ theme }: { theme: Theme }) {
             style={{ mixBlendMode: theme === 'light' ? 'normal' : 'screen', opacity: theme === 'light' ? 1 : 0.88 }}
           />
         </g>
-
       </svg>
     </div>
   )
@@ -353,7 +169,7 @@ function Field({
   onFocus?: () => void
   onBlur?: () => void
   flex?: string
-  t: typeof T['dark']
+  t: any
 }) {
   return (
     <div className={`ar-field ar-field--${label.toLowerCase()}`} style={{ flex, padding: '24px 48px 22px', display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0 }}>
@@ -425,7 +241,7 @@ function Field({
 }
 
 // ─── NAV LINK ─────────────────────────────────────────────────────────────────
-function NavLink({ children, href, t }: { children: string; href: string; t: typeof T['dark'] }) {
+function NavLink({ children, href, t }: { children: string; href: string; t: any }) {
   const [hover, setHover] = useState(false)
   return (
     <a
@@ -457,7 +273,7 @@ function FooterLink({
 }: {
   children: string
   href?: string
-  t: typeof T['dark']
+  t: any
   onClick?: () => void
   external?: boolean
 }) {
@@ -514,21 +330,43 @@ export default function App() {
   // Hero second block reveal — runs once on mount
   const [secondBlockVisible, setSecondBlockVisible] = useState(false)
 
+  // Act II visibility
+  const [searchVisible, setSearchVisible] = useState(false)
+
   useEffect(() => {
-    // Slight delay before the second text block appears
-    const timer = setTimeout(() => setSecondBlockVisible(true), 420)
+    // 1st text reveal CSS takes 900ms + 300ms delay = 1200ms
+    // Pause 600ms = 1800ms
+    const timer = setTimeout(() => setSecondBlockVisible(true), 1800)
     return () => clearTimeout(timer)
+  }, [])
+
+  useEffect(() => {
+    // Set up observer for Act II
+    const observer = new IntersectionObserver((entries) => {
+      const [entry] = entries
+      if (entry.isIntersecting) {
+        setSearchVisible(true)
+        observer.disconnect()
+      }
+    }, { threshold: 0.25 })
+
+    const act2 = document.getElementById('act-2')
+    if (act2) observer.observe(act2)
+
+    return () => observer.disconnect()
   }, [])
 
   const t  = T[theme]
   const PX = 'clamp(64px, 7.5vw, 120px)'
+  const isValid = from.trim().length > 0 && to.trim().length > 0 && date.trim().length > 0
 
   function handleSearch(e: FormEvent) {
     e.preventDefault()
+    if (!isValid) return
     const params = new URLSearchParams()
-    if (from) params.set('from', from)
-    if (to) params.set('to', to)
-    if (date) params.set('date', date)
+    if (from.trim()) params.set('from', from.trim())
+    if (to.trim()) params.set('to', to.trim())
+    if (date.trim()) params.set('date', date.trim())
     const qs = params.toString()
     window.location.href = `/app${qs ? '?' + qs : ''}`
   }
@@ -548,9 +386,6 @@ export default function App() {
         transition: 'background 0.4s ease',
       }}
     >
-      {/* Globe — the only moving element */}
-      <Globe theme={theme} />
-
       {/* Canvas vignette */}
       <div aria-hidden="true" style={{
         position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
@@ -591,107 +426,137 @@ export default function App() {
               <span className="logo-award" style={{ color: 'inherit' }}>Award</span>
               <span className="logo-radar" style={{ color: t.wordmarkRadar, transition: 'color 0.4s ease' }}>Radar</span>
             </div>
-            <div className="logo-tagline" style={{ display: 'none' }}>Travel Decision Intelligence</div>
           </div>
         </a>
 
         <div className="ar-nav-links" style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-          {/* /about exists */}
           <NavLink href="/about" t={t}>About</NavLink>
           <NavLink href="/methodology" t={t}>Methodology</NavLink>
         </div>
       </nav>
 
-      {/* ── Editorial content — left column, perfectly still ── */}
-      <div className="ar-editorial" style={{
-        position: 'absolute',
-        top: 0, bottom: 0, left: 0,
-        zIndex: 5,
+      {/* ── ACT I: Manifesto + Globe ── */}
+      <section id="act-1" style={{ position: 'relative', width: '100%', minHeight: '100dvh' }}>
+        {/* Globe — the only moving element */}
+        <Globe theme={theme} />
+
+        {/* ── Editorial content — left column, perfectly still ── */}
+        <div className="ar-editorial" style={{
+          position: 'absolute',
+          top: 0, bottom: 0, left: 0,
+          zIndex: 5,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          paddingLeft: PX,
+          paddingRight: PX,
+          maxWidth: '560px',
+        }}>
+          {/* Eyebrow — always visible */}
+          <p style={{
+            margin: '0 0 56px 0',
+            fontSize: '10px',
+            fontWeight: 500,
+            letterSpacing: '0.24em',
+            color: t.eyebrow,
+            textTransform: 'uppercase',
+            lineHeight: 1,
+            transition: 'color 0.4s ease',
+          }}>
+            Travel Decision Intelligence
+          </p>
+
+          {/* ── Manifesto ── */}
+          <div style={{ marginBottom: '0' }}>
+            {/* Couplet one — immediately visible */}
+            <p className="ar-hero-first" style={{
+              margin: '0 0 0.15em 0',
+              fontSize: 'clamp(28px, 3vw, 42px)',
+              fontWeight: 500,
+              lineHeight: 1.22,
+              letterSpacing: '-0.018em',
+              color: t.line1,
+              transition: 'color 0.4s ease',
+            }}>
+              We don&apos;t tell you
+            </p>
+            <p className="ar-hero-first" style={{
+              margin: '0 0 0.6em 0',
+              fontSize: 'clamp(28px, 3vw, 42px)',
+              fontWeight: 500,
+              lineHeight: 1.22,
+              letterSpacing: '-0.018em',
+              color: t.line1,
+              transition: 'color 0.4s ease',
+            }}>
+              what to book.
+            </p>
+
+            {/* Couplet two — delayed reveal with blur + slide + opacity */}
+            <p
+              className="ar-reveal-block"
+              style={{
+                margin: '0 0 0.15em 0',
+                fontSize: 'clamp(28px, 3vw, 42px)',
+                fontWeight: 340,
+                lineHeight: 1.22,
+                letterSpacing: '-0.012em',
+                color: t.line2,
+                transition: 'color 0.4s ease',
+              }}
+              data-visible={secondBlockVisible ? 'true' : 'false'}
+            >
+              We help you understand
+            </p>
+            <p
+              className="ar-reveal-block"
+              style={{
+                margin: '0.15em 0 0 0',
+                fontSize: 'clamp(28px, 3vw, 42px)',
+                fontWeight: 380,
+                lineHeight: 1.22,
+                letterSpacing: '-0.014em',
+                color: t.lineWhy,
+                transition: 'color 0.4s ease',
+              }}
+              data-visible={secondBlockVisible ? 'true' : 'false'}
+            >
+              why.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── ACT II: Search Instrument ── */}
+      <section id="act-2" style={{
+        position: 'relative',
+        width: '100%',
+        minHeight: '85dvh',
+        zIndex: 10,
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
         paddingLeft: PX,
         paddingRight: PX,
-        paddingBottom: '8vh',
-        maxWidth: '560px',
       }}>
-
-        {/* Eyebrow — always visible */}
-        <p style={{
-          margin: '0 0 56px 0',
-          fontSize: '10px',
-          fontWeight: 500,
-          letterSpacing: '0.24em',
-          color: t.eyebrow,
-          textTransform: 'uppercase',
-          lineHeight: 1,
-          transition: 'color 0.4s ease',
+        <div style={{
+          maxWidth: '560px',
+          opacity: searchVisible ? 1 : 0,
+          transform: searchVisible ? 'translateY(0)' : 'translateY(20px)',
+          transition: 'opacity 0.8s ease, transform 0.8s ease',
+          willChange: 'opacity, transform',
         }}>
-          Travel Decision Intelligence
-        </p>
-
-        {/* ── Manifesto ── */}
-        <div style={{ marginBottom: '72px' }}>
-          {/* Couplet one — immediately visible */}
           <p style={{
-            margin: '0 0 0.15em 0',
-            fontSize: 'clamp(28px, 3vw, 42px)',
-            fontWeight: 500,
-            lineHeight: 1.22,
-            letterSpacing: '-0.018em',
-            color: t.line1,
+            margin: '0 0 40px 0',
+            fontSize: '18px',
+            fontWeight: 400,
+            lineHeight: 1.4,
+            color: t.line2,
             transition: 'color 0.4s ease',
           }}>
-            We don&apos;t tell you
-          </p>
-          <p style={{
-            margin: '0 0 calc(2em + 24px) 0',
-            fontSize: 'clamp(28px, 3vw, 42px)',
-            fontWeight: 500,
-            lineHeight: 1.22,
-            letterSpacing: '-0.018em',
-            color: t.line1,
-            transition: 'color 0.4s ease',
-          }}>
-            what to book.
+            <strong style={{ fontWeight: 500, color: t.line1 }}>AwardRadar.</strong> Your Travel Decision Companion.
           </p>
 
-          {/* Couplet two — delayed reveal with blur + slide + opacity */}
-          <p
-            className="ar-reveal-block"
-            style={{
-              margin: '0 0 0.15em 0',
-              fontSize: 'clamp(28px, 3vw, 42px)',
-              fontWeight: 340,
-              lineHeight: 1.22,
-              letterSpacing: '-0.012em',
-              color: t.line2,
-              transition: 'color 0.4s ease',
-              // Motion properties governed by CSS animation class
-            }}
-            data-visible={secondBlockVisible ? 'true' : 'false'}
-          >
-            We help you understand
-          </p>
-          <p
-            className="ar-reveal-block"
-            style={{
-              margin: '1.4em 0 0 0',
-              fontSize: 'clamp(28px, 3vw, 42px)',
-              fontWeight: 380,
-              lineHeight: 1.22,
-              letterSpacing: '-0.014em',
-              color: t.lineWhy,
-              transition: 'color 0.4s ease',
-            }}
-            data-visible={secondBlockVisible ? 'true' : 'false'}
-          >
-            why.
-          </p>
-        </div>
-
-        {/* ── Search instrument ── */}
-        <div>
           <p style={{
             margin: '0 0 14px 0',
             fontSize: '8px',
@@ -716,9 +581,9 @@ export default function App() {
               overflow: 'hidden',
               transition: 'none',
             }}>
-              <Field label="From" value={from} onChange={setFrom} placeholder="Frankfurt" technicalCode="FRA" t={t} />
+              <Field label="From" value={from} onChange={setFrom} placeholder="From"  t={t} />
               <div className="ar-divider" style={{ width: '0.5px', background: t.divider, margin: '17px 0', flexShrink: 0 }} />
-              <Field label="To" value={to} onChange={setTo} placeholder="New York" technicalCode="JFK" t={t} />
+              <Field label="To" value={to} onChange={setTo} placeholder="To"  t={t} />
               <div className="ar-divider" style={{ width: '0.5px', background: t.divider, margin: '17px 0', flexShrink: 0 }} />
               <Field
                 label="Date"
@@ -727,7 +592,7 @@ export default function App() {
                 onChange={setDate}
                 onFocus={() => setIsEditingDate(true)}
                 onBlur={() => setIsEditingDate(false)}
-                placeholder="Tomorrow"
+                placeholder="Date"
                 flex="0 0 158px"
                 t={t}
               />
@@ -735,25 +600,27 @@ export default function App() {
               <button
                 className="ar-search-button"
                 type="submit"
+                disabled={!isValid}
                 style={{
                   flex: '0 0 96px',
                   padding: 0,
                   border: 'none',
                   borderLeft: `0.5px solid ${t.btnBorder}`,
-                  cursor: 'default',
+                  cursor: (!isValid) ? 'not-allowed' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   transform: 'translateY(-0.5px)',
                   gap: '0',
                   background: t.btnBg,
-                  color: t.btnColor,
+                  color: (!isValid) ? t.btnBorder : t.btnColor,
+                  opacity: (!isValid) ? 0.5 : 1,
                   fontSize: '0',
                   fontWeight: 500,
                   letterSpacing: '0',
                   textTransform: 'none',
                   fontFamily: 'inherit',
-                  transition: 'none',
+                  transition: 'color 0.3s, opacity 0.3s',
                 }}
               aria-label="Search route"
               >
@@ -766,52 +633,35 @@ export default function App() {
             </div>
           </form>
         </div>
-      </div>
+      </section>
 
       {/* ── Footer ── */}
-      <footer className="ar-footer" style={{
-        position: 'absolute',
-        bottom: 0, left: 0, right: 0,
+      <footer className="public-footer" style={{
+        position: 'relative',
         zIndex: 10,
-        display: 'flex',
-        justifyContent: 'space-between',
-        paddingBottom: '3.5vh',
-        paddingLeft: PX,
-        paddingRight: PX,
+        paddingBottom: '48px',
+        paddingTop: '24px',
       }}>
-        {/* Left — legal + identity + X */}
-        <div className="ar-footer-links" style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          {/* /privacy exists */}
-          <FooterLink href="/privacy" t={t}>Privacy</FooterLink>
-          {/* /impressum exists */}
-          <FooterLink href="/impressum" t={t}>Imprint</FooterLink>
-          {/*
-            Accessibility page not yet implemented.
-            Omitted from footer in this sprint.
-            Follow-up: create /accessibility route and re-add link.
-          */}
-          <FooterLink t={t} onClick={toggleTheme}>Theme</FooterLink>
-          {/* Official X account — external link */}
-          <FooterLink
-            href="https://x.com/awardradar"
-            t={t}
-            external
-          >
-            @AwardRadar
-          </FooterLink>
-        </div>
-
-        {/* Right — orbital precision detail */}
-        <div aria-hidden="true" style={{
-          fontSize: '7px',
-          fontWeight: 500,
-          letterSpacing: '0.22em',
-          color: t.coord,
-          textTransform: 'uppercase',
-          lineHeight: 1,
-          transition: 'color 0.4s ease',
+        <div className="footer-layout" style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr auto',
+          alignItems: 'center',
+          gap: '40px',
+          paddingLeft: PX,
+          paddingRight: PX,
         }}>
-          51°N 0°E · 35,786 km
+          <div className="trust-note" style={{ maxWidth: '640px', margin: 0, lineHeight: 1.5, color: t.footer, fontSize: '13.5px' }}>
+            <strong style={{ fontWeight: 600, color: t.wordmark }}>Verify before booking</strong> &mdash; AwardRadar provides decision support only. Always confirm availability, pricing and rules with official airline, booking-site and loyalty-program sources.
+          </div>
+          <div className="footer-nav-group" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
+            <div className="footer-links" style={{ display: 'flex', flexWrap: 'wrap', gap: '16px 24px', justifyContent: 'flex-end' }}>
+              <FooterLink href="/privacy" t={t}>Privacy</FooterLink>
+              <FooterLink href="/impressum" t={t}>Imprint</FooterLink>
+              <FooterLink onClick={toggleTheme} t={t}>Theme</FooterLink>
+              <FooterLink href="https://x.com/awardradar" external t={t}>@AwardRadar</FooterLink>
+            </div>
+            <div className="copyright" style={{ fontSize: '12px', color: t.coord }}>&copy; 2026 AwardRadar</div>
+          </div>
         </div>
       </footer>
     </div>
