@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 from google import genai
 from google.genai import types
@@ -29,18 +30,21 @@ Do not add explanations, summaries, commentary, or markdown.
     def __init__(
         self,
         api_key: str | None = None,
-        model_name: str = "gemini-2.5-flash",
+        model_name: str | None = None,
     ) -> None:
         """Create a Gemini fact-extraction provider.
 
         Args:
             api_key: Google GenAI API key. When omitted, SDK environment-based
                 configuration is used.
-            model_name: Gemini model identifier used for extraction.
+            model_name: Gemini model identifier used for extraction. Overrides
+                GEMINI_MODEL environment variable. Defaults to gemini-3.5-flash.
         """
 
         self._client = genai.Client(api_key=api_key)
-        self._model_name = model_name
+        self.model_name = (
+            model_name or os.environ.get("GEMINI_MODEL") or "gemini-3.5-flash"
+        )
 
     def harvest_topic(
         self,
@@ -71,7 +75,7 @@ Do not add explanations, summaries, commentary, or markdown.
 
         try:
             response = self._client.models.generate_content(
-                model=self._model_name,
+                model=self.model_name,
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     system_instruction=self._SYSTEM_INSTRUCTION,
