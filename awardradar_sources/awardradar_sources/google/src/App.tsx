@@ -1,52 +1,74 @@
 import { motion } from 'motion/react';
 import { ArrowRight, Sparkles, Activity, ShieldCheck, ChevronRight, Check, ShieldAlert, Fingerprint } from 'lucide-react';
 
-const SearchInstrument = () => (
-  <motion.div 
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    transition={{ duration: 1, ease: "easeOut" }}
-    className="w-full mb-16 lg:mb-24"
-  >
-    <div className="text-[9px] tracking-[0.3em] text-zinc-600 uppercase mb-4 ml-1">Decision Workspace</div>
-    <div className="flex flex-col sm:flex-row border border-zinc-800/80 bg-[#060608] rounded-sm overflow-hidden">
-      {/* From */}
-      <div className="flex-1 p-5 sm:border-r border-b sm:border-b-0 border-zinc-800/80 relative group">
-        <div className="absolute top-0 left-5 w-8 h-[1px] bg-amber-500/80"></div>
-        <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-3">From</div>
-        <div className="flex items-center gap-2">
-          <div className="border border-zinc-700/60 rounded-full px-3 py-1 bg-zinc-800/20 text-sm text-zinc-200 whitespace-nowrap">
-            Frankfurt
+const DATE_PARAM_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function isValidDateString(dateStr: string): boolean {
+  if (!DATE_PARAM_PATTERN.test(dateStr)) return false;
+  const date = new Date(dateStr);
+  return date instanceof Date && !isNaN(date.getTime()) && date.toISOString().startsWith(dateStr);
+}
+
+function getTripParam(name: string): string {
+  try {
+    const value = new URLSearchParams(window.location.search).get(name);
+    return value?.trim() ?? '';
+  } catch {
+    return '';
+  }
+}
+
+const SearchInstrument = () => {
+  const origin = getTripParam('from') || 'Origin';
+  const destination = getTripParam('to') || 'Destination';
+  const dateParam = getTripParam('date');
+  const dateLabel = isValidDateString(dateParam) ? dateParam : 'Date not selected';
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 1, ease: "easeOut" }}
+      className="w-full mb-16 lg:mb-24"
+    >
+      <div className="text-[9px] tracking-[0.3em] text-zinc-600 uppercase mb-4 ml-1">Decision Workspace</div>
+      <div className="flex flex-col sm:flex-row border border-zinc-800/80 bg-[#060608] rounded-sm overflow-hidden">
+        {/* From */}
+        <div className="flex-1 p-5 sm:border-r border-b sm:border-b-0 border-zinc-800/80 relative group">
+          <div className="absolute top-0 left-5 w-8 h-[1px] bg-amber-500/80"></div>
+          <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-3">From</div>
+          <div className="flex items-center gap-2">
+            <div className="border border-zinc-700/60 rounded-full px-3 py-1 bg-zinc-800/20 text-sm text-zinc-200 whitespace-nowrap">
+              {origin}
+            </div>
           </div>
         </div>
-        <div className="text-[11px] text-zinc-500 mt-3 font-mono tracking-widest uppercase">FRA</div>
-      </div>
 
-      {/* To */}
-      <div className="flex-1 p-5 sm:border-r border-b sm:border-b-0 border-zinc-800/80 relative">
-        <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-3">To</div>
-        <div className="flex items-center gap-2">
-          <div className="border border-zinc-700/60 rounded-full px-3 py-1 bg-zinc-800/20 text-sm text-zinc-200 whitespace-nowrap">
-            New York
+        {/* To */}
+        <div className="flex-1 p-5 sm:border-r border-b sm:border-b-0 border-zinc-800/80 relative">
+          <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-3">To</div>
+          <div className="flex items-center gap-2">
+            <div className="border border-zinc-700/60 rounded-full px-3 py-1 bg-zinc-800/20 text-sm text-zinc-200 whitespace-nowrap">
+              {destination}
+            </div>
           </div>
         </div>
-        <div className="text-[11px] text-zinc-500 mt-3 font-mono tracking-widest uppercase">JFK</div>
-      </div>
 
-      {/* Date */}
-      <div className="flex-1 p-5 sm:border-r border-b sm:border-b-0 border-zinc-800/80 relative">
-        <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-3">Date</div>
-        <div className="text-sm text-zinc-300 mt-2 py-1">Tomorrow</div>
-      </div>
+        {/* Date */}
+        <div className="flex-1 p-5 sm:border-r border-b sm:border-b-0 border-zinc-800/80 relative">
+          <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-3">Date</div>
+          <div className="text-sm text-zinc-300 mt-2 py-1">{dateLabel}</div>
+        </div>
 
-      {/* Action */}
-      <div className="w-full sm:w-28 flex sm:flex-col items-center justify-center gap-3 sm:gap-4 p-5 sm:p-0 bg-[#09090C] transition-colors group cursor-default">
-         <span className="text-[9px] uppercase tracking-[0.2em] text-zinc-600 transition-colors">Active</span>
-         <Activity className="w-4 h-4 text-zinc-600" />
+        {/* Action */}
+        <div className="w-full sm:w-28 flex sm:flex-col items-center justify-center gap-3 sm:gap-4 p-5 sm:p-0 bg-[#09090C] transition-colors group cursor-default">
+          <span className="text-[9px] uppercase tracking-[0.2em] text-zinc-600 transition-colors">Active</span>
+          <Activity className="w-4 h-4 text-zinc-600" />
+        </div>
       </div>
-    </div>
-  </motion.div>
-);
+    </motion.div>
+  );
+};
 
 const DecisionSummary = () => (
   <motion.section 
