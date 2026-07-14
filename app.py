@@ -2661,22 +2661,40 @@ def airports():
     locale = "en" if (request.args.get("lang") or "").lower().startswith("en") else "de"
     results = []
     if q:
+        def _local(code: str, meta: dict) -> dict:
+            return {
+                "label": f"{meta['name']} ({code})",
+                "value": code,
+                "source": "local",
+                "code": code,
+                "name": meta["name"],
+                "city": meta["city"],
+                "country": meta["country"],
+            }
         for alias, codes in ALIASES.items():
             if q in alias:
                 for code in codes:
                     meta = AIRPORTS.get(code)
                     if not meta:
                         continue
-                    results.append({"label": f"{meta['name']} ({code})", "value": code, "source": "local"})
+                    results.append(_local(code, meta))
         for code, meta in AIRPORTS.items():
             hay = f"{code} {meta['name']} {meta['city']} {meta['country']}".lower()
             if q in hay:
-                results.append({"label": f"{meta['name']} ({code})", "value": code, "source": "local"})
+                results.append(_local(code, meta))
         for place in autocomplete_places(q, locale=locale):
             label = f"{place['name']} ({place['code']})"
             if place.get("city") and place["city"] not in place["name"]:
                 label = f"{place['city']}{MIDDLE_DOT_SEP}{label}"
-            results.append({"label": label, "value": place["code"], "source": "dynamic"})
+            results.append({
+                "label": label,
+                "value": place["code"],
+                "source": "dynamic",
+                "code": place["code"],
+                "name": place["name"],
+                "city": place.get("city") or place["name"],
+                "country": place.get("country") or "",
+            })
     seen, out = set(), []
     for item in results:
         key = item["value"]

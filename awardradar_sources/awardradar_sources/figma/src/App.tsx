@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent, type CSSProperties } from 'react'
+import { useState, useEffect, type FormEvent, type CSSProperties, type KeyboardEvent } from 'react'
 
 // ─── THEME ────────────────────────────────────────────────────────────────────
 
@@ -319,11 +319,156 @@ function FooterLink({
   )
 }
 
+// ─── AUTOCOMPLETE ───────────────────────────────────────────────────────────
+type Suggestion = { code: string; name: string; city: string; country: string; label: string }
+
+function isValidDate(s: string): boolean {
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return false
+  const d = new Date(`${s}T00:00:00`)
+  return !Number.isNaN(d.getTime()) &&
+    d.getFullYear() === Number(m[1]) &&
+    d.getMonth() + 1 === Number(m[2]) &&
+    d.getDate() === Number(m[3])
+}
+
+// Airport/city autocomplete over /api/airports. Debounced, keyboard + pointer
+// navigable, with loading/empty/error states. `code` is the committed IATA
+// selection; typing clears it so the CTA can't validate on free text.
+function AutocompleteField({
+  label, text, code, onText, onSelect, placeholder, t,
+}: {
+  label: string
+  text: string
+  code: string
+  onText: (v: string) => void
+  onSelect: (s: Suggestion) => void
+  placeholder: string
+  t: any
+}) {
+  const [items, setItems]     = useState<Suggestion[]>([])
+  const [open, setOpen]       = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState(false)
+  const [active, setActive]   = useState(-1)
+  const listId = `ar-ac-${label.toLowerCase()}`
+
+  useEffect(() => {
+    const q = text.trim()
+    // No lookup once a value is committed, or below the trigger threshold.
+    if (code || q.length < 2) {
+      setItems([]); setLoading(false); setError(false); setActive(-1); setOpen(false)
+      return
+    }
+    setLoading(true); setError(false); setOpen(true)
+    const ctrl = new AbortController()
+    const timer = window.setTimeout(() => {
+      fetch(`/api/airports?q=${encodeURIComponent(q)}&lang=en`, { signal: ctrl.signal })
+        .then(r => { if (!r.ok) throw new Error('bad'); return r.json() })
+        .then((data: Suggestion[]) => { setItems(Array.isArray(data) ? data : []); setActive(-1); setLoading(false) })
+        .catch((e: any) => { if (e && e.name !== 'AbortError') { setError(true); setItems([]); setLoading(false) } })
+    }, 250)
+    return () => { window.clearTimeout(timer); ctrl.abort() }
+  }, [text, code])
+
+  function choose(s: Suggestion) {
+    onSelect(s)
+    setOpen(false); setItems([]); setActive(-1)
+  }
+
+  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (!open && items.length) { setOpen(true); setActive(0); return }
+      setActive(a => Math.min(a + 1, items.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActive(a => Math.max(a - 1, 0))
+    } else if (e.key === 'Enter') {
+      if (open && active >= 0 && items[active]) { e.preventDefault(); choose(items[active]) }
+    } else if (e.key === 'Escape') {
+      setOpen(false); setActive(-1)
+    }
+  }
+
+  const showList = open && text.trim().length >= 2 && !code
+  const stateStyle: CSSProperties = { padding: '11px 18px', fontSize: '13px', color: t.instrLabel, listStyle: 'none' }
+
+  return (
+    <div className={`ar-field ar-field--${label.toLowerCase()}`} style={{ flex: '1 1 auto', padding: '24px 48px 22px', display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0, position: 'relative' }}>
+      <span className="ar-field-label" style={{ color: t.fieldLabel }}>{label}</span>
+      <input
+        className="ar-input ar-place-input"
+        type="text"
+        role="combobox"
+        aria-expanded={showList}
+        aria-controls={listId}
+        aria-autocomplete="list"
+        aria-activedescendant={active >= 0 ? `${listId}-opt-${active}` : undefined}
+        autoComplete="off"
+        value={text}
+        onChange={e => onText(e.target.value)}
+        onKeyDown={onKeyDown}
+        onFocus={() => { if (!code && items.length) setOpen(true) }}
+        onBlur={() => window.setTimeout(() => setOpen(false), 130)}
+        placeholder={placeholder}
+        aria-label={label}
+        style={{ background: 'transparent', border: 'none', outline: 'none', padding: 0, margin: 0, fontFamily: 'inherit', fontSize: '21px', fontWeight: 400, letterSpacing: '-0.015em', lineHeight: 1, color: t.fieldValue, width: '100%' }}
+      />
+
+      {showList && (
+        <ul
+          id={listId}
+          role="listbox"
+          className="ar-ac-list"
+          style={{
+            position: 'absolute', top: 'calc(100% - 6px)', left: 0, right: 0, zIndex: 100,
+            margin: 0, padding: '4px 0', listStyle: 'none',
+            maxHeight: '248px', overflowY: 'auto',
+            background: t.instrBg,
+            border: `0.5px solid ${t.instrBorderTop}`,
+            boxShadow: '0 18px 40px -12px rgba(0,0,0,0.55)',
+          }}
+        >
+          {loading && <li className="ar-ac-state" style={stateStyle}>Searching&#8230;</li>}
+          {error && !loading && <li className="ar-ac-state" style={stateStyle}>Couldn&apos;t load suggestions</li>}
+          {!loading && !error && items.length === 0 && <li className="ar-ac-state" style={stateStyle}>No matching airports</li>}
+          {!loading && !error && items.map((s, i) => (
+            <li
+              key={`${s.code}-${i}`}
+              id={`${listId}-opt-${i}`}
+              role="option"
+              aria-selected={i === active}
+              className="ar-ac-item"
+              onMouseDown={e => { e.preventDefault(); choose(s) }}
+              onMouseEnter={() => setActive(i)}
+              style={{
+                display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '14px',
+                padding: '9px 18px', cursor: 'pointer',
+                background: i === active ? 'rgba(255,255,255,0.06)' : 'transparent',
+              }}
+            >
+              <span style={{ fontSize: '14px', color: t.fieldValue, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {s.city || s.name}
+              </span>
+              <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em', color: t.instrLabel, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                {s.code}{s.country ? ` · ${s.country}` : ''}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 // ─── APP ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [theme, setTheme]   = useState<Theme>('dark')
   const [from, setFrom]     = useState('')
   const [to, setTo]         = useState('')
+  const [fromCode, setFromCode] = useState('')
+  const [toCode, setToCode]     = useState('')
   const [date, setDate]     = useState('')
   const [isEditingDate, setIsEditingDate] = useState(false)
 
@@ -358,17 +503,20 @@ export default function App() {
 
   const t  = T[theme]
   const PX = 'clamp(64px, 7.5vw, 120px)'
-  const isValid = from.trim().length > 0 && to.trim().length > 0 && date.trim().length > 0
+  const sameRoute = fromCode.length > 0 && fromCode === toCode
+  const isValid = fromCode.length > 0 && toCode.length > 0 && !sameRoute && isValidDate(date)
+
+  function selectFrom(s: Suggestion) { setFrom(`${s.city || s.name} (${s.code})`); setFromCode(s.code) }
+  function selectTo(s: Suggestion)   { setTo(`${s.city || s.name} (${s.code})`); setToCode(s.code) }
 
   function handleSearch(e: FormEvent) {
     e.preventDefault()
     if (!isValid) return
     const params = new URLSearchParams()
-    if (from.trim()) params.set('from', from.trim())
-    if (to.trim()) params.set('to', to.trim())
-    if (date.trim()) params.set('date', date.trim())
-    const qs = params.toString()
-    window.location.href = `/app${qs ? '?' + qs : ''}`
+    params.set('from', fromCode)
+    params.set('to', toCode)
+    params.set('date', date.trim())
+    window.location.href = `/app?${params.toString()}`
   }
   function toggleTheme() { setTheme(th => th === 'dark' ? 'light' : 'dark') }
   function scrollToAct2() {
@@ -606,12 +754,28 @@ export default function App() {
               border: `0.5px solid ${t.instrBorder}`,
               borderTop: `0.5px solid ${t.instrBorderTop}`,
               boxShadow: t.instrShadow,
-              overflow: 'hidden',
+              overflow: 'visible',
               transition: 'none',
             }}>
-              <Field label="From" value={from} onChange={setFrom} placeholder="From"  t={t} />
+              <AutocompleteField
+                label="From"
+                text={from}
+                code={fromCode}
+                onText={v => { setFrom(v); setFromCode('') }}
+                onSelect={selectFrom}
+                placeholder="City or airport"
+                t={t}
+              />
               <div className="ar-divider" style={{ width: '0.5px', background: t.divider, margin: '17px 0', flexShrink: 0 }} />
-              <Field label="To" value={to} onChange={setTo} placeholder="To"  t={t} />
+              <AutocompleteField
+                label="To"
+                text={to}
+                code={toCode}
+                onText={v => { setTo(v); setToCode('') }}
+                onSelect={selectTo}
+                placeholder="City or airport"
+                t={t}
+              />
               <div className="ar-divider" style={{ width: '0.5px', background: t.divider, margin: '17px 0', flexShrink: 0 }} />
               <Field
                 label="Date"
@@ -660,6 +824,12 @@ export default function App() {
                   strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
+
+            {sameRoute && (
+              <p role="alert" style={{ margin: '12px 0 0', fontSize: '11px', letterSpacing: '0.03em', color: '#C77A32' }}>
+                Origin and destination must be different.
+              </p>
+            )}
           </form>
         </div>
       </section>
