@@ -452,20 +452,6 @@ export default function App() {
           paddingRight: PX,
           maxWidth: '560px',
         }}>
-          {/* Eyebrow — always visible */}
-          <p style={{
-            margin: '0 0 56px 0',
-            fontSize: '10px',
-            fontWeight: 500,
-            letterSpacing: '0.24em',
-            color: t.eyebrow,
-            textTransform: 'uppercase',
-            lineHeight: 1,
-            transition: 'color 0.4s ease',
-          }}>
-            Travel Decision Intelligence
-          </p>
-
           {/* ── Manifesto ── */}
           <div style={{ marginBottom: '0' }}>
             {/* Couplet one — immediately visible */}
