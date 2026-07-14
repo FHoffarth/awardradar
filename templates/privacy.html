@@ -25,21 +25,16 @@
   <link rel="stylesheet" href="/static/ui-next.css?v=12">
   <link rel="stylesheet" href="/static/public.css?v=1">
   <script src="/static/consent.js?v=1" defer></script>
-  <style>
-    .legal { max-width: 760px; margin: 0 auto; padding: 48px 20px 80px; min-width: 0; overflow-wrap: break-word; }
-    .legal h1 { font-size: clamp(24px, 8vw, 36px); line-height: 1.15; margin-bottom: 8px; overflow-wrap: anywhere; hyphens: auto; }
-    .legal h2 { color: var(--nx-brass); font-size: 16px; margin: 32px 0 6px; }
-    .legal p, .legal ul { color: var(--nx-reading-ink); line-height: 1.7; }
-    .legal ul { padding-left: 20px; }
-    .legal a { color: var(--nx-accent); }
-    .legal code { color: var(--nx-accent); }
-    .back { display: inline-block; margin-bottom: 32px; color: var(--nx-accent); text-decoration: none; font-size: 14px; }
-  </style>
-</head>
+  </head>
 <body class="about-page">
-  <nav class="navbar">
+    <nav class="navbar">
     <div class="nav-inner">
-      <a href="/" class="nav-link">Search</a>
+      <a href="/" class="logo">
+        <div>
+          <div class="logo-name"><span class="logo-award">Award</span><span class="logo-radar">Radar</span></div>
+          <div class="logo-tagline">Travel Decision Intelligence</div>
+        </div>
+      </a>
       <div class="nav-right">
         <button class="theme-btn" id="themeBtn" aria-label="Toggle light/dark mode">
           <svg id="themeIconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -48,7 +43,7 @@
       </div>
     </div>
   </nav>
-  <div class="legal">
+  <main class="about-shell legal" tabindex="-1">
     <a href="/" class="back">← Back to AwardRadar</a>
     <h1>Privacy Notice</h1>
     <p>This English version is provided for information only. The German version is legally controlling.</p>
@@ -125,15 +120,21 @@
 
     <h2>12. Changes</h2>
     <p>This privacy notice may be updated if functions, providers or legal assessments change. Last updated: July 2026.</p>
-  </div>
-  <footer class="public-footer">
-    <div class="footer-links"><a href="/">AwardRadar</a><a href="/about">About</a><a href="/impressum">Imprint</a><a href="/datenschutz">Privacy</a></div>
+  </main>
+    <footer class="public-footer">
+    <div class="trust-note">Verify before booking — AwardRadar provides decision support only. Always confirm availability, pricing and rules with official airline, booking-site and loyalty-program sources.</div>
+    <div class="footer-links">
+      <a href="/privacy">Privacy</a>
+      <a href="/impressum">Imprint</a>
+      <button type="button" class="theme-btn" aria-label="Toggle light/dark mode">Theme</button>
+      <a href="https://x.com/awardradar" target="_blank" rel="noopener noreferrer">@AwardRadar</a>
+    </div>
     <p>&copy; 2026 AwardRadar</p>
   </footer>
   <script>
     (function () {
       var root = document.documentElement;
-      var themeBtn = document.getElementById('themeBtn');
+      var themeBtns = document.querySelectorAll('.theme-btn');
       var moon = document.getElementById('themeIconMoon');
       var sun = document.getElementById('themeIconSun');
       function applyTheme(theme) {
@@ -146,9 +147,9 @@
       }
       var currentTheme = root.dataset.theme || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
       applyTheme(currentTheme);
-      if (themeBtn) themeBtn.addEventListener('click', function () {
+      themeBtns.forEach(function(btn) { btn.addEventListener('click', function () {
         applyTheme(root.dataset.theme === 'dark' ? 'light' : 'dark');
-      });
+      }); });
     })();
   </script>
 </body>

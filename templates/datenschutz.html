@@ -25,21 +25,16 @@
   <link rel="stylesheet" href="/static/ui-next.css?v=12">
   <link rel="stylesheet" href="/static/public.css?v=1">
   <script src="/static/consent.js?v=1" defer></script>
-  <style>
-    .legal { max-width: 760px; margin: 0 auto; padding: 48px 20px 80px; min-width: 0; overflow-wrap: break-word; }
-    .legal h1 { font-size: clamp(24px, 8vw, 36px); line-height: 1.15; margin-bottom: 8px; overflow-wrap: anywhere; hyphens: auto; }
-    .legal h2 { color: var(--nx-brass); font-size: 16px; margin: 32px 0 6px; }
-    .legal p, .legal ul { color: var(--nx-reading-ink); line-height: 1.7; }
-    .legal ul { padding-left: 20px; }
-    .legal a { color: var(--nx-accent); }
-    .legal code { color: var(--nx-accent); }
-    .back { display: inline-block; margin-bottom: 32px; color: var(--nx-accent); text-decoration: none; font-size: 14px; }
-  </style>
-</head>
+  </head>
 <body class="about-page">
-  <nav class="navbar">
+    <nav class="navbar">
     <div class="nav-inner">
-      <a href="/" class="nav-link">Suche</a>
+      <a href="/" class="logo">
+        <div>
+          <div class="logo-name"><span class="logo-award">Award</span><span class="logo-radar">Radar</span></div>
+          <div class="logo-tagline">Travel Decision Intelligence</div>
+        </div>
+      </a>
       <div class="nav-right">
         <button class="theme-btn" id="themeBtn" aria-label="Toggle light/dark mode">
           <svg id="themeIconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -48,92 +43,104 @@
       </div>
     </div>
   </nav>
-  <div class="legal">
+  <main class="about-shell legal" tabindex="-1">
     <a href="/" class="back">← Zurück zu AwardRadar</a>
     <h1>Datenschutzerklärung</h1>
-    <p>Diese deutsche Fassung ist die rechtlich maßgebliche Version. Eine englische Übersetzung kann später zusätzlich als unverbindliche Information bereitgestellt werden.</p>
-    <p>Englische Informationsfassung: <a href="/privacy">Privacy Notice</a></p>
 
     <h2>1. Verantwortlicher</h2>
-    <p>Florian Hoffarth, hello@awardradar.app. Weitere Angaben finden Sie im <a href="/impressum">Impressum</a>.</p>
+    <p>Verantwortlich für die Datenverarbeitung auf dieser Website ist:</p>
+    <address>
+      Florian Hoffarth<br>
+      Ringstr. 48<br>
+      64807 Dieburg<br>
+      Deutschland<br>
+      E-Mail: <a href="mailto:hello@awardradar.app">hello@awardradar.app</a>
+    </address>
+    <p>Weitere Angaben finden Sie im <a href="/impressum">Impressum</a>.</p>
 
     <h2>2. Zugriffsdaten und Hosting</h2>
-    <p>AwardRadar wird bei Railway gehostet. Die bestätigte Produktionsregion ist derzeit EU West (Amsterdam, Niederlande). Beim Aufruf der Website und ihrer Schnittstellen können technisch notwendige Zugriffsdaten verarbeitet werden, insbesondere IP-Adresse, Datum und Uhrzeit des Zugriffs, aufgerufener Pfad, Statuscode, Browser- und Geräteinformationen, Referrer sowie ähnliche technische Metadaten.</p>
-    <p>Railway kann Server- und Access-Logs erzeugen. Die genaue Log-Aufbewahrungsdauer, die vertragliche Einordnung, Unterauftragsverarbeiter und die anwendbaren Übermittlungsmechanismen werden noch mit dem Anbieter bzw. rechtlich geprüft.</p>
+    <p>AwardRadar wird bei dem Anbieter Railway gehostet. Die bestätigte Produktionsregion ist aktuell EU West (Amsterdam, Niederlande). Bei jedem Aufruf der Website und ihrer Schnittstellen können technisch notwendige Zugriffsdaten verarbeitet werden, insbesondere IP-Adresse, Datum und Uhrzeit der Anfrage, der angefragte Pfad, der Statuscode, Browser- und Geräteinformationen, der Referrer sowie ähnliche technische Metadaten.</p>
+    <p>Seitens Railway können Server- und Zugriffs-Logs entstehen. Die genaue Speicherdauer dieser Logs, die vertragliche Einordnung, eingesetzte Sub-Dienstleister und die anwendbaren Transfermechanismen werden derzeit mit dem Anbieter und rechtlich geprüft.</p>
 
     <h2>3. Suchanfragen und Verarbeitungszwecke</h2>
-    <p>Wenn Sie AwardRadar aktiv nutzen, verarbeitet die Anwendung die von Ihnen eingegebenen Suchparameter, um Flugpreis-, Award- und Routing-Kontext bereitzustellen. Je nach Funktion können dazu Abflug- und Zielort, Reisedatum, Rückreisedatum, Reiseart, Kabine, Filter, Programmauswahl und ähnliche Suchparameter gehören.</p>
-    <p>Die Flughafen-Autovervollständigung verwendet eine Anfrage wie <code>/api/airports?q=...</code>. Dadurch kann der eingegebene Suchbegriff als URL-Parameter in technischen Logs erscheinen. Cash-Suchen, Award-Suchen und Hidden-Opportunity-/Skiplag-Suchen werden als Anfrageinhalt an AwardRadar gesendet und dort serverseitig verarbeitet.</p>
-    <p>Für die eigentliche Auswertung können Suchparameter an externe Datenanbieter übermittelt werden, soweit dies zur Erbringung der jeweiligen Funktion erforderlich ist. AwardRadar legt dabei kein Nutzerkonto und kein personenbezogenes Reiseprofil an. Suchdaten können jedoch Rückschlüsse auf Reiseinteressen zulassen und werden deshalb transparent beschrieben.</p>
+    <p>Wenn Sie AwardRadar aktiv nutzen, verarbeitet die Anwendung die von Ihnen eingegebenen Suchparameter, um Flugpreis-, Prämien- und Routing-Kontext bereitzustellen. Dazu können je nach Funktion Start und Ziel, Reisedatum, Rückflugdatum, Reiseart, Kabinenklasse, Filter, Programmauswahl und ähnliche Suchparameter gehören.</p>
+    <p>Die Flughafen-Autovervollständigung nutzt einen Request der Form <code>/api/airports?q=...</code>. Dadurch kann der eingegebene Suchbegriff in technischen Logs als URL-Parameter sichtbar werden. Cash-Suchen, Prämien-Suchen und Hidden-Opportunity/Skiplag-Suchen werden als Request-Inhalt an AwardRadar gesendet und dort serverseitig verarbeitet.</p>
+    <p>Für die eigentliche Auswertung können Suchparameter an externe Datenanbieter übermittelt werden, soweit dies zur Bereitstellung der jeweiligen Funktion notwendig ist. AwardRadar legt dabei kein Nutzerkonto an und erstellt kein persönliches Reiseprofil. Suchdaten können jedoch Rückschlüsse auf Reiseinteressen zulassen und werden daher transparent beschrieben.</p>
 
-    <h2>4. Zwischenspeicherung und Aufbewahrung</h2>
-    <p>Einzelne technische Ergebnisse können vorübergehend im Arbeitsspeicher oder in temporären Cache-Dateien gespeichert werden, um wiederholte Anbieterabfragen zu reduzieren und die Anwendung stabil zu halten. Diese technische Zwischenspeicherung ist von Server-Logs und von Speicherungen externer Anbieter zu unterscheiden.</p>
+    <h2>4. Kurzzeitiges Caching und Speicherdauer</h2>
+    <p>Einzelne fachliche Ergebnisse können kurzzeitig im Arbeitsspeicher oder in temporären Cache-Dateien zwischengespeichert werden, um wiederholte Anbieter-Anfragen zu reduzieren und die Anwendung stabil zu halten. Dieses technische Caching ist von Server-Logs und von der Speicherung bei externen Anbietern zu unterscheiden.</p>
     <ul>
-      <li>SerpApi-Ergebnis-Cache: aktueller technischer Standardwert von etwa 6 Stunden.</li>
-      <li>Top-Opportunities-Cache: aktueller technischer Standardwert von etwa 4 Stunden.</li>
-      <li>Weitere kurzlebige Zwischenspeicher im Arbeitsspeicher oder in temporären Dateien: bis zum Ablauf, bis zu einem Neustart oder bis zur technischen Löschung.</li>
-      <li>Browser-Einstellungen und gespeicherte Suchen: bis zur Löschung durch Sie, bis zur Bereinigung durch den Browser oder bis zu einer Änderung der Funktion.</li>
-      <li>Server- und Zugriffs-Logs sowie Speicherungen externer Anbieter: anbieterabhängig und noch nicht abschließend bestätigt.</li>
+      <li>SerpApi-Ergebnis-Cache: aktueller technischer Standardwert ca. 6 Stunden.</li>
+      <li>Top Opportunities-Cache: aktueller technischer Standardwert ca. 4 Stunden.</li>
+      <li>Sonstige kurzlebige Caches im Speicher oder in Temp-Dateien: bis zum Ablauf, bis zu einem Neustart oder bis zur technischen Löschung.</li>
+      <li>Browser-Einstellungen und gespeicherte Suchen: bis Sie diese löschen, bis der Browser sie leert oder bis zu einer Änderung der Funktion.</li>
+      <li>Server- und Zugriffs-Logs sowie Speicherung bei externen Anbietern: anbieterabhängig und noch nicht abschließend bestätigt.</li>
     </ul>
-    <p>Die genannten Cache-Dauern sind aktuelle technische Standardwerte und keine zugesicherten rechtlichen Aufbewahrungsfristen.</p>
-    <p>Lokale Browser-Einstellungen bleiben grundsätzlich gespeichert, bis Sie sie löschen, der Browser sie entfernt oder AwardRadar die Funktion ändert. Die Aufbewahrungsfristen von Railway und externen Anbietern sind noch nicht abschließend bestätigt und werden nicht pauschal zugesichert.</p>
+    <p>Die genannten Cache-Zeiten sind aktuelle technische Standardwerte und keine garantierten gesetzlichen Löschfristen.</p>
+    <p>Lokale Browser-Einstellungen bleiben in der Regel so lange gespeichert, bis Sie diese löschen, der Browser sie entfernt oder AwardRadar die Funktion ändert. Die Speicherdauern bei Railway und externen Anbietern sind noch nicht abschließend bestätigt und werden nicht pauschal zugesichert.</p>
 
     <h2>5. Rechtsgrundlagen der Verarbeitung</h2>
-    <p>Die folgenden Angaben beschreiben die aus heutiger Sicht einschlägigen Rechtsgrundlagen. Sie stellen eine sorgfältige eigene Einordnung dar und werden fortlaufend überprüft.</p>
+    <p>Die nachfolgenden Angaben beschreiben die aus heutiger Sicht relevanten Rechtsgrundlagen. Sie stellen eine sorgfältige eigene Einschätzung dar und werden fortlaufend geprüft.</p>
     <ul>
-      <li><strong>Bereitstellung der Website, technische Zugriffs-Logs, Sicherheit, Fehlerdiagnose und Missbrauchsvermeidung:</strong> Art. 6 Abs. 1 lit. f DSGVO. Berechtigte Interessen sind der Betrieb und die Absicherung des Dienstes, die Vermeidung von Missbrauch und die Diagnose technischer Störungen.</li>
-      <li><strong>Verarbeitung aktiv abgesendeter Suchanfragen</strong> – Flughafen-Autovervollständigung, Cash-Suchen, Award-Suchen, Hidden-Opportunity-Suchen, Top Opportunities sowie die technisch notwendige, kurzzeitige Zwischenspeicherung: Art. 6 Abs. 1 lit. f DSGVO. Berechtigte Interessen sind die Beantwortung der von Ihnen angeforderten Suche und die Reduzierung unnötiger Anbieterabfragen durch kurzlebige Zwischenspeicher.</li>
+      <li><strong>Bereitstellung der Website, technische Zugriffs-Logs, Sicherheit, Fehlerdiagnose und Missbrauchsabwehr:</strong> Art. 6 Abs. 1 lit. f DSGVO. Das berechtigte Interesse ist der Betrieb und die Absicherung des Dienstes, die Abwehr von Missbrauch sowie die Diagnose technischer Fehler.</li>
+      <li><strong>Verarbeitung aktiv abgesendeter Suchanfragen</strong> – Flughafen-Autovervollständigung, Cash-Suchen, Prämien-Suchen, Hidden-Opportunity-Suchen, Top Opportunities sowie das technisch notwendige, kurzzeitige Caching: Art. 6 Abs. 1 lit. f DSGVO. Das berechtigte Interesse ist die Beantwortung der von Ihnen angeforderten Suche und die Reduzierung unnötiger Anbieter-Aufrufe durch kurzlebiges Caching.</li>
     </ul>
-    <p>Für Analyse- und Tag-Management-Dienste gilt eine gesonderte Rechtsgrundlage; siehe Abschnitt „Einwilligung, Analyse und Tag Management”.</p>
+    <p>Für Analytics und Tag-Management-Dienste gilt eine gesonderte Rechtsgrundlage; siehe Abschnitt „Einwilligung, Analytics und Tag Management“.</p>
 
     <h2>6. Externe Anbieter</h2>
-    <p>AwardRadar kann je nach Funktion und technischer Konfiguration folgende externe Dienste einbeziehen:</p>
+    <p>AwardRadar kann je nach Funktion und technischer Konfiguration die folgenden externen Dienste einbinden:</p>
     <ul>
       <li><strong>Railway</strong> – Hosting der Website und Verarbeitung technischer Zugriffs- und Serverdaten. Produktionsregion: EU West (Amsterdam, Niederlande). Datenschutzerklärung: <a href="https://railway.app/legal/privacy" target="_blank" rel="noopener">railway.app/legal/privacy</a></li>
-      <li><strong>SerpApi</strong> – Abfrage von Google-Flights-Marktdaten und Cash-Fare-Kontext. Dabei können Suchparameter wie Abflug, Ziel, Datum, Kabine, Sprache und Währung serverseitig übermittelt werden. Datenschutzerklärung: <a href="https://serpapi.com/privacy" target="_blank" rel="noopener">serpapi.com/privacy</a></li>
-      <li><strong>Seats.aero</strong> – Abfrage von Award-Verfügbarkeits- und Programmsignalen, sofern diese Datenquelle aktiv ist. Dabei können insbesondere Route, Datumsspanne und Kabinenklasse übermittelt werden. Datenschutzerklärung: <a href="https://seats.aero/privacy" target="_blank" rel="noopener">seats.aero/privacy</a></li>
-      <li><strong>Travelpayouts / Aviasales</strong> – Flughafen-Autovervollständigung sowie fallback- oder cachebasierte Flugdaten, soweit technisch genutzt. Dabei können Suchbegriffe oder Flug-Suchparameter serverseitig übermittelt werden. Datenschutzerklärung: <a href="https://www.travelpayouts.com/en/legal/privacy" target="_blank" rel="noopener">travelpayouts.com</a></li>
-      <li><strong>Google Tag Manager / Google Analytics</strong> – Analyse und Tag-Management nur nach Ihrer Einwilligung in Analytics. Datenschutzerklärung: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a></li>
+      <li><strong>SerpApi</strong> – Abruf von Google-Flights-Marktdaten und Cash-Preiskontext. Es können serverseitig Suchparameter wie Start, Ziel, Datum, Kabinenklasse, Sprache und Währung übermittelt werden. Datenschutzerklärung: <a href="https://serpapi.com/privacy" target="_blank" rel="noopener">serpapi.com/privacy</a></li>
+      <li><strong>Seats.aero</strong> – Abruf von Prämien-Verfügbarkeits- und Programmsignalen, sofern diese Datenquelle aktiv ist. Es können insbesondere Strecke, Datumsbereich und Kabinenklasse übermittelt werden. Datenschutzerklärung: <a href="https://seats.aero/privacy" target="_blank" rel="noopener">seats.aero/privacy</a></li>
+      <li><strong>Travelpayouts / Aviasales</strong> – Flughafen-Autovervollständigung sowie Fallback- oder Cache-basierte Flugdaten, sofern technisch genutzt. Es können serverseitig Suchbegriffe oder Flugsuchen-Parameter übermittelt werden. Datenschutzerklärung: <a href="https://www.travelpayouts.com/en/legal/privacy" target="_blank" rel="noopener">travelpayouts.com</a></li>
+      <li><strong>Google Tag Manager / Google Analytics</strong> – Analytics und Tag Management nur nach Ihrer Zustimmung zu Analytics. Datenschutzerklärung: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a></li>
     </ul>
-    <p>Die Anbieter werden nicht bei jeder Suche zwingend genutzt. Welche Anbieter beteiligt sind, hängt von Suchmodus, technischer Konfiguration, Verfügbarkeit und Cache-Zustand ab. Anbieterbezogene Aufbewahrungsfristen, Unterauftragsverarbeiter und internationale Übermittlungsmechanismen werden noch geprüft.</p>
+    <p>Die Anbieter werden nicht zwangsläufig bei jeder Suche genutzt. Welche Anbieter involviert sind, hängt vom Suchmodus, der technischen Konfiguration, der Verfügbarkeit und dem Cache-Status ab. Anbieter-spezifische Speicherdauern, Sub-Dienstleister und internationale Transfermechanismen werden noch geprüft.</p>
 
-    <h2>7. Externe Verifikations- und Buchungslinks</h2>
-    <p>AwardRadar kann Links zu externen Websites anzeigen, zum Beispiel zu Flug- und Buchungsseiten, Suchanbietern, Airlines oder Vielfliegerprogrammen. Wenn Sie einen solchen Link anklicken, verlassen Sie AwardRadar. Der jeweilige Anbieter kann dann eigene Zugriffsdaten, Referrer-Informationen und gegebenenfalls im Link enthaltene Reisedaten wie Route oder Datum verarbeiten.</p>
+    <h2>7. Externe Verifizierungs- und Buchungslinks</h2>
+    <p>AwardRadar kann Links auf externe Websites anzeigen, beispielsweise zu Flug- und Buchungsseiten, Suchmaschinen, Airlines oder Vielfliegerprogrammen. Wenn Sie einen solchen Link anklicken, verlassen Sie AwardRadar. Der jeweilige Anbieter kann dann eigene Zugriffsdaten, Referrer-Informationen und gegebenenfalls im Link enthaltene Reisedaten wie Strecke oder Datum verarbeiten.</p>
 
     <h2>8. Lokale Speicherung im Browser</h2>
-    <p>AwardRadar verwendet lokale Speicherung im Browser für Funktionen, die direkt auf Ihrem Gerät bleiben:</p>
+    <p>AwardRadar nutzt lokale Browser-Speicherung (Web Storage) für Funktionen, die direkt auf Ihrem Endgerät bleiben:</p>
     <ul>
       <li><strong><code>awardradar_theme</code></strong> (localStorage) – Anzeigeeinstellung für Hell-/Dunkelmodus.</li>
-      <li><strong><code>awardradar_text_size</code></strong> (localStorage) – Textgrößen-Einstellung für bessere Lesbarkeit.</li>
-      <li><strong><code>awardradar_consent</code></strong> (localStorage) – Ihre Auswahl zu notwendigen Funktionen und optionaler Analyse. Sie können diese Auswahl über „Privacy settings” ändern oder widerrufen.</li>
-      <li><strong><code>awardradar_saved_searches</code></strong> (localStorage) – Optional gespeicherte Suchparameter wie Route, Datum, Kabine, Suchmodus und Filter. Diese Daten bleiben im Browser, werden nicht an ein Nutzerkonto gebunden und können über die Saved-Searches-Funktion gelöscht werden.</li>
+      <li><strong><code>awardradar_text_size</code></strong> (localStorage) – Textgrößen-Einstellung zur besseren Lesbarkeit.</li>
+      <li><strong><code>awardradar_consent</code></strong> (localStorage) – Ihre Auswahl bezüglich notwendiger Funktionen und optionaler Analytics. Diese Auswahl können Sie über die „Datenschutz-Einstellungen“ ändern oder widerrufen.</li>
+      <li><strong><code>awardradar_saved_searches</code></strong> (localStorage) – optional gespeicherte Suchparameter wie Strecke, Datum, Kabinenklasse, Suchmodus und Filter. Diese Daten bleiben im Browser, sind nicht mit einem Nutzerkonto verknüpft und können über die Funktion „Gespeicherte Suchen“ (Saved Searches) gelöscht werden.</li>
     </ul>
-    <p>Diese Browserdaten sind nicht automatisch mit einem serverseitigen Nutzerkonto verbunden. Sie können sie über die Browser-Einstellungen oder die jeweiligen Funktionen löschen.</p>
-    <p>Rechtlich ist dabei zu unterscheiden: Für eine etwaige Verarbeitung personenbezogener Daten, die aus diesen Funktionen resultiert, gilt die jeweils einschlägige Rechtsgrundlage der DSGVO. Das Speichern von Informationen auf Ihrem Endgerät und der Zugriff darauf richten sich zusätzlich nach § 25 TDDDG. Notwendige Einstellungen können sich auf § 25 Abs. 2 TDDDG stützen, soweit dessen gesetzliche Voraussetzungen erfüllt sind; das Speichern oder Auslesen für Analysezwecke setzt Ihre Einwilligung voraus.</p>
+    <p>Diese Browser-Daten werden nicht automatisch mit einem serverseitigen Nutzerkonto verknüpft. Sie können sie über Ihre Browser-Einstellungen oder die jeweiligen Funktionen löschen.</p>
+    <p>Hierbei gilt eine rechtliche Unterscheidung: Für eine etwaige Verarbeitung personenbezogener Daten, die aus diesen Funktionen resultiert, greift die jeweils anwendbare Rechtsgrundlage nach der DSGVO. Das Speichern von Informationen in Ihrer Endeinrichtung und der Zugriff darauf richten sich zusätzlich nach § 25 TDDDG. Notwendige Einstellungen können sich auf § 25 Abs. 2 TDDDG stützen, soweit dessen gesetzliche Voraussetzungen erfüllt sind; die Speicherung oder das Auslesen zu Analysezwecken erfordert Ihre Einwilligung.</p>
 
-    <h2>9. Einwilligung, Analyse und Tag Management</h2>
-    <p>Google Tag Manager und Google Analytics werden in der Produktion erst nach Ihrer ausdrücklichen Einwilligung in Analytics geladen. Vor Ihrer Auswahl ist die Analytics-Speicherung standardmäßig deaktiviert. Eine erteilte Einwilligung kann jederzeit über „Privacy settings” geändert oder widerrufen werden.</p>
-    <p>Rechtsgrundlage für die analytische Verarbeitung personenbezogener Daten ist Ihre Einwilligung nach Art. 6 Abs. 1 lit. a DSGVO. Das Speichern von Informationen auf Ihrem Endgerät und der Zugriff darauf werden gesondert nach § 25 TDDDG beurteilt. Sie können eine erteilte Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen; die Rechtmäßigkeit der bis zum Widerruf erfolgten Verarbeitung bleibt davon unberührt.</p>
-    <p>Nach Einwilligung können technische Nutzungsdaten wie Seitenaufrufe, Browser- und Geräteinformationen, Referrer, Seiten-URLs und Ereignisdaten verarbeitet werden. Die genaue Verarbeitung von vollständigen URLs, Query-Strings, Referrern, IP-bezogenen Daten und Ereignissen hängt von der Google- und Tag-Manager-Konfiguration ab und wird noch gesondert geprüft. Eine vollständige Anonymisierung wird hier nicht zugesichert.</p>
-    <p>Analyse- und Tag-Management-Dienste können eigene Cookies oder vergleichbare Technologien erst setzen, wenn Sie der Kategorie „Analytics” zustimmen. Bei Widerruf versucht AwardRadar, bekannte Analytics-Cookies im Browser zu entfernen.</p>
+    <h2>9. Einwilligung, Analytics und Tag Management</h2>
+    <p>Google Tag Manager und Google Analytics werden in der Produktion nur nach Ihrer ausdrücklichen Zustimmung zu Analytics geladen. Vor Ihrer Auswahl ist die Analytics-Speicherung standardmäßig deaktiviert. Eine erteilte Einwilligung kann jederzeit über die „Datenschutz-Einstellungen“ geändert oder widerrufen werden.</p>
+    <p>Rechtsgrundlage für die analytische Verarbeitung personenbezogener Daten ist Ihre Einwilligung nach Art. 6 Abs. 1 lit. a DSGVO. Das Speichern von Informationen in Ihrer Endeinrichtung und der Zugriff darauf werden nach § 25 TDDDG gesondert bewertet. Eine erteilte Einwilligung können Sie jederzeit mit Wirkung für die Zukunft widerrufen; die Rechtmäßigkeit der aufgrund der Einwilligung bis zum Widerruf erfolgten Verarbeitung bleibt unberührt.</p>
+    <p>Nach Zustimmung können technische Nutzungsdaten wie Seitenaufrufe, Browser- und Geräteinformationen, Referrer, Seiten-URLs und Event-Daten verarbeitet werden. Die genaue Verarbeitung von vollständigen URLs, Query-Strings, Referrern, IP-bezogenen Daten und Events hängt von der Google- und Tag-Manager-Konfiguration ab und wird noch gesondert geprüft. Eine vollständige Anonymisierung wird dabei nicht garantiert.</p>
+    <p>Analytics- und Tag-Management-Dienste setzen eigene Cookies oder vergleichbare Technologien möglicherweise erst dann ein, wenn Sie der Kategorie „Analytics“ zustimmen. Bei einem Widerruf versucht AwardRadar, bekannte Analytics-Cookies im Browser zu entfernen.</p>
 
-    <h2>10. Internationale Übermittlungen</h2>
-    <p>AwardRadar wird bei Railway in der Region EU West (Amsterdam, Niederlande) gehostet. Da jedoch einzelne externe Anbieter wie Google, SerpApi, Seats.aero, Travelpayouts oder andere international tätige Dienstleister eingebunden sind, kann weiterhin eine Verarbeitung außerhalb der EU bzw. des EWR stattfinden. Die jeweils anwendbaren vertraglichen Schutzmaßnahmen, Unterauftragsverarbeiter und Übermittlungsmechanismen werden anbieterbezogen und rechtlich geprüft. Diese Datenschutzerklärung trifft dazu keine abschließende rechtliche Bewertung.</p>
+    <h2>10. Internationale Datentransfers</h2>
+    <p>AwardRadar wird bei Railway in der Region EU West (Amsterdam, Niederlande) gehostet. Durch die Einbindung einzelner externer Anbieter wie Google, SerpApi, Seats.aero, Travelpayouts oder anderer international tätiger Dienstleister kann dennoch eine Verarbeitung außerhalb der EU bzw. des EWR stattfinden. Die jeweils anwendbaren vertraglichen Garantien, Sub-Dienstleister und Transfermechanismen werden anbieter- und rechtsspezifisch geprüft. Diese Datenschutzerklärung trifft hierzu keine abschließende rechtliche Bewertung.</p>
 
     <h2>11. Ihre Rechte</h2>
-    <p>Sie haben nach Maßgabe der DSGVO insbesondere Rechte auf Auskunft, Berichtigung, Löschung und Einschränkung der Verarbeitung sowie, soweit anwendbar, auf Datenübertragbarkeit. Sie haben zudem das Recht, aus Gründen, die sich aus Ihrer besonderen Situation ergeben, jederzeit gegen eine Verarbeitung Widerspruch einzulegen, die auf Art. 6 Abs. 1 lit. f DSGVO beruht (Art. 21 DSGVO). Soweit eine Verarbeitung auf Ihrer Einwilligung beruht, können Sie diese jederzeit mit Wirkung für die Zukunft nach Art. 7 Abs. 3 DSGVO widerrufen; die Rechtmäßigkeit der bis zum Widerruf erfolgten Verarbeitung bleibt davon unberührt. Zudem können Sie sich bei einer zuständigen Datenschutzaufsichtsbehörde beschweren. Kontakt: <a href="mailto:hello@awardradar.app">hello@awardradar.app</a></p>
+    <p>Ihnen stehen nach der DSGVO insbesondere Rechte auf Auskunft, Berichtigung, Löschung und Einschränkung der Verarbeitung sowie gegebenenfalls auf Datenübertragbarkeit zu. Sie haben zudem das Recht, aus Gründen, die sich aus Ihrer besonderen Situation ergeben, jederzeit gegen eine Verarbeitung Widerspruch einzulegen, die auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO erfolgt (Art. 21 DSGVO). Beruht eine Verarbeitung auf Ihrer Einwilligung, können Sie diese nach Art. 7 Abs. 3 DSGVO jederzeit mit Wirkung für die Zukunft widerrufen; die Rechtmäßigkeit der aufgrund der Einwilligung bis zum Widerruf erfolgten Verarbeitung bleibt unberührt. Außerdem können Sie sich bei einer zuständigen Datenschutzaufsichtsbehörde beschweren. Kontakt: <a href="mailto:hello@awardradar.app">hello@awardradar.app</a></p>
 
     <h2>12. Änderungen</h2>
     <p>Diese Datenschutzerklärung kann aktualisiert werden, wenn sich Funktionen, Anbieter oder rechtliche Bewertungen ändern. Stand: Juli 2026.</p>
-  </div>
-  <footer class="public-footer">
-    <div class="footer-links"><a href="/">AwardRadar</a><a href="/about">About</a><a href="/impressum">Imprint</a><a href="/datenschutz" aria-current="page">Privacy</a></div>
+  </main>
+    <footer class="public-footer">
+    <div class="trust-note">Verify before booking — AwardRadar provides decision support only. Always confirm availability, pricing and rules with official airline, booking-site and loyalty-program sources.</div>
+    <div class="footer-links">
+      <a href="/privacy">Privacy</a>
+      <a href="/impressum">Imprint</a>
+      <button type="button" class="theme-btn" aria-label="Toggle light/dark mode">Theme</button>
+      <a href="https://x.com/awardradar" target="_blank" rel="noopener noreferrer">@AwardRadar</a>
+    </div>
     <p>&copy; 2026 AwardRadar</p>
   </footer>
   <script>
     (function () {
       var root = document.documentElement;
-      var themeBtn = document.getElementById('themeBtn');
+      var themeBtns = document.querySelectorAll('.theme-btn');
       var moon = document.getElementById('themeIconMoon');
       var sun = document.getElementById('themeIconSun');
       function applyTheme(theme) {
@@ -146,9 +153,9 @@
       }
       var currentTheme = root.dataset.theme || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
       applyTheme(currentTheme);
-      if (themeBtn) themeBtn.addEventListener('click', function () {
+      themeBtns.forEach(function(btn) { btn.addEventListener('click', function () {
         applyTheme(root.dataset.theme === 'dark' ? 'light' : 'dark');
-      });
+      }); });
     })();
   </script>
 </body>

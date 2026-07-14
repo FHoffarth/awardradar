@@ -37,19 +37,19 @@ const T = {
     coord:              '#999186',
   },
   light: {
-    bg:                 '#F2EEE6',
-    vignL:              'linear-gradient(to right, #F2EEE6 0%, #F2EEE6 43%, rgba(242,238,230,0.985) 54%, rgba(242,238,230,0.58) 69%, transparent 82%)',
-    vignV:              'linear-gradient(to bottom, rgba(242,238,230,0.08) 0%, transparent 16%, transparent 84%, rgba(242,238,230,0.14) 100%)',
-    wordmark:           '#28251F',
+    bg:                 '#F3F4F6', /* Cool off-white/slate */
+    vignL:              'linear-gradient(to right, #F3F4F6 0%, #F3F4F6 43%, rgba(243,244,246,0.985) 54%, rgba(243,244,246,0.58) 69%, transparent 82%)',
+    vignV:              'linear-gradient(to bottom, rgba(243,244,246,0.08) 0%, transparent 16%, transparent 84%, rgba(243,244,246,0.14) 100%)',
+    wordmark:           '#1F2937', /* Dark slate for less harsh contrast */
     wordmarkRadar:      '#C77A32',
-    navLink:            '#5B554C',
-    navLinkHover:       '#24211C',
-    eyebrow:            'rgba(117,109,98,0.8)',
-    line1:              '#28251F',
-    line2:              'rgba(81,74,65,0.7)',
-    lineWhy:            '#1E1B17',
-    instrLabel:         'rgba(112,103,92,0.7)',
-    instrBg:            '#111317',
+    navLink:            '#4B5563', /* Slate gray */
+    navLinkHover:       '#111827',
+    eyebrow:            'rgba(75,85,99,0.8)',
+    line1:              '#1F2937',
+    line2:              'rgba(55,65,81,0.7)',
+    lineWhy:            '#111827',
+    instrLabel:         'rgba(75,85,99,0.7)',
+    instrBg:            '#111317', /* keep same for now as dark mode if user wants it */
     instrBorder:        'rgba(0,0,0,0.06)',
     instrBorderTop:     'rgba(0,0,0,0.08)',
     instrShadow:        'none',
@@ -61,11 +61,11 @@ const T = {
     btnBgHover:         '#111317',
     btnColor:           '#C77A32',
     btnColorHover:      '#C77A32',
-    footer:             '#70685E',
-    footerHover:        '#312D27',
-    footerToggleActive: '#312D27',
-    footerToggleInact:  '#8B8276',
-    coord:              '#8A8175',
+    footer:             '#6B7280',
+    footerHover:        '#1F2937',
+    footerToggleActive: '#1F2937',
+    footerToggleInact:  '#9CA3AF',
+    coord:              '#9CA3AF',
   },
 } as const
 
@@ -572,52 +572,33 @@ export default function App() {
       }}>
         <a
           href="/"
+          className="logo"
           style={{
-            fontSize: '13px',
-            fontWeight: 400,
-            letterSpacing: '0.06em',
-            lineHeight: 1,
+            display: 'inline-flex',
+            flexDirection: 'column',
+            gap: '2px',
+            color: t.wordmark,
             textDecoration: 'none',
+            fontSize: '15px',
+            fontWeight: 650,
+            lineHeight: 1,
+            letterSpacing: '0.01em',
+            transition: 'color 0.4s ease'
           }}
         >
-          <span style={{ color: t.wordmark, transition: 'color 0.4s ease' }}>Award</span>
-          <span style={{ color: t.wordmarkRadar, transition: 'color 0.4s ease' }}>Radar</span>
+          <div>
+            <div className="logo-name" style={{ fontSize: '15px', lineHeight: 1 }}>
+              <span className="logo-award" style={{ color: 'inherit' }}>Award</span>
+              <span className="logo-radar" style={{ color: t.wordmarkRadar, transition: 'color 0.4s ease' }}>Radar</span>
+            </div>
+            <div className="logo-tagline" style={{ display: 'none' }}>Travel Decision Intelligence</div>
+          </div>
         </a>
 
         <div className="ar-nav-links" style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
           {/* /about exists */}
           <NavLink href="/about" t={t}>About</NavLink>
-          {/*
-            /methodology route does not yet exist.
-            Rendered as non-interactive text — no dead link.
-            Follow-up: create /methodology route before launch.
-          */}
-          <span
-            aria-disabled="true"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '11.5px',
-              fontWeight: 400,
-              letterSpacing: '0.09em',
-              color: t.navLink,
-              opacity: 0.38,
-              lineHeight: 1,
-              userSelect: 'none',
-              cursor: 'default',
-            }}
-          >
-            Methodology
-            <span style={{
-              fontSize: '7px',
-              fontWeight: 600,
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-              color: t.wordmarkRadar,
-              opacity: 0.7,
-            }}>Soon</span>
-          </span>
+          <NavLink href="/methodology" t={t}>Methodology</NavLink>
         </div>
       </nav>
 
