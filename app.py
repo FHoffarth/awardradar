@@ -2615,6 +2615,11 @@ def about():
     return render_template("about.html")
 
 
+@app.route("/methodology")
+def methodology():
+    return render_template("methodology.html")
+
+
 @app.route("/impressum")
 def impressum():
     return render_template("impressum.html")

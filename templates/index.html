@@ -149,19 +149,29 @@
       border: none !important;
     }
     
-    .brand-watermark {
-      font-family: 'Inter', sans-serif;
-      font-size: 11px;
-      font-weight: 500;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
+    .logo {
+      display: inline-flex;
+      flex-direction: column;
+      gap: 2px;
       color: rgba(255, 255, 255, 0.45);
       text-decoration: none;
+      font-size: 15px;
+      font-weight: 650;
+      line-height: 1;
+      letter-spacing: .01em;
       transition: color 0.15s;
     }
     
-    .brand-watermark:hover {
+    .logo:hover {
       color: #ffffff;
+    }
+
+    .logo-name { font-size: 15px; line-height: 1; }
+    .logo-award { color: inherit; }
+    .logo-radar { color: #a9692d; }
+    .logo:hover .logo-radar { color: #c77a32; }
+    .logo-tagline {
+      display: none;
     }
     
     .nav-about {
@@ -799,11 +809,13 @@
       width: calc(100% - (2 * clamp(64px,7.5vw,120px))) !important;
       margin-inline: clamp(64px,7.5vw,120px) !important;
     }
-    body:has(.shell.has-results) .brand-watermark { margin: 0; align-self: flex-start; }
-    body:has(.shell.has-results) .brand-wordmark {
+    body:has(.shell.has-results) .logo-name {
       color: #e7e0d5; font-size: 13px; font-weight: 400; letter-spacing: .06em; line-height: 1;
     }
-    body:has(.shell.has-results) .brand-wordmark em { color: #c77a32; }
+    body:has(.shell.has-results) .logo-radar {
+      color: #c77a32; font-style: normal;
+    }
+    body:has(.shell.has-results) .logo { margin: 0; align-self: flex-start; }
     .shell.has-results { padding-top: 140px !important; }
     .shell.has-results .panel { width: 560px !important; }
     .shell.has-results .panel::before {
@@ -1497,8 +1509,13 @@
   <div id="progress-bar" aria-hidden="true"><div id="progress-fill"></div></div>
     <nav class="navbar" aria-label="Main navigation">
     <div class="nav-inner">
-      <a href="/" class="brand-watermark" aria-label="AwardRadar home"><span class="brand-wordmark">Award<em>Radar</em></span></a>
-      <div class="freeze-nav-links"><a href="/about">About</a><span class="freeze-nav-dot" aria-hidden="true">•</span><a href="/about">Methodology</a><a href="#sign-in">Sign in</a></div>
+      <a href="/" class="logo" aria-label="AwardRadar home">
+        <div>
+          <div class="logo-name"><span class="logo-award">Award</span><span class="logo-radar">Radar</span></div>
+          <div class="logo-tagline">Travel Decision Intelligence</div>
+        </div>
+      </a>
+      <div class="freeze-nav-links"><a href="/about">About</a><span class="freeze-nav-dot" aria-hidden="true">•</span><a href="/methodology">Methodology</a></div>
     </div>
   </nav>
 
@@ -1829,11 +1846,10 @@
 
       <footer>
       <div class="footer-links">
-        <a href="/datenschutz">Privacy</a>
+        <a href="/privacy">Privacy</a>
         <a href="/impressum">Imprint</a>
-        <button type="button" class="theme-link-btn" aria-label="Accessibility options">Accessibility</button>
         <button type="button" class="theme-link-btn" id="themeBtn" aria-label="Toggle light/dark mode">Theme</button>
-        <a href="#awardradar">@AwardRadar</a>
+        <a href="https://x.com/awardradar" target="_blank" rel="noopener noreferrer">@AwardRadar</a>
       </div>
       <div class="freeze-coordinates" aria-hidden="true">51&deg;N 0&deg;E &middot; 35,786 KM</div>
     </footer>

@@ -561,8 +561,8 @@ class AboutMethodologyPage(unittest.TestCase):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("index-CanO7lJv.js", html)
-        self.assertIn("index-Dfri9__h.css", html)
+        self.assertIn("index-Dd_o58S1.js", html)
+        self.assertIn("index-BTIf-htL.css", html)
 
     def test_new_app_route_serves_google_bundle(self):
         response = self.client.get("/app")
@@ -593,7 +593,7 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertNotIn("decision-support context based on fare and award data", html)
         trust_note = html.split('<div class="trust-note">', 1)[1].split('</div>', 1)[0]
         self.assertNotIn("hello@awardradar.app", trust_note)
-        self.assertIn('<a href="mailto:hello@awardradar.app">Contact</a>', html)
+        self.assertIn('<a href="https://x.com/awardradar" target="_blank" rel="noopener noreferrer">@AwardRadar</a>', html)
 
     def test_legacy_notice_css_removed(self):
         css = (pathlib.Path(__file__).parents[1] / "static" / "app.css").read_text(encoding="utf-8")
