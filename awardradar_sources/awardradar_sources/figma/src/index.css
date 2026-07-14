@@ -345,3 +345,11 @@ html, body, #root {
     align-items: center !important;
   }
 }
+
+@media (max-width: 1024px) {
+  .public-footer { position: relative !important; bottom: auto !important; padding-top: 24px !important; }
+  .public-footer .footer-layout { display: flex !important; flex-direction: column !important; align-items: flex-start !important; gap: 32px !important; }
+  .public-footer .trust-note { max-width: 100% !important; }
+  .public-footer .footer-nav-group { align-items: flex-start !important; width: 100% !important; }
+  .public-footer .footer-links { justify-content: flex-start !important; }
+}
