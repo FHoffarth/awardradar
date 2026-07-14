@@ -76,11 +76,6 @@ FLEX_MAX_DAYS = int(os.environ.get("FLEX_MAX_DAYS", "3"))       # max. Flex-Tage
 mimetypes.add_type("font/woff2", ".woff2")
 
 app = Flask(__name__)
-# SPA shells (landing.html, app.html) reference content-hashed assets. Without
-# template auto-reload, a long-lived worker keeps serving a stale compiled shell
-# after a deploy rehashes the assets, so the shell points at 404'd files (blank
-# page). Re-checking template mtime per render keeps the served shell in sync.
-app.config["TEMPLATES_AUTO_RELOAD"] = True
 MIDDLE_DOT_SEP = " \u00B7 "
 RIGHT_ARROW_SEP = " \u2192 "
 
