@@ -3,6 +3,12 @@ import { ArrowRight, Sparkles, Activity, ShieldCheck, ChevronRight, Check, Shiel
 
 const DATE_PARAM_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
+function isValidDateString(dateStr: string): boolean {
+  if (!DATE_PARAM_PATTERN.test(dateStr)) return false;
+  const date = new Date(dateStr);
+  return date instanceof Date && !isNaN(date.getTime()) && date.toISOString().startsWith(dateStr);
+}
+
 function getTripParam(name: string): string {
   try {
     const value = new URLSearchParams(window.location.search).get(name);
@@ -16,7 +22,7 @@ const SearchInstrument = () => {
   const origin = getTripParam('from') || 'Origin';
   const destination = getTripParam('to') || 'Destination';
   const dateParam = getTripParam('date');
-  const dateLabel = DATE_PARAM_PATTERN.test(dateParam) ? dateParam : 'Date not selected';
+  const dateLabel = isValidDateString(dateParam) ? dateParam : 'Date not selected';
 
   return (
     <motion.div 
