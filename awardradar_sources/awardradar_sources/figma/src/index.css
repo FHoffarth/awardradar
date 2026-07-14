@@ -32,7 +32,6 @@ body {
 [data-theme='dark'] ::placeholder  { color: #82796D; }
 [data-theme='light'] ::placeholder { color: #92897D; }
 
-::-webkit-scrollbar { display: none; }
 input:focus          { outline: none; }
 
 /* ─── Globe slow drift ────────────────────────────────────────────────────── */
@@ -194,6 +193,39 @@ input:focus          { outline: none; }
 .ar-search-button:focus-visible {
   outline: 1.5px solid rgba(140, 200, 255, 0.5);
   outline-offset: -2px;
+}
+
+/* ─── Act II CTA — Analyze route ──────────────────────────────────────────── */
+.ar-analyze-button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: color 200ms linear, border-color 200ms linear, opacity 200ms linear;
+}
+.ar-analyze-button:not(:disabled):hover { color: #E08A3C; border-color: rgba(199, 122, 50, 0.55); }
+.ar-analyze-button:focus-visible {
+  outline: 1.5px solid rgba(140, 200, 255, 0.5);
+  outline-offset: 3px;
+}
+
+/* ─── Act I scroll cue ────────────────────────────────────────────────────── */
+/* Subtle downward nudge; disabled entirely under reduced motion. */
+@keyframes ar-scroll-nudge {
+  0%, 100% { transform: translateY(0); opacity: 0.7; }
+  50%      { transform: translateY(4px); opacity: 1; }
+}
+.ar-scroll-cue {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: color 200ms linear, opacity 200ms linear;
+}
+.ar-scroll-cue svg { animation: ar-scroll-nudge 2.4s ease-in-out infinite; }
+.ar-scroll-cue:hover { opacity: 1; }
+.ar-scroll-cue:focus-visible {
+  outline: 1.5px solid rgba(140, 200, 255, 0.5);
+  outline-offset: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ar-scroll-cue svg { animation: none !important; }
 }
 
 .ar-field-label {
