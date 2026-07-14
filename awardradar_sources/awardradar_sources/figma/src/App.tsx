@@ -371,6 +371,12 @@ export default function App() {
     window.location.href = `/app${qs ? '?' + qs : ''}`
   }
   function toggleTheme() { setTheme(th => th === 'dark' ? 'light' : 'dark') }
+  function scrollToAct2() {
+    const el = document.getElementById('act-2')
+    if (!el) return
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+  }
 
   return (
     <div
@@ -511,6 +517,42 @@ export default function App() {
             </p>
           </div>
         </div>
+
+        {/* Scroll cue — subtle downward indicator; click scrolls to Act II */}
+        <button
+          type="button"
+          className="ar-scroll-cue"
+          onClick={scrollToAct2}
+          aria-label="Scroll to route search"
+          style={{
+            position: 'absolute',
+            bottom: '4.5vh',
+            left: PX,
+            zIndex: 6,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '10px',
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            cursor: 'pointer',
+            color: t.eyebrow,
+            fontFamily: 'inherit',
+            fontSize: '10px',
+            fontWeight: 500,
+            letterSpacing: '0.24em',
+            textTransform: 'uppercase',
+            lineHeight: 1,
+            transition: 'color 0.4s ease',
+          }}
+        >
+          Scroll
+          <svg width="12" height="14" viewBox="0 0 12 14" fill="none" aria-hidden="true">
+            <path d="M6 1V12M6 12L1.5 7.5M6 12L10.5 7.5"
+              stroke="currentColor" strokeWidth="1"
+              strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
       </section>
 
       {/* ── ACT II: Search Instrument ── */}
@@ -557,7 +599,7 @@ export default function App() {
 
           <form className="ar-instrument-form" onSubmit={handleSearch}>
             <div className="ar-instrument" style={{
-              width: 'calc(100% + 96px)',
+              width: '100%',
               display: 'flex',
               alignItems: 'stretch',
               background: t.instrBg,
@@ -582,41 +624,42 @@ export default function App() {
                 flex="0 0 158px"
                 t={t}
               />
-
-              <button
-                className="ar-search-button"
-                type="submit"
-                disabled={!isValid}
-                style={{
-                  flex: '0 0 96px',
-                  padding: 0,
-                  border: 'none',
-                  borderLeft: `0.5px solid ${t.btnBorder}`,
-                  cursor: (!isValid) ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transform: 'translateY(-0.5px)',
-                  gap: '0',
-                  background: t.btnBg,
-                  color: (!isValid) ? t.btnBorder : t.btnColor,
-                  opacity: (!isValid) ? 0.5 : 1,
-                  fontSize: '0',
-                  fontWeight: 500,
-                  letterSpacing: '0',
-                  textTransform: 'none',
-                  fontFamily: 'inherit',
-                  transition: 'color 0.3s, opacity 0.3s',
-                }}
-              aria-label="Search route"
-              >
-                <svg width="14" height="9" viewBox="0 0 16 10" fill="none" aria-hidden="true">
-                  <path d="M10 1L14 5M14 5L10 9M13.5 5H1.5"
-                    stroke="currentColor" strokeWidth="0.72"
-                    strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
             </div>
+
+            {/* Primary CTA — visible, disabled until From/To/Date are valid */}
+            <button
+              className="ar-analyze-button"
+              type="submit"
+              disabled={!isValid}
+              title={isValid ? 'Analyze this route' : 'Enter origin, destination and date to analyze'}
+              style={{
+                marginTop: '24px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '13px 24px',
+                background: 'transparent',
+                border: `0.5px solid ${isValid ? 'rgba(199,122,50,0.5)' : t.instrBorder}`,
+                borderRadius: '1px',
+                cursor: isValid ? 'pointer' : 'not-allowed',
+                color: isValid ? t.btnColor : t.instrLabel,
+                opacity: isValid ? 1 : 0.6,
+                fontFamily: 'inherit',
+                fontSize: '11px',
+                fontWeight: 600,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                lineHeight: 1,
+              }}
+              aria-label="Analyze route"
+            >
+              Analyze route
+              <svg width="14" height="9" viewBox="0 0 16 10" fill="none" aria-hidden="true">
+                <path d="M10 1L14 5M14 5L10 9M13.5 5H1.5"
+                  stroke="currentColor" strokeWidth="1"
+                  strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
           </form>
         </div>
       </section>
