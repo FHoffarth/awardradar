@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type CSSProperties } from 'react'
+import { useState, useEffect, type FormEvent, type CSSProperties } from 'react'
 
 // ─── THEME ────────────────────────────────────────────────────────────────────
 
@@ -9,35 +9,34 @@ const T = {
     bg:                 '#03030a',
     vignL:              'linear-gradient(to right, #03030a 22%, rgba(3,3,10,0.88) 46%, rgba(3,3,10,0.22) 68%, transparent 100%)',
     vignV:              'linear-gradient(to bottom, rgba(3,3,10,0.6) 0%, transparent 18%, transparent 78%, rgba(3,3,10,0.7) 100%)',
-    wordmark:           '#E7E0D5',   // up from 0.52 — readable, still restrained
-    wordmarkRadar:      '#C77A32',   // warm amber — "Radar" accent
-    navLink:            '#C9C1B5',   // up from 0.28 — subtle but immediately legible
-    navLinkHover:       '#F5F2EC',   // up from 0.60
-    eyebrow:            '#6F7480',   // up from 0.20 — ~20% more contrast
+    wordmark:           '#E7E0D5',
+    wordmarkRadar:      '#C77A32',
+    navLink:            '#C9C1B5',
+    navLinkHover:       '#F5F2EC',
+    eyebrow:            '#6F7480',
     line1:              '#F3F4F6',
     line2:              '#B8BBC3',
-    lineWhy:            '#F3F4F6',                 // same as line1 — arrival point, full luminance
-    instrLabel:         'rgba(190,181,168,0.7)',   // up from 0.14 — FROM/TO/DATE must be visible
+    lineWhy:            '#F3F4F6',
+    instrLabel:         'rgba(190,181,168,0.7)',
     instrBg:            '#111317',
     instrBorder:        'rgba(255,255,255,0.06)',
     instrBorderTop:     'rgba(255,255,255,0.08)',
     instrShadow:        'none',
-    fieldLabel:         'rgba(209,200,187,0.6)',   // up from 0.28 — usable label contrast
-    fieldValue:         '#F5F2EC',   // up from 0.88
+    fieldLabel:         'rgba(209,200,187,0.6)',
+    fieldValue:         '#F5F2EC',
     divider:            'rgba(245,242,236,0.05)',
     btnBorder:          'rgba(245,242,236,0.05)',
     btnBg:              '#111317',
     btnBgHover:         '#111317',
-    btnColor:           '#C77A32',    // up from 0.65
+    btnColor:           '#C77A32',
     btnColorHover:      '#C77A32',
-    footer:             '#BEB6AA',   // up from 0.22 — quiet but readable
-    footerHover:        '#E6DED2',   // up from 0.52
-    footerToggleActive: '#E6DED2',   // up from 0.45
-    footerToggleInact:  '#AAA296',   // up from 0.20
-    coord:              '#999186',   // up from 0.10 — metadata, not invisible
+    footer:             '#BEB6AA',
+    footerHover:        '#E6DED2',
+    footerToggleActive: '#E6DED2',
+    footerToggleInact:  '#AAA296',
+    coord:              '#999186',
   },
   light: {
-    // A quiet, warm architectural room: graphite type, mineral paper, and one dark orbital aperture.
     bg:                 '#F2EEE6',
     vignL:              'linear-gradient(to right, #F2EEE6 0%, #F2EEE6 43%, rgba(242,238,230,0.985) 54%, rgba(242,238,230,0.58) 69%, transparent 82%)',
     vignV:              'linear-gradient(to bottom, rgba(242,238,230,0.08) 0%, transparent 16%, transparent 84%, rgba(242,238,230,0.14) 100%)',
@@ -260,8 +259,6 @@ const BREATHE_GROUPS = Array.from(
 )
 
 // ─── GLOBE ────────────────────────────────────────────────────────────────────
-// Major clusters only for the outermost bloom — these merge into regional
-// illumination zones the way real city light halos do from orbit.
 
 function Globe({ theme }: { theme: Theme }) {
   return (
@@ -278,6 +275,21 @@ function Globe({ theme }: { theme: Theme }) {
         background: theme === 'light' ? '#050505' : 'transparent',
       }}
     >
+      {/* Sunlight sweep — runs once on load, never repeats */}
+      <div
+        aria-hidden="true"
+        className="ar-sunlight-sweep"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: '50%',
+          pointerEvents: 'none',
+          zIndex: 2,
+          // Warm center → cool outer edge gradient, swept diagonally
+          background: 'radial-gradient(ellipse 48% 48% at 52% 48%, rgba(255,230,160,0.18) 0%, rgba(180,210,255,0.06) 55%, transparent 80%)',
+        }}
+      />
+
       <svg width="1060" height="1060" viewBox="0 0 880 880" style={{ overflow: 'visible' }}>
         <defs>
           {/* The source image already contains the real atmospheric scattering. */}
@@ -413,11 +425,11 @@ function Field({
 }
 
 // ─── NAV LINK ─────────────────────────────────────────────────────────────────
-function NavLink({ children, t }: { children: string; t: typeof T['dark'] }) {
+function NavLink({ children, href, t }: { children: string; href: string; t: typeof T['dark'] }) {
   const [hover, setHover] = useState(false)
   return (
     <a
-      href="#"
+      href={href}
       style={{
         fontSize: '11.5px',
         fontWeight: 400,
@@ -436,7 +448,19 @@ function NavLink({ children, t }: { children: string; t: typeof T['dark'] }) {
 }
 
 // ─── FOOTER LINK ──────────────────────────────────────────────────────────────
-function FooterLink({ children, t, onClick }: { children: string; t: typeof T['dark']; onClick?: () => void }) {
+function FooterLink({
+  children,
+  href,
+  t,
+  onClick,
+  external,
+}: {
+  children: string
+  href?: string
+  t: typeof T['dark']
+  onClick?: () => void
+  external?: boolean
+}) {
   const [hover, setHover] = useState(false)
   const style: CSSProperties = {
     fontSize: '9px',
@@ -449,12 +473,34 @@ function FooterLink({ children, t, onClick }: { children: string; t: typeof T['d
     background: 'none',
     border: 'none',
     padding: 0,
-    cursor: onClick ? 'pointer' : 'default',
+    cursor: 'pointer',
     fontFamily: 'inherit',
   }
-  return onClick
-    ? <button style={style} onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>{children}</button>
-    : <a href="#" style={style} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>{children}</a>
+
+  if (onClick) {
+    return (
+      <button
+        style={style}
+        onClick={onClick}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+      >
+        {children}
+      </button>
+    )
+  }
+
+  return (
+    <a
+      href={href ?? '#'}
+      style={style}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+    >
+      {children}
+    </a>
+  )
 }
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
@@ -464,7 +510,15 @@ export default function App() {
   const [to, setTo]         = useState('')
   const [date, setDate]     = useState('')
   const [isEditingDate, setIsEditingDate] = useState(false)
-  const [btnHover, setBtnHover] = useState(false)
+
+  // Hero second block reveal — runs once on mount
+  const [secondBlockVisible, setSecondBlockVisible] = useState(false)
+
+  useEffect(() => {
+    // Slight delay before the second text block appears
+    const timer = setTimeout(() => setSecondBlockVisible(true), 420)
+    return () => clearTimeout(timer)
+  }, [])
 
   const t  = T[theme]
   const PX = 'clamp(64px, 7.5vw, 120px)'
@@ -516,20 +570,54 @@ export default function App() {
         paddingLeft: PX,
         paddingRight: PX,
       }}>
-        <span style={{
-          fontSize: '13px',
-          fontWeight: 400,
-          letterSpacing: '0.06em',
-          lineHeight: 1,
-        }}>
+        <a
+          href="/"
+          style={{
+            fontSize: '13px',
+            fontWeight: 400,
+            letterSpacing: '0.06em',
+            lineHeight: 1,
+            textDecoration: 'none',
+          }}
+        >
           <span style={{ color: t.wordmark, transition: 'color 0.4s ease' }}>Award</span>
           <span style={{ color: t.wordmarkRadar, transition: 'color 0.4s ease' }}>Radar</span>
-        </span>
+        </a>
 
         <div className="ar-nav-links" style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-          <NavLink t={t}>About</NavLink>
-          <NavLink t={t}>Methodology</NavLink>
-          <NavLink t={t}>Sign in</NavLink>
+          {/* /about exists */}
+          <NavLink href="/about" t={t}>About</NavLink>
+          {/*
+            /methodology route does not yet exist.
+            Rendered as non-interactive text — no dead link.
+            Follow-up: create /methodology route before launch.
+          */}
+          <span
+            aria-disabled="true"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '11.5px',
+              fontWeight: 400,
+              letterSpacing: '0.09em',
+              color: t.navLink,
+              opacity: 0.38,
+              lineHeight: 1,
+              userSelect: 'none',
+              cursor: 'default',
+            }}
+          >
+            Methodology
+            <span style={{
+              fontSize: '7px',
+              fontWeight: 600,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: t.wordmarkRadar,
+              opacity: 0.7,
+            }}>Soon</span>
+          </span>
         </div>
       </nav>
 
@@ -547,7 +635,7 @@ export default function App() {
         maxWidth: '560px',
       }}>
 
-        {/* Eyebrow */}
+        {/* Eyebrow — always visible */}
         <p style={{
           margin: '0 0 56px 0',
           fontSize: '10px',
@@ -563,7 +651,7 @@ export default function App() {
 
         {/* ── Manifesto ── */}
         <div style={{ marginBottom: '72px' }}>
-          {/* Couplet one */}
+          {/* Couplet one — immediately visible */}
           <p style={{
             margin: '0 0 0.15em 0',
             fontSize: 'clamp(28px, 3vw, 42px)',
@@ -587,27 +675,36 @@ export default function App() {
             what to book.
           </p>
 
-          {/* Couplet two — space guides the eye inevitably to "why." */}
-          <p style={{
-            margin: '0 0 0.15em 0',
-            fontSize: 'clamp(28px, 3vw, 42px)',
-            fontWeight: 340,
-            lineHeight: 1.22,
-            letterSpacing: '-0.012em',
-            color: t.line2,
-            transition: 'color 0.4s ease',
-          }}>
+          {/* Couplet two — delayed reveal with blur + slide + opacity */}
+          <p
+            className="ar-reveal-block"
+            style={{
+              margin: '0 0 0.15em 0',
+              fontSize: 'clamp(28px, 3vw, 42px)',
+              fontWeight: 340,
+              lineHeight: 1.22,
+              letterSpacing: '-0.012em',
+              color: t.line2,
+              transition: 'color 0.4s ease',
+              // Motion properties governed by CSS animation class
+            }}
+            data-visible={secondBlockVisible ? 'true' : 'false'}
+          >
             We help you understand
           </p>
-          <p style={{
-            margin: '1.4em 0 0 0',
-            fontSize: 'clamp(28px, 3vw, 42px)',
-            fontWeight: 380,
-            lineHeight: 1.22,
-            letterSpacing: '-0.014em',
-            color: t.lineWhy,
-            transition: 'color 0.4s ease',
-          }}>
+          <p
+            className="ar-reveal-block"
+            style={{
+              margin: '1.4em 0 0 0',
+              fontSize: 'clamp(28px, 3vw, 42px)',
+              fontWeight: 380,
+              lineHeight: 1.22,
+              letterSpacing: '-0.014em',
+              color: t.lineWhy,
+              transition: 'color 0.4s ease',
+            }}
+            data-visible={secondBlockVisible ? 'true' : 'false'}
+          >
             why.
           </p>
         </div>
@@ -701,15 +798,26 @@ export default function App() {
         paddingLeft: PX,
         paddingRight: PX,
       }}>
-        {/* Left — legal + identity */}
+        {/* Left — legal + identity + X */}
         <div className="ar-footer-links" style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          <FooterLink t={t}>Privacy</FooterLink>
-          <FooterLink t={t}>Imprint</FooterLink>
-          <FooterLink t={t}>Accessibility</FooterLink>
+          {/* /privacy exists */}
+          <FooterLink href="/privacy" t={t}>Privacy</FooterLink>
+          {/* /impressum exists */}
+          <FooterLink href="/impressum" t={t}>Imprint</FooterLink>
+          {/*
+            Accessibility page not yet implemented.
+            Omitted from footer in this sprint.
+            Follow-up: create /accessibility route and re-add link.
+          */}
           <FooterLink t={t} onClick={toggleTheme}>Theme</FooterLink>
-          <span style={{ fontSize: '9px', fontWeight: 400, letterSpacing: '0.09em', color: t.footer, lineHeight: 1 }}>
+          {/* Official X account — external link */}
+          <FooterLink
+            href="https://x.com/awardradar"
+            t={t}
+            external
+          >
             @AwardRadar
-          </span>
+          </FooterLink>
         </div>
 
         {/* Right — orbital precision detail */}
