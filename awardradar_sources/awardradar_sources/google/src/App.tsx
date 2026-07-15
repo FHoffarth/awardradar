@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { motion } from 'motion/react';
 import { Activity, AlertTriangle, ArrowRight, Info, Printer, ShieldCheck } from 'lucide-react';
 
 const DATE_PARAM_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const IATA_CODE_PATTERN = /^[A-Z]{3}$/;
+const LABELED_IATA_PATTERN = /\(([A-Z]{3})\)\s*$/i;
 
 type PaneStatus = 'idle' | 'loading' | 'success' | 'error' | 'empty';
 
@@ -22,6 +24,14 @@ function getTripParam(name: string): string {
   } catch {
     return '';
   }
+}
+
+function resolveAirportCode(value: string): string | null {
+  const trimmed = value.trim();
+  const upper = trimmed.toUpperCase();
+  if (IATA_CODE_PATTERN.test(upper)) return upper;
+  const labeled = trimmed.match(LABELED_IATA_PATTERN);
+  return labeled ? labeled[1].toUpperCase() : null;
 }
 
 function formatExportTimestamp(value: Date | null): string {
@@ -99,9 +109,22 @@ const SearchInstrument = ({
   const origin = getTripParam('from');
   const destination = getTripParam('to');
   const dateParam = getTripParam('date');
+  const originCode = resolveAirportCode(origin);
+  const destinationCode = resolveAirportCode(destination);
   const originDisplay = origin || 'Origin';
   const destinationDisplay = destination || 'Destination';
-  const dateLabel = dateParam && isValidDateString(dateParam) ? dateParam : 'Date not selected';
+  const dateIsValid = isValidDateString(dateParam);
+  const dateLabel = dateIsValid ? dateParam : 'Date not selected';
+  const canAnalyze = Boolean(originCode && destinationCode && originCode !== destinationCode && dateIsValid);
+
+  useEffect(() => {
+    if (!originCode || !destinationCode) return;
+    if (origin === originCode && destination === destinationCode) return;
+    const canonicalUrl = new URL(window.location.href);
+    canonicalUrl.searchParams.set('from', originCode);
+    canonicalUrl.searchParams.set('to', destinationCode);
+    window.history.replaceState(window.history.state, '', `${canonicalUrl.pathname}${canonicalUrl.search}${canonicalUrl.hash}`);
+  }, [origin, destination, originCode, destinationCode]);
 
   return (
     <motion.section
@@ -134,8 +157,8 @@ const SearchInstrument = ({
           <time dateTime={dateParam || undefined}>{dateLabel}</time>
         </div>
         <button
-          onClick={() => onAnalyze(origin, destination, dateParam)}
-          disabled={status === 'loading'}
+          onClick={() => originCode && destinationCode && onAnalyze(originCode, destinationCode, dateParam)}
+          disabled={status === 'loading' || !canAnalyze}
           data-testid="analyze-button"
           className="primary-action interactive-only"
           type="button"
@@ -292,9 +315,11 @@ export default function App() {
   const [exportTimestamp, setExportTimestamp] = useState<Date | null>(null);
 
   const handleAnalyze = async (origin: string, dest: string, date: string) => {
-    if (!origin) { setValidationError('Origin is required.'); return; }
-    if (!dest) { setValidationError('Destination is required.'); return; }
-    if (origin.toUpperCase() === dest.toUpperCase()) { setValidationError('Origin and destination must be different.'); return; }
+    const originCode = resolveAirportCode(origin);
+    const destinationCode = resolveAirportCode(dest);
+    if (!originCode) { setValidationError('A resolved three-letter origin airport code is required.'); return; }
+    if (!destinationCode) { setValidationError('A resolved three-letter destination airport code is required.'); return; }
+    if (originCode === destinationCode) { setValidationError('Origin and destination must be different.'); return; }
     if (!isValidDateString(date)) { setValidationError('A valid future date (YYYY-MM-DD) is required.'); return; }
 
     setValidationError(null);
@@ -303,8 +328,8 @@ export default function App() {
 
     const requestPayload = {
       lang: 'en',
-      origin: origin,
-      dest: dest,
+      origin: originCode,
+      dest: destinationCode,
       date: date,
       oneWay: true,
       returnDate: '',

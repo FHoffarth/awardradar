@@ -45,19 +45,60 @@ describe('App', () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('blocks fetch on invalid input', async () => {
+  it('keeps unresolved or invalid URL state disabled without fetching', () => {
     const r1 = render(<App />);
-    fireEvent.click(getButton(r1.container));
+    expect((getButton(r1.container) as HTMLButtonElement).disabled).toBe(true);
     expect(mockFetch).not.toHaveBeenCalled();
-    expect(r1.container.querySelector('[data-testid="validation-error"]')?.textContent).toContain('Origin is required');
     r1.unmount();
 
     setupUrlParams('FRA', 'JFK', 'invalid');
     const r2 = render(<App />);
-    fireEvent.click(getButton(r2.container));
+    expect((getButton(r2.container) as HTMLButtonElement).disabled).toBe(true);
     expect(mockFetch).not.toHaveBeenCalled();
-    expect(r2.container.querySelector('[data-testid="validation-error"]')?.textContent).toContain('valid future date');
     r2.unmount();
+  });
+
+  it('hydrates canonical FRA and MUC codes from URL and enables Analyze', () => {
+    setupUrlParams('FRA', 'MUC', '2026-08-06');
+    const { container } = render(<App />);
+
+    expect(container.textContent).toContain('FRA');
+    expect(container.textContent).toContain('MUC');
+    expect(container.textContent).toContain('2026-08-06');
+    expect((getButton(container) as HTMLButtonElement).disabled).toBe(false);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('separates a human-readable airport label from canonical URL and payload values', async () => {
+    setupUrlParams('FRA', 'München (MUC)', '2030-10-10');
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => ({ ok: true, results: [{ decision: { signal: 'unknown' } }] }) }
+      : { ok: true, json: async () => ({ ok: true, offers: [] }) });
+
+    const { container } = render(<App />);
+    expect(container.textContent).toContain('München (MUC)');
+    expect((getButton(container) as HTMLButtonElement).disabled).toBe(false);
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get('to')).toBe('MUC'));
+
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+    const payloads = mockFetch.mock.calls.map(([, options]) => JSON.parse(options.body));
+    expect(payloads).toHaveLength(2);
+    expect(payloads.every(payload => payload.origin === 'FRA' && payload.dest === 'MUC')).toBe(true);
+    expect(JSON.stringify(payloads)).not.toContain('München');
+    expect(mockFetch.mock.calls.filter(([url]) => url === '/api/awards')).toHaveLength(1);
+    expect(mockFetch.mock.calls.filter(([url]) => url === '/api/cheap')).toHaveLength(1);
+  });
+
+  it.each([
+    ['unresolved destination text', 'FRA', 'Munich', '2030-10-10'],
+    ['identical airport codes', 'FRA', 'FRA', '2030-10-10'],
+    ['invalid date', 'FRA', 'MUC', 'not-a-date'],
+  ])('keeps %s invalid', (_label, from, to, date) => {
+    setupUrlParams(from, to, date);
+    const { container } = render(<App />);
+    expect((getButton(container) as HTMLButtonElement).disabled).toBe(true);
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('fetches both endpoints with exact request payload and shows loading state', async () => {
