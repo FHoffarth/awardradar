@@ -59,6 +59,23 @@ function formatCashLine(cashOffer: any): string {
   return [price, cashOffer?.airline].filter(Boolean).join(' · ') || 'Cash result available; verify the final fare with the provider.';
 }
 
+function formatCashAlternativeLine(cashOffer: any, forum = false): string {
+  const parts: string[] = [formatCashLine(cashOffer)];
+  if (cashOffer?.time_data_status === 'complete' && cashOffer?.dep_time && cashOffer?.arr_time) {
+    parts.push(`${cashOffer.dep_time}–${cashOffer.arr_time}`);
+  }
+  if (Number.isFinite(cashOffer?.durationMin)) {
+    const hours = Math.floor(cashOffer.durationMin / 60);
+    const minutes = cashOffer.durationMin % 60;
+    parts.push(`${hours}h${minutes ? ` ${minutes}m` : ''}`);
+  }
+  if (Number.isFinite(cashOffer?.stops)) {
+    parts.push(cashOffer.stops === 0 ? 'Nonstop' : `${cashOffer.stops} stop${cashOffer.stops === 1 ? '' : 's'}`);
+  }
+  const line = parts.filter(Boolean).join(' · ');
+  return forum ? line.replaceAll('€', '').replace(/(\d)\s*(?=·|$)/, '$1 EUR ') : line;
+}
+
 function formatAwardLine(result: any, forum = false): string {
   const program = result?.programs?.[0];
   if (!program) return 'No program-level award detail is available in this analysis.';
@@ -85,6 +102,7 @@ type ShareContent = {
 function buildShareContent({
   result,
   cashOffer,
+  cashAlternatives,
   cashUnavailable,
   awardStatus,
   cashStatus,
@@ -94,6 +112,7 @@ function buildShareContent({
 }: {
   result: any;
   cashOffer: any;
+  cashAlternatives: any[];
   cashUnavailable: boolean;
   awardStatus: PaneStatus;
   cashStatus: PaneStatus;
@@ -126,6 +145,12 @@ function buildShareContent({
       ? 'Award data unavailable'
       : 'No reliable award result was returned for this route and date.';
   const forumAwardLine = awardStatus === 'success' && result ? formatAwardLine(result, true) : awardLine;
+  const additionalCashCount = cashStatus === 'success' ? Math.min(cashAlternatives.length, 3) : 0;
+  const compactCashLine = additionalCashCount
+    ? `${cashLine}\n${additionalCashCount} additional cash option${additionalCashCount === 1 ? '' : 's'} available`
+    : cashLine;
+  const emailAlternatives = cashAlternatives.slice(0, 3).map(offer => `- ${formatCashAlternativeLine(offer)}`);
+  const forumAlternatives = cashAlternatives.slice(0, 3).map(offer => `- ${formatCashAlternativeLine(offer, true)}`);
 
   const notes: string[] = [];
   if (cashUnavailable) notes.push('A current cash comparison is unavailable.');
@@ -142,7 +167,7 @@ function buildShareContent({
   const compactSections = [
     `AwardRadar analysis\n${origin} → ${destination} · ${date}`,
     decision ? `Signal:\n${decision.verdict}` : null,
-    `Cash:\n${cashLine}`,
+    `Cash:\n${compactCashLine}`,
     `Award:\n${awardLine}`,
     confidence ? `Confidence:\n${confidence}` : null,
     nextStep ? `Next step:\n${nextStep}` : null,
@@ -154,6 +179,7 @@ function buildShareContent({
     `[b]AwardRadar analysis: ${origin} → ${destination} · ${forumDate}[/b]`,
     decision ? `[b]Signal:[/b]\n${decision.verdict}` : null,
     `[b]Cash:[/b]\n${cashLine.replaceAll('€', '').replace(/(\d)\s*(?=·|$)/, '$1 EUR ')}`,
+    forumAlternatives.length ? `[b]Other options:[/b]\n${forumAlternatives.join('\n')}` : null,
     `[b]Award:[/b]\n${forumAwardLine}`,
     confidence ? `[b]Confidence:[/b]\n${confidence}` : null,
     nextStep ? `[b]Next step:[/b]\n${nextStep}` : null,
@@ -162,7 +188,9 @@ function buildShareContent({
   const forumText = forumSections.join('\n\n');
 
   const emailSubject = `AwardRadar analysis: ${origin} to ${destination} on ${date}`;
-  const emailBody = compactText;
+  const emailBody = emailAlternatives.length
+    ? `${compactText}\n\nOther cash options:\n${emailAlternatives.join('\n')}`
+    : compactText;
   const mailto = `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
   return { title: emailSubject, compactText, forumText, emailSubject, emailBody, mailto };
 }
@@ -375,6 +403,39 @@ const CashCandidate = ({ cashOffer, isLimited }: { cashOffer: any; isLimited: bo
     )}
   </article>
 );
+
+const CashAlternatives = ({ offers }: { offers: any[] }) => {
+  if (!offers.length) return null;
+  return (
+    <section className="cash-alternatives" aria-labelledby="cash-alternatives-title" data-testid="cash-alternatives">
+      <h3 id="cash-alternatives-title">Other viable cash options</h3>
+      <div className="cash-alternatives__list">
+        {offers.map((offer, index) => {
+          const hasCompleteTimes = offer?.time_data_status === 'complete' && offer?.dep_time && offer?.arr_time;
+          return (
+            <article className="cash-alternative-row" key={`${offer?.offer_id || 'cash-alternative'}-${index}`} data-testid="cash-alternative-row">
+              <div className="cash-alternative-row__lead">
+                <strong>{offer?.currency === 'EUR' || !offer?.currency ? '€' : ''}{offer?.price}</strong>
+                {offer?.currency && offer.currency !== 'EUR' && <span>{offer.currency}</span>}
+                {offer?.airline && <span>{offer.airline}</span>}
+              </div>
+              <div className="cash-alternative-row__facts">
+                {hasCompleteTimes && <span>{offer.dep_time}–{offer.arr_time}</span>}
+                {Number.isFinite(offer?.durationMin) && (
+                  <span>{Math.floor(offer.durationMin / 60)}h{offer.durationMin % 60 ? ` ${offer.durationMin % 60}m` : ''}</span>
+                )}
+                {Number.isFinite(offer?.stops) && <span>{offer.stops === 0 ? 'Nonstop' : `${offer.stops} stop${offer.stops === 1 ? '' : 's'}`}</span>}
+              </div>
+              {!hasCompleteTimes && (
+                <p className="cash-alternative-row__disclosure">Schedule details unavailable. Verify with the provider.</p>
+              )}
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
 
 const AwardCandidate = ({ result }: { result: any }) => {
   const bestProgram = result?.programs?.[0];
@@ -650,7 +711,9 @@ export default function App() {
     (awardStatus === 'error' && cashStatus === 'error') ? 'error' : 'empty';
 
   const result = awardData?.results?.[0];
-  const cashOffer = cashData?.offers?.[0];
+  const cashOffers = Array.isArray(cashData?.offers) ? cashData.offers : [];
+  const cashOffer = cashOffers[0];
+  const cashAlternatives = cashStatus === 'success' ? cashOffers.slice(1, 4) : [];
   const cashUnavailable = cashData?.cash_provenance?.status === 'unavailable';
   const isLimited = result?.verified_identical_routing !== true;
   const hasSuccessfulPane = awardStatus === 'success' || cashStatus === 'success';
@@ -660,13 +723,14 @@ export default function App() {
   const shareContent = useMemo(() => buildShareContent({
     result,
     cashOffer,
+    cashAlternatives,
     cashUnavailable,
     awardStatus,
     cashStatus,
     origin: routeOrigin,
     destination: routeDestination,
     travelDate,
-  }), [result, cashOffer, cashUnavailable, awardStatus, cashStatus, routeOrigin, routeDestination, travelDate]);
+  }), [result, cashOffer, cashAlternatives, cashUnavailable, awardStatus, cashStatus, routeOrigin, routeDestination, travelDate]);
 
   const handlePrint = () => {
     flushSync(() => setExportTimestamp(new Date()));
@@ -714,7 +778,10 @@ export default function App() {
             <section className="result-section options-section" aria-labelledby="options-title">
               <h2 id="options-title">Best Options</h2>
               <div className="options-grid" data-testid="options-grid">
-                {cashStatus === 'success' && cashOffer ? <CashCandidate cashOffer={cashOffer} isLimited={isLimited} /> : cashUnavailable ? <CashUnavailable /> : <PaneUnavailable kind="Cash" status={cashStatus} />}
+                <div className="cash-option-stack" data-testid="cash-option-stack">
+                  {cashStatus === 'success' && cashOffer ? <CashCandidate cashOffer={cashOffer} isLimited={isLimited} /> : cashUnavailable ? <CashUnavailable /> : <PaneUnavailable kind="Cash" status={cashStatus} />}
+                  {cashStatus === 'success' && cashOffer && <CashAlternatives offers={cashAlternatives} />}
+                </div>
                 {awardStatus === 'success' && result ? <AwardCandidate result={result} /> : <PaneUnavailable kind="Award" status={awardStatus} />}
               </div>
             </section>
