@@ -26,6 +26,7 @@ describe('App', () => {
     document.body.innerHTML = '';
     vi.clearAllMocks();
     window.history.pushState({}, 'Test Title', '/app');
+    Object.defineProperty(window, 'print', { writable: true, value: vi.fn() });
   });
 
   afterEach(() => {
@@ -83,6 +84,8 @@ describe('App', () => {
     expect(mockFetch).toHaveBeenCalledWith('/api/cheap', expect.objectContaining({
       method: 'POST', body: expectedPayload
     }));
+    expect(mockFetch.mock.calls.filter(([url]) => url === '/api/awards')).toHaveLength(1);
+    expect(mockFetch.mock.calls.filter(([url]) => url === '/api/cheap')).toHaveLength(1);
   });
 
   it('shows API error state when BOTH endpoints fail', async () => {
@@ -231,5 +234,141 @@ describe('App', () => {
       expect(container.querySelector('[data-testid="decision-summary"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="cash-candidate-card"]')).toBeNull();
     });
+  });
+
+  it('keeps partial success visible when the other pane errors', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    mockFetch.mockImplementation(async (url) => {
+      if (url === '/api/awards') throw new Error('Award provider unavailable');
+      return { ok: true, json: async () => ({ ok: true, offers: [{ price: 477, airline: 'Cash Only Air' }] }) };
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="cash-candidate-card"]')?.textContent).toContain('Cash Only Air');
+      expect(container.querySelector('[data-testid="award-pane-error"]')).not.toBeNull();
+    });
+  });
+
+  it('keeps Cash and Award response fields isolated', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    mockFetch.mockImplementation(async (url) => {
+      if (url === '/api/awards') return { ok: true, json: async () => ({
+        ok: true,
+        results: [{ origin: 'FRA', dest: 'JFK', date: '2030-10-10', programs: [{ program: 'Award Program X', miles: 42424, surcharge: 81 }], decision: { signal: 'unknown', confidence: 'low' } }]
+      }) };
+      return { ok: true, json: async () => ({ ok: true, offers: [{ price: 612, airline: 'Cash Carrier Y' }] }) };
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => {
+      const cash = container.querySelector('[data-testid="cash-candidate-card"]')?.textContent || '';
+      const award = container.querySelector('[data-testid="award-candidate-card"]')?.textContent || '';
+      expect(cash).toContain('Cash Carrier Y');
+      expect(cash).not.toContain('Award Program X');
+      expect(cash).not.toContain('42,424');
+      expect(award).toContain('Award Program X');
+      expect(award).not.toContain('Cash Carrier Y');
+      expect(award).not.toContain('612');
+    });
+  });
+
+  it('hides export before any successful result', () => {
+    render(<App />);
+    expect(screen.queryByTestId('print-button')).toBeNull();
+  });
+
+  it('shows export after Cash-only success and handles the missing Award pane', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => ({ ok: true, results: [] }) }
+      : { ok: true, json: async () => ({ ok: true, offers: [{ price: 500, airline: 'Lufthansa' }] }) });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('print-button')).toBeTruthy();
+      expect(container.querySelector('[data-testid="award-pane-empty"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="award-candidate-card"]')).toBeNull();
+    });
+  });
+
+  it('shows export after Award-only success and handles the missing Cash pane', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => ({ ok: true, results: [{ origin: 'FRA', dest: 'JFK', date: '2030-10-10', decision: { signal: 'unknown', confidence: 'low' } }] }) }
+      : { ok: true, json: async () => ({ ok: true, offers: [] }) });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('print-button')).toBeTruthy();
+      expect(container.querySelector('[data-testid="cash-pane-empty"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="cash-candidate-card"]')).toBeNull();
+    });
+  });
+
+  it('freezes an export timestamp, prints once, includes route/date, and makes no new request', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => ({ ok: true, results: [{ origin: 'FRA', dest: 'JFK', date: '2030-10-10', decision: { signal: 'unknown', confidence: 'low' } }] }) }
+      : { ok: true, json: async () => ({ ok: true, offers: [] }) });
+
+    render(<App />);
+    fireEvent.click(screen.getByTestId('analyze-button'));
+    await waitFor(() => expect(screen.getByTestId('print-button')).toBeTruthy());
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByTestId('print-button'));
+
+    expect(window.print).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId('export-timestamp').textContent).not.toBe('');
+    expect(screen.getByTestId('print-report-header').textContent).toContain('FRA — JFK');
+    expect(screen.getByTestId('print-report-header').textContent).toContain('2030-10-10');
+  });
+
+  it('does not invent program or provider fields when the APIs omit them', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => ({ ok: true, results: [{ decision: { signal: 'unknown', confidence: 'low' }, programs: [] }] }) }
+      : { ok: true, json: async () => ({ ok: true, offers: [{ price: 500 }] }) });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(screen.getByTestId('print-button')).toBeTruthy());
+
+    const cash = container.querySelector('[data-testid="cash-candidate-card"]')?.textContent || '';
+    const award = container.querySelector('[data-testid="award-candidate-card"]')?.textContent || '';
+    expect(cash).not.toContain('Airline');
+    expect(award).not.toContain('Miles & More');
+    expect(award).toContain('No program-level award detail');
+  });
+
+  it('retains the required mobile reading order in the DOM', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => ({ ok: true, results: [{ decision: { signal: 'unknown', confidence: 'low' }, verified_identical_routing: false }] }) }
+      : { ok: true, json: async () => ({ ok: true, offers: [{ price: 500 }] }) });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(screen.getByTestId('result-flow')).toBeTruthy());
+
+    const flow = screen.getByTestId('result-flow');
+    const summary = screen.getByTestId('decision-summary');
+    const options = screen.getByTestId('options-grid');
+    const evidence = container.querySelector('.evidence-section') as HTMLElement;
+    const print = screen.getByTestId('print-button');
+    expect(summary.compareDocumentPosition(options) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(options.compareDocumentPosition(evidence) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(evidence.compareDocumentPosition(print) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(flow.querySelector('.options-grid')).toBeTruthy();
   });
 });
