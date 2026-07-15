@@ -14,3 +14,7 @@ node_modules/
 
 # Vite dev cache
 .vite/
+
+# Local databases
+*.sqlite3
+*.db
