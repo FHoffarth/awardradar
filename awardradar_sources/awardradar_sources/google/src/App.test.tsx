@@ -28,6 +28,9 @@ describe('App', () => {
     vi.clearAllMocks();
     window.history.pushState({}, 'Test Title', '/app');
     Object.defineProperty(window, 'print', { writable: true, value: vi.fn() });
+    Object.defineProperty(navigator, 'share', { configurable: true, writable: true, value: undefined });
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, writable: true, value: undefined });
+    Object.defineProperty(document, 'execCommand', { configurable: true, writable: true, value: undefined });
   });
 
   afterEach(() => {
@@ -40,6 +43,23 @@ describe('App', () => {
   };
 
   const getButton = (container: HTMLElement) => container.querySelector('[data-testid="analyze-button"]') as HTMLElement;
+
+  const renderAwardOnly = async (resultOverrides: Record<string, unknown> = {}, cashResponse: Record<string, unknown> = { ok: true, offers: [] }) => {
+    setupUrlParams('FRA', 'MUC', '2030-10-10');
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => ({ ok: true, results: [{
+        origin: 'FRA', dest: 'MUC', date: '2030-10-10',
+        programs: [{ program: 'Miles & More', miles: 1662, surcharge: 35 }],
+        decision: { signal: 'strong_miles_value', confidence: 'low' },
+        verified_identical_routing: false, has_live_data: false,
+        ...resultOverrides,
+      }] }) }
+      : { ok: true, json: async () => cashResponse });
+    const view = render(<App />);
+    fireEvent.click(getButton(view.container));
+    await waitFor(() => expect(screen.getByTestId('share-hub')).toBeTruthy());
+    return view;
+  };
 
   it('does not fetch on mount', () => {
     const { container } = render(<App />);
@@ -55,6 +75,15 @@ describe('App', () => {
     expect(css).toMatch(/\.why-section p\s*\{[^}]*font-family:\s*var\(--font-product\)/s);
     expect(css).not.toContain('fonts.googleapis.com');
     expect(css).not.toContain('fonts.gstatic.com');
+  });
+
+  it('defines a compact editorial A4 print contract', () => {
+    const css = readFileSync('src/index.css', 'utf8');
+    expect(css).toContain('@page { size: A4; margin: 10mm 12mm; }');
+    expect(css).toMatch(/\.print-omit\s*\{[^}]*display:\s*none\s*!important/s);
+    expect(css).toMatch(/\.result-section\s*\{[^}]*break-inside:\s*auto/s);
+    expect(css).toMatch(/\.option-card\s*\{[^}]*break-inside:\s*avoid-page/s);
+    expect(css).toMatch(/\.confidence-section\s*\{[^}]*break-inside:\s*avoid-page/s);
   });
 
   it('keeps unresolved or invalid URL state disabled without fetching', () => {
@@ -382,6 +411,7 @@ describe('App', () => {
 
   it('hides export before any successful result', () => {
     render(<App />);
+    expect(screen.queryByTestId('share-export-button')).toBeNull();
     expect(screen.queryByTestId('print-button')).toBeNull();
   });
 
@@ -395,7 +425,7 @@ describe('App', () => {
     fireEvent.click(getButton(container));
 
     await waitFor(() => {
-      expect(screen.getByTestId('print-button')).toBeTruthy();
+      expect(screen.getByTestId('share-export-button')).toBeTruthy();
       expect(container.querySelector('[data-testid="award-pane-empty"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="award-candidate-card"]')).toBeNull();
     });
@@ -411,7 +441,7 @@ describe('App', () => {
     fireEvent.click(getButton(container));
 
     await waitFor(() => {
-      expect(screen.getByTestId('print-button')).toBeTruthy();
+      expect(screen.getByTestId('share-export-button')).toBeTruthy();
       expect(container.querySelector('[data-testid="cash-pane-empty"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="cash-candidate-card"]')).toBeNull();
     });
@@ -425,16 +455,164 @@ describe('App', () => {
 
     render(<App />);
     fireEvent.click(screen.getByTestId('analyze-button'));
-    await waitFor(() => expect(screen.getByTestId('print-button')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('share-export-button')).toBeTruthy());
     expect(mockFetch).toHaveBeenCalledTimes(2);
 
-    fireEvent.click(screen.getByTestId('print-button'));
+    fireEvent.click(screen.getByTestId('share-export-button'));
+    fireEvent.click(await screen.findByTestId('print-button'));
 
     expect(window.print).toHaveBeenCalledTimes(1);
     expect(mockFetch).toHaveBeenCalledTimes(2);
     expect(screen.getByTestId('export-timestamp').textContent).not.toBe('');
-    expect(screen.getByTestId('print-report-header').textContent).toContain('FRA — JFK');
-    expect(screen.getByTestId('print-report-header').textContent).toContain('2030-10-10');
+    expect(screen.getByTestId('print-report-header').textContent).toContain('AwardRadar Decision Report');
+    expect(screen.getByTestId('print-report-header').textContent).toContain('FRA → JFK');
+    expect(screen.getByTestId('print-report-header').textContent).toContain('10 Oct 2030');
+  });
+
+  it('hides the Share Hub before results and shows it after partial success', async () => {
+    render(<App />);
+    expect(screen.queryByTestId('share-hub')).toBeNull();
+    cleanup();
+
+    const { container } = await renderAwardOnly();
+    expect(screen.getByTestId('share-export-button')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('share-export-button'));
+    expect(await screen.findByTestId('print-button')).toBeTruthy();
+    expect(container.querySelector('[data-testid="cash-pane-empty"]')?.classList.contains('print-omit')).toBe(true);
+  });
+
+  it('uses native share once with trusted summary text and no new API requests', async () => {
+    const share = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'share', { configurable: true, value: share });
+    await renderAwardOnly();
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByTestId('share-export-button'));
+    const menu = await screen.findByTestId('result-action-menu');
+    expect(Array.from(menu.querySelectorAll('[role="menuitem"]')).map(item => item.textContent?.trim())).toEqual([
+      'Share analysis', 'Copy summary', 'Copy forum post', 'Email analysis', 'Print / Save PDF',
+    ]);
+    fireEvent.click(await screen.findByTestId('share-button'));
+    await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+
+    const payload = share.mock.calls[0][0];
+    expect(payload.title).toBe('AwardRadar analysis: FRA to MUC on 10 Oct 2030');
+    expect(payload.text).toContain('Strong Award Value signal');
+    expect(payload.text).toContain('1,662 miles · €35 · Miles & More');
+    expect(payload.text).toContain('not verified as identical itineraries');
+    expect(payload.url).toBe('https://awardradar.app/');
+    expect(JSON.stringify(payload)).not.toContain('quota_exhausted');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('handles native share cancellation without a generic error', async () => {
+    const cancelled = Object.assign(new Error('cancelled'), { name: 'AbortError' });
+    const share = vi.fn().mockRejectedValue(cancelled);
+    Object.defineProperty(navigator, 'share', { configurable: true, value: share });
+    await renderAwardOnly();
+
+    fireEvent.click(screen.getByTestId('share-export-button'));
+    fireEvent.click(await screen.findByTestId('share-button'));
+    await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('share-feedback').textContent).toBe('');
+    expect(screen.queryByText(/application failure/i)).toBeNull();
+  });
+
+  it('opens the fallback actions when native sharing is unavailable', async () => {
+    await renderAwardOnly();
+    fireEvent.click(screen.getByTestId('share-export-button'));
+    const menu = await screen.findByTestId('result-action-menu');
+    expect(menu).toBeTruthy();
+    expect(screen.queryByTestId('share-button')).toBeNull();
+    expect(screen.getByTestId('copy-summary-button')).toBeTruthy();
+    expect(screen.getByTestId('copy-forum-button')).toBeTruthy();
+    expect(screen.getByTestId('email-analysis-link')).toBeTruthy();
+  });
+
+  it('copies the trusted compact summary and announces success', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    await renderAwardOnly();
+
+    fireEvent.click(screen.getByTestId('share-export-button'));
+    fireEvent.click(await screen.findByTestId('copy-summary-button'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+
+    const copied = writeText.mock.calls[0][0];
+    expect(copied).toContain('AwardRadar analysis\nFRA → MUC · 10 Oct 2030');
+    expect(copied).toContain('Cash:\nNo reliable cash result was returned');
+    expect(copied).toContain('Award:\n1,662 miles · €35 · Miles & More');
+    expect(copied).not.toContain('cash_provenance');
+    expect(screen.getByTestId('share-feedback').textContent).toBe('Summary copied');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('copies conservative valid BBCode without complex tags', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    await renderAwardOnly();
+
+    fireEvent.click(screen.getByTestId('share-export-button'));
+    fireEvent.click(await screen.findByTestId('copy-forum-button'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+
+    const copied = writeText.mock.calls[0][0];
+    expect(copied).toContain('[b]AwardRadar analysis: FRA → MUC · 10.10.2030[/b]');
+    expect(copied).toContain('[b]Award:[/b]\n1.662 miles · 35 EUR · Miles & More');
+    expect(copied).toMatch(/\[i\].+\[\/i\]/s);
+    expect(copied).not.toMatch(/\[(?:table|color|font|url)[=\]]/i);
+    expect(screen.getByTestId('share-feedback').textContent).toBe('Forum post copied');
+  });
+
+  it('creates a properly encoded plain-text mailto action', async () => {
+    await renderAwardOnly();
+    fireEvent.click(screen.getByTestId('share-export-button'));
+    const href = (await screen.findByTestId('email-analysis-link')).getAttribute('href') || '';
+
+    expect(href).toContain('mailto:?subject=AwardRadar%20analysis%3A%20FRA%20to%20MUC');
+    expect(href).toContain('&body=AwardRadar%20analysis');
+    expect(decodeURIComponent(href)).toContain('Cash:\nNo reliable cash result was returned');
+    expect(decodeURIComponent(href)).not.toContain('<html');
+  });
+
+  it('preserves quota-degraded and routing caveats without raw provider details', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    await renderAwardOnly({}, { ok: true, offers: [], cash_provenance: {
+      status: 'unavailable', provider: 'serpapi', fallback_reason: 'quota_exhausted',
+    } });
+
+    fireEvent.click(screen.getByTestId('share-export-button'));
+    fireEvent.click(await screen.findByTestId('copy-summary-button'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const copied = writeText.mock.calls[0][0];
+    expect(copied).toContain('Current cash comparison unavailable');
+    expect(copied).toContain('not verified as identical itineraries');
+    expect(copied).toContain('Award figures are estimates');
+    expect(copied).not.toContain('quota_exhausted');
+    expect(copied).not.toContain('serpapi');
+  });
+
+  it('offers manual selectable text when automatic clipboard copy is unavailable', async () => {
+    Object.defineProperty(document, 'execCommand', { configurable: true, value: vi.fn(() => false) });
+    await renderAwardOnly();
+    fireEvent.click(screen.getByTestId('share-export-button'));
+    fireEvent.click(await screen.findByTestId('copy-summary-button'));
+
+    await waitFor(() => expect(screen.getByTestId('manual-copy-text')).toBeTruthy());
+    expect(screen.getByTestId('share-feedback').textContent).toContain('Select the text');
+    expect((screen.getByTestId('manual-copy-text') as HTMLTextAreaElement).value).toContain('AwardRadar analysis');
+  });
+
+  it('closes the action menu with Escape and restores focus to Share & Export', async () => {
+    await renderAwardOnly();
+    fireEvent.click(screen.getByTestId('share-export-button'));
+    const firstAction = await screen.findByTestId('copy-summary-button');
+    await waitFor(() => expect(document.activeElement).toBe(firstAction));
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByTestId('result-action-menu')).toBeNull());
+    expect(document.activeElement).toBe(screen.getByTestId('share-export-button'));
   });
 
   it('does not invent program or provider fields when the APIs omit them', async () => {
@@ -445,7 +623,7 @@ describe('App', () => {
 
     const { container } = render(<App />);
     fireEvent.click(getButton(container));
-    await waitFor(() => expect(screen.getByTestId('print-button')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('share-export-button')).toBeTruthy());
 
     const cash = container.querySelector('[data-testid="cash-candidate-card"]')?.textContent || '';
     const award = container.querySelector('[data-testid="award-candidate-card"]')?.textContent || '';
@@ -468,10 +646,10 @@ describe('App', () => {
     const summary = screen.getByTestId('decision-summary');
     const options = screen.getByTestId('options-grid');
     const evidence = container.querySelector('.evidence-section') as HTMLElement;
-    const print = screen.getByTestId('print-button');
+    const actions = screen.getByTestId('share-export-button');
     expect(summary.compareDocumentPosition(options) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(options.compareDocumentPosition(evidence) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(evidence.compareDocumentPosition(print) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(evidence.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(flow.querySelector('.options-grid')).toBeTruthy();
   });
 });
