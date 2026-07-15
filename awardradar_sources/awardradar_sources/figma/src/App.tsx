@@ -506,6 +506,30 @@ export default function App() {
     return () => observer.disconnect()
   }, [])
 
+  useEffect(() => {
+    // Cinematic sequence: once the manifesto reveal has completed, scroll once
+    // to Act II. Runs a single time per load. Any user interaction (touch,
+    // wheel, pointer, key) cancels it immediately — no scroll trapping. Reduced
+    // motion opts out entirely.
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    let cancelled = false
+    const events = ['wheel', 'touchstart', 'touchmove', 'pointerdown', 'keydown', 'mousedown']
+    const stop = () => { events.forEach(e => window.removeEventListener(e, cancel)) }
+    const cancel = () => { cancelled = true; window.clearTimeout(timer); stop() }
+    events.forEach(e => window.addEventListener(e, cancel, { passive: true }))
+
+    // 1800ms reveal delay + ~800ms reveal animation + short beat.
+    const timer = window.setTimeout(() => {
+      stop()
+      // Only auto-advance if the reader is still idle at the top.
+      if (cancelled || window.scrollY > 8) return
+      document.getElementById('act-2')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 2900)
+
+    return () => { window.clearTimeout(timer); stop() }
+  }, [])
+
   const t  = T[theme]
   const PX = 'clamp(64px, 7.5vw, 120px)'
   const sameRoute = fromCode.length > 0 && fromCode === toCode
