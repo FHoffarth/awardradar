@@ -100,6 +100,8 @@ describe('App', () => {
     expect(css).toMatch(/\.result-section\s*\{[^}]*break-inside:\s*auto/s);
     expect(css).toMatch(/\.option-card\s*\{[^}]*break-inside:\s*avoid-page/s);
     expect(css).toMatch(/\.confidence-section\s*\{[^}]*break-inside:\s*avoid-page/s);
+    expect(css).toMatch(/\.report-disclaimer\s*\{[^}]*break-inside:\s*auto[^}]*page-break-inside:\s*auto/s);
+    expect(css).not.toMatch(/\.report-disclaimer\s*\{[^}]*(?:position:\s*fixed|break-(?:before|after):|page-break-(?:before|after):)/s);
   });
 
   it('keeps unresolved or invalid URL state disabled without fetching', () => {
