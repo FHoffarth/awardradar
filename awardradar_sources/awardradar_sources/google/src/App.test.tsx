@@ -61,6 +61,22 @@ describe('App', () => {
     return view;
   };
 
+  const renderWithCashOffers = async (offers: Record<string, unknown>[]) => {
+    setupUrlParams('FRA', 'MUC', '2030-10-10');
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => ({ ok: true, results: [{
+        origin: 'FRA', dest: 'MUC', date: '2030-10-10',
+        programs: [{ program: 'Miles & More', miles: 1662, surcharge: 35 }],
+        decision: { signal: 'strong_miles_value', confidence: 'medium' },
+        verified_identical_routing: false, has_live_data: false,
+      }] }) }
+      : { ok: true, json: async () => ({ ok: true, offers }) });
+    const view = render(<App />);
+    fireEvent.click(getButton(view.container));
+    await waitFor(() => expect(screen.getByTestId('cash-candidate-card')).toBeTruthy());
+    return view;
+  };
+
   it('does not fetch on mount', () => {
     const { container } = render(<App />);
     expect(mockFetch).not.toHaveBeenCalled();
@@ -233,6 +249,59 @@ describe('App', () => {
     });
   });
 
+  it('keeps offers[0] primary and renders offers[1..3] in exact backend order', async () => {
+    const offers = [
+      { price: 410, currency: 'EUR', airline: 'Primary Air', time_data_status: 'complete', dep_time: '08:00', arr_time: '09:00', durationMin: 60, stops: 0, dealScore: 50 },
+      { price: 900, currency: 'EUR', airline: 'Backend First', time_data_status: 'complete', dep_time: '10:00', arr_time: '11:30', durationMin: 90, stops: 1, dealScore: 1 },
+      { price: 100, currency: 'EUR', airline: 'Backend Second', time_data_status: 'complete', dep_time: '12:00', arr_time: '13:00', durationMin: 60, stops: 0, dealScore: 99 },
+      { price: 500, currency: 'EUR', airline: 'Backend Third', time_data_status: 'unavailable', dealScore: 40 },
+      { price: 300, currency: 'EUR', airline: 'Fourth Hidden', time_data_status: 'complete', dealScore: 80 },
+    ];
+    const { container } = await renderWithCashOffers(offers);
+
+    const primary = screen.getByTestId('cash-candidate-card').textContent || '';
+    expect(primary).toContain('Primary Air');
+    expect(primary).toContain('€410');
+    expect(primary).not.toContain('Backend First');
+
+    const rows = screen.getAllByTestId('cash-alternative-row');
+    expect(rows).toHaveLength(3);
+    expect(rows.map(row => row.textContent)).toEqual([
+      expect.stringContaining('Backend First'),
+      expect.stringContaining('Backend Second'),
+      expect.stringContaining('Backend Third'),
+    ]);
+    expect(container.textContent).not.toContain('Fourth Hidden');
+    expect(rows.map(row => row.textContent?.match(/€\d+/)?.[0])).toEqual(['€900', '€100', '€500']);
+  });
+
+  it('does not render alternatives for a single Cash offer', async () => {
+    await renderWithCashOffers([{ price: 410, currency: 'EUR', airline: 'Only Air', time_data_status: 'complete' }]);
+    expect(screen.queryByTestId('cash-alternatives')).toBeNull();
+    expect(screen.queryAllByTestId('cash-alternative-row')).toHaveLength(0);
+  });
+
+  it('handles incomplete alternative fields without inventing values', async () => {
+    await renderWithCashOffers([
+      { price: 410, currency: 'EUR', airline: 'Primary Air', time_data_status: 'complete' },
+      { price: 275, currency: 'EUR', time_data_status: 'unavailable', source: 'secret-provider', debugSecret: 'do-not-render' },
+    ]);
+    const row = screen.getByTestId('cash-alternative-row');
+    expect(row.textContent).toContain('€275');
+    expect(row.textContent).toContain('Schedule details unavailable. Verify with the provider.');
+    expect(row.textContent).not.toContain('undefined');
+    expect(row.textContent).not.toContain('secret-provider');
+    expect(row.textContent).not.toContain('do-not-render');
+  });
+
+  it('uses a slice only and never sorts or scores Cash alternatives in the frontend', () => {
+    const source = readFileSync('src/App.tsx', 'utf8');
+    expect(source).toContain("cashOffers.slice(1, 4)");
+    expect(source).not.toMatch(/cashAlternatives\s*\.\s*sort/);
+    expect(source).not.toMatch(/cashAlternatives[\s\S]{0,120}dealScore/);
+    expect(source).not.toMatch(/cashAlternatives[\s\S]{0,120}score/i);
+  });
+
   it('shows missing routing disclosure and limited comparison when verified_identical_routing is false', async () => {
     setupUrlParams('FRA', 'JFK', '2030-10-10');
     mockFetch.mockImplementation(async (url) => {
@@ -340,6 +409,7 @@ describe('App', () => {
       expect(screen.getByText('Promising award signal')).toBeTruthy();
       expect(screen.getByText('A current cash comparison is unavailable, so the relative value cannot be fully assessed.')).toBeTruthy();
       expect(container.querySelector('[data-testid="award-candidate-card"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="cash-alternatives"]')).toBeNull();
       expect(container.querySelector('[data-testid="error-state"]')).toBeNull();
       expect(container.textContent).not.toContain('quota_exhausted');
       expect(mockFetch.mock.calls.filter(([url]) => url === '/api/awards')).toHaveLength(1);
@@ -547,6 +617,51 @@ describe('App', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps Summary concise while Forum, Email, and Print include compact alternatives', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    const { container } = await renderWithCashOffers([
+      { price: 410, currency: 'EUR', airline: 'Primary Air', time_data_status: 'complete', dep_time: '08:00', arr_time: '09:00', durationMin: 60, stops: 0 },
+      { price: 450, currency: 'EUR', airline: 'Alternative One', time_data_status: 'complete', dep_time: '10:00', arr_time: '11:30', durationMin: 90, stops: 1 },
+      { price: 470, currency: 'EUR', airline: 'Alternative Two', time_data_status: 'unavailable', source: 'private-source' },
+      { price: 490, currency: 'EUR', airline: 'Alternative Three', time_data_status: 'complete', stops: 0 },
+      { price: 510, currency: 'EUR', airline: 'Alternative Four', time_data_status: 'complete' },
+    ]);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByTestId('share-export-button'));
+    fireEvent.click(await screen.findByTestId('copy-summary-button'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const summary = writeText.mock.calls[0][0];
+    expect(summary).toContain('3 additional cash options available');
+    expect(summary).not.toContain('Alternative One');
+    expect(summary).not.toContain('Alternative Two');
+
+    fireEvent.click(screen.getByTestId('copy-forum-button'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+    const forum = writeText.mock.calls[1][0];
+    expect(forum).toContain('[b]Other options:[/b]');
+    expect(forum.indexOf('Alternative One')).toBeLessThan(forum.indexOf('Alternative Two'));
+    expect(forum.indexOf('Alternative Two')).toBeLessThan(forum.indexOf('Alternative Three'));
+    expect(forum).not.toContain('Alternative Four');
+    expect(forum).not.toContain('private-source');
+
+    const mailto = (screen.getByTestId('email-analysis-link').getAttribute('href') || '');
+    const decodedMailto = decodeURIComponent(mailto);
+    expect(decodedMailto).toContain('Other cash options:');
+    expect(decodedMailto).toContain('Alternative One');
+    expect(decodedMailto).toContain('Alternative Three');
+    expect(decodedMailto).not.toContain('Alternative Four');
+    expect(decodedMailto).not.toContain('private-source');
+
+    const alternatives = container.querySelector('[data-testid="cash-alternatives"]') as HTMLElement;
+    expect(alternatives).toBeTruthy();
+    expect(alternatives.closest('.interactive-only')).toBeNull();
+    fireEvent.click(screen.getByTestId('print-button'));
+    expect(window.print).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
   it('copies conservative valid BBCode without complex tags', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
@@ -651,5 +766,19 @@ describe('App', () => {
     expect(options.compareDocumentPosition(evidence) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(evidence.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(flow.querySelector('.options-grid')).toBeTruthy();
+  });
+
+  it('keeps mobile Cash reading order primary then alternatives then Award', async () => {
+    const { container } = await renderWithCashOffers([
+      { price: 410, currency: 'EUR', airline: 'Primary Air', time_data_status: 'complete' },
+      { price: 450, currency: 'EUR', airline: 'Alternative One', time_data_status: 'unavailable' },
+      { price: 470, currency: 'EUR', airline: 'Alternative Two', time_data_status: 'unavailable' },
+    ]);
+    const primary = screen.getByTestId('cash-candidate-card');
+    const alternatives = screen.getByTestId('cash-alternatives');
+    const award = screen.getByTestId('award-candidate-card');
+    expect(primary.compareDocumentPosition(alternatives) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(alternatives.compareDocumentPosition(award) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(container.querySelectorAll('.cash-option-stack')).toHaveLength(1);
   });
 });
