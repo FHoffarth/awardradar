@@ -232,4 +232,68 @@ describe('App', () => {
       expect(container.querySelector('[data-testid="cash-candidate-card"]')).toBeNull();
     });
   });
+
+  it('keeps awards visible and renders neutral cash-unavailable state', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    mockFetch.mockImplementation(async (url) => {
+      if (url === '/api/awards') return {
+        ok: true,
+        json: async () => ({
+          ok: true,
+          results: [{
+            origin: 'FRA', dest: 'JFK', date: '2030-10-10', cash_eur: null,
+            programs: [{ program: 'Miles & More', miles: 30000, grade: { tier: 'great' } }],
+            decision: { signal: 'insufficient_data', confidence: 'low' }
+          }]
+        })
+      };
+      return {
+        ok: true,
+        json: async () => ({
+          ok: true, offers: [],
+          cash_provenance: {
+            status: 'unavailable', provider: 'serpapi', observed_at: null,
+            cache_age_seconds: null, fallback_reason: 'quota_exhausted'
+          }
+        })
+      };
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => {
+      expect(screen.getByText('Current cash comparison unavailable')).toBeTruthy();
+      expect(screen.getByText('Award results can still be reviewed, but relative value cannot be fully assessed without a current cash fare.')).toBeTruthy();
+      expect(screen.getByText('Promising award signal')).toBeTruthy();
+      expect(screen.getByText('A current cash comparison is unavailable, so the relative value cannot be fully assessed.')).toBeTruthy();
+      expect(container.querySelector('[data-testid="decision-summary"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="error-state"]')).toBeNull();
+      expect(container.textContent).not.toContain('quota_exhausted');
+    });
+  });
+
+  it('does not soften a normal strong award result when current cash is available', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    mockFetch.mockImplementation(async (url) => {
+      if (url === '/api/awards') return {
+        ok: true,
+        json: async () => ({ ok: true, results: [{
+          origin: 'FRA', dest: 'JFK', date: '2030-10-10', cash_eur: 500,
+          programs: [{ program: 'Miles & More', miles: 30000 }],
+          decision: { signal: 'strong_miles_value', confidence: 'high' }
+        }] })
+      };
+      return { ok: true, json: async () => ({ ok: true, offers: [{ price: 500, airline: 'Lufthansa' }] }) };
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => {
+      expect(screen.getByText('Strong Award Value')).toBeTruthy();
+      expect(container.querySelector('[data-testid="cash-candidate-card"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="cash-unavailable-state"]')).toBeNull();
+    });
+  });
 });

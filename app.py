@@ -26,8 +26,25 @@ import requests
 from werkzeug.exceptions import BadRequest
 
 
-class QuotaError(RuntimeError):
+SERPAPI_FALLBACK_REASONS = {
+    "quota_exhausted", "rate_limited", "provider_timeout",
+    "provider_error", "invalid_response", "configuration_error",
+}
+
+
+class SerpApiError(RuntimeError):
+    """Classified SerpApi failure safe for machine-readable provenance."""
+
+    def __init__(self, reason: str):
+        self.reason = reason if reason in SERPAPI_FALLBACK_REASONS else "provider_error"
+        super().__init__(self.reason)
+
+
+class QuotaError(SerpApiError):
     """SerpApi search quota exhausted."""
+
+    def __init__(self):
+        super().__init__("quota_exhausted")
 from flask import Flask, jsonify, make_response, redirect, render_template, request, send_from_directory, url_for
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -1448,10 +1465,47 @@ def _cached_serpapi_payload(key: tuple, now: float | None = None) -> dict | None
         return cached[1] if cached else None
 
 
+def classify_serpapi_failure(status_code: int | None = None, payload: object = None,
+                             body_text: str = "", exc: Exception | None = None) -> str | None:
+    """Map provider evidence to the stable cash-provenance vocabulary."""
+    if isinstance(exc, requests.Timeout):
+        return "provider_timeout"
+    evidence = body_text
+    if isinstance(payload, dict):
+        evidence = f"{evidence} {payload.get('error') or ''}"
+    lowered = evidence.lower()
+    if "run out of searches" in lowered or "quota exhausted" in lowered:
+        return "quota_exhausted"
+    if status_code == 429:
+        return "rate_limited"
+    if status_code is not None and status_code >= 400:
+        return "provider_error"
+    if isinstance(payload, dict) and payload.get("error"):
+        return "provider_error"
+    return None
+
+
+def _raise_serpapi_failure(reason: str) -> None:
+    if reason == "quota_exhausted":
+        raise QuotaError()
+    raise SerpApiError(reason)
+
+
+def cash_provenance(status: str, fallback_reason: str | None = None) -> dict:
+    """Compact provenance contract shared by cash and award responses."""
+    return {
+        "status": status,
+        "provider": "serpapi",
+        "observed_at": None,
+        "cache_age_seconds": None,
+        "fallback_reason": fallback_reason,
+    }
+
+
 def serpapi_search(origin: str, dest: str, dep: dt.date, ret: dt.date | None, cabin: str, currency: str, lang: str = "de") -> dict:
     """Eine Google-Flights-Suche Ã¼ber SerpApi. Mit TTL-Cache gegen Doppelabrechnung."""
     if not SERPAPI_TOKEN:
-        raise RuntimeError("SERPAPI_TOKEN fehlt.")
+        raise SerpApiError("configuration_error")
     travel_class = CABIN_TO_CLASS.get((cabin or "economy").lower(), 1)
     trip_type = "1" if ret else "2"  # 1=Round trip (Preis = Gesamtpreis), 2=One way
     key = _serpapi_cache_key(origin, dest, dep, ret, travel_class, currency, lang, trip_type)
@@ -1479,16 +1533,22 @@ def serpapi_search(origin: str, dest: str, dep: dt.date, ret: dt.date | None, ca
     # Observability: count only billed calls (cache misses reach this point).
     global _serpapi_paid_calls
     _serpapi_paid_calls += 1
-    r = HTTP.get(SERPAPI_BASE, params=params, timeout=30)
-    if r.status_code in (402, 429):
-        raise QuotaError("Search quota exhausted.")
-    r.raise_for_status()
-    data = r.json() or {}
-    err = data.get("error", "")
-    if err:
-        if "run out of searches" in err.lower() or "quota" in err.lower():
-            raise QuotaError(err)
-        raise RuntimeError(err)
+    try:
+        r = HTTP.get(SERPAPI_BASE, params=params, timeout=30)
+    except requests.Timeout as exc:
+        _raise_serpapi_failure(classify_serpapi_failure(exc=exc) or "provider_timeout")
+    except requests.RequestException:
+        raise SerpApiError("provider_error")
+    try:
+        data = r.json()
+    except ValueError:
+        reason = classify_serpapi_failure(status_code=r.status_code, body_text=r.text)
+        _raise_serpapi_failure(reason or "invalid_response")
+    reason = classify_serpapi_failure(status_code=r.status_code, payload=data, body_text=r.text)
+    if reason:
+        _raise_serpapi_failure(reason)
+    if not isinstance(data, dict):
+        raise SerpApiError("invalid_response")
     with _SERP_CACHE_LOCK:
         _SERP_CACHE[key] = (now, data)
         _prune_serpapi_cache(now)
@@ -1689,7 +1749,7 @@ def serpapi_offers(
     """Liefert Offers im Karten-Schema (oder Fehlermeldung)."""
     try:
         data = serpapi_search(origin, dest, dep, ret, cabin, currency, lang)
-    except QuotaError:
+    except SerpApiError:
         raise
     except Exception as exc:
         app.logger.warning("serpapi_offers %sâ†’%s: %s", origin, dest, exc)
@@ -2578,7 +2638,7 @@ def fetch_cash_details(origin: str, dest: str, dep: dt.date, cabin: str, currenc
             "typical_range": typical_range,
             "cash_trip_type": "round_trip" if ret else "one_way",
         }
-    except QuotaError:
+    except SerpApiError:
         raise
     except Exception:
         return empty
@@ -2744,8 +2804,17 @@ def cheap():
                         app.logger.warning("cheap %sâ†’%s: %s", origin, dest, err)
                     else:
                         offers.extend(found)
-        except QuotaError:
-            return jsonify({"ok": False, "error": "quota_exhausted"}), 503
+        except SerpApiError as exc:
+            fallback = [{"route": f"{o}{RIGHT_ARROW_SEP}{d}", "links": links_for(o, d, dep.isoformat(), ret.isoformat() if ret else None)} for o in origins[:2] for d in dests[:3] if o != d]
+            return jsonify({
+                "ok": True,
+                "offers": [],
+                "cash_guidance": None,
+                "calendar": [],
+                "fallback": fallback,
+                "warnings": [],
+                "cash_provenance": cash_provenance("unavailable", exc.reason),
+            }), 200
         t_initial_ms = round((time.time() - _t0) * 1000, 1)  # provider fetch + normalization (bundled)
 
         if flex_days > 0 and origins and dests:
@@ -3124,16 +3193,22 @@ def _awards_inner():
     award_source_meta = award_source_metadata()
     use_seatsaero = award_source_meta["provider_mode"] == "seatsaero" and bool(SEATSAERO_KEY)
     results = []
+    cash_provider_failure_reason = None
 
     for origin in origins[:4]:
         for dest in dests[:3]:
             if origin == dest:
                 continue
-            try:
-                cash_details = fetch_cash_details(origin, dest, dep, cabin, ret=ret)
-            except QuotaError:
-                cash_details = {}   # SerpApi quota empty â€” use zone fallback, don't abort
+            if cash_provider_failure_reason:
+                cash_details = {}
+            else:
+                try:
+                    cash_details = fetch_cash_details(origin, dest, dep, cabin, ret=ret)
+                except SerpApiError as exc:
+                    cash_provider_failure_reason = exc.reason
+                    cash_details = {}
             cash_eur = cash_details.get("price")
+            cash_status = "available" if cash_eur else "unavailable"
 
             # Live availability from seats.aero (if configured)
             if use_seatsaero:
@@ -3176,6 +3251,7 @@ def _awards_inner():
                 "cash_eur":       round(cash_eur, 0) if cash_eur else None,
                 "cash_level":     cash_level,
                 "cash_source":    cash_source_metadata(),
+                "cash_provenance": cash_provenance(cash_status, cash_provider_failure_reason),
                 "flight":         flight_info,
                 "journey_route_source": ownership["journey_route_source"],
                 "award_routing_status": ownership["award_routing_status"],

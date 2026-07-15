@@ -94,7 +94,7 @@ const SearchInstrument = ({ onAnalyze, status, validationError }: { onAnalyze: (
   );
 };
 
-const DecisionSummary = ({ result, decision, programs, cashEur, hasLive }: any) => {
+const DecisionSummary = ({ result, decision, programs, cashEur, hasLive, cashUnavailable }: any) => {
   const signalMap: Record<string, string> = {
     'exceptional_miles_value': 'Exceptional Award Value',
     'strong_miles_value': 'Strong Award Value',
@@ -115,10 +115,14 @@ const DecisionSummary = ({ result, decision, programs, cashEur, hasLive }: any) 
     'unknown': 'Insufficient data is available to make a definitive recommendation between cash and miles.'
   };
 
-  const verdict = signalMap[decision.signal] || signalMap['unknown'];
-  const why = whyMap[decision.signal] || whyMap['unknown'];
-
   const bestProgram = programs && programs.length > 0 ? programs[0] : null;
+  const strongAwardSignal = ['exceptional_miles_value', 'strong_miles_value'].includes(decision.signal)
+    || ['exceptional', 'great'].includes(bestProgram?.grade?.tier);
+  const softenRelativeClaim = cashUnavailable && strongAwardSignal;
+  const verdict = softenRelativeClaim ? 'Promising award signal' : (signalMap[decision.signal] || signalMap['unknown']);
+  const why = softenRelativeClaim
+    ? 'A current cash comparison is unavailable, so the relative value cannot be fully assessed.'
+    : (whyMap[decision.signal] || whyMap['unknown']);
 
   return (
     <motion.section
@@ -197,6 +201,15 @@ const DecisionSummary = ({ result, decision, programs, cashEur, hasLive }: any) 
     </motion.section>
   );
 };
+
+const CashUnavailable = () => (
+  <section className="bg-zinc-900/40 border border-white/5 p-6" data-testid="cash-unavailable-state">
+    <h3 className="text-white font-medium mb-2">Current cash comparison unavailable</h3>
+    <p className="text-zinc-400 text-sm leading-relaxed">
+      Award results can still be reviewed, but relative value cannot be fully assessed without a current cash fare.
+    </p>
+  </section>
+);
 
 const ConfidenceAndVerification = ({ decision, hasLive }: any) => {
   const isHigh = decision.confidence === 'high' || decision.confidence === 'very_high';
@@ -360,6 +373,7 @@ export default function App() {
 
   const result = awardData?.results?.[0];
   const cashOffer = cashData?.offers?.[0];
+  const cashUnavailable = cashData?.cash_provenance?.status === 'unavailable';
   const isLimited = result?.verified_identical_routing === false;
 
   return (
@@ -420,6 +434,7 @@ export default function App() {
                           programs={result.programs}
                           cashEur={result.cash_eur}
                           hasLive={result.has_live_data}
+                          cashUnavailable={cashUnavailable}
                        />
                        <ConfidenceAndVerification
                           decision={result.decision}
@@ -433,6 +448,7 @@ export default function App() {
                         isLimited={isLimited}
                      />
                    )}
+                   {cashUnavailable && <CashUnavailable />}
                  </div>
                </div>
              )}
