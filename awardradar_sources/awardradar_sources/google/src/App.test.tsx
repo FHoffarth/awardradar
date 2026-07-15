@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
 import App from './App';
 
 // Mock matchMedia for motion
@@ -43,6 +44,17 @@ describe('App', () => {
   it('does not fetch on mount', () => {
     const { container } = render(<App />);
     expect(mockFetch).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-typography="landing-parity"]')).not.toBeNull();
+  });
+
+  it('uses the Landing typography stack without adding an external font request', () => {
+    const css = readFileSync('src/index.css', 'utf8');
+    expect(css).toContain('--font-product: "Inter", system-ui, -apple-system, sans-serif;');
+    expect(css).toMatch(/\.app-shell\s*\{[^}]*font-family:\s*var\(--font-product\)/s);
+    expect(css).toMatch(/\.decision-summary h3\s*\{[^}]*font-family:\s*var\(--font-product\)/s);
+    expect(css).toMatch(/\.why-section p\s*\{[^}]*font-family:\s*var\(--font-product\)/s);
+    expect(css).not.toContain('fonts.googleapis.com');
+    expect(css).not.toContain('fonts.gstatic.com');
   });
 
   it('keeps unresolved or invalid URL state disabled without fetching', () => {
