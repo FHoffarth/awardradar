@@ -470,7 +470,6 @@ export default function App() {
   const [fromCode, setFromCode] = useState('')
   const [toCode, setToCode]     = useState('')
   const [date, setDate]     = useState('')
-  const [isEditingDate, setIsEditingDate] = useState(false)
 
   // Hero second block reveal — runs once on mount
   const [secondBlockVisible, setSecondBlockVisible] = useState(false)
@@ -783,17 +782,24 @@ export default function App() {
                 t={t}
               />
               <div className="ar-divider" style={{ width: '0.5px', background: t.divider, margin: '17px 0', flexShrink: 0 }} />
-              <Field
-                label="Date"
-                value={date}
-                displayValue={isEditingDate ? date : naturalDateLabel(date)}
-                onChange={setDate}
-                onFocus={() => setIsEditingDate(true)}
-                onBlur={() => setIsEditingDate(false)}
-                placeholder="Date"
-                flex="0 0 158px"
-                t={t}
-              />
+              <div className="ar-field ar-field--date" style={{ flex: '0 0 auto', padding: '24px 40px 22px', display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0 }}>
+                <span className="ar-field-label" style={{ color: t.fieldLabel }}>Date</span>
+                <input
+                  className="ar-input ar-date-input"
+                  type="date"
+                  value={date}
+                  min={new Date().toISOString().slice(0, 10)}
+                  onChange={e => setDate(e.target.value)}
+                  onClick={e => { try { (e.currentTarget as HTMLInputElement).showPicker?.() } catch {} }}
+                  aria-label="Date"
+                  style={{
+                    background: 'transparent', border: 'none', outline: 'none', padding: 0, margin: 0,
+                    fontFamily: 'inherit', fontSize: '15px', fontWeight: 520, letterSpacing: '0.002em',
+                    lineHeight: 1.15, color: t.fieldValue, width: '158px', maxWidth: '100%',
+                    colorScheme: theme === 'dark' ? 'dark' : 'light',
+                  }}
+                />
+              </div>
             </div>
 
             {/* Primary CTA — visible, disabled until From/To/Date are valid */}
