@@ -1,14 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { flushSync } from 'react-dom';
 import { motion } from 'motion/react';
-import { ArrowRight, Sparkles, Activity, ShieldCheck, ChevronRight, Check, ShieldAlert, Fingerprint, Info, AlertTriangle } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowRight, Info, Printer, ShieldCheck } from 'lucide-react';
 
 const DATE_PARAM_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+type PaneStatus = 'idle' | 'loading' | 'success' | 'error' | 'empty';
 
 function isValidDateString(dateStr: string): boolean {
   if (!DATE_PARAM_PATTERN.test(dateStr)) return false;
   const date = new Date(dateStr);
   const now = new Date();
-  now.setHours(0, 0, 0, 0); // Start of today
+  now.setHours(0, 0, 0, 0);
   return date instanceof Date && !isNaN(date.getTime()) && date.toISOString().startsWith(dateStr) && date >= now;
 }
 
@@ -21,272 +24,262 @@ function getTripParam(name: string): string {
   }
 }
 
-const SearchInstrument = ({ onAnalyze, status, validationError }: { onAnalyze: (origin: string, dest: string, date: string) => void, status: string, validationError: string | null }) => {
+function formatExportTimestamp(value: Date | null): string {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('en-GB', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(value);
+}
+
+const SIGNAL_COPY: Record<string, { verdict: string; why: string }> = {
+  exceptional_miles_value: {
+    verdict: 'Exceptional Award Value',
+    why: 'The available comparison indicates exceptional value for the requested date based on the estimated cash fare and miles cost.',
+  },
+  strong_miles_value: {
+    verdict: 'Strong Award Value',
+    why: 'The available comparison indicates strong value for the requested date based on the estimated cash fare and miles cost.',
+  },
+  solid_miles_value: {
+    verdict: 'Solid Award Value',
+    why: 'The available comparison indicates a solid use of miles relative to paying cash.',
+  },
+  cash_strongly_preferred: {
+    verdict: 'Cash Offers Better Value',
+    why: 'The available comparison indicates that the cash fare is significantly lower than the value represented by the miles option.',
+  },
+  cash_preferred: {
+    verdict: 'Cash Offers Better Value',
+    why: 'The available comparison indicates that the cash fare is lower than the value represented by the miles option.',
+  },
+  low_miles_value: {
+    verdict: 'Low Award Value',
+    why: 'The available comparison indicates that the required miles and surcharges provide limited value relative to the cash alternative.',
+  },
+  unknown: {
+    verdict: 'More Evidence Required',
+    why: 'Insufficient data is available to make a definitive recommendation between cash and miles.',
+  },
+};
+
+function getDecisionCopy(result: any, cashAvailable: boolean) {
+  const copy = SIGNAL_COPY[result?.decision?.signal] || SIGNAL_COPY.unknown;
+  const confidence = result?.decision?.confidence;
+  const comparisonIsLimited = confidence === 'low' || confidence === 'medium' ||
+    result?.verified_identical_routing !== true || result?.has_live_data !== true || !cashAvailable;
+
+  if (!comparisonIsLimited || result?.decision?.signal === 'unknown') return copy;
+
+  return {
+    ...copy,
+    verdict: `${copy.verdict} signal`,
+  };
+}
+
+const SearchInstrument = ({
+  onAnalyze,
+  status,
+  validationError,
+  compact,
+}: {
+  onAnalyze: (origin: string, dest: string, date: string) => void;
+  status: string;
+  validationError: string | null;
+  compact: boolean;
+}) => {
   const origin = getTripParam('from');
   const destination = getTripParam('to');
   const dateParam = getTripParam('date');
-
   const originDisplay = origin || 'Origin';
   const destinationDisplay = destination || 'Destination';
   const dateLabel = dateParam && isValidDateString(dateParam) ? dateParam : 'Date not selected';
 
-  const handleAnalyzeClick = () => {
-    onAnalyze(origin, destination, dateParam);
-  };
-
   return (
-    <motion.div
+    <motion.section
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 1, ease: "easeOut" }}
-      className="w-full mb-16 lg:mb-24"
+      transition={{ duration: 0.5, ease: 'easeOut' }}
+      className={`search-context ${compact ? 'search-context--compact' : ''}`}
+      aria-labelledby="search-context-title"
+      data-testid="search-context"
     >
-      <div className="text-[9px] tracking-[0.3em] text-zinc-600 uppercase mb-4 ml-1">Decision Workspace</div>
+      <div className="section-kicker" id="search-context-title">Search context</div>
 
       {validationError && (
-        <div className="text-red-400 text-xs mb-3 flex items-center gap-2" data-testid="validation-error">
-           <AlertTriangle className="w-3 h-3" /> {validationError}
+        <div className="validation-error" role="alert" data-testid="validation-error">
+          <AlertTriangle aria-hidden="true" /> {validationError}
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row border border-zinc-800/80 bg-[#060608] rounded-sm overflow-hidden">
-        {/* From */}
-        <div className="flex-1 p-5 sm:border-r border-b sm:border-b-0 border-zinc-800/80 relative group">
-          <div className="absolute top-0 left-5 w-8 h-[1px] bg-amber-500/80"></div>
-          <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-3">From</div>
-          <div className="flex items-center gap-2">
-            <div className="border border-zinc-700/60 rounded-full px-3 py-1 bg-zinc-800/20 text-sm text-zinc-200 whitespace-nowrap">
-              {originDisplay}
-            </div>
-          </div>
+      <div className="search-instrument">
+        <div className="search-field search-field--accent">
+          <span className="field-label">From</span>
+          <strong>{originDisplay}</strong>
         </div>
-
-        {/* To */}
-        <div className="flex-1 p-5 sm:border-r border-b sm:border-b-0 border-zinc-800/80 relative">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-3">To</div>
-          <div className="flex items-center gap-2">
-            <div className="border border-zinc-700/60 rounded-full px-3 py-1 bg-zinc-800/20 text-sm text-zinc-200 whitespace-nowrap">
-              {destinationDisplay}
-            </div>
-          </div>
+        <div className="search-field">
+          <span className="field-label">To</span>
+          <strong>{destinationDisplay}</strong>
         </div>
-
-        {/* Date */}
-        <div className="flex-1 p-5 sm:border-r border-b sm:border-b-0 border-zinc-800/80 relative">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-3">Date</div>
-          <div className="text-sm text-zinc-300 mt-2 py-1">{dateLabel}</div>
+        <div className="search-field">
+          <span className="field-label">Date</span>
+          <time dateTime={dateParam || undefined}>{dateLabel}</time>
         </div>
-
-        {/* Action */}
         <button
-          onClick={handleAnalyzeClick}
+          onClick={() => onAnalyze(origin, destination, dateParam)}
           disabled={status === 'loading'}
           data-testid="analyze-button"
-          className="w-full sm:w-32 flex sm:flex-col items-center justify-center gap-3 sm:gap-4 p-5 sm:p-0 bg-amber-500/10 hover:bg-amber-500/20 border-l border-amber-500/20 transition-colors group cursor-pointer disabled:opacity-50"
+          className="primary-action interactive-only"
+          type="button"
+          aria-label={status === 'loading' ? 'Analyzing route' : 'Analyze this route'}
         >
-          <span className="text-[9px] uppercase tracking-[0.2em] text-amber-500/90 transition-colors">
-            {status === 'loading' ? 'Analyzing...' : 'Analyze this route'}
-          </span>
-          <Activity className={`w-4 h-4 text-amber-500/90 ${status === 'loading' ? 'animate-pulse' : ''}`} />
+          <span>{status === 'loading' ? 'Analyzing…' : 'Analyze this route'}</span>
+          <Activity aria-hidden="true" className={status === 'loading' ? 'is-pulsing' : ''} />
         </button>
       </div>
-    </motion.div>
-  );
-};
-
-const DecisionSummary = ({ result, decision, programs, cashEur, hasLive }: any) => {
-  const signalMap: Record<string, string> = {
-    'exceptional_miles_value': 'Exceptional Award Value',
-    'strong_miles_value': 'Strong Award Value',
-    'solid_miles_value': 'Solid Award Value',
-    'cash_strongly_preferred': 'Cash Offers Better Value',
-    'cash_preferred': 'Cash Offers Better Value',
-    'low_miles_value': 'Low Award Value',
-    'unknown': 'More Evidence Required'
-  };
-
-  const whyMap: Record<string, string> = {
-    'exceptional_miles_value': 'This option delivers exceptional value for the requested dates based on the estimated cash fare vs miles cost.',
-    'strong_miles_value': 'This option delivers strong value for the requested dates based on the estimated cash fare vs miles cost.',
-    'solid_miles_value': 'This represents a solid use of miles, providing reasonable value compared to paying cash.',
-    'cash_strongly_preferred': 'The estimated cash fare is significantly lower than the value typically extracted from miles on this route. Paying cash preserves your points for better redemptions.',
-    'cash_preferred': 'The estimated cash fare is lower than the value typically extracted from miles on this route.',
-    'low_miles_value': 'The required miles and surcharges do not provide good value compared to the cash alternative.',
-    'unknown': 'Insufficient data is available to make a definitive recommendation between cash and miles.'
-  };
-
-  const verdict = signalMap[decision.signal] || signalMap['unknown'];
-  const why = whyMap[decision.signal] || whyMap['unknown'];
-
-  const bestProgram = programs && programs.length > 0 ? programs[0] : null;
-
-  return (
-    <motion.section
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-      data-testid="decision-summary"
-    >
-      <div className="flex items-center gap-4 mb-12">
-        <div className="h-[1px] w-6 bg-amber-500/80"></div>
-        <h2 className="text-[10px] uppercase tracking-[0.25em] text-amber-500/90 font-medium">Decision Summary</h2>
-      </div>
-
-      <div className="bg-[#070709]/60 backdrop-blur-2xl p-10 sm:p-16 relative overflow-hidden group shadow-2xl shadow-black/50">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
-
-        <div className="relative z-10 flex flex-col h-full">
-          <div>
-            <div className="text-amber-500/90 text-[9px] tracking-[0.3em] mb-6 uppercase">Our Recommendation</div>
-            <h3 className="text-4xl sm:text-5xl md:text-6xl font-light tracking-tight text-white mb-4 leading-[1.05]" data-testid="decision-verdict">
-              {verdict}
-            </h3>
-
-            <div className="flex items-center gap-4 text-zinc-500 text-sm tracking-[0.15em] mb-16 uppercase font-light">
-               <span>{result.origin}</span>
-               <span>•</span>
-               <span>{result.dest}</span>
-               <span>•</span>
-               <span>{result.date}</span>
-            </div>
-
-            <div className="mb-16 max-w-3xl">
-               <h4 className="text-[10px] uppercase tracking-[0.25em] text-zinc-500 mb-6">
-                 Why this recommendation exists
-               </h4>
-               <p className="text-zinc-200 leading-[2.2] text-lg sm:text-xl font-light" data-testid="decision-why">
-                 {why}
-               </p>
-            </div>
-
-            <div className="flex flex-wrap gap-x-24 gap-y-12">
-               {bestProgram && (
-                 <>
-                   <div data-testid="award-candidate">
-                     <div className="text-[10px] text-zinc-500/80 uppercase tracking-[0.25em] mb-4">Best Award Candidate</div>
-                     <div className="flex items-baseline gap-2">
-                       <div className="text-3xl font-light text-white tracking-tight tabular-nums">{bestProgram.miles.toLocaleString()}</div>
-                       <div className="text-zinc-500/80 text-[10px] tracking-[0.25em] uppercase">pts</div>
-                     </div>
-                   </div>
-                   <div>
-                     <div className="text-[10px] text-zinc-500/80 uppercase tracking-[0.25em] mb-4">Surcharges</div>
-                     <div className="text-2xl font-light text-white tracking-tight tabular-nums">€{bestProgram.surcharge}</div>
-                   </div>
-                   <div>
-                     <div className="text-[10px] text-zinc-500/80 uppercase tracking-[0.25em] mb-4">Program</div>
-                     <div className="text-lg font-light text-white tracking-wide">{bestProgram.program}</div>
-                   </div>
-                 </>
-               )}
-               {cashEur && (
-                 <div data-testid="cash-comparison">
-                   <div className="text-[10px] text-zinc-500/80 uppercase tracking-[0.25em] mb-4">Cash Comparison Value</div>
-                   <div className="text-2xl font-light text-white tracking-tight tabular-nums">€{cashEur}</div>
-                 </div>
-               )}
-            </div>
-            {(!result.verified_identical_routing) && (
-              <div className="mt-8 text-xs text-amber-500/70 tracking-wide border-t border-white/[0.05] pt-4" data-testid="routing-disclosure">
-                 Note: Cash comparison value may be for a different itinerary or carrier. Award routing may differ.
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
     </motion.section>
   );
 };
 
-const ConfidenceAndVerification = ({ decision, hasLive }: any) => {
-  const isHigh = decision.confidence === 'high' || decision.confidence === 'very_high';
+const DecisionSummary = ({ result, cashAvailable }: { result: any; cashAvailable: boolean }) => {
+  const copy = getDecisionCopy(result, cashAvailable);
   return (
-    <motion.section
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
-    >
-      <div className="bg-[#070709]/40 backdrop-blur-2xl shadow-2xl shadow-black/30 p-10 sm:p-16">
-         <div className="flex flex-col md:flex-row gap-20 md:gap-32">
-           <div className="md:w-1/2">
-             <div className="flex flex-col gap-6">
-               <div className="text-5xl sm:text-6xl text-white font-light tracking-tighter leading-none uppercase" data-testid="decision-confidence">
-                 {decision.confidence || 'Medium'}
-               </div>
-               <div className="text-[10px] uppercase tracking-[0.25em] text-zinc-500 ml-1">Decision Confidence</div>
-             </div>
-           </div>
+    <>
+      <motion.section className="result-section decision-summary" aria-labelledby="decision-title" data-testid="decision-summary"
+        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+        <div className="section-heading-row">
+          <span aria-hidden="true" />
+          <h2 id="decision-title">Decision Summary</h2>
+        </div>
+        <p className="recommendation-label">Recommendation</p>
+        <h3 data-testid="decision-verdict">{copy.verdict}</h3>
+      </motion.section>
 
-           <div className="flex-1 md:pl-8">
-             <div className="text-[10px] uppercase tracking-[0.25em] text-zinc-500 mb-12">Next Verification Action</div>
-             <div className="flex flex-col gap-8">
-               <div className="flex items-center gap-5 text-sm text-zinc-300 font-light tracking-wide">
-                 <ArrowRight className="w-4 h-4 text-amber-500/80" />
-                 {hasLive ? 'Verify availability directly on official program site' : 'Check manual availability via official program site'}
-               </div>
-             </div>
-           </div>
-         </div>
-      </div>
-    </motion.section>
+      <section className="result-section why-section" aria-labelledby="why-title">
+        <h2 id="why-title">Why this signal</h2>
+        <p data-testid="decision-why">{copy.why}</p>
+      </section>
+    </>
   );
 };
 
-const CashCandidate = ({ cashOffer, isLimited }: any) => {
-  if (!cashOffer) return null;
-  return (
-    <div className="bg-[#070709]/40 backdrop-blur-2xl shadow-2xl shadow-black/30 p-10 sm:p-16 border border-white/[0.05] relative" data-testid="cash-candidate-card">
-      <div className="text-[10px] uppercase tracking-[0.25em] text-emerald-500/80 mb-6">Cash Itinerary</div>
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-        <div>
-          <div className="text-[10px] text-zinc-500/80 uppercase tracking-[0.25em] mb-2">Price</div>
-          <div className="text-3xl font-light text-white tracking-tight tabular-nums">€{cashOffer.price}</div>
-        </div>
-        <div>
-          <div className="text-[10px] text-zinc-500/80 uppercase tracking-[0.25em] mb-2">Airline</div>
-          <div className="text-xl font-light text-white tracking-wide">{cashOffer.airline}</div>
-        </div>
-        {cashOffer.time_data_status === 'complete' ? (
-          <>
-            <div>
-              <div className="text-[10px] text-zinc-500/80 uppercase tracking-[0.25em] mb-2">Times</div>
-              <div className="text-xl font-light text-white tracking-wide">{cashOffer.dep_time} &mdash; {cashOffer.arr_time}</div>
-            </div>
-            <div>
-              <div className="text-[10px] text-zinc-500/80 uppercase tracking-[0.25em] mb-2">Duration</div>
-              <div className="text-xl font-light text-white tracking-wide">{Math.floor(cashOffer.durationMin / 60)}h {cashOffer.durationMin % 60}m</div>
-            </div>
-            <div>
-              <div className="text-[10px] text-zinc-500/80 uppercase tracking-[0.25em] mb-2">Stops</div>
-              <div className="text-xl font-light text-white tracking-wide">{cashOffer.stops} Stops</div>
-            </div>
-          </>
-        ) : (
-          <div className="text-xs text-zinc-500 italic mt-2" data-testid="missing-cash-times-disclosure">Time and stop details unavailable. Please verify on provider.</div>
-        )}
+const CashCandidate = ({ cashOffer, isLimited }: { cashOffer: any; isLimited: boolean }) => (
+  <article className="option-card" data-testid="cash-candidate-card" aria-labelledby="cash-option-title">
+    <div className="option-card__header">
+      <div>
+        <p className="option-type">Cash option</p>
+        <h3 id="cash-option-title">Best Cash Option</h3>
       </div>
-      {isLimited && (
-        <div className="mt-8 text-xs text-amber-500/70 tracking-wide border-t border-white/[0.05] pt-4" data-testid="limited-comparison-disclaimer">
-          Note: This cash itinerary may route differently than the award estimate above.
+      {cashOffer.currency && <span className="data-source">{cashOffer.currency}</span>}
+    </div>
+    <dl className="option-facts">
+      <div className="primary-fact">
+        <dt>Price</dt>
+        <dd>{cashOffer.currency === 'EUR' || !cashOffer.currency ? '€' : ''}{cashOffer.price}</dd>
+      </div>
+      {cashOffer.airline && <div><dt>Airline</dt><dd>{cashOffer.airline}</dd></div>}
+      {cashOffer.time_data_status === 'complete' ? (
+        <>
+          {(cashOffer.dep_time || cashOffer.arr_time) && <div><dt>Times</dt><dd>{cashOffer.dep_time || '—'} — {cashOffer.arr_time || '—'}</dd></div>}
+          {Number.isFinite(cashOffer.durationMin) && <div><dt>Duration</dt><dd>{Math.floor(cashOffer.durationMin / 60)}h {cashOffer.durationMin % 60}m</dd></div>}
+          {cashOffer.stops !== undefined && <div><dt>Stops</dt><dd>{cashOffer.stops === 0 ? 'Nonstop' : `${cashOffer.stops} stop${cashOffer.stops === 1 ? '' : 's'}`}</dd></div>}
+        </>
+      ) : (
+        <div className="fact-disclosure" data-testid="missing-cash-times-disclosure">
+          <dt>Schedule detail</dt><dd>Time and stop details unavailable. Please verify with the provider.</dd>
         </div>
       )}
+    </dl>
+    {isLimited && (
+      <p className="card-caveat" data-testid="limited-comparison-disclaimer">
+        This cash itinerary may route differently than the award option.
+      </p>
+    )}
+  </article>
+);
+
+const AwardCandidate = ({ result }: { result: any }) => {
+  const bestProgram = result?.programs?.[0];
+  return (
+    <article className="option-card" data-testid="award-candidate-card" aria-labelledby="award-option-title">
+      <div className="option-card__header">
+        <div>
+          <p className="option-type">Award option</p>
+          <h3 id="award-option-title">Best Award Option</h3>
+        </div>
+        <span className="data-source">{result?.has_live_data ? 'Live data' : 'Estimate'}</span>
+      </div>
+      {bestProgram ? (
+        <dl className="option-facts" data-testid="award-candidate">
+          <div className="primary-fact"><dt>Miles</dt><dd>{bestProgram.miles?.toLocaleString()}</dd></div>
+          {bestProgram.surcharge !== undefined && <div><dt>Surcharges</dt><dd>€{bestProgram.surcharge}</dd></div>}
+          {bestProgram.program && <div><dt>Program</dt><dd>{bestProgram.program}</dd></div>}
+        </dl>
+      ) : (
+        <p className="missing-pane" data-testid="missing-award-detail">No program-level award detail is available in this analysis.</p>
+      )}
+      {!result?.has_live_data && <p className="card-caveat">Award figures are estimates and do not confirm availability.</p>}
+    </article>
+  );
+};
+
+const PaneUnavailable = ({ kind, status }: { kind: 'Cash' | 'Award'; status: PaneStatus }) => (
+  <article className="option-card option-card--unavailable" data-testid={`${kind.toLowerCase()}-pane-${status}`}>
+    <p className="option-type">{kind} option</p>
+    <h3>{kind} data unavailable</h3>
+    <p>{status === 'error' ? 'This part of the analysis could not be completed.' : 'No reliable result was returned for this route and date.'}</p>
+  </article>
+);
+
+const ConfidenceAndVerification = ({ decision, hasLive }: { decision: any; hasLive: boolean }) => (
+  <section className="result-section confidence-section" aria-labelledby="confidence-title">
+    <div>
+      <h2 id="confidence-title">Confidence</h2>
+      <p className="confidence-value" data-testid="decision-confidence">{decision?.confidence || 'Not available'}</p>
+      <p className="confidence-note">Confidence is shown as provided by the current analysis, without a percentage.</p>
     </div>
+    <div>
+      <h2>Next Action</h2>
+      <p className="next-action"><ArrowRight aria-hidden="true" />
+        {hasLive ? 'Verify availability directly on the official program site.' : 'Check availability manually on the official program site.'}
+      </p>
+    </div>
+  </section>
+);
+
+const EvidenceAndCaveats = ({ result, awardStatus, cashStatus }: { result: any; awardStatus: PaneStatus; cashStatus: PaneStatus }) => {
+  const limited = result?.verified_identical_routing !== true;
+  return (
+    <section className="result-section evidence-section" aria-labelledby="evidence-title">
+      <div className="evidence-title-row">
+        <Info aria-hidden="true" />
+        <h2 id="evidence-title">Evidence &amp; Caveats</h2>
+      </div>
+      <ul>
+        {limited && <li data-testid="routing-disclosure">Cash and award options are not verified as identical itineraries. Routing or carrier may differ.</li>}
+        {limited && <li data-testid="limited-comparison-disclosure">The comparison is limited and should be treated as a directional decision signal.</li>}
+        {result && !result.has_live_data && <li>Award data is estimated and does not confirm current availability.</li>}
+        {cashStatus !== 'success' && <li>No cash option is available in the current analysis.</li>}
+        {awardStatus !== 'success' && <li>No award option is available in the current analysis.</li>}
+        <li>Verify prices, schedules, availability and booking rules before purchase.</li>
+      </ul>
+    </section>
   );
 };
 
 export default function App() {
-  const [awardStatus, setAwardStatus] = useState<'idle' | 'loading' | 'success' | 'error' | 'empty'>('idle');
-  const [cashStatus, setCashStatus] = useState<'idle' | 'loading' | 'success' | 'error' | 'empty'>('idle');
+  const [awardStatus, setAwardStatus] = useState<PaneStatus>('idle');
+  const [cashStatus, setCashStatus] = useState<PaneStatus>('idle');
   const [awardData, setAwardData] = useState<any>(null);
   const [cashData, setCashData] = useState<any>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [exportTimestamp, setExportTimestamp] = useState<Date | null>(null);
 
   const handleAnalyze = async (origin: string, dest: string, date: string) => {
-    // Validate inputs
-    if (!origin) { setValidationError("Origin is required."); return; }
-    if (!dest) { setValidationError("Destination is required."); return; }
-    if (origin.toUpperCase() === dest.toUpperCase()) { setValidationError("Origin and destination must be different."); return; }
-    if (!isValidDateString(date)) { setValidationError("A valid future date (YYYY-MM-DD) is required."); return; }
+    if (!origin) { setValidationError('Origin is required.'); return; }
+    if (!dest) { setValidationError('Destination is required.'); return; }
+    if (origin.toUpperCase() === dest.toUpperCase()) { setValidationError('Origin and destination must be different.'); return; }
+    if (!isValidDateString(date)) { setValidationError('A valid future date (YYYY-MM-DD) is required.'); return; }
 
     setValidationError(null);
     setAwardStatus('loading');
@@ -304,19 +297,19 @@ export default function App() {
       currency: 'eur',
       cabin: 'Economy',
       cabins: ['Economy'],
-      flexDays: 0
+      flexDays: 0,
     };
 
     const awardPromise = fetch('/api/awards', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestPayload)
+      body: JSON.stringify(requestPayload),
     }).then(res => res.json());
 
     const cashPromise = fetch('/api/cheap', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestPayload)
+      body: JSON.stringify(requestPayload),
     }).then(res => res.json());
 
     const [awardRes, cashRes] = await Promise.allSettled([awardPromise, cashPromise]);
@@ -355,90 +348,86 @@ export default function App() {
   };
 
   const status = (awardStatus === 'loading' || cashStatus === 'loading') ? 'loading' :
-                 (awardStatus === 'success' || cashStatus === 'success') ? 'success' :
-                 (awardStatus === 'error' && cashStatus === 'error') ? 'error' : 'empty';
+    (awardStatus === 'success' || cashStatus === 'success') ? 'success' :
+    (awardStatus === 'error' && cashStatus === 'error') ? 'error' : 'empty';
 
   const result = awardData?.results?.[0];
   const cashOffer = cashData?.offers?.[0];
-  const isLimited = result?.verified_identical_routing === false;
+  const isLimited = result?.verified_identical_routing !== true;
+  const hasSuccessfulPane = awardStatus === 'success' || cashStatus === 'success';
+  const routeOrigin = result?.origin || getTripParam('from') || 'Origin';
+  const routeDestination = result?.dest || getTripParam('to') || 'Destination';
+  const travelDate = result?.date || getTripParam('date') || 'Date not selected';
+
+  const handlePrint = () => {
+    flushSync(() => setExportTimestamp(new Date()));
+    window.print();
+  };
 
   return (
-    <div className="min-h-screen bg-[#05050A] text-zinc-200 font-sans selection:bg-amber-500/30 overflow-x-hidden">
-      {/* Background layer */}
-      <div className="fixed inset-0 z-0 pointer-events-none" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh' }}>
-         <div className="flex w-full h-full">
-            <div className="w-full md:w-1/2 h-full bg-[#05050A] z-10 md:z-0"></div>
-            <div className="absolute md:relative w-full md:w-1/2 h-full top-0 right-0">
-               <img
-                 src={`${import.meta.env.BASE_URL}earth-bg.jpg`}
-                 alt="Earth from space"
-                 className="w-full h-full object-cover opacity-[0.10] md:opacity-[0.30] mix-blend-screen scale-105"
-               />
-               <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-[#05050A] via-[#05050A]/80 md:via-[#05050A]/40 to-transparent"></div>
-            </div>
-         </div>
-      </div>
+    <div className="app-shell">
+      <div className="workspace-background" aria-hidden="true" />
+      <header className="workspace-header interactive-only">
+        <a className="wordmark" href="/" aria-label="AwardRadar home"><span>Award</span><span>Radar</span></a>
+        <span className="workspace-label">Decision Workspace</span>
+      </header>
 
-      <div className="relative z-10 flex flex-col min-h-screen">
-         <header className="flex justify-between items-center px-6 py-8 md:px-16 md:py-12 w-full">
-            <div className="font-bold tracking-[0.15em] text-[11px]">
-               <span className="text-white">AWARD</span><span className="text-amber-500">RADAR</span>
-            </div>
-         </header>
-        <main className="flex-1 flex w-full">
-          <div className="w-full md:w-1/2 px-6 md:px-16 pb-24 md:pb-32 flex flex-col pt-4 md:pt-8">
-             <SearchInstrument onAnalyze={handleAnalyze} status={status} validationError={validationError} />
+      <main className="workspace-main">
+        <h1 className="sr-only">AwardRadar Decision Workspace</h1>
+        <SearchInstrument onAnalyze={handleAnalyze} status={status} validationError={validationError} compact={hasSuccessfulPane} />
 
-             {status === 'loading' && (
-               <div className="text-zinc-500 text-sm animate-pulse tracking-wide uppercase" data-testid="loading-state">
-                 Fetching Decision Data...
-               </div>
-             )}
+        <div className="print-report-header" data-testid="print-report-header">
+          <div className="print-wordmark">Award<span>Radar</span></div>
+          <p>Decision Report</p>
+          <h1>{routeOrigin} — {routeDestination}</h1>
+          <dl><div><dt>Travel date</dt><dd>{travelDate}</dd></div><div><dt>Exported</dt><dd data-testid="export-timestamp">{formatExportTimestamp(exportTimestamp)}</dd></div></dl>
+        </div>
 
-             {awardStatus === 'error' && cashStatus === 'error' && (
-               <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-sm" data-testid="error-state">
-                 <h3 className="text-red-400 font-medium mb-2">Analysis Failed</h3>
-                 <p className="text-zinc-400 text-sm">We could not complete the decision analysis. Please try again later.</p>
-               </div>
-             )}
-
-             {awardStatus === 'empty' && cashStatus === 'empty' && (
-               <div className="bg-zinc-900/40 border border-white/5 p-6 rounded-sm" data-testid="empty-state">
-                 <h3 className="text-white font-medium mb-2">No Inventory Found</h3>
-                 <p className="text-zinc-400 text-sm">There is no reliable cash or award data available for this route on this date.</p>
-               </div>
-             )}
-
-             {(awardStatus === 'success' || cashStatus === 'success') && (
-               <div className="flex flex-col gap-20 md:gap-32">
-                 <div className="flex flex-col gap-6">
-                   {awardStatus === 'success' && result && (
-                     <>
-                       <DecisionSummary
-                          result={result}
-                          decision={result.decision}
-                          programs={result.programs}
-                          cashEur={result.cash_eur}
-                          hasLive={result.has_live_data}
-                       />
-                       <ConfidenceAndVerification
-                          decision={result.decision}
-                          hasLive={result.has_live_data}
-                       />
-                     </>
-                   )}
-                   {cashStatus === 'success' && cashOffer && (
-                     <CashCandidate
-                        cashOffer={cashOffer}
-                        isLimited={isLimited}
-                     />
-                   )}
-                 </div>
-               </div>
-             )}
+        {status === 'loading' && (
+          <div className="state-message" role="status" aria-live="polite" data-testid="loading-state">
+            Fetching decision data…
           </div>
-        </main>
-      </div>
+        )}
+
+        {!hasSuccessfulPane && status !== 'loading' && (awardStatus !== 'idle' || cashStatus !== 'idle') && (
+          <div className="state-grid" role="status" aria-live="polite" data-testid={awardStatus === 'error' && cashStatus === 'error' ? 'error-state' : 'empty-state'}>
+            <PaneUnavailable kind="Cash" status={cashStatus} />
+            <PaneUnavailable kind="Award" status={awardStatus} />
+          </div>
+        )}
+
+        {hasSuccessfulPane && (
+          <div className="result-flow" data-testid="result-flow">
+            {awardStatus === 'success' && result && <DecisionSummary result={result} cashAvailable={cashStatus === 'success'} />}
+
+            <section className="result-section options-section" aria-labelledby="options-title">
+              <h2 id="options-title">Best Options</h2>
+              <div className="options-grid" data-testid="options-grid">
+                {cashStatus === 'success' && cashOffer ? <CashCandidate cashOffer={cashOffer} isLimited={isLimited} /> : <PaneUnavailable kind="Cash" status={cashStatus} />}
+                {awardStatus === 'success' && result ? <AwardCandidate result={result} /> : <PaneUnavailable kind="Award" status={awardStatus} />}
+              </div>
+            </section>
+
+            {awardStatus === 'success' && result && <ConfidenceAndVerification decision={result.decision} hasLive={Boolean(result.has_live_data)} />}
+            <EvidenceAndCaveats result={result} awardStatus={awardStatus} cashStatus={cashStatus} />
+
+            <section className="result-section export-section interactive-only" aria-labelledby="export-title">
+              <div>
+                <h2 id="export-title">Keep this analysis</h2>
+                <p>Open your browser’s print dialog to print or save the currently displayed snapshot.</p>
+              </div>
+              <button type="button" className="secondary-action" onClick={handlePrint} data-testid="print-button">
+                <Printer aria-hidden="true" /> Print / Save analysis
+              </button>
+            </section>
+
+            <footer className="report-disclaimer">
+              <ShieldCheck aria-hidden="true" />
+              <p>This report is a snapshot of the information available at the time of analysis. Prices, award availability, schedules and booking rules must be verified directly with the relevant airline, loyalty program or booking provider before purchase.</p>
+            </footer>
+          </div>
+        )}
+      </main>
     </div>
   );
 }
