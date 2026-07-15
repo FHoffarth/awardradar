@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { motion } from 'motion/react';
-import { Activity, AlertTriangle, ArrowRight, Info, Printer, ShieldCheck } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowRight, Copy, Info, Mail, MoreHorizontal, Printer, Share2, ShieldCheck } from 'lucide-react';
 
 const DATE_PARAM_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const IATA_CODE_PATTERN = /^[A-Z]{3}$/;
@@ -40,6 +40,153 @@ function formatExportTimestamp(value: Date | null): string {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(value);
+}
+
+function formatTravelDate(value: string, forum = false): string {
+  if (!DATE_PARAM_PATTERN.test(value)) return value;
+  const date = new Date(`${value}T00:00:00Z`);
+  return new Intl.DateTimeFormat(forum ? 'de-DE' : 'en-GB', forum ? {
+    day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC',
+  } : {
+    day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC',
+  }).format(date);
+}
+
+function formatCashLine(cashOffer: any): string {
+  const hasPrice = cashOffer?.price !== undefined && cashOffer?.price !== null;
+  const currency = String(cashOffer?.currency || 'EUR').toUpperCase();
+  const price = hasPrice ? (currency === 'EUR' ? `€${cashOffer.price}` : `${cashOffer.price} ${currency}`) : '';
+  return [price, cashOffer?.airline].filter(Boolean).join(' · ') || 'Cash result available; verify the final fare with the provider.';
+}
+
+function formatAwardLine(result: any, forum = false): string {
+  const program = result?.programs?.[0];
+  if (!program) return 'No program-level award detail is available in this analysis.';
+  const parts: string[] = [];
+  if (program.miles !== undefined && program.miles !== null) {
+    parts.push(`${Number(program.miles).toLocaleString(forum ? 'de-DE' : 'en-GB')} miles`);
+  }
+  if (program.surcharge !== undefined && program.surcharge !== null) {
+    parts.push(forum ? `${program.surcharge} EUR` : `€${program.surcharge}`);
+  }
+  if (program.program) parts.push(String(program.program));
+  return parts.join(' · ') || 'Award result available; verify the program details directly.';
+}
+
+type ShareContent = {
+  title: string;
+  compactText: string;
+  forumText: string;
+  emailSubject: string;
+  emailBody: string;
+  mailto: string;
+};
+
+function buildShareContent({
+  result,
+  cashOffer,
+  cashUnavailable,
+  awardStatus,
+  cashStatus,
+  origin,
+  destination,
+  travelDate,
+}: {
+  result: any;
+  cashOffer: any;
+  cashUnavailable: boolean;
+  awardStatus: PaneStatus;
+  cashStatus: PaneStatus;
+  origin: string;
+  destination: string;
+  travelDate: string;
+}): ShareContent {
+  const date = formatTravelDate(travelDate);
+  const forumDate = formatTravelDate(travelDate, true);
+  const decision = result ? getDecisionCopy(result, cashStatus === 'success', cashUnavailable) : null;
+  const confidence = result?.decision?.confidence
+    ? `${String(result.decision.confidence).charAt(0).toUpperCase()}${String(result.decision.confidence).slice(1)}`
+    : null;
+  const nextStep = result
+    ? (result.has_live_data
+      ? 'Verify availability directly on the official program site.'
+      : 'Check availability manually on the official program site.')
+    : null;
+
+  const cashLine = cashStatus === 'success' && cashOffer
+    ? formatCashLine(cashOffer)
+    : cashUnavailable
+      ? 'Current cash comparison unavailable'
+      : cashStatus === 'error'
+        ? 'Cash data unavailable'
+        : 'No reliable cash result was returned for this route and date.';
+  const awardLine = awardStatus === 'success' && result
+    ? formatAwardLine(result)
+    : awardStatus === 'error'
+      ? 'Award data unavailable'
+      : 'No reliable award result was returned for this route and date.';
+  const forumAwardLine = awardStatus === 'success' && result ? formatAwardLine(result, true) : awardLine;
+
+  const notes: string[] = [];
+  if (cashUnavailable) notes.push('A current cash comparison is unavailable.');
+  if (result?.verified_identical_routing !== true && result) {
+    notes.push('Cash and award options are not verified as identical itineraries; routing or carrier may differ.');
+  }
+  if (cashStatus === 'success' && cashOffer?.time_data_status !== 'complete') {
+    notes.push('Cash schedule details are unavailable and must be verified with the provider.');
+  }
+  if (result && !result.has_live_data) notes.push('Award figures are estimates and do not confirm availability.');
+  notes.push('Prices and award availability can change. Schedules and booking rules must be verified before purchase.');
+  const note = notes.join(' ');
+
+  const compactSections = [
+    `AwardRadar analysis\n${origin} → ${destination} · ${date}`,
+    decision ? `Signal:\n${decision.verdict}` : null,
+    `Cash:\n${cashLine}`,
+    `Award:\n${awardLine}`,
+    confidence ? `Confidence:\n${confidence}` : null,
+    nextStep ? `Next step:\n${nextStep}` : null,
+    `Note:\n${note}`,
+  ].filter(Boolean);
+  const compactText = compactSections.join('\n\n');
+
+  const forumSections = [
+    `[b]AwardRadar analysis: ${origin} → ${destination} · ${forumDate}[/b]`,
+    decision ? `[b]Signal:[/b]\n${decision.verdict}` : null,
+    `[b]Cash:[/b]\n${cashLine.replaceAll('€', '').replace(/(\d)\s*(?=·|$)/, '$1 EUR ')}`,
+    `[b]Award:[/b]\n${forumAwardLine}`,
+    confidence ? `[b]Confidence:[/b]\n${confidence}` : null,
+    nextStep ? `[b]Next step:[/b]\n${nextStep}` : null,
+    `[i]${note}[/i]`,
+  ].filter(Boolean);
+  const forumText = forumSections.join('\n\n');
+
+  const emailSubject = `AwardRadar analysis: ${origin} to ${destination} on ${date}`;
+  const emailBody = compactText;
+  const mailto = `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+  return { title: emailSubject, compactText, forumText, emailSubject, emailBody, mailto };
+}
+
+async function copyToClipboard(text: string): Promise<void> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+  } catch {
+    // Continue to the local selection fallback below.
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.readOnly = true;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = typeof document.execCommand === 'function' && document.execCommand('copy');
+  textarea.remove();
+  if (!copied) throw new Error('clipboard_unavailable');
 }
 
 const SIGNAL_COPY: Record<string, { verdict: string; why: string }> = {
@@ -255,7 +402,7 @@ const AwardCandidate = ({ result }: { result: any }) => {
 };
 
 const PaneUnavailable = ({ kind, status }: { kind: 'Cash' | 'Award'; status: PaneStatus }) => (
-  <article className="option-card option-card--unavailable" data-testid={`${kind.toLowerCase()}-pane-${status}`}>
+  <article className="option-card option-card--unavailable print-omit" data-testid={`${kind.toLowerCase()}-pane-${status}`}>
     <p className="option-type">{kind} option</p>
     <h3>{kind} data unavailable</h3>
     <p>{status === 'error' ? 'This part of the analysis could not be completed.' : 'No reliable result was returned for this route and date.'}</p>
@@ -302,6 +449,116 @@ const EvidenceAndCaveats = ({ result, awardStatus, cashStatus }: { result: any; 
         {awardStatus !== 'success' && <li>No award option is available in the current analysis.</li>}
         <li>Verify prices, schedules, availability and booking rules before purchase.</li>
       </ul>
+    </section>
+  );
+};
+
+const ResultActions = ({ content, onPrint }: { content: ShareContent; onPrint: () => void }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [feedback, setFeedback] = useState('');
+  const [manualCopy, setManualCopy] = useState('');
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const firstMenuActionRef = useRef<HTMLButtonElement>(null);
+  const nativeShareSupported = typeof navigator.share === 'function';
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    firstMenuActionRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setMenuOpen(false);
+      triggerRef.current?.focus();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [menuOpen]);
+
+  const handleNativeShare = async () => {
+    try {
+      await navigator.share({
+        title: content.title,
+        text: content.compactText,
+        url: 'https://awardradar.app/',
+      });
+      setFeedback('Share sheet opened');
+    } catch (error: any) {
+      if (error?.name !== 'AbortError') setFeedback('Sharing is unavailable. Choose another action.');
+    } finally {
+      setMenuOpen(false);
+      triggerRef.current?.focus();
+    }
+  };
+
+  const handleCopy = async (text: string, successMessage: string) => {
+    setManualCopy('');
+    try {
+      await copyToClipboard(text);
+      setFeedback(successMessage);
+    } catch {
+      setManualCopy(text);
+      setFeedback('Could not copy automatically. Select the text and try again.');
+    }
+  };
+
+  return (
+    <section className="result-section result-actions interactive-only" aria-labelledby="result-actions-title" data-testid="share-hub">
+      <div className="result-actions__intro">
+        <h2 id="result-actions-title">Keep or share this analysis</h2>
+        <p>Share a concise snapshot or open your browser’s print dialog to save a PDF.</p>
+      </div>
+
+      <div className="result-actions__controls">
+        <button
+          type="button"
+          className="secondary-action secondary-action--primary"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          aria-controls="result-action-menu"
+          onClick={() => {
+            if (menuOpen) {
+              setMenuOpen(false);
+              triggerRef.current?.focus();
+            } else {
+              setMenuOpen(true);
+            }
+          }}
+          ref={triggerRef}
+          data-testid="share-export-button"
+        >
+          <Share2 aria-hidden="true" /> Share &amp; Export <MoreHorizontal aria-hidden="true" />
+        </button>
+
+        {menuOpen && (
+          <div className="result-action-menu" id="result-action-menu" role="menu" aria-label="Result actions" data-testid="result-action-menu">
+            {nativeShareSupported && (
+              <button type="button" role="menuitem" ref={firstMenuActionRef} onClick={handleNativeShare} data-testid="share-button">
+                <Share2 aria-hidden="true" /> Share analysis
+              </button>
+            )}
+            <button type="button" role="menuitem" ref={nativeShareSupported ? undefined : firstMenuActionRef} onClick={() => handleCopy(content.compactText, 'Summary copied')} data-testid="copy-summary-button">
+              <Copy aria-hidden="true" /> Copy summary
+            </button>
+            <button type="button" role="menuitem" onClick={() => handleCopy(content.forumText, 'Forum post copied')} data-testid="copy-forum-button">
+              <Copy aria-hidden="true" /> Copy forum post
+            </button>
+            <a role="menuitem" href={content.mailto} data-testid="email-analysis-link">
+              <Mail aria-hidden="true" /> Email analysis
+            </a>
+            <button type="button" role="menuitem" onClick={onPrint} data-testid="print-button">
+              <Printer aria-hidden="true" /> Print / Save PDF
+            </button>
+          </div>
+        )}
+      </div>
+
+      <p className="share-feedback" role="status" aria-live="polite" data-testid="share-feedback">{feedback}</p>
+      {manualCopy && (
+        <label className="manual-copy">
+          Select and copy this text
+          <textarea readOnly value={manualCopy} onFocus={event => event.currentTarget.select()} data-testid="manual-copy-text" />
+        </label>
+      )}
     </section>
   );
 };
@@ -400,6 +657,16 @@ export default function App() {
   const routeOrigin = result?.origin || getTripParam('from') || 'Origin';
   const routeDestination = result?.dest || getTripParam('to') || 'Destination';
   const travelDate = result?.date || getTripParam('date') || 'Date not selected';
+  const shareContent = useMemo(() => buildShareContent({
+    result,
+    cashOffer,
+    cashUnavailable,
+    awardStatus,
+    cashStatus,
+    origin: routeOrigin,
+    destination: routeDestination,
+    travelDate,
+  }), [result, cashOffer, cashUnavailable, awardStatus, cashStatus, routeOrigin, routeDestination, travelDate]);
 
   const handlePrint = () => {
     flushSync(() => setExportTimestamp(new Date()));
@@ -419,10 +686,12 @@ export default function App() {
         <SearchInstrument onAnalyze={handleAnalyze} status={status} validationError={validationError} compact={hasSuccessfulPane} />
 
         <div className="print-report-header" data-testid="print-report-header">
-          <div className="print-wordmark">Award<span>Radar</span></div>
-          <p>Decision Report</p>
-          <h1>{routeOrigin} — {routeDestination}</h1>
-          <dl><div><dt>Travel date</dt><dd>{travelDate}</dd></div><div><dt>Exported</dt><dd data-testid="export-timestamp">{formatExportTimestamp(exportTimestamp)}</dd></div></dl>
+          <h1><span>AwardRadar</span> Decision Report</h1>
+          <p className="print-route">{routeOrigin} → {routeDestination}</p>
+          <dl>
+            <div><dt>Travel date</dt><dd>{formatTravelDate(travelDate)}</dd></div>
+            <div><dt>Exported</dt><dd data-testid="export-timestamp">{formatExportTimestamp(exportTimestamp)}</dd></div>
+          </dl>
         </div>
 
         {status === 'loading' && (
@@ -453,19 +722,11 @@ export default function App() {
             {awardStatus === 'success' && result && <ConfidenceAndVerification decision={result.decision} hasLive={Boolean(result.has_live_data)} />}
             <EvidenceAndCaveats result={result} awardStatus={awardStatus} cashStatus={cashStatus} />
 
-            <section className="result-section export-section interactive-only" aria-labelledby="export-title">
-              <div>
-                <h2 id="export-title">Keep this analysis</h2>
-                <p>Open your browser’s print dialog to print or save the currently displayed snapshot.</p>
-              </div>
-              <button type="button" className="secondary-action" onClick={handlePrint} data-testid="print-button">
-                <Printer aria-hidden="true" /> Print / Save analysis
-              </button>
-            </section>
+            <ResultActions content={shareContent} onPrint={handlePrint} />
 
             <footer className="report-disclaimer">
               <ShieldCheck aria-hidden="true" />
-              <p>This report is a snapshot of the information available at the time of analysis. Prices, award availability, schedules and booking rules must be verified directly with the relevant airline, loyalty program or booking provider before purchase.</p>
+              <p>This report is a snapshot of the information available at the time of analysis. Prices and award availability can change. Schedules and booking rules must be verified directly with the relevant airline, loyalty program or booking provider before purchase.</p>
             </footer>
           </div>
         )}
