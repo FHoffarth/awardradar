@@ -475,8 +475,11 @@ export default function App() {
   // Hero second block reveal — runs once on mount
   const [secondBlockVisible, setSecondBlockVisible] = useState(false)
 
-  // Act II visibility
-  const [searchVisible, setSearchVisible] = useState(false)
+  // Act II visibility. Under reduced motion it starts revealed so there is no
+  // scroll-gated fade/slide — the search copy is present from first paint.
+  const [searchVisible, setSearchVisible] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
 
   useEffect(() => {
     // 1st text reveal CSS takes 900ms + 300ms delay = 1200ms
@@ -486,6 +489,9 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    // Reduced motion: Act II is already revealed (see state init) — skip the
+    // scroll-gated observer entirely so there is no motion trigger.
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
     // Set up observer for Act II
     const observer = new IntersectionObserver((entries) => {
       const [entry] = entries
