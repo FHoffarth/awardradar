@@ -305,7 +305,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--focus); outline
   .print-report-header dt { color: #666; }
   .print-report-header dd { margin: 0; color: #111; font-variant-numeric: tabular-nums; }
   .result-flow { display: block; }
-  .result-section { padding: 4.2mm 0; border-color: #d8d0c6; break-inside: auto; page-break-inside: auto; }
+  .result-section { padding: 3.7mm 0; border-color: #d8d0c6; break-inside: auto; page-break-inside: auto; }
   .section-heading-row { margin-bottom: 2.5mm; }
   .result-section h2 { font-size: 8.5pt; }
   .section-heading-row h2, .option-type { color: #8a5424; }
@@ -339,10 +339,10 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--focus); outline
   .confidence-section h2 { margin-bottom: 2mm; }
   .confidence-value { margin-bottom: 1mm; font-size: 18pt; }
   .confidence-note { font-size: 8pt; line-height: 1.4; }
-  .evidence-section { padding-bottom: 3.5mm; }
+  .evidence-section { padding-bottom: 1.5mm; }
   .evidence-section ul { gap: 1.3mm; margin-top: 2.5mm; color: #303030; font-size: 8.5pt; line-height: 1.4; }
   .evidence-section li::marker { color: #8a5424; }
-  .report-disclaimer { gap: 3mm; padding-top: 3.5mm; border-color: #bca98f; color: #333; break-inside: avoid; page-break-inside: avoid; }
+  .report-disclaimer { gap: 3mm; padding-top: 1.5mm; border-color: #bca98f; color: #333; break-inside: auto; page-break-inside: auto; }
   .report-disclaimer p { font-size: 8pt; line-height: 1.4; }
   .report-disclaimer svg { color: #8a5424; }
 }
