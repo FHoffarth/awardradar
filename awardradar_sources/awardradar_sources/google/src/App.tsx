@@ -63,8 +63,16 @@ const SIGNAL_COPY: Record<string, { verdict: string; why: string }> = {
   },
 };
 
-function getDecisionCopy(result: any, cashAvailable: boolean) {
+function getDecisionCopy(result: any, cashAvailable: boolean, cashUnavailable: boolean) {
   const copy = SIGNAL_COPY[result?.decision?.signal] || SIGNAL_COPY.unknown;
+  const strongAwardSignal = ['exceptional_miles_value', 'strong_miles_value'].includes(result?.decision?.signal) ||
+    ['exceptional', 'great'].includes(result?.programs?.[0]?.grade?.tier);
+  if (cashUnavailable && strongAwardSignal) {
+    return {
+      verdict: 'Promising award signal',
+      why: 'A current cash comparison is unavailable, so the relative value cannot be fully assessed.',
+    };
+  }
   const confidence = result?.decision?.confidence;
   const comparisonIsLimited = confidence === 'low' || confidence === 'medium' ||
     result?.verified_identical_routing !== true || result?.has_live_data !== true || !cashAvailable;
@@ -141,8 +149,8 @@ const SearchInstrument = ({
   );
 };
 
-const DecisionSummary = ({ result, cashAvailable }: { result: any; cashAvailable: boolean }) => {
-  const copy = getDecisionCopy(result, cashAvailable);
+const DecisionSummary = ({ result, cashAvailable, cashUnavailable }: { result: any; cashAvailable: boolean; cashUnavailable: boolean }) => {
+  const copy = getDecisionCopy(result, cashAvailable, cashUnavailable);
   return (
     <>
       <motion.section className="result-section decision-summary" aria-labelledby="decision-title" data-testid="decision-summary"
@@ -228,6 +236,14 @@ const PaneUnavailable = ({ kind, status }: { kind: 'Cash' | 'Award'; status: Pan
     <p className="option-type">{kind} option</p>
     <h3>{kind} data unavailable</h3>
     <p>{status === 'error' ? 'This part of the analysis could not be completed.' : 'No reliable result was returned for this route and date.'}</p>
+  </article>
+);
+
+const CashUnavailable = () => (
+  <article className="option-card option-card--unavailable" data-testid="cash-unavailable-state">
+    <p className="option-type">Cash option</p>
+    <h3>Current cash comparison unavailable</h3>
+    <p>Award results can still be reviewed, but relative value cannot be fully assessed without a current cash fare.</p>
   </article>
 );
 
@@ -353,6 +369,7 @@ export default function App() {
 
   const result = awardData?.results?.[0];
   const cashOffer = cashData?.offers?.[0];
+  const cashUnavailable = cashData?.cash_provenance?.status === 'unavailable';
   const isLimited = result?.verified_identical_routing !== true;
   const hasSuccessfulPane = awardStatus === 'success' || cashStatus === 'success';
   const routeOrigin = result?.origin || getTripParam('from') || 'Origin';
@@ -398,12 +415,12 @@ export default function App() {
 
         {hasSuccessfulPane && (
           <div className="result-flow" data-testid="result-flow">
-            {awardStatus === 'success' && result && <DecisionSummary result={result} cashAvailable={cashStatus === 'success'} />}
+            {awardStatus === 'success' && result && <DecisionSummary result={result} cashAvailable={cashStatus === 'success'} cashUnavailable={cashUnavailable} />}
 
             <section className="result-section options-section" aria-labelledby="options-title">
               <h2 id="options-title">Best Options</h2>
               <div className="options-grid" data-testid="options-grid">
-                {cashStatus === 'success' && cashOffer ? <CashCandidate cashOffer={cashOffer} isLimited={isLimited} /> : <PaneUnavailable kind="Cash" status={cashStatus} />}
+                {cashStatus === 'success' && cashOffer ? <CashCandidate cashOffer={cashOffer} isLimited={isLimited} /> : cashUnavailable ? <CashUnavailable /> : <PaneUnavailable kind="Cash" status={cashStatus} />}
                 {awardStatus === 'success' && result ? <AwardCandidate result={result} /> : <PaneUnavailable kind="Award" status={awardStatus} />}
               </div>
             </section>

@@ -236,6 +236,56 @@ describe('App', () => {
     });
   });
 
+  it('keeps Award visible and renders the neutral quota-degraded Cash state', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => ({ ok: true, results: [{
+        origin: 'FRA', dest: 'JFK', date: '2030-10-10', cash_eur: null,
+        programs: [{ program: 'Miles & More', miles: 30000, surcharge: 100, grade: { tier: 'great' } }],
+        decision: { signal: 'insufficient_data', confidence: 'low' }, has_live_data: false,
+      }] }) }
+      : { ok: true, json: async () => ({ ok: true, offers: [], cash_provenance: {
+        status: 'unavailable', provider: 'serpapi', observed_at: null,
+        cache_age_seconds: null, fallback_reason: 'quota_exhausted',
+      } }) });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => {
+      expect(screen.getByText('Current cash comparison unavailable')).toBeTruthy();
+      expect(screen.getByText('Award results can still be reviewed, but relative value cannot be fully assessed without a current cash fare.')).toBeTruthy();
+      expect(screen.getByText('Promising award signal')).toBeTruthy();
+      expect(screen.getByText('A current cash comparison is unavailable, so the relative value cannot be fully assessed.')).toBeTruthy();
+      expect(container.querySelector('[data-testid="award-candidate-card"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="error-state"]')).toBeNull();
+      expect(container.textContent).not.toContain('quota_exhausted');
+      expect(mockFetch.mock.calls.filter(([url]) => url === '/api/awards')).toHaveLength(1);
+      expect(mockFetch.mock.calls.filter(([url]) => url === '/api/cheap')).toHaveLength(1);
+    });
+  });
+
+  it('keeps normal strong wording and the populated Cash card when Cash succeeds', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => ({ ok: true, results: [{
+        origin: 'FRA', dest: 'JFK', date: '2030-10-10', cash_eur: 500,
+        programs: [{ program: 'Miles & More', miles: 30000, surcharge: 100 }],
+        decision: { signal: 'strong_miles_value', confidence: 'high' },
+        verified_identical_routing: true, has_live_data: true,
+      }] }) }
+      : { ok: true, json: async () => ({ ok: true, offers: [{ price: 500, currency: 'EUR', airline: 'Lufthansa' }] }) });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => {
+      expect(screen.getByText('Strong Award Value')).toBeTruthy();
+      expect(container.querySelector('[data-testid="cash-candidate-card"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="cash-unavailable-state"]')).toBeNull();
+    });
+  });
+
   it('keeps partial success visible when the other pane errors', async () => {
     setupUrlParams('FRA', 'JFK', '2030-10-10');
     mockFetch.mockImplementation(async (url) => {
