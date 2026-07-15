@@ -407,7 +407,7 @@ export default function App() {
   };
 
   return (
-    <div className="app-shell">
+    <div className="app-shell typography-landing-parity" data-typography="landing-parity">
       <div className="workspace-background" aria-hidden="true" />
       <header className="workspace-header interactive-only">
         <a className="wordmark" href="/" aria-label="AwardRadar home"><span>Award</span><span>Radar</span></a>
