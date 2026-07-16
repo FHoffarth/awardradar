@@ -86,6 +86,24 @@ It therefore counts logical calls after validation/cache/budget guards, while
 urllib3 retries performed inside the shared session remain one logical event.
 SerpApi continuation uses its separate plain `requests.get()` boundary.
 
+## seats.aero remaining soft guard
+
+The seats.aero integration uses `X-RateLimit-Remaining` as a conservative,
+process-local safety signal. The default `SEATSAERO_SAFETY_FLOOR=200` blocks a
+known operation before its first provider call when the complete planned
+fan-out would cross the floor. `SEATSAERO_HARD_DISABLED=1` disables all live
+seats.aero access. Provider snapshots reset to `unknown` at 00:00 UTC, and an
+unknown worker may make at most one locked single-call bootstrap per UTC day.
+
+This is a soft guard for the current one-Replica controlled-beta topology. Its
+lock is worker-local: the four Gunicorn workers do not share remaining state or
+reservations, and Railway replicas would not share them either. It is not a
+mathematically hard global cutoff. Production must remain on exactly one
+Railway replica while this guard is used.
+
+External beta use remains blocked until written seats.aero approval for the
+commercial/external use case has been received.
+
 Optionale Umgebungsvariablen:
 
 ```text
@@ -97,4 +115,6 @@ WEB_CONCURRENCY=1
 CONTINUATION_INLINE=0
 MAX_CONTINUATIONS_PER_SEARCH=1
 CONTINUATION_TIMEOUT_MS=12000
+SEATSAERO_SAFETY_FLOOR=200
+SEATSAERO_HARD_DISABLED=0
 ```
