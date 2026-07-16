@@ -3145,30 +3145,6 @@ function discoveryReason(o) {
     </div>`;
   }
 
-  // Only fetch when widget scrolls into view — prevents auto-fire on every page load
-  let _fetched = false;
-  function loadOpportunities() {
-    if (_fetched) return;
-    _fetched = true;
-    fetch('/api/top-opportunities')
-      .then(r => r.ok ? r.json() : Promise.reject(r.status))
-      .then(d => {
-        if (d && d.ok === true) renderCards(d.opportunities || []);
-        else renderError();
-      })
-      .catch((err) => {
-        console.warn('Top opportunities unavailable.', err);
-        renderError();
-      });
-  }
-
-  if ('IntersectionObserver' in window) {
-    const obs = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting) { obs.disconnect(); loadOpportunities(); }
-    }, { rootMargin: '200px' });
-    obs.observe(container);
-  } else {
-    // Fallback for old browsers: load after 3s delay
-    setTimeout(loadOpportunities, 3000);
-  }
+  // Frozen legacy surface: discovery rendering is retained, but no provider-backed
+  // opportunities are loaded automatically on page load, viewport entry, or a timer.
 })();

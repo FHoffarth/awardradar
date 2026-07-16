@@ -1029,11 +1029,12 @@ process.stdout.write(JSON.stringify({{ html: container.innerHTML, warnings }}));
         self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", html)
         self.assertIn("&lt;b&gt;Bad Program&lt;/b&gt;", html)
 
-    def test_failed_api_response_still_uses_degraded_state(self):
+    def test_legacy_tool_has_no_top_opportunities_autofire(self):
         js = self.app_js.read_text(encoding="utf-8")
-        self.assertIn("if (d && d.ok === true) renderCards(d.opportunities || []);", js)
-        self.assertIn("else renderError();", js)
-        self.assertIn("Top opportunities unavailable.", js)
+        self.assertNotIn("/api/top-opportunities", js)
+        self.assertNotIn("loadOpportunities", js)
+        self.assertNotIn("new IntersectionObserver", js)
+        self.assertNotIn("setTimeout(loadOpportunities", js)
 
 
 class EnglishPrivacyNotice(unittest.TestCase):
