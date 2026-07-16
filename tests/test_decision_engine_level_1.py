@@ -640,6 +640,7 @@ class AwardsApiErrorHandling(unittest.TestCase):
         self.old_fetch_cash_details = app.fetch_cash_details
         self.old_static_search = app.STATIC_AWARD_SOURCE.search
         self.old_award_source_metadata = app.award_source_metadata
+        app.fetch_cash_details = lambda *a, **k: {}
 
     def tearDown(self):
         app.fetch_cash_details = self.old_fetch_cash_details
@@ -742,13 +743,21 @@ class AwardsApiErrorHandling(unittest.TestCase):
             ("GET", "/api/top-opportunities"),
         ]
         payload = self.valid_awards_payload()
-        for method, path in endpoints:
-            with self.subTest(path=path):
-                if method == "GET":
-                    response = self.client.get(path)
-                else:
-                    response = self.client.post(path, json=payload)
-                self.assertNotEqual(response.status_code, 401)
+        old_serpapi_search = app.serpapi_search
+        try:
+            app.serpapi_search = lambda *a, **k: {
+                "best_flights": [],
+                "other_flights": [],
+            }
+            for method, path in endpoints:
+                with self.subTest(path=path):
+                    if method == "GET":
+                        response = self.client.get(path)
+                    else:
+                        response = self.client.post(path, json=payload)
+                    self.assertNotEqual(response.status_code, 401)
+        finally:
+            app.serpapi_search = old_serpapi_search
 
     def test_authorization_header_has_no_authentication_effect(self):
         app.STATIC_AWARD_SOURCE.search = lambda *a, **k: []
