@@ -7,7 +7,20 @@ Positioning: Premium Travel Intelligence for Frequent Flyers
 
 ## 1. Current Status
 
-AwardRadar is a Flask/Jinja-based web application.
+Flask remains AwardRadar's backend and server layer. The current product architecture has three surfaces:
+
+```text
+/       React/Vite landing
+/app    canonical React/Vite application
+/tool   frozen legacy Flask/Jinja/static-JS application
+```
+
+New product development targets `/app` only. Backend or `/tool` capabilities do not count as canonical product features until integrated into `/app`.
+
+Authoritative cross-references:
+
+- [Decision Log](decision_log.md)
+- [Repository overview](../README.md)
 
 The project has moved from a pure award-flight search tool toward a broader product vision:
 
@@ -138,27 +151,92 @@ AI makes decisions easier to understand and act on.
 
 ## 5. Current Gate Logic
 
-Closed gate:
+Product-surface decision:
+
+- [AR-DEC-001 — Canonical Product Surface](decision_log.md#ar-dec-001--canonical-product-surface) is **FROZEN**.
+- `/app` is the only canonical product surface.
+- `/tool` is frozen legacy and receives no new product development.
+
+### Gate A
+
+Status:
 
 ```text
-Consent Layer CLOSED
+OPEN
 ```
 
-Current sprint:
+Gate A remains open because:
+
+- the Decision Log is established through the AR-DEC-001 documentation patch;
+- GitHub Security S1 remains open;
+- Nebentätigkeit clarification remains open;
+- Round-trip scope is clarified, but React `/app` integration is not complete.
+
+### Gate C Round-trip Requirement
+
+Unresolved binary decision:
 
 ```text
-codex/saved-searches-foundation
+A. One-way-only /app is sufficient for controlled beta
+or
+B. React Round-trip Integration is required before controlled beta
 ```
 
-Then core product motor:
+Status:
 
 ```text
-codex/award-data-foundation
-codex/award-source-seatsaero
-codex/decision-engine-foundation
+UNDECIDED
 ```
 
-Corrected sequence:
+Neither A nor B is selected by this documentation patch.
+
+### Cash Round-trip Result Integrity
+
+Current status:
+
+- Backend/API implementation: merged into `main`.
+- Legacy `/tool` rendering and continuation flow: merged into `main`.
+- React `/app` integration: not implemented.
+- Credentialed staging smoke: not evidenced.
+- Production round-trip smoke: not evidenced.
+- Therefore Cash Round-trip Result Integrity is not complete as a canonical `/app` feature.
+
+Process deviation:
+
+- Round-trip hardening was merged without a retained, attributable staging-smoke record.
+- Itinerary Ownership & Comparison Integrity is a separate merged stream:
+  - branch: `fix/itinerary-ownership-integrity`
+  - commit: `63f46ca`
+  - merge: `94c8abc`
+- These streams must not be merged or conflated.
+
+### Round-trip Performance & Rollout
+
+Legacy-targeting status:
+
+```text
+SUPERSEDED by AR-DEC-001
+```
+
+Future scope placeholder:
+
+```text
+React Round-trip Integration
+```
+
+Prerequisites:
+
+- binary Gate-C decision on One-way-only beta sufficiency;
+- explicit React UX/API scope;
+- fresh acceptance criteria;
+- staging and production smoke definitions;
+- provider quota available for credentialed validation.
+
+No implementation sprint is created by this placeholder.
+
+### Historical foundation sequence
+
+The following sequence is retained as roadmap history and is not the current sprint declaration:
 
 1. consent-management-foundation
 2. saved-searches-foundation

@@ -2,6 +2,23 @@
 
 Find miles. Fly better.
 
+## Product architecture
+
+Flask remains AwardRadar's backend and server layer. The product has three distinct web surfaces:
+
+```text
+/       React/Vite landing
+/app    canonical React/Vite application
+/tool   frozen legacy Flask/Jinja/static-JS application
+```
+
+`/app` is the only canonical product surface. New product development targets `/app` only. Backend or `/tool` capabilities do not count as canonical product features until they are integrated into `/app`.
+
+Project state and product decisions:
+
+- [Decision Log](docs/decision_log.md)
+- [Roadmap & Programming Memo](docs/awardradar_roadmap_memo.md)
+
 ## Neu in v5.3
 
 - Skiplag-Kandidaten werden parallel geprüft statt seriell.
@@ -22,7 +39,9 @@ python app.py
 Dann öffnen:
 
 ```text
-http://127.0.0.1:5000/?v=53
+http://127.0.0.1:5000/       # React/Vite landing
+http://127.0.0.1:5000/app    # canonical React/Vite application
+http://127.0.0.1:5000/tool   # frozen legacy application
 ```
 
 ## Hosting
@@ -36,6 +55,16 @@ einer Service-Replica und `WEB_CONCURRENCY=1` freigegeben. Die Threads teilen
 sich den prozesslokalen, gesperrten Cache; mehrere Worker oder Replicas tun das
 nicht. Die Skalierungsgrenze und der Redis-Migrationspfad stehen in
 `docs/round_trip_continuation_scaling.md`.
+
+## Cash Round-trip Result Integrity
+
+- Backend/API implementation: merged into `main`.
+- Legacy `/tool` rendering and continuation flow: merged into `main`.
+- React `/app` integration: not implemented.
+- Credentialed staging smoke: not evidenced.
+- Production round-trip smoke: not evidenced.
+
+Cash Round-trip Result Integrity is therefore not complete as a canonical `/app` feature. The legacy-targeting “Round-trip Performance & Rollout” scope is superseded by [AR-DEC-001](docs/decision_log.md#ar-dec-001--canonical-product-surface).
 
 Optionale Umgebungsvariablen:
 
