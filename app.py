@@ -10,14 +10,18 @@ ProduktionsnÃ¤herer Flask-Build:
 from __future__ import annotations
 
 import concurrent.futures as cf
+import contextvars
 import datetime as dt
+import hashlib
 import json
+import logging
 import math
 import mimetypes
 import os
 import re
 import threading
 import time
+from contextlib import contextmanager
 from decimal import Decimal
 from functools import lru_cache
 from urllib.parse import quote_plus
@@ -93,6 +97,7 @@ FLEX_MAX_DAYS = int(os.environ.get("FLEX_MAX_DAYS", "3"))       # max. Flex-Tage
 mimetypes.add_type("font/woff2", ".woff2")
 
 app = Flask(__name__)
+app.logger.setLevel(logging.INFO)
 MIDDLE_DOT_SEP = " \u00B7 "
 RIGHT_ARROW_SEP = " \u2192 "
 
@@ -159,6 +164,39 @@ def make_session() -> requests.Session:
 
 
 HTTP = make_session()
+
+
+SERPAPI_FEATURE_PATHS = {"awards", "cheap", "skiplag", "continuation", "unknown"}
+_SERPAPI_FEATURE_PATH = contextvars.ContextVar("serpapi_feature_path", default="unknown")
+
+
+@contextmanager
+def _serpapi_feature_context(feature_path: str):
+    attributed_path = feature_path if feature_path in SERPAPI_FEATURE_PATHS else "unknown"
+    token = _SERPAPI_FEATURE_PATH.set(attributed_path)
+    try:
+        yield
+    finally:
+        _SERPAPI_FEATURE_PATH.reset(token)
+
+
+def _serpapi_request_fingerprint(params: dict) -> str:
+    """Return a stable short digest without exposing provider credentials or query data."""
+    canonical_params = {key: value for key, value in params.items() if key != "api_key"}
+    canonical = json.dumps(canonical_params, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
+
+
+def _log_serpapi_outbound_call(params: dict, feature_path: str, request_kind: str) -> None:
+    attributed_path = feature_path if feature_path in SERPAPI_FEATURE_PATHS else "unknown"
+    app.logger.info(
+        "event=serpapi_outbound_call feature_path=%s request_fingerprint=%s "
+        "worker_pid=%s request_kind=%s engine=google_flights",
+        attributed_path,
+        _serpapi_request_fingerprint(params),
+        os.getpid(),
+        request_kind,
+    )
 
 
 def lang_from_payload(data: dict | None = None) -> str:
@@ -1502,7 +1540,8 @@ def cash_provenance(status: str, fallback_reason: str | None = None) -> dict:
     }
 
 
-def serpapi_search(origin: str, dest: str, dep: dt.date, ret: dt.date | None, cabin: str, currency: str, lang: str = "de") -> dict:
+def serpapi_search(origin: str, dest: str, dep: dt.date, ret: dt.date | None, cabin: str,
+                   currency: str, lang: str = "de") -> dict:
     """Eine Google-Flights-Suche Ã¼ber SerpApi. Mit TTL-Cache gegen Doppelabrechnung."""
     if not SERPAPI_TOKEN:
         raise SerpApiError("configuration_error")
@@ -1534,6 +1573,7 @@ def serpapi_search(origin: str, dest: str, dep: dt.date, ret: dt.date | None, ca
     global _serpapi_paid_calls
     _serpapi_paid_calls += 1
     try:
+        _log_serpapi_outbound_call(params, _SERPAPI_FEATURE_PATH.get(), "initial")
         r = HTTP.get(SERPAPI_BASE, params=params, timeout=30)
     except requests.Timeout as exc:
         _raise_serpapi_failure(classify_serpapi_failure(exc=exc) or "provider_timeout")
@@ -1590,6 +1630,7 @@ def serpapi_continuation_search(
     try:
         global _serpapi_paid_calls
         _serpapi_paid_calls += 1
+        _log_serpapi_outbound_call(params, "continuation", "continuation")
         response = requests.get(SERPAPI_BASE, params=params, timeout=max(1.0, CONTINUATION_TIMEOUT_MS / 1000.0))
         elapsed = time.time() - started
         app.logger.debug(
@@ -1857,13 +1898,19 @@ def _consume_cached_continuation_offer(
 
 def serpapi_task(args: tuple) -> tuple[str, str, list[dict], str | None]:
     origin, dest, dep, ret, currency, mm_only, lang, cabin, allow_continuation = args
-    offers, err = serpapi_offers(origin, dest, dep, ret, currency, mm_only, lang, cabin, allow_continuation)
+    with _serpapi_feature_context("cheap"):
+        offers, err = serpapi_offers(
+            origin, dest, dep, ret, currency, mm_only, lang, cabin, allow_continuation
+        )
     return origin, dest, offers, err
 
 
 def flex_date_task(args: tuple) -> tuple[str, list[dict], str | None]:
     origin, dest, check_date, ret, currency, mm_only, lang, cabin = args
-    offers, err = serpapi_offers(origin, dest, check_date, ret, currency, mm_only, lang, cabin, False)
+    with _serpapi_feature_context("cheap"):
+        offers, err = serpapi_offers(
+            origin, dest, check_date, ret, currency, mm_only, lang, cabin, False
+        )
     return check_date.isoformat(), offers, err
 
 
@@ -2978,7 +3025,8 @@ def return_leg():
 def verify_skiplag_serpapi(origin: str, true_dest: str, final_dest: str, dep: dt.date, currency: str, lang: str) -> dict | None:
     """Search originâ†’final_dest via SerpApi; return verification data if true_dest appears as layover."""
     try:
-        data = serpapi_search(origin, final_dest, dep, None, "economy", currency, lang)
+        with _serpapi_feature_context("skiplag"):
+            data = serpapi_search(origin, final_dest, dep, None, "economy", currency, lang)
     except QuotaError:
         raise
     except Exception:
@@ -3203,7 +3251,8 @@ def _awards_inner():
                 cash_details = {}
             else:
                 try:
-                    cash_details = fetch_cash_details(origin, dest, dep, cabin, ret=ret)
+                    with _serpapi_feature_context("awards"):
+                        cash_details = fetch_cash_details(origin, dest, dep, cabin, ret=ret)
                 except SerpApiError as exc:
                     cash_provider_failure_reason = exc.reason
                     cash_details = {}

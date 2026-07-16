@@ -37,6 +37,17 @@ sich den prozesslokalen, gesperrten Cache; mehrere Worker oder Replicas tun das
 nicht. Die Skalierungsgrenze und der Redis-Migrationspfad stehen in
 `docs/round_trip_continuation_scaling.md`.
 
+SerpApi-Outbound-Aufrufe sind in Railway Logs mit diesem exakten Filter auffindbar:
+
+```text
+event=serpapi_outbound_call
+```
+
+Das Event enthält `feature_path`, `request_fingerprint`, `worker_pid`,
+`request_kind` und `engine`. Für die Session-basierten Initialsuchen liegt der
+Logpunkt oberhalb der urllib3-Retries und zählt daher logische Aufrufe, nicht
+einzelne physische Retry-Versuche.
+
 Optionale Umgebungsvariablen:
 
 ```text
