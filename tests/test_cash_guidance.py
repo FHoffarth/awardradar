@@ -1127,8 +1127,11 @@ class AsyncReturnLegVerification(unittest.TestCase):
 
     def test_return_leg_requires_round_trip(self):
         oid = self._cheap().get_json()["offers"][0]["offer_id"]
-        d2 = self._return_leg(oid, returnDate="").get_json()
+        response = self._return_leg(oid, returnDate="")
+        self.assertEqual(response.status_code, 400)
+        d2 = response.get_json()
         self.assertFalse(d2["ok"])
+        self.assertEqual(d2["error"], "invalid_request")
         self.assertEqual(self.seen, [])  # no continuation without a return date
 
     def test_frontend_wires_async_verification(self):
