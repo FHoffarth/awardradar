@@ -732,6 +732,38 @@ def parse_date(value: str, default_days: int = 60) -> dt.date:
         return dt.date.today() + dt.timedelta(days=default_days)
 
 
+def parse_required_request_date(data: dict, field: str, label: str):
+    """Parse an explicit user-supplied ISO date without inferring a replacement."""
+    value = data.get(field)
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None, api_error(
+            "invalid_request",
+            f"{label} is required.",
+            400,
+            retryable=False,
+        )
+    if not isinstance(value, str):
+        return None, api_error(
+            "invalid_date",
+            f"Enter a valid {label.lower()} in YYYY-MM-DD format.",
+            400,
+            retryable=False,
+        )
+    raw = value.strip()
+    try:
+        parsed = dt.date.fromisoformat(raw)
+    except ValueError:
+        parsed = None
+    if parsed is None or raw != parsed.isoformat():
+        return None, api_error(
+            "invalid_date",
+            f"Enter a valid {label.lower()} in YYYY-MM-DD format.",
+            400,
+            retryable=False,
+        )
+    return parsed, None
+
+
 def tp_headers():
     if not TP_TOKEN:
         raise RuntimeError("TRAVELPAYOUTS_TOKEN fehlt.")
@@ -2765,13 +2797,28 @@ def airports():
 
 @app.route("/api/cheap", methods=["POST"])
 def cheap():
-    data = request.get_json(force=True) or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return api_error("invalid_json", "Request body must be valid JSON.", 400, retryable=False)
+    dep, date_error = parse_required_request_date(data, "date", "Departure date")
+    if date_error:
+        return date_error
+    one_way = bool(data.get("oneWay", True))
+    ret = None
+    if not one_way:
+        ret, date_error = parse_required_request_date(data, "returnDate", "Return date")
+        if date_error:
+            return date_error
+        if ret < dep:
+            return api_error(
+                "invalid_date",
+                "Return date must be on or after departure date.",
+                400,
+                retryable=False,
+            )
     lang = lang_from_payload(data)
     origins = resolve_codes(data.get("origin", ""))
     dests = resolve_codes(data.get("dest", ""))
-    dep = parse_date(data.get("date", ""), 60)
-    one_way = bool(data.get("oneWay", True))
-    ret = None if one_way else parse_date(data.get("returnDate", ""), 67)
     direct = bool(data.get("direct", False))
     mm_only = bool(data.get("mmOnly", False))
     currency = (data.get("currency") or "eur").lower()
@@ -2937,22 +2984,39 @@ def return_leg():
     Re-uses the already-cached initial search (no billed initial re-fetch in the
     common case), re-identifies the recommended offer by its deterministic
     offer_id, and spends the single continuation server-side. The provider token
-    never leaves the server. Any failure returns a partial result — the card
-    simply stays partial, exactly as it already renders."""
+    never leaves the server. Invalid request context returns 400; provider or
+    lookup failures return a partial result so the card stays partial."""
     partial = {"ok": False, "itinerary_state": "partial"}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return api_error("invalid_json", "Request body must be valid JSON.", 400, retryable=False)
+    if not str(data.get("origin") or "").strip() or not str(data.get("dest") or "").strip():
+        return api_error("invalid_request", "Origin and destination are required.", 400, retryable=False)
+    offer_id = str(data.get("offer_id") or "").strip()
+    if not offer_id:
+        return api_error("invalid_request", "Offer ID is required.", 400, retryable=False)
+    dep, date_error = parse_required_request_date(data, "date", "Departure date")
+    if date_error:
+        return date_error
+    ret, date_error = parse_required_request_date(data, "returnDate", "Return date")
+    if date_error:
+        return date_error
+    if ret < dep:
+        return api_error(
+            "invalid_date",
+            "Return date must be on or after departure date.",
+            400,
+            retryable=False,
+        )
     if CONTINUATION_INLINE or MAX_CONTINUATIONS_PER_SEARCH < 1:
         return jsonify(partial), 200
-    data = request.get_json(silent=True) or {}
     lang = lang_from_payload(data)
     if not (PRICE_SOURCE == "serpapi" and SERPAPI_TOKEN):
         return jsonify(partial), 200
     origins = resolve_codes(data.get("origin", ""))
     dests = resolve_codes(data.get("dest", ""))
-    offer_id = str(data.get("offer_id") or "").strip()
-    dep = parse_date(data.get("date", ""), 60)
-    ret = None if not str(data.get("returnDate") or "").strip() else parse_date(data.get("returnDate", ""), 67)
-    if not origins or not dests or not offer_id or not ret:
-        return jsonify(partial), 200
+    if not origins or not dests:
+        return api_error("invalid_request", "Enter valid origin and destination airports.", 400, retryable=False)
     origin, dest = origins[0], dests[0]
     cabin = (data.get("cabins") or [data.get("cabin") or "economy"])[0].lower()
     currency = (data.get("currency") or "eur").lower()
@@ -3032,11 +3096,15 @@ def skiplag():
         return jsonify({"ok": False, "error": "analysis_unavailable"}), 500
 
 def _skiplag_inner():
-    data = request.get_json(force=True) or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return api_error("invalid_json", "Request body must be valid JSON.", 400, retryable=False)
+    dep, date_error = parse_required_request_date(data, "date", "Departure date")
+    if date_error:
+        return date_error
     lang = lang_from_payload(data)
     origins = resolve_codes(data.get("origin", ""))
     true_dests = resolve_codes(data.get("dest", ""))
-    dep = parse_date(data.get("date", ""), 60)
     currency = (data.get("currency") or "eur").lower()
     if not origins or not true_dests:
         return jsonify({"ok": False, "error": tx("missing_hidden", lang)}), 400
