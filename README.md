@@ -66,6 +66,26 @@ nicht. Die Skalierungsgrenze und der Redis-Migrationspfad stehen in
 
 Cash Round-trip Result Integrity is therefore not complete as a canonical `/app` feature. The legacy-targeting “Round-trip Performance & Rollout” scope is superseded by [AR-DEC-001](docs/decision_log.md#ar-dec-001--canonical-product-surface).
 
+## Provider outbound observability
+
+Logical SerpApi and seats.aero outbound calls are visible in Railway logs with:
+
+```text
+event=provider_outbound_call
+```
+
+Provider-specific filters are `provider=serpapi` and `provider=seats_aero`.
+Each event contains `feature_path`, `request_kind`, a 16-character SHA-256
+`request_fingerprint`, and `worker_pid`. The fingerprint contains no credential:
+SerpApi hashes its provider parameters except `api_key`; seats.aero hashes the
+normalized `origin_airport`, `destination_airport`, `cabin`, `start_date`,
+`end_date`, and `take` search parameters. Raw parameter values are not logged.
+
+The log point is immediately above `HTTP.get()` for session-based requests.
+It therefore counts logical calls after validation/cache/budget guards, while
+urllib3 retries performed inside the shared session remain one logical event.
+SerpApi continuation uses its separate plain `requests.get()` boundary.
+
 Optionale Umgebungsvariablen:
 
 ```text
