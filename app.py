@@ -75,8 +75,18 @@ PRICE_SOURCE = (os.environ.get("PRICE_SOURCE") or ("serpapi" if SERPAPI_TOKEN el
 AWARD_SOURCE   = os.environ.get("AWARD_SOURCE", "estimated").lower()  # "estimated" | "static" | "seatsaero"
 SEATSAERO_KEY  = os.environ.get("SEATSAERO_API_KEY", "")
 SEATSAERO_BASE = "https://seats.aero/partnerapi"
-SEATSAERO_DAILY_BUDGET = 500        # soft cap: reserve half of 1000/day for user searches
-_seatsaero_remaining: int | None = None  # updated from X-RateLimit-Remaining header
+SEATSAERO_SAFETY_FLOOR = int(os.environ.get("SEATSAERO_SAFETY_FLOOR", "200"))
+SEATSAERO_HARD_DISABLED = os.environ.get("SEATSAERO_HARD_DISABLED", "0") == "1"
+# Process-local soft guard only. Production must remain on one Railway replica;
+# Gunicorn workers do not share these values or the lock.
+_seatsaero_remaining: int | None = None
+_seatsaero_remaining_utc_date: dt.date | None = None
+_seatsaero_remaining_updated_at: float | None = None
+_seatsaero_bootstrap_utc_date: dt.date | None = None
+_SEATSAERO_BUDGET_LOCK = threading.Lock()
+_SEATSAERO_CAPACITY_RESERVED = contextvars.ContextVar(
+    "seatsaero_capacity_reserved", default=False
+)
 _serpapi_paid_calls: int = 0  # billed SerpApi calls this process â€” cache hits excluded
 SERPAPI_TTL = int(os.environ.get("SERPAPI_TTL", "21600"))      # Cache-Lebensdauer in Sekunden (default 6h)
 SERPAPI_MAX_PAIRS = int(os.environ.get("SERPAPI_MAX_PAIRS", "2"))  # max. Origin/Dest-Paare pro Klick (= Anzahl bezahlter Suchen)
@@ -263,6 +273,129 @@ def api_error(error: str, message: str, status: int, retryable: bool = False):
         "message": message,
         "retryable": retryable,
     }), status
+
+
+class SeatsAeroGuardError(RuntimeError):
+    """Stable process-local seats.aero soft-guard rejection."""
+
+    def __init__(self, code: str):
+        self.code = code
+        super().__init__(code)
+
+
+SEATSAERO_GUARD_MESSAGES = {
+    "provider_budget_exhausted": "Live provider capacity is exhausted for the current usage window.",
+    "provider_remaining_unknown": "Live provider capacity cannot be verified right now.",
+    "provider_disabled": "Live provider access is temporarily disabled.",
+}
+
+
+def _seatsaero_utc_today() -> dt.date:
+    return dt.datetime.now(dt.timezone.utc).date()
+
+
+def _reset_seatsaero_day_locked(today: dt.date) -> None:
+    """Discard yesterday's provider snapshot before using process-local state."""
+    global _seatsaero_remaining, _seatsaero_remaining_utc_date
+    global _seatsaero_remaining_updated_at
+    if _seatsaero_remaining_utc_date is not None and _seatsaero_remaining_utc_date != today:
+        _seatsaero_remaining = None
+        _seatsaero_remaining_utc_date = None
+        _seatsaero_remaining_updated_at = None
+
+
+def _seatsaero_budget_status() -> str:
+    if SEATSAERO_HARD_DISABLED:
+        return "disabled"
+    today = _seatsaero_utc_today()
+    with _SEATSAERO_BUDGET_LOCK:
+        _reset_seatsaero_day_locked(today)
+        remaining = _seatsaero_remaining
+    if remaining is None:
+        return "unknown"
+    if remaining <= 0:
+        return "exhausted"
+    if remaining <= SEATSAERO_SAFETY_FLOOR:
+        return "low"
+    return "available"
+
+
+def _mark_seatsaero_remaining_unknown() -> None:
+    global _seatsaero_remaining, _seatsaero_remaining_utc_date
+    global _seatsaero_remaining_updated_at
+    with _SEATSAERO_BUDGET_LOCK:
+        _seatsaero_remaining = None
+        _seatsaero_remaining_utc_date = None
+        _seatsaero_remaining_updated_at = None
+
+
+def _update_seatsaero_remaining(raw_value: object) -> bool:
+    """Accept only numeric, monotonic provider snapshots within one UTC day."""
+    try:
+        remaining = int(str(raw_value).strip())
+    except (TypeError, ValueError):
+        _mark_seatsaero_remaining_unknown()
+        return False
+    if remaining < 0:
+        _mark_seatsaero_remaining_unknown()
+        return False
+
+    global _seatsaero_remaining, _seatsaero_remaining_utc_date
+    global _seatsaero_remaining_updated_at
+    today = _seatsaero_utc_today()
+    with _SEATSAERO_BUDGET_LOCK:
+        _reset_seatsaero_day_locked(today)
+        if _seatsaero_remaining is None or _seatsaero_remaining_utc_date != today:
+            _seatsaero_remaining = remaining
+            _seatsaero_remaining_utc_date = today
+            _seatsaero_remaining_updated_at = time.time()
+            return True
+        if remaining <= _seatsaero_remaining:
+            _seatsaero_remaining = remaining
+            _seatsaero_remaining_updated_at = time.time()
+            return True
+    return False
+
+
+def _reserve_seatsaero_capacity(planned_calls: int) -> None:
+    """Reserve a complete operation inside this worker or reject it atomically."""
+    if SEATSAERO_HARD_DISABLED:
+        raise SeatsAeroGuardError("provider_disabled")
+    if planned_calls < 1:
+        return
+
+    global _seatsaero_remaining, _seatsaero_remaining_updated_at
+    global _seatsaero_bootstrap_utc_date
+    today = _seatsaero_utc_today()
+    with _SEATSAERO_BUDGET_LOCK:
+        _reset_seatsaero_day_locked(today)
+        if _seatsaero_remaining is None:
+            if planned_calls == 1 and _seatsaero_bootstrap_utc_date != today:
+                _seatsaero_bootstrap_utc_date = today
+                return
+            raise SeatsAeroGuardError("provider_remaining_unknown")
+        if _seatsaero_remaining < planned_calls + SEATSAERO_SAFETY_FLOOR:
+            raise SeatsAeroGuardError("provider_budget_exhausted")
+        _seatsaero_remaining -= planned_calls
+        _seatsaero_remaining_updated_at = time.time()
+
+
+@contextmanager
+def _seatsaero_reserved_capacity():
+    token = _SEATSAERO_CAPACITY_RESERVED.set(True)
+    try:
+        yield
+    finally:
+        _SEATSAERO_CAPACITY_RESERVED.reset(token)
+
+
+def _seatsaero_guard_error_response(exc: SeatsAeroGuardError):
+    return api_error(
+        exc.code,
+        SEATSAERO_GUARD_MESSAGES[exc.code],
+        503,
+        retryable=False,
+    )
 
 
 TEXT = {
@@ -2122,18 +2255,15 @@ SEATSAERO_SOURCE_MAP: dict[str, str] = {
 
 
 def fetch_seatsaero(origin: str, dest: str, cabin: str, dep: dt.date, window_days: int = 3) -> list[dict]:
-    """Call seats.aero cached-search API. Returns raw availability rows, or [] on any failure."""
+    """Call seats.aero cached-search API after reserving local provider capacity."""
     if not SEATSAERO_KEY:
         return []
+    if not _SEATSAERO_CAPACITY_RESERVED.get():
+        _reserve_seatsaero_capacity(1)
     cabin_param = SEATSAERO_CABIN_PARAM.get(cabin, "economy")
     start = (dep - dt.timedelta(days=window_days)).isoformat()
     end   = (dep + dt.timedelta(days=window_days)).isoformat()
     try:
-        global _seatsaero_remaining
-        # Budget guard: stop if we're running low
-        if _seatsaero_remaining is not None and _seatsaero_remaining < 50:
-            app.logger.warning("seats.aero budget guard: only %d calls remaining, skipping", _seatsaero_remaining)
-            return []
         params = {
             "origin_airport": origin,
             "destination_airport": dest,
@@ -2156,25 +2286,30 @@ def fetch_seatsaero(origin: str, dest: str, cabin: str, dep: dt.date, window_day
         )
         # Track remaining budget from header
         remaining_hdr = r.headers.get("X-RateLimit-Remaining")
-        if remaining_hdr is not None:
-            try:
-                _seatsaero_remaining = int(remaining_hdr)
-                app.logger.info("seats.aero remaining calls today: %d", _seatsaero_remaining)
-            except ValueError:
-                pass
+        if remaining_hdr is None:
+            _mark_seatsaero_remaining_unknown()
+            raise SeatsAeroGuardError("provider_remaining_unknown")
+        elif _update_seatsaero_remaining(remaining_hdr):
+            app.logger.info("seats.aero remaining signal accepted")
+        elif _seatsaero_budget_status() == "unknown":
+            app.logger.warning("seats.aero remaining signal invalid")
+            raise SeatsAeroGuardError("provider_remaining_unknown")
         app.logger.info("seats.aero %sâ†’%s %s status=%s remaining=%s", origin, dest, cabin_param, r.status_code, _seatsaero_remaining)
         if r.status_code == 429:
             app.logger.warning("seats.aero 429 â€” daily limit hit, not retrying")
-            return []
+            raise SeatsAeroGuardError("provider_budget_exhausted")
         if r.status_code != 200:
             app.logger.warning("seats.aero non-200 body: %s", r.text[:500])
             return []
         rows = r.json().get("data", []) or []
         app.logger.info("seats.aero returned %d rows for %sâ†’%s", len(rows), origin, dest)
         return rows
+    except SeatsAeroGuardError:
+        raise
     except Exception as exc:
+        _mark_seatsaero_remaining_unknown()
         app.logger.warning("seats.aero fetch failed %sâ†’%s %s: %s", origin, dest, cabin, exc)
-        return []
+        raise SeatsAeroGuardError("provider_remaining_unknown") from None
 
 
 def build_seatsaero_programs(
@@ -3372,7 +3507,20 @@ def _awards_inner():
 
     trip_type = "one_way" if one_way else "round_trip"
     award_source_meta = award_source_metadata()
+    if award_source_meta["provider_mode"] == "seatsaero" and SEATSAERO_HARD_DISABLED:
+        return _seatsaero_guard_error_response(SeatsAeroGuardError("provider_disabled"))
     use_seatsaero = award_source_meta["provider_mode"] == "seatsaero" and bool(SEATSAERO_KEY)
+    route_pairs = [
+        (origin, dest)
+        for origin in origins[:4]
+        for dest in dests[:3]
+        if origin != dest
+    ]
+    if use_seatsaero:
+        try:
+            _reserve_seatsaero_capacity(len(route_pairs))
+        except SeatsAeroGuardError as exc:
+            return _seatsaero_guard_error_response(exc)
     results = []
     cash_provider_failure_reason = None
 
@@ -3394,8 +3542,12 @@ def _awards_inner():
 
             # Live availability from seats.aero (if configured)
             if use_seatsaero:
-                with _seatsaero_feature_context("awards"):
-                    sa_rows = fetch_seatsaero(origin, dest, cabin, dep)
+                try:
+                    with _seatsaero_feature_context("awards"):
+                        with _seatsaero_reserved_capacity():
+                            sa_rows = fetch_seatsaero(origin, dest, cabin, dep)
+                except SeatsAeroGuardError as exc:
+                    return _seatsaero_guard_error_response(exc)
                 live_programs = build_seatsaero_programs(origin, dest, cabin, dep, cash_eur, sa_rows, requested_trip_type=trip_type)
             else:
                 live_programs = []
@@ -3525,6 +3677,8 @@ def _write_file_cache(opportunities: list) -> None:
 
 @app.route("/api/top-opportunities")
 def top_opportunities():
+    if SEATSAERO_HARD_DISABLED:
+        return _seatsaero_guard_error_response(SeatsAeroGuardError("provider_disabled"))
     # 1. Try shared file cache first â€” all workers share this
     cached = _read_file_cache()
     if cached is not None:
@@ -3542,6 +3696,16 @@ def top_opportunities():
         if cached is not None:
             return jsonify({"ok": True, "opportunities": cached, "source": "cache"})
 
+    planned_calls = len(TOP_OPP_ROUTES)
+    try:
+        _reserve_seatsaero_capacity(planned_calls)
+    except SeatsAeroGuardError as exc:
+        try:
+            _TOP_OPP_LOCK.release()
+        except RuntimeError:
+            pass
+        return _seatsaero_guard_error_response(exc)
+
     today = dt.date.today()
     dep = today + dt.timedelta(days=30)  # midpoint for cash price lookup
     results: list[dict] = []
@@ -3554,7 +3718,10 @@ def top_opportunities():
             try:
                 time.sleep(2.0)  # 2s spacing â†’ max ~30 calls/min, well within daily budget
                 with _seatsaero_feature_context("top_opportunities"):
-                    rows = fetch_seatsaero(origin, dest, cabin, dep, window_days=30)
+                    with _seatsaero_reserved_capacity():
+                        rows = fetch_seatsaero(origin, dest, cabin, dep, window_days=30)
+            except SeatsAeroGuardError:
+                raise
             except Exception:
                 rows = []
         if not rows:
@@ -3583,9 +3750,16 @@ def top_opportunities():
         except Exception:
             return []
 
-    with cf.ThreadPoolExecutor(max_workers=3) as pool:
-        for batch in pool.map(scan_route, TOP_OPP_ROUTES):
-            results.extend(batch)
+    try:
+        with cf.ThreadPoolExecutor(max_workers=3) as pool:
+            for batch in pool.map(scan_route, TOP_OPP_ROUTES):
+                results.extend(batch)
+    except SeatsAeroGuardError as exc:
+        try:
+            _TOP_OPP_LOCK.release()
+        except RuntimeError:
+            pass
+        return _seatsaero_guard_error_response(exc)
 
     # Only cache if we got actual data (don't cache 429-induced empty results)
     grade_order = {"exceptional": 0, "great": 1}
@@ -3621,7 +3795,7 @@ def health():
         "tp_token": bool(TP_TOKEN),
         "award_source": AWARD_SOURCE,
         "seatsaero_key": bool(SEATSAERO_KEY),
-        "seatsaero_remaining": _seatsaero_remaining,
+        "seats_aero_budget": _seatsaero_budget_status(),
         "serpapi_paid_calls": _serpapi_paid_calls,
         "serpapi_max_pairs": SERPAPI_MAX_PAIRS,
         "continuation_enabled": MAX_CONTINUATIONS_PER_SEARCH > 0,

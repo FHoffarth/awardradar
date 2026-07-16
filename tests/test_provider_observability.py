@@ -3,6 +3,8 @@ import logging
 import threading
 from unittest import mock
 
+import pytest
+
 import app as awardradar
 
 
@@ -13,7 +15,7 @@ class FakeResponse:
 
     def __init__(self, payload=None, headers=None):
         self._payload = payload or {}
-        self.headers = headers or {}
+        self.headers = headers if headers is not None else {"X-RateLimit-Remaining": "999"}
 
     def json(self):
         return self._payload
@@ -35,6 +37,16 @@ def _provider_events(caplog, provider=None):
 
 def _enable_event_capture(caplog):
     caplog.set_level(logging.INFO, logger=awardradar.app.logger.name)
+
+
+@pytest.fixture(autouse=True)
+def _reset_seats_aero_guard(monkeypatch):
+    monkeypatch.setattr(awardradar, "SEATSAERO_HARD_DISABLED", False)
+    monkeypatch.setattr(awardradar, "SEATSAERO_SAFETY_FLOOR", 200)
+    monkeypatch.setattr(awardradar, "_seatsaero_remaining", None)
+    monkeypatch.setattr(awardradar, "_seatsaero_remaining_utc_date", None)
+    monkeypatch.setattr(awardradar, "_seatsaero_remaining_updated_at", None)
+    monkeypatch.setattr(awardradar, "_seatsaero_bootstrap_utc_date", None)
 
 
 def _isolate_awards_provider(monkeypatch):
@@ -133,15 +145,19 @@ def test_missing_awards_input_emits_no_seats_aero_event(monkeypatch, caplog):
 def test_seats_aero_budget_guard_emits_no_provider_event(monkeypatch, caplog):
     _enable_event_capture(caplog)
     monkeypatch.setattr(awardradar, "SEATSAERO_KEY", "secret-seats-key")
-    monkeypatch.setattr(awardradar, "_seatsaero_remaining", 49)
+    monkeypatch.setattr(awardradar, "_seatsaero_remaining", 200)
+    monkeypatch.setattr(
+        awardradar, "_seatsaero_remaining_utc_date", awardradar._seatsaero_utc_today()
+    )
     outbound = mock.Mock(side_effect=AssertionError("budget guard reached provider"))
     monkeypatch.setattr(awardradar.HTTP, "get", outbound)
 
-    rows = awardradar.fetch_seatsaero(
-        "FRA", "JFK", "Business", dt.date(2030, 1, 15)
-    )
+    with pytest.raises(awardradar.SeatsAeroGuardError) as exc_info:
+        awardradar.fetch_seatsaero(
+            "FRA", "JFK", "Business", dt.date(2030, 1, 15)
+        )
 
-    assert rows == []
+    assert exc_info.value.code == "provider_budget_exhausted"
     assert outbound.call_count == 0
     assert _provider_events(caplog, "seats_aero") == []
 
