@@ -10,14 +10,18 @@ ProduktionsnÃ¤herer Flask-Build:
 from __future__ import annotations
 
 import concurrent.futures as cf
+import contextvars
 import datetime as dt
+import hashlib
 import json
+import logging
 import math
 import mimetypes
 import os
 import re
 import threading
 import time
+from contextlib import contextmanager
 from decimal import Decimal
 from functools import lru_cache
 from urllib.parse import quote_plus
@@ -93,6 +97,7 @@ FLEX_MAX_DAYS = int(os.environ.get("FLEX_MAX_DAYS", "3"))       # max. Flex-Tage
 mimetypes.add_type("font/woff2", ".woff2")
 
 app = Flask(__name__)
+app.logger.setLevel(logging.INFO)
 MIDDLE_DOT_SEP = " \u00B7 "
 RIGHT_ARROW_SEP = " \u2192 "
 
@@ -159,6 +164,88 @@ def make_session() -> requests.Session:
 
 
 HTTP = make_session()
+
+
+PROVIDER_FEATURE_PATHS = {
+    "serpapi": {"awards", "cheap", "skiplag", "continuation", "unknown"},
+    "seats_aero": {"awards", "top_opportunities", "unknown"},
+}
+_SERPAPI_FEATURE_PATH = contextvars.ContextVar("serpapi_feature_path", default="unknown")
+_SEATSAERO_FEATURE_PATH = contextvars.ContextVar("seatsaero_feature_path", default="unknown")
+_PROVIDER_FEATURE_CONTEXTS = {
+    "serpapi": _SERPAPI_FEATURE_PATH,
+    "seats_aero": _SEATSAERO_FEATURE_PATH,
+}
+
+
+@contextmanager
+def _provider_feature_context(provider: str, feature_path: str):
+    feature_context = _PROVIDER_FEATURE_CONTEXTS[provider]
+    allowed_paths = PROVIDER_FEATURE_PATHS[provider]
+    attributed_path = feature_path if feature_path in allowed_paths else "unknown"
+    token = feature_context.set(attributed_path)
+    try:
+        yield
+    finally:
+        feature_context.reset(token)
+
+
+def _serpapi_feature_context(feature_path: str):
+    return _provider_feature_context("serpapi", feature_path)
+
+
+def _seatsaero_feature_context(feature_path: str):
+    return _provider_feature_context("seats_aero", feature_path)
+
+
+def _provider_request_fingerprint(params: dict, excluded_keys: set[str] | None = None) -> str:
+    """Return a stable short digest without exposing credentials or raw queries."""
+    excluded = excluded_keys or set()
+    canonical_params = {key: value for key, value in params.items() if key not in excluded}
+    canonical = json.dumps(canonical_params, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
+
+
+def _serpapi_request_fingerprint(params: dict) -> str:
+    return _provider_request_fingerprint(params, {"api_key"})
+
+
+def _seatsaero_request_fingerprint(params: dict) -> str:
+    normalized = dict(params)
+    for key in ("origin_airport", "destination_airport"):
+        normalized[key] = str(normalized.get(key, "")).strip().upper()
+    normalized["cabin"] = str(normalized.get("cabin", "")).strip().lower()
+    for key in ("start_date", "end_date"):
+        normalized[key] = str(normalized.get(key, "")).strip()
+    if "take" in normalized:
+        normalized["take"] = int(normalized["take"])
+    return _provider_request_fingerprint(normalized)
+
+
+def _log_provider_outbound_call(
+    provider: str,
+    feature_path: str,
+    request_kind: str,
+    params: dict,
+    excluded_keys: set[str] | None = None,
+) -> None:
+    allowed_paths = PROVIDER_FEATURE_PATHS.get(provider, {"unknown"})
+    attributed_path = feature_path if feature_path in allowed_paths else "unknown"
+    if provider == "serpapi":
+        fingerprint = _serpapi_request_fingerprint(params)
+    elif provider == "seats_aero":
+        fingerprint = _seatsaero_request_fingerprint(params)
+    else:
+        fingerprint = _provider_request_fingerprint(params, excluded_keys)
+    app.logger.info(
+        "event=provider_outbound_call provider=%s feature_path=%s request_kind=%s "
+        "request_fingerprint=%s worker_pid=%s",
+        provider,
+        attributed_path,
+        request_kind,
+        fingerprint,
+        os.getpid(),
+    )
 
 
 def lang_from_payload(data: dict | None = None) -> str:
@@ -1566,6 +1653,9 @@ def serpapi_search(origin: str, dest: str, dep: dt.date, ret: dt.date | None, ca
     global _serpapi_paid_calls
     _serpapi_paid_calls += 1
     try:
+        _log_provider_outbound_call(
+            "serpapi", _SERPAPI_FEATURE_PATH.get(), "initial", params, {"api_key"}
+        )
         r = HTTP.get(SERPAPI_BASE, params=params, timeout=30)
     except requests.Timeout as exc:
         _raise_serpapi_failure(classify_serpapi_failure(exc=exc) or "provider_timeout")
@@ -1622,6 +1712,9 @@ def serpapi_continuation_search(
     try:
         global _serpapi_paid_calls
         _serpapi_paid_calls += 1
+        _log_provider_outbound_call(
+            "serpapi", "continuation", "continuation", params, {"api_key"}
+        )
         response = requests.get(SERPAPI_BASE, params=params, timeout=max(1.0, CONTINUATION_TIMEOUT_MS / 1000.0))
         elapsed = time.time() - started
         app.logger.debug(
@@ -1889,13 +1982,19 @@ def _consume_cached_continuation_offer(
 
 def serpapi_task(args: tuple) -> tuple[str, str, list[dict], str | None]:
     origin, dest, dep, ret, currency, mm_only, lang, cabin, allow_continuation = args
-    offers, err = serpapi_offers(origin, dest, dep, ret, currency, mm_only, lang, cabin, allow_continuation)
+    with _serpapi_feature_context("cheap"):
+        offers, err = serpapi_offers(
+            origin, dest, dep, ret, currency, mm_only, lang, cabin, allow_continuation
+        )
     return origin, dest, offers, err
 
 
 def flex_date_task(args: tuple) -> tuple[str, list[dict], str | None]:
     origin, dest, check_date, ret, currency, mm_only, lang, cabin = args
-    offers, err = serpapi_offers(origin, dest, check_date, ret, currency, mm_only, lang, cabin, False)
+    with _serpapi_feature_context("cheap"):
+        offers, err = serpapi_offers(
+            origin, dest, check_date, ret, currency, mm_only, lang, cabin, False
+        )
     return check_date.isoformat(), offers, err
 
 
@@ -2035,10 +2134,23 @@ def fetch_seatsaero(origin: str, dest: str, cabin: str, dep: dt.date, window_day
         if _seatsaero_remaining is not None and _seatsaero_remaining < 50:
             app.logger.warning("seats.aero budget guard: only %d calls remaining, skipping", _seatsaero_remaining)
             return []
+        params = {
+            "origin_airport": origin,
+            "destination_airport": dest,
+            "cabin": cabin_param,
+            "start_date": start,
+            "end_date": end,
+            "take": 50,
+        }
+        _log_provider_outbound_call(
+            "seats_aero",
+            _SEATSAERO_FEATURE_PATH.get(),
+            "availability_search",
+            params,
+        )
         r = HTTP.get(
             f"{SEATSAERO_BASE}/search",
-            params={"origin_airport": origin, "destination_airport": dest,
-                    "cabin": cabin_param, "start_date": start, "end_date": end, "take": 50},
+            params=params,
             headers={"Partner-Authorization": SEATSAERO_KEY},
             timeout=15,
         )
@@ -3042,7 +3154,8 @@ def return_leg():
 def verify_skiplag_serpapi(origin: str, true_dest: str, final_dest: str, dep: dt.date, currency: str, lang: str) -> dict | None:
     """Search originâ†’final_dest via SerpApi; return verification data if true_dest appears as layover."""
     try:
-        data = serpapi_search(origin, final_dest, dep, None, "economy", currency, lang)
+        with _serpapi_feature_context("skiplag"):
+            data = serpapi_search(origin, final_dest, dep, None, "economy", currency, lang)
     except QuotaError:
         raise
     except Exception:
@@ -3271,7 +3384,8 @@ def _awards_inner():
                 cash_details = {}
             else:
                 try:
-                    cash_details = fetch_cash_details(origin, dest, dep, cabin, ret=ret)
+                    with _serpapi_feature_context("awards"):
+                        cash_details = fetch_cash_details(origin, dest, dep, cabin, ret=ret)
                 except SerpApiError as exc:
                     cash_provider_failure_reason = exc.reason
                     cash_details = {}
@@ -3280,7 +3394,8 @@ def _awards_inner():
 
             # Live availability from seats.aero (if configured)
             if use_seatsaero:
-                sa_rows = fetch_seatsaero(origin, dest, cabin, dep)
+                with _seatsaero_feature_context("awards"):
+                    sa_rows = fetch_seatsaero(origin, dest, cabin, dep)
                 live_programs = build_seatsaero_programs(origin, dest, cabin, dep, cash_eur, sa_rows, requested_trip_type=trip_type)
             else:
                 live_programs = []
@@ -3438,7 +3553,8 @@ def top_opportunities():
         with rate_lock:
             try:
                 time.sleep(2.0)  # 2s spacing â†’ max ~30 calls/min, well within daily budget
-                rows = fetch_seatsaero(origin, dest, cabin, dep, window_days=30)
+                with _seatsaero_feature_context("top_opportunities"):
+                    rows = fetch_seatsaero(origin, dest, cabin, dep, window_days=30)
             except Exception:
                 rows = []
         if not rows:
