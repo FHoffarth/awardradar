@@ -23,7 +23,9 @@ Der **Sweet-Spot- und Hidden-City-Finder für Miles & More / Star Alliance** im 
 ---
 
 ## Stack & Hosting
-- **Backend:** Python + Flask, ein File: `app.py`. Templates in `templates/`, Assets in `static/`.
+- **Backend/Server:** Python + Flask, ein File: `app.py`. Flask liefert die Routen und APIs aus.
+- **Canonical Frontend:** React/Vite für `/` und `/app`; gebaute Assets liegen unter `static/landing/` und `static/app_ui/`.
+- **Legacy Frontend:** Flask/Jinja/static JS unter `/tool`; eingefroren, keine neue Produktentwicklung.
 - **Hosting:** Railway (Service heißt `web`, Production-Environment). Start via `Procfile` (gunicorn).
 - **Lokal:** Windows + PowerShell. Git for Windows ist vorhanden.
 
@@ -34,13 +36,16 @@ Der **Sweet-Spot- und Hidden-City-Finder für Miles & More / Star Alliance** im 
 ```
 app.py              ← gesamtes Backend, alle Routen, alle Preisquellen
 templates/
-  index.html        ← Such-Tool (/app) — CSS/JS versioniert via ?v=NNN
-  landing.html      ← Startseite (/)
+  landing.html      ← React/Vite-Shell für /
+  app.html          ← React/Vite-Shell für /app (kanonische Anwendung)
+  index.html        ← eingefrorene Legacy-Anwendung unter /tool
   impressum.html    ← Rechtsseite
   datenschutz.html  ← Rechtsseite
 static/
-  app.js            ← gesamtes Frontend (aktuell v122)
-  app.css           ← Styles, Dark/Light Theme (aktuell v121)
+  landing/          ← gebaute React/Vite-Assets für /
+  app_ui/           ← gebaute React/Vite-Assets für /app
+  app.js            ← Legacy-Frontend für /tool
+  app.css           ← Legacy-Styles für /tool
   world-land.js     ← Natural Earth 110m Küstenlinien (auto-generiert)
   world-land.js     ← NICHT manuell bearbeiten → scripts/generate_world_land.py
   flatpickr.min.*   ← selbst-gehostet (kein CDN)
@@ -61,14 +66,13 @@ scripts/
 | `_write_file_cache()` / `_read_file_cache()` | Shared File Cache unter /tmp/ (alle Gunicorn-Worker) |
 | `scan_top_opportunities()` | Discovery-Scan über 8 Routen, TTL 4h, IntersectionObserver lazy-load |
 
-### Frontend-Architektur (app.js)
+### Frontend-Architektur
 
-Der gesamte Frontend-Code ist in einer einzigen Datei. Wichtige Bereiche:
-- `globeAnimation()` — Canvas 2D Globe (KEIN three.js, NIEMALS migrieren ohne Review)
-- `render(data)` — zentrale Render-Funktion für alle Suchergebnisse
-- `initDiscovery()` — Top Opportunities Widget (IIFE am Ende der Datei)
-- `booking*` — Booking Decision Card Logik (innerhalb von `render()`)
-- `actionLinksHtml()`, `buildItinerary()` — Ergebnisdarstellung
+- `/` und `/app` sind React/Vite-Oberflächen.
+- `/app` ist die einzige kanonische Produktoberfläche; neue Features werden nur dort entwickelt.
+- `/tool` nutzt weiterhin `templates/index.html`, `static/app.js` und `static/app.css`, ist aber als Legacy-Oberfläche eingefroren.
+- Backend- oder `/tool`-Fähigkeiten gelten erst nach Integration in `/app` als kanonische Produktfeatures.
+- Verbindliche Produktentscheidungen stehen im [Decision Log](docs/decision_log.md).
 
 ---
 
@@ -83,7 +87,10 @@ Gesteuert über die Env-Variable `PRICE_SOURCE`. Umschaltbar, reversibel:
 ---
 
 ## Features & Routen
-- `GET /` Landing · `GET /app` Tool · `GET /impressum` · `GET /datenschutz`
+- `GET /` React/Vite-Landing
+- `GET /app` kanonische React/Vite-Anwendung
+- `GET /tool` eingefrorene Legacy-Flask/Jinja/static-JS-Anwendung
+- `GET /impressum` · `GET /datenschutz`
 - `GET /health` — zeigt `price_source`, `serpapi_token`, `seatsaero_remaining` etc.
 - `POST /api/cheap` — Cash-Suche, Deal-Score-Badge
 - `POST /api/skiplag` — verifizierte Hidden-City via SerpApi-Segmentkette
