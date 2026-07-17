@@ -1,6 +1,12 @@
 # Work Package — decision-engine-level-1
 
-Status:
+> **Document status: STALE PLANNING SNAPSHOT / PARTIALLY SUPERSEDED.** The
+> repository now contains decision construction, cash guidance, scoring and
+> dedicated tests. This work package is retained for its original guardrails;
+> its `PLANNED` label is not the current project status. See
+> [Canonical Repository State](canonical_state.md).
+
+Status when written:
 
 ```text
 PLANNED — after award-data-foundation, preferably after first real provider integration

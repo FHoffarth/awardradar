@@ -1,10 +1,16 @@
 # Provider Feasibility Review
 
-Status: documentation-only planning dossier
+> **Document status: STALE PLANNING SNAPSHOT.** An optional seats.aero adapter,
+> endpoint wiring and budget guard now exist in the repository, so the original
+> “implementation authorization: none” statement no longer describes the code
+> state. This file still provides no evidence of commercial/external provider
+> approval. See [Canonical Repository State](canonical_state.md).
+
+Status when written: documentation-only planning dossier
 
 Provider approval: none
 
-Implementation authorization: none
+Implementation authorization when written: none
 
 ## Why This Review Exists
 

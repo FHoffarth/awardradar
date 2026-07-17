@@ -1,6 +1,11 @@
 # Award Data Foundation
 
-Status: closed
+> **Document status: HISTORICAL — CLOSED WORK PACKAGE.** This document records
+> the scope and closure evidence of the original foundation sprint. It is not a
+> complete description of the current award-data implementation. See
+> [Canonical Repository State](canonical_state.md) for the current code state.
+
+Status at closure: closed
 
 Branch: `codex/award-data-foundation`
 

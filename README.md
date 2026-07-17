@@ -1,4 +1,4 @@
-# AwardRadar v5.3
+# AwardRadar
 
 Find miles. Fly better.
 
@@ -16,6 +16,7 @@ Flask remains AwardRadar's backend and server layer. The product has three disti
 
 Project state and product decisions:
 
+- [Canonical Repository State](docs/canonical_state.md)
 - [Decision Log](docs/decision_log.md)
 - [Roadmap & Programming Memo](docs/awardradar_roadmap_memo.md)
 

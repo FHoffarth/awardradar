@@ -1,5 +1,10 @@
 # Saved Searches Foundation
 
+> **Document status: HISTORICAL FOUNDATION / LEGACY-SURFACE SCOPE.** The
+> browser-local implementation exists in `static/saved_searches.js` for
+> `/tool`. It is not integrated into the canonical React `/app` surface. See
+> [Canonical Repository State](canonical_state.md).
+
 ## Mission
 
 AwardRadar should gain product memory before user identity.

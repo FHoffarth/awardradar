@@ -1,192 +1,104 @@
 # CLAUDE.md — AwardRadar
 
-Kontext für Claude Code und KI-Assistenten. Lies das zuerst, bevor du Änderungen machst.
+Arbeitskontext für KI-assistierte Entwicklung. Der verifizierte Repository-
+Istzustand steht in [docs/canonical_state.md](docs/canonical_state.md), bindende
+Produktentscheidungen im [Decision Log](docs/decision_log.md). Dieses Dokument
+ist keine unabhängige Quelle für Deployment-, Provider- oder Produktstatus.
 
-## Was AwardRadar ist
-Der **Sweet-Spot- und Hidden-City-Finder für Miles & More / Star Alliance** im deutschsprachigen Raum. Kein weiterer generischer Flugsucher. Der USP liegt in drei Dingen, die die Konkurrenz (PointsYeah, seats.aero, Roame, AwardTool) NICHT hat:
-1. Deutsch & M&M-first
-2. Klares Cash-vs-Meilen-Urteil (Cent-pro-Meile-Wertung + Empfehlung)
-3. Verifizierte Hidden-City (Skiplagging mit Segment-Beweis)
+## Produkt und Scope
 
-**Anti-Scope (bewusst NICHT bauen):** keine eigene Award-Datenbank nachbauen (seats.aero konsumieren), keine US-Bankpunkte-Logik, vorerst keine Hotels, vorerst keine große Alert-Maschinerie.
+AwardRadar unterstützt Reisende beim Vergleich von Cash- und Meilenoptionen.
+Schwerpunkte sind Miles & More/Star Alliance, Cash-vs.-Meilen-Entscheidungen und
+erklärbare Verifikation. Keine Providerdaten oder Verfügbarkeit als Gewissheit
+darstellen.
 
----
+## Verifizierte Oberflächen
 
-## Team-Rollen (KI-Assisted Development)
+| Bereich | Klassifikation | Implementierung |
+|---|---|---|
+| `/` | aktive Einstiegsoberfläche | React/Vite-Quelle unter `awardradar_sources/awardradar_sources/figma/`, Build unter `static/landing/` |
+| `/app` | aktive kanonische Produktoberfläche, teilweise integriert | React/Vite-Quelle unter `awardradar_sources/awardradar_sources/google/`, Build unter `static/app_ui/`; aktuell nur One-way |
+| `/tool` | aktive, für Produktentwicklung eingefrorene Legacy-Oberfläche | `templates/index.html`, `static/app.js`, `static/app.css` und weitere statische Dateien |
+| `intelligence/` | isolierte Foundation, nicht in die Web-Runtime verdrahtet | Modelle, Validator, Gemini-Provider, Pipeline und SQLite-Storage ohne Import aus `app.py` |
 
-| Rolle | Verantwortung |
-|---|---|
-| **Flo** | Product Owner & Founder — Vision, Priorisierung, Smoke Tests, Business |
-| **Claude** | Lead Engineer / Architect — Architektur, Produktentscheidungen, komplexe Features |
-| **Codex** | Junior Engineer — klar abgegrenzte Tasks, Tests, Docs, Audits, risikoarme Implementierungen |
+Backend- oder `/tool`-Fähigkeiten sind erst nach Integration in `/app`
+kanonische Produktfeatures. `/tool` ist weiterhin erreichbar; „Legacy“ bedeutet
+nicht „technisch entfernt“.
 
----
+## Architektur
 
-## Stack & Hosting
-- **Backend/Server:** Python + Flask, ein File: `app.py`. Flask liefert die Routen und APIs aus.
-- **Canonical Frontend:** React/Vite für `/` und `/app`; gebaute Assets liegen unter `static/landing/` und `static/app_ui/`.
-- **Legacy Frontend:** Flask/Jinja/static JS unter `/tool`; eingefroren, keine neue Produktentwicklung.
-- **Hosting:** Railway (Service heißt `web`, Production-Environment). Start via `Procfile` (gunicorn).
-- **Lokal:** Windows + PowerShell. Git for Windows ist vorhanden.
-
----
-
-## Architektur-Überblick
-
-```
-app.py              ← gesamtes Backend, alle Routen, alle Preisquellen
-templates/
-  landing.html      ← React/Vite-Shell für /
-  app.html          ← React/Vite-Shell für /app (kanonische Anwendung)
-  index.html        ← eingefrorene Legacy-Anwendung unter /tool
-  impressum.html    ← Rechtsseite
-  datenschutz.html  ← Rechtsseite
-static/
-  landing/          ← gebaute React/Vite-Assets für /
-  app_ui/           ← gebaute React/Vite-Assets für /app
-  app.js            ← Legacy-Frontend für /tool
-  app.css           ← Legacy-Styles für /tool
-  world-land.js     ← Natural Earth 110m Küstenlinien (auto-generiert)
-  world-land.js     ← NICHT manuell bearbeiten → scripts/generate_world_land.py
-  flatpickr.min.*   ← selbst-gehostet (kein CDN)
-  og-image.png      ← OG-Bild für Social Sharing
-scripts/
-  generate_world_land.py  ← erzeugt world-land.js aus Natural Earth GeoJSON
+```text
+app.py                         Flask-Anwendung, Routen, APIs und Providerlogik
+templates/landing.html         Shell für /
+templates/app.html             Shell für /app
+templates/index.html           Legacy-Oberfläche für /tool
+static/landing/                generierter Landing-Build
+static/app_ui/                 generierter /app-Build
+static/app.js, static/app.css  handgepflegtes Legacy-Frontend
+intelligence/                  isolierte, nicht runtime-verdrahtete Foundation
 ```
 
-### Wichtige Backend-Funktionen
+Der `Procfile` startet Gunicorn mit `app:app`. Daraus darf nicht auf die aktuell
+laufende Railway-Konfiguration oder einen erfolgreichen Deploy geschlossen
+werden.
+
+## Relevante Backend-Funktionen
 
 | Funktion | Zweck |
 |---|---|
-| `sweet_spot_grade(cpm)` | Zentrale Bewertungsfunktion → gibt tier, label, recommendation, reasoning zurück |
-| `calc_cpm(cash, miles, surcharge)` | Berechnet Cent-pro-Meile-Wert |
-| `_awards_inner()` | Awards-Suche: SerpApi (Cash) + seats.aero (Meilen) |
-| `fetch_seatsaero()` | seats.aero Partner API — 1000 Calls/Tag, Budget bewachen |
-| `booking_deep_url()` | Deep Links pro Programm (United, Aeroplan, KrisFlyer, BA...) |
-| `_write_file_cache()` / `_read_file_cache()` | Shared File Cache unter /tmp/ (alle Gunicorn-Worker) |
-| `scan_top_opportunities()` | Discovery-Scan über 8 Routen, TTL 4h, IntersectionObserver lazy-load |
+| `deal_score()` / `rescore_offer_set()` | Cash-Angebote bewerten und relativ einordnen |
+| `build_cash_guidance()` | kanonische Cash-Empfehlung strukturieren |
+| `calc_cpm()` / `sweet_spot_grade()` | Meilenwert berechnen und einordnen |
+| `build_decision()` | strukturiertes Decision-Ergebnis erzeugen |
+| `_awards_inner()` | Award-Suche und Cash-Kontext zusammenführen |
+| `fetch_seatsaero()` | optionalen seats.aero-Pfad hinter Budget-Guard ausführen |
+| `_read_file_cache()` / `_write_file_cache()` | Top-Opportunities-Cache unter `/tmp` lesen/schreiben |
+| `top_opportunities()` | Discovery-Endpunkt; enthält den internen Route-Scan |
+| `links_for()` / `program_verify_url()` | Verifikations- und Buchungslinks erzeugen |
 
-### Frontend-Architektur
+## Provider und Caches
 
-- `/` und `/app` sind React/Vite-Oberflächen.
-- `/app` ist die einzige kanonische Produktoberfläche; neue Features werden nur dort entwickelt.
-- `/tool` nutzt weiterhin `templates/index.html`, `static/app.js` und `static/app.css`, ist aber als Legacy-Oberfläche eingefroren.
-- Backend- oder `/tool`-Fähigkeiten gelten erst nach Integration in `/app` als kanonische Produktfeatures.
-- Verbindliche Produktentscheidungen stehen im [Decision Log](docs/decision_log.md).
+- `PRICE_SOURCE=serpapi`: SerpApi/Google-Flights-Cashdaten, wenn ein Token
+  vorhanden ist.
+- `travelpayouts`: Cache-Fallback für Cashdaten und externe Quelle für Airport-
+  Autocomplete; lokaler Airport-Fallback bleibt vorhanden.
+- Es gibt keinen implementierten `fli`-Providerpfad.
+- Awarddaten laufen über `AwardSource`; der Standard ist eine statische
+  Schätzung. Der optionale seats.aero-Pfad benötigt Konfiguration und ist durch
+  einen prozesslokalen Soft Guard begrenzt.
+- Prozesslokale Locks oder Caches sind keine globalen Limits über mehrere Worker
+  oder Railway-Replicas hinweg.
+- Providerfreigabe, Quota und Live-Konfiguration sind nicht aus Git ableitbar.
 
----
+## Routen
 
-## Preisquellen — das zentrale Konzept
-Gesteuert über die Env-Variable `PRICE_SOURCE`. Umschaltbar, reversibel:
-- `serpapi` (Default, wenn `SERPAPI_TOKEN` gesetzt) — echte Google-Flights-Preise, bezahlt, schnell, stabil. Liefert auch `price_insights` (Preis-Range) und Segmentketten → wird für Sweet-Spot und Skiplag gebraucht.
-- `fli` — gratis Google-Flights-Daten via `flights`-Package (reverse-engineerte API). **Rate-limitiert**: von Railway-IP kann Google drosseln (HTTP 429). Nur für `/api/cheap` verdrahtet.
-- `travelpayouts` — Cache-Fallback, oft leer.
+- `GET /`, `GET /app`, `GET /tool`
+- `GET /about`, `GET /methodology`, `GET /impressum`, `GET /datenschutz`,
+  `GET /privacy`
+- `GET /api/airports`
+- `POST /api/cheap`, `POST /api/return-leg`, `POST /api/skiplag`,
+  `POST /api/awards`
+- `GET /api/top-opportunities`, `GET /health`
 
-`/api/cheap` respektiert alle drei. `/api/skiplag` und `/api/awards` brauchen SerpApi und fallen sonst auf Travelpayouts/Schätzung zurück.
+## Änderungsregeln
 
----
+- Neue Produktfeatures ausschließlich für `/app` planen.
+- Keine Runtime-Fähigkeit als kanonisch dokumentieren, solange sie nur im
+  Backend oder in `/tool` existiert.
+- Generierte Dateien unter `static/landing/` und `static/app_ui/` nicht ohne die
+  zugehörige Quelle und einen reproduzierbaren Build ändern.
+- `static/world-land.js` nur über `scripts/generate_world_land.py` regenerieren.
+- Keine Keys oder Tokens committen.
+- Produktentscheidungen nicht still durch Implementierung oder Dokumentation
+  überschreiben; dafür den Decision Log verwenden.
+- Deployment-, Smoke-Test- oder Providerstatus nur mit externer, attribuierbarer
+  Evidenz aktualisieren.
 
-## Features & Routen
-- `GET /` React/Vite-Landing
-- `GET /app` kanonische React/Vite-Anwendung
-- `GET /tool` eingefrorene Legacy-Flask/Jinja/static-JS-Anwendung
-- `GET /impressum` · `GET /datenschutz`
-- `GET /health` — zeigt `price_source`, `serpapi_token`, `seatsaero_remaining` etc.
-- `POST /api/cheap` — Cash-Suche, Deal-Score-Badge
-- `POST /api/skiplag` — verifizierte Hidden-City via SerpApi-Segmentkette
-- `POST /api/awards` — Sweet-Spot: Cash vs. Meilen, cpm, Booking Decision Card Data
-- `GET /api/top-opportunities` — Discovery Widget, 4h Cache, lazy-loaded
-- `POST /api/airports` — Autocomplete
+## Aktuell offene, repository-belegte Punkte
 
----
-
-## Env-Variablen (Railway → Variables)
-`SERPAPI_TOKEN`, `PRICE_SOURCE`, `SERPAPI_TTL`, `SERPAPI_MAX_PAIRS`, `FLI_MAX_PAIRS`, `SKIPLAG_MAX_SEARCHES`, `AWARDS_MAX_SEARCHES`, `TRAVELPAYOUTS_TOKEN`, `APP_TOKEN`, `WEB_CONCURRENCY`. Werte ohne Anführungszeichen eintragen.
-
----
-
-## Konventionen & Coding-Standards
-
-### Vor jedem Commit
-```bash
-python -m py_compile app.py   # Backend: muss sauber sein
-# JS: Klammer-Balance prüfen (öffnende = schließende)
-```
-
-### CSS/JS Versionierung
-`index.html` referenziert `app.css?v=NNN` und `app.js?v=NNN`. Bei jeder Änderung an diesen Dateien die Version hochzählen. Aktuelle Versionen: CSS v121, JS v122.
-
-### Commits
-- Aussagekräftige Messages, ein Thema pro Commit
-- Format: `Kurzbezeichnung: Was wurde warum geändert`
-
-### Stil
-- Kein unnötiger Code, keine Abstraktionen für hypothetische Anforderungen
-- Keine Kommentare außer für nicht-offensichtliche Invarianten
-- Kein Error-Handling für Szenarien die nicht eintreten können
-
-### MM_AWARD_CHART
-Schätzwerte. Flo ist M&M-Experte — bei Änderungen seine echten Chart-Zahlen verwenden, nie erfinden.
-
----
-
-## Branch-Strategie
-
-```
-main          ← Production. Nur sauberer, getesteter Code.
-codex/*       ← Codex-Branches für klar abgegrenzte Tasks
-feature/*     ← Größere neue Features (von Claude oder Flo)
-```
-
-**Regel:** Codex arbeitet NIEMALS direkt auf `main`. Jeder Codex-Branch wird von Claude reviewed bevor Merge.
-
----
-
-## Geeignete Codex-Tasks ✅
-
-- Smoke Tests / manuelles Test-Protokoll dokumentieren
-- Booking Links Audit (alle Programme testen, Deep Links verifizieren)
-- README.md aktualisieren
-- GA4 Event-Tracking für neue Interaktionen hinzufügen
-- SEO-Optimierungen an Landing Pages (meta tags, alt text)
-- Impressum/Datenschutz Platzhalter ausfüllen
-- Refactoring mit klar definierten Grenzen (z.B. Konstanten extrahieren)
-- Typos, Copy-Optimierungen, i18n-Strings
-- Test-Coverage für `calc_cpm()`, `sweet_spot_grade()`
-
-## Nicht für Codex geeignet ❌ (erfordert Claude Review)
-
-- `globeAnimation()` — iOS-Fixes sind fragil, rAF-Loop darf nie gestoppt werden
-- `sweet_spot_grade()` / `calc_cpm()` — Kernbewertungslogik, Produktentscheidung
-- Caching-Architektur (`_write_file_cache`, TTL, Budget-Guards)
-- `_awards_inner()` / seats.aero Integration — Budget-kritisch (1000 Calls/Tag)
-- Booking Decision Card Logik — Produktpositionierung
-- Jede Änderung an API-Routen oder Response-Struktur
-- Authentifizierung / Accounts / Alerts (noch nicht gebaut)
-- `world-land.js` — nur via `scripts/generate_world_land.py` regenerieren
-
----
-
-## Sicherheit / Gotchas
-- Niemals echte Keys/Tokens committen. `.env` ist in `.gitignore`.
-- Hidden-City verstößt gegen Airline-AGB → Rechtshinweise im Skiplag-Output und Impressum müssen bleiben.
-- Bei öffentlicher Domain: Impressum + Datenschutz Pflicht.
-- seats.aero: 1000 Calls/Tag, Reset 00:00 UTC — `X-RateLimit-Remaining` beachten, bei <50 stoppen.
-- SerpApi-Quota: `QuotaError` abfangen, awards darf nicht komplett sterben wenn SerpApi leer.
-
----
-
-## Aktueller Stand (Juni 2026)
-
-**Decision Engine v1 deployed:**
-- Premium Globe v2 (Natural Earth 110m, Earth-at-Night, iOS-stabil)
-- Booking Decision Card (3 States: Cash/NoCash/Estimated)
-- Top Opportunities Widget v2 (Recommendation + Reason + CTA)
-- GA4 Integration (`G-MGN0MCDQKB`)
-- SEO: OG Tags, Twitter Cards, Schema.org, og-image.png
-- seats.aero Integration mit Shared File Cache
-
-**Nächste Schritte:**
-1. Production Smoke Test (Discovery → CTA → Awards → Decision Card)
-2. Booking Links Audit (alle Programme, alle Deep Links)
-3. Accounts / Watchlists / Alerts (eigener großer Sprint)
+- React-Round-trip ist in `/app` nicht integriert.
+- Gate C ist unentschieden; Gate A bleibt offen.
+- Providerfreigabe für externe/kommerzielle seats.aero-Nutzung ist im Repository
+  nicht belegt.
+- `intelligence/` ist nicht in `app.py` integriert.
+- Staging- und Production-Smokes sind nicht durch den Repositoryzustand belegt.

@@ -1,18 +1,23 @@
 # AwardRadar Roadmap & Programming Memo
 
-Version: v1.4
+Version: v1.5
 Status: Active Product & Engineering Roadmap
+Last updated: 2026-07-17
 Project: AwardRadar
 Positioning: Premium Travel Intelligence for Frequent Flyers
 
 ## 1. Current Status
 
-Flask remains AwardRadar's backend and server layer. The current product architecture has three surfaces:
+The repository-backed current state is maintained in
+[Canonical Repository State](canonical_state.md). Flask remains AwardRadar's
+backend and server layer. The repository contains three web surfaces and one
+isolated foundation:
 
 ```text
-/       React/Vite landing
-/app    canonical React/Vite application
-/tool   frozen legacy Flask/Jinja/static-JS application
+/             active React/Vite entry surface
+/app          active canonical React/Vite application; one-way only
+/tool         active frozen legacy Flask/Jinja/static-JS application
+intelligence/ isolated foundation; not wired into app.py
 ```
 
 New product development targets `/app` only. Backend or `/tool` capabilities do not count as canonical product features until integrated into `/app`.
@@ -20,6 +25,7 @@ New product development targets `/app` only. Backend or `/tool` capabilities do 
 Authoritative cross-references:
 
 - [Decision Log](decision_log.md)
+- [Canonical Repository State](canonical_state.md)
 - [Repository overview](../README.md)
 
 The project has moved from a pure award-flight search tool toward a broader product vision:
@@ -28,24 +34,27 @@ The project has moved from a pure award-flight search tool toward a broader prod
 AwardRadar is building premium travel intelligence for frequent flyers.
 ```
 
-Current production foundation:
+Current repository-backed foundation:
 
-- live production website
-- Google Analytics foundation
-- Google Tag Manager foundation
-- Consent management foundation
-- privacy-first analytics behavior
-- initial Codex workflow discipline
-- early startup/funding groundwork
-- initial brand, positioning, and product strategy
+- Flask/Gunicorn application and API routes;
+- React/Vite landing and canonical one-way decision workspace;
+- reachable legacy `/tool` surface with additional non-canonical capabilities;
+- AwardSource boundary with static estimates and an optional seats.aero path;
+- SerpApi cash context, Travelpayouts fallback and provider observability;
+- consent and browser-local saved-search foundations on the legacy surface;
+- process-local provider guards and caches with documented scaling limits;
+- an isolated `intelligence/` foundation that is not part of the web runtime.
 
-Current milestone:
+The repository does not prove a current production deployment, Railway
+configuration, smoke-test result, provider quota or provider approval.
+
+Current product boundary:
 
 ```text
-Consent Layer CLOSED.
+/app is canonical but currently one-way only.
+/tool remains reachable legacy.
+intelligence/ is not runtime-integrated.
 ```
-
-Analytics and tracking are gated behind user consent.
 
 ## 2. Core Product Vision
 
@@ -236,7 +245,10 @@ No implementation sprint is created by this placeholder.
 
 ### Historical foundation sequence
 
-The following sequence is retained as roadmap history and is not the current sprint declaration:
+The following sequence is retained as roadmap history and is not the current
+sprint declaration. Statuses in Section 6 are historical work-package records;
+they must not override `canonical_state.md` or be read as live deployment
+evidence.
 
 1. consent-management-foundation
 2. saved-searches-foundation
@@ -267,6 +279,11 @@ Trust architecture first. Product memory second. Motor before monetization.
 ```
 
 ## 6. Roadmap Detail
+
+> **Historical catalog.** Branch names, completion labels, verification notes
+> and sequencing below record the state of individual work packages when they
+> were written. They are not the current repository or deployment status unless
+> restated in Sections 1 or 5 above.
 
 ## 6.1 consent-management-foundation
 
@@ -1492,31 +1509,17 @@ Codex Constitution:
 
 ## 9. Immediate Next Action
 
-Current branch:
+No current implementation branch is declared by this roadmap.
 
-```text
-codex/saved-searches-foundation
-```
+Repository-backed open decisions and validation work:
 
-Mission:
-
-```text
-Create product memory without user identity.
-```
-
-After saved-searches-foundation lands cleanly:
-
-```text
-codex/award-data-foundation
-```
-
-Mission:
-
-```text
-Create the first working AwardSource abstraction and route existing static award logic through StaticAwardSource.
-```
-
-Do not start accounts, payments, email sending, alerts, premium logic, or seats.aero integration before the relevant foundation branches land.
+1. Decide Gate C: whether one-way-only `/app` is sufficient for controlled beta.
+2. If required by that decision, scope React round-trip integration explicitly.
+3. Obtain and retain attributable provider approval evidence before external or
+   commercial seats.aero use.
+4. Verify staging/production deployment and smoke status outside Git.
+5. Decide whether and how the isolated `intelligence/` foundation should be
+   integrated; repository presence alone does not authorize runtime wiring.
 
 ## 10. One-Line Summary
 

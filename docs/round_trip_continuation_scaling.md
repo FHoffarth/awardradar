@@ -1,5 +1,10 @@
 # Round-trip continuation: Beta-Betrieb und Skalierung
 
+> **Document status: CURRENT TECHNICAL CONSTRAINT, NOT DEPLOYMENT EVIDENCE.**
+> This describes the backend and legacy `/tool` continuation architecture.
+> React `/app` does not currently expose round-trip search. Repository contents
+> do not verify the live Railway replica/worker configuration.
+
 ## Railway-Beta
 
 Der asynchrone Continuation-Pfad darf in der Beta mit genau **einer Railway
