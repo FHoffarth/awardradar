@@ -143,6 +143,24 @@ def test_round_trip_rejects_return_before_departure_before_provider_access(
     assert_no_provider_calls(boundaries)
 
 
+def test_awards_round_trip_rejects_return_before_departure_before_provider_access(
+    isolated_paid_providers,
+):
+    client, boundaries = isolated_paid_providers
+    response = client.post(
+        "/api/awards",
+        json={**VALID_ONE_WAY, "oneWay": False, "returnDate": "2026-10-19"},
+    )
+
+    assert_error(
+        response,
+        400,
+        "invalid_date",
+        "Return date must be on or after departure date.",
+    )
+    assert_no_provider_calls(boundaries)
+
+
 def test_skiplag_rejects_malformed_departure_before_provider_access(isolated_paid_providers):
     client, boundaries = isolated_paid_providers
     response = client.post("/api/skiplag", json={**VALID_ONE_WAY, "date": "bad"})

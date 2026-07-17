@@ -3,6 +3,7 @@ import { useState, useEffect, type FormEvent, type CSSProperties, type KeyboardE
 // ─── THEME ────────────────────────────────────────────────────────────────────
 
 type Theme = 'dark' | 'light'
+export type TripType = 'one_way' | 'round_trip'
 
 const T = {
   dark: {
@@ -332,6 +333,24 @@ function isValidDate(s: string): boolean {
     d.getDate() === Number(m[3])
 }
 
+export function buildAppSearchUrl(
+  from: string,
+  to: string,
+  date: string,
+  tripType: TripType,
+  returnDate: string,
+): string {
+  const params = new URLSearchParams()
+  params.set('from', from)
+  params.set('to', to)
+  params.set('date', date.trim())
+  if (tripType === 'round_trip') {
+    params.set('trip', 'round_trip')
+    params.set('returnDate', returnDate.trim())
+  }
+  return `/app?${params.toString()}`
+}
+
 // Airport/city autocomplete over /api/airports. Debounced, keyboard + pointer
 // navigable, with loading/empty/error states. `code` is the committed IATA
 // selection; typing clears it so the CTA can't validate on free text.
@@ -470,6 +489,8 @@ export default function App() {
   const [fromCode, setFromCode] = useState('')
   const [toCode, setToCode]     = useState('')
   const [date, setDate]     = useState('')
+  const [tripType, setTripType] = useState<TripType>('one_way')
+  const [returnDate, setReturnDate] = useState('')
 
   // Hero second block reveal — runs once on mount
   const [secondBlockVisible, setSecondBlockVisible] = useState(false)
@@ -533,19 +554,26 @@ export default function App() {
   const t  = T[theme]
   const PX = 'clamp(64px, 7.5vw, 120px)'
   const sameRoute = fromCode.length > 0 && fromCode === toCode
-  const isValid = fromCode.length > 0 && toCode.length > 0 && !sameRoute && isValidDate(date)
+  const returnError = tripType === 'round_trip'
+    ? !isValidDate(returnDate)
+      ? 'Select a return date.'
+      : isValidDate(date) && returnDate < date
+        ? 'Return date must not be before the departure date.'
+        : ''
+    : ''
+  const isValid = fromCode.length > 0 && toCode.length > 0 && !sameRoute && isValidDate(date) && !returnError
 
   function selectFrom(s: Suggestion) { setFrom(`${s.city || s.name} (${s.code})`); setFromCode(s.code) }
   function selectTo(s: Suggestion)   { setTo(`${s.city || s.name} (${s.code})`); setToCode(s.code) }
+  function selectTripType(next: TripType) {
+    setTripType(next)
+    if (next === 'one_way') setReturnDate('')
+  }
 
   function handleSearch(e: FormEvent) {
     e.preventDefault()
     if (!isValid) return
-    const params = new URLSearchParams()
-    params.set('from', fromCode)
-    params.set('to', toCode)
-    params.set('date', date.trim())
-    window.location.href = `/app?${params.toString()}`
+    window.location.href = buildAppSearchUrl(fromCode, toCode, date, tripType, returnDate)
   }
   function toggleTheme() { setTheme(th => th === 'dark' ? 'light' : 'dark') }
   function scrollToAct2() {
@@ -775,6 +803,29 @@ export default function App() {
           </p>
 
           <form className="ar-instrument-form" onSubmit={handleSearch}>
+            <fieldset className="ar-trip-type" aria-describedby={returnError ? 'ar-return-error' : undefined}>
+              <legend>Trip type</legend>
+              <label>
+                <input
+                  type="radio"
+                  name="tripType"
+                  value="one_way"
+                  checked={tripType === 'one_way'}
+                  onChange={() => selectTripType('one_way')}
+                />
+                <span>One-way</span>
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="tripType"
+                  value="round_trip"
+                  checked={tripType === 'round_trip'}
+                  onChange={() => selectTripType('round_trip')}
+                />
+                <span>Round-trip</span>
+              </label>
+            </fieldset>
             <div className="ar-instrument" style={{
               width: '100%',
               display: 'flex',
@@ -807,7 +858,7 @@ export default function App() {
               />
               <div className="ar-divider" style={{ width: '0.5px', background: t.divider, margin: '17px 0', flexShrink: 0 }} />
               <div className="ar-field ar-field--date" style={{ flex: '0 0 auto', padding: '24px 40px 22px', display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0 }}>
-                <span className="ar-field-label" style={{ color: t.fieldLabel }}>Date</span>
+                <span className="ar-field-label" style={{ color: t.fieldLabel }}>Departure</span>
                 <input
                   className="ar-input ar-date-input"
                   type="date"
@@ -815,7 +866,7 @@ export default function App() {
                   min={new Date().toISOString().slice(0, 10)}
                   onChange={e => setDate(e.target.value)}
                   onClick={e => { try { (e.currentTarget as HTMLInputElement).showPicker?.() } catch {} }}
-                  aria-label="Date"
+                  aria-label="Departure date"
                   style={{
                     background: 'transparent', border: 'none', outline: 'none', padding: 0, margin: 0,
                     fontFamily: 'inherit', fontSize: '15px', fontWeight: 520, letterSpacing: '0.002em',
@@ -824,14 +875,43 @@ export default function App() {
                   }}
                 />
               </div>
+              {tripType === 'round_trip' && (
+                <>
+                  <div className="ar-divider" style={{ width: '0.5px', background: t.divider, margin: '17px 0', flexShrink: 0 }} />
+                  <div className="ar-field ar-field--return" style={{ flex: '0 0 auto', padding: '24px 40px 22px', display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0 }}>
+                    <span className="ar-field-label" style={{ color: t.fieldLabel }}>Return</span>
+                    <input
+                      className="ar-input ar-date-input"
+                      type="date"
+                      value={returnDate}
+                      min={date || new Date().toISOString().slice(0, 10)}
+                      onChange={e => setReturnDate(e.target.value)}
+                      onClick={e => { try { (e.currentTarget as HTMLInputElement).showPicker?.() } catch {} }}
+                      aria-label="Return date"
+                      aria-invalid={Boolean(returnError)}
+                      aria-describedby={returnError ? 'ar-return-error' : undefined}
+                      style={{
+                        background: 'transparent', border: 'none', outline: 'none', padding: 0, margin: 0,
+                        fontFamily: 'inherit', fontSize: '15px', fontWeight: 520, letterSpacing: '0.002em',
+                        lineHeight: 1.15, color: t.fieldValue, width: '158px', maxWidth: '100%',
+                        colorScheme: theme === 'dark' ? 'dark' : 'light',
+                      }}
+                    />
+                  </div>
+                </>
+              )}
             </div>
+
+            {tripType === 'round_trip' && returnError && (
+              <p className="ar-form-error" id="ar-return-error" role="status">{returnError}</p>
+            )}
 
             {/* Primary CTA — visible, disabled until From/To/Date are valid */}
             <button
               className="ar-analyze-button"
               type="submit"
               disabled={!isValid}
-              title={isValid ? 'Analyze this route' : 'Enter origin, destination and date to analyze'}
+              title={isValid ? 'Analyze this route' : returnError || 'Enter origin, destination and departure date to analyze'}
               style={{
                 marginTop: '24px',
                 display: 'inline-flex',

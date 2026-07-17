@@ -107,6 +107,45 @@ input:focus          { outline: none; }
 /* ─── AwardRadar route instrument ────────────────────────────────────────── */
 .ar-instrument-form { width: 100%; }
 
+.ar-trip-type {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  margin: 0 0 14px;
+  padding: 0;
+}
+.ar-trip-type legend {
+  margin: 0 12px 0 0;
+  padding: 0;
+  color: rgba(190,181,168,0.72);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.ar-trip-type label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  gap: 8px;
+  padding: 0 13px;
+  border: .5px solid rgba(245,242,236,.12);
+  color: inherit;
+  cursor: pointer;
+}
+.ar-trip-type input { accent-color: #C77A32; }
+.ar-trip-type label:has(input:focus-visible) {
+  outline: 1.5px solid rgba(140, 200, 255, 0.5);
+  outline-offset: 2px;
+}
+.ar-form-error {
+  margin: 10px 0 0;
+  color: #e7a88e;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 .ar-instrument {
   border-radius: 1px;
   position: relative;
@@ -164,7 +203,8 @@ input:focus          { outline: none; }
 .ar-field { position: relative; }
 .ar-field--from,
 .ar-field--to { flex-grow: 1.08; }
-.ar-field--date { flex-grow: 0; }
+.ar-field--date,
+.ar-field--return { flex-grow: 0; }
 
 .ar-input {
   caret-color: #C77A32;
@@ -305,6 +345,11 @@ html, body, #root {
   width: 100% !important;
   flex-direction: column !important;
 }
+.ar-trip-type {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.ar-trip-type legend { width: 100%; margin-bottom: 2px; }
 .ar-field {
   padding: 16px 20px 14px !important;
 }

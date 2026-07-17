@@ -3499,6 +3499,13 @@ def _awards_inner():
             ret = dt.date.fromisoformat(str(data.get("returnDate")))
         except (TypeError, ValueError):
             return api_error("invalid_date", "Return date must use YYYY-MM-DD.", 400, retryable=False)
+        if ret < dep:
+            return api_error(
+                "invalid_date",
+                "Return date must be on or after departure date.",
+                400,
+                retryable=False,
+            )
     cabin   = data.get("cabin") or (data.get("cabins") or ["Economy"])[0]
     if not origins or not dests:
         return api_error("invalid_request", tx("missing_origin_dest", lang), 400, retryable=False)

@@ -561,15 +561,15 @@ class AboutMethodologyPage(unittest.TestCase):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("index-D3-X3tOA.js", html)
-        self.assertIn("index-K4WoAUFA.css", html)
+        self.assertRegex(html, r'/static/landing/assets/index-[A-Za-z0-9_-]+\.js')
+        self.assertRegex(html, r'/static/landing/assets/index-[A-Za-z0-9_-]+\.css')
 
     def test_new_app_route_serves_google_bundle(self):
         response = self.client.get("/app")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("index-CONf60Qj.js", html)
-        self.assertIn("index-3fM9CZCL.css", html)
+        self.assertRegex(html, r'/static/app_ui/assets/index-[A-Za-z0-9_-]+\.js')
+        self.assertRegex(html, r'/static/app_ui/assets/index-[A-Za-z0-9_-]+\.css')
 
     def test_about_copy_avoids_overclaiming(self):
         html = self.client.get("/about").get_data(as_text=True).lower()

@@ -117,7 +117,7 @@ describe('App', () => {
     r2.unmount();
   });
 
-  it('hydrates canonical FRA and MUC codes from URL and enables Analyze', () => {
+  it('hydrates_existing_one_way_url', () => {
     setupUrlParams('FRA', 'MUC', '2026-08-06');
     const { container } = render(<App />);
 
@@ -160,7 +160,7 @@ describe('App', () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('fetches both endpoints with exact request payload and shows loading state', async () => {
+  it('preserves_exact_one_way_payload', async () => {
     setupUrlParams('FRA', 'JFK', '2030-10-10');
 
     mockFetch.mockImplementation(async (url) => {
@@ -770,7 +770,7 @@ describe('App', () => {
     expect(flow.querySelector('.options-grid')).toBeTruthy();
   });
 
-  it('keeps mobile Cash reading order primary then alternatives then Award', async () => {
+  it('keeps_mobile_cash_then_award_dom_order', async () => {
     const { container } = await renderWithCashOffers([
       { price: 410, currency: 'EUR', airline: 'Primary Air', time_data_status: 'complete' },
       { price: 450, currency: 'EUR', airline: 'Alternative One', time_data_status: 'unavailable' },
@@ -782,5 +782,265 @@ describe('App', () => {
     expect(primary.compareDocumentPosition(alternatives) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(alternatives.compareDocumentPosition(award) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(container.querySelectorAll('.cash-option-stack')).toHaveLength(1);
+  });
+
+  it('hydrates_round_trip_url', () => {
+    window.history.pushState({}, 'Test Title', '/app?from=FRA&to=JFK&date=2030-10-10&trip=round_trip&returnDate=2030-10-20');
+    const { container } = render(<App />);
+    expect(container.textContent).toContain('Round-trip');
+    expect(container.textContent).toContain('2030-10-20');
+    expect((getButton(container) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('sends_identical_round_trip_payload_to_both_endpoints', async () => {
+    window.history.pushState({}, 'Test Title', '/app?from=FRA&to=JFK&date=2030-10-10&trip=round_trip&returnDate=2030-10-20');
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => ({ ok: true, results: [] }) }
+      : { ok: true, json: async () => ({ ok: true, offers: [] }) });
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+    const payloads = mockFetch.mock.calls.map(([, options]) => JSON.parse(options.body));
+    expect(payloads[0]).toEqual(payloads[1]);
+    expect(payloads[0]).toEqual({
+      lang: 'en', origin: 'FRA', dest: 'JFK', date: '2030-10-10', oneWay: false,
+      returnDate: '2030-10-20', direct: false, mmOnly: false, currency: 'eur',
+      cabin: 'Economy', cabins: ['Economy'], flexDays: 0,
+    });
+  });
+
+  it('rejects_round_trip_url_without_return_date', () => {
+    window.history.pushState({}, 'Test Title', '/app?from=FRA&to=JFK&date=2030-10-10&trip=round_trip');
+    const { container } = render(<App />);
+    expect(screen.getByTestId('validation-error').textContent).toContain('return date is required');
+    expect((getButton(container) as HTMLButtonElement).disabled).toBe(true);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects_round_trip_url_with_earlier_return', () => {
+    window.history.pushState({}, 'Test Title', '/app?from=FRA&to=JFK&date=2030-10-20&trip=round_trip&returnDate=2030-10-19');
+    const { container } = render(<App />);
+    expect(screen.getByTestId('validation-error').textContent).toContain('must not be before');
+    expect((getButton(container) as HTMLButtonElement).disabled).toBe(true);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  const roundTripSegments = {
+    outbound: [{ dep_iata: 'FRA', arr_iata: 'JFK', dep_time: '10:00', arr_time: '13:00', airline: 'Test Air' }],
+    inbound: [{ dep_iata: 'JFK', arr_iata: 'FRA', dep_time: '18:00', arr_time: '08:00', airline: 'Return Air' }],
+  };
+
+  function setupRoundTrip() {
+    window.history.pushState({}, 'Test Title', '/app?from=FRA&to=JFK&date=2030-10-10&trip=round_trip&returnDate=2030-10-20');
+  }
+
+  function awardRoundTripResponse(overrides: Record<string, unknown> = {}) {
+    return { ok: true, results: [{
+      origin: 'FRA', dest: 'JFK', date: '2030-10-10', returnDate: '2030-10-20',
+      programs: [{ program: 'Miles & More', miles: 50000, surcharge: 120, trip_type: 'one_way', requested_trip_type: 'round_trip' }],
+      decision: { signal: 'strong_miles_value', confidence: 'low', trip_basis_compatible: false },
+      verified_identical_routing: false, has_live_data: false, ...overrides,
+    }] };
+  }
+
+  it('renders_complete_round_trip_legs', async () => {
+    setupRoundTrip();
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => awardRoundTripResponse() }
+      : { ok: true, json: async () => ({ ok: true, offers: [{ offer_id: 'complete', price: 700, currency: 'EUR', returnDate: '2030-10-20', itinerary_state: 'complete', outbound_segments: roundTripSegments.outbound, return_segments: roundTripSegments.inbound }] }) });
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(screen.getByTestId('cash-round-trip-complete')).toBeTruthy());
+    expect(container.textContent).toContain('FRA');
+    expect(container.textContent).toContain('JFK');
+    expect(container.textContent).toContain('Return Air');
+  });
+
+  it('renders_partial_round_trip_without_inventing_return', async () => {
+    setupRoundTrip();
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => awardRoundTripResponse() }
+      : { ok: true, json: async () => ({ ok: true, offers: [{ offer_id: 'partial', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }] }) });
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(screen.getByTestId('cash-round-trip-partial')).toBeTruthy());
+    expect(container.textContent).toContain('Return itinerary details are not available');
+    expect(container.textContent).not.toContain('Return Air');
+  });
+
+  it('renders_price_only_round_trip_without_route_claims', async () => {
+    setupRoundTrip();
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => awardRoundTripResponse() }
+      : { ok: true, json: async () => ({ ok: true, offers: [
+        { offer_id: 'price', price: 600, currency: 'EUR', origin: 'FRA', dest: 'JFK', date: '2030-10-10', returnDate: '2030-10-20', itinerary_state: 'price_only', airline: 'Should Not Render', dep_time: '10:00', stops: 0 },
+        { offer_id: 'alternative', price: 650, currency: 'EUR', returnDate: '2030-10-20', itinerary_state: 'price_only', airline: 'Alternative Must Not Render', dep_time: '11:00', durationMin: 500, stops: 1 },
+      ] }) });
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(screen.getByTestId('cash-round-trip-price-only')).toBeTruthy());
+    const card = screen.getByTestId('cash-candidate-card');
+    expect(card.textContent).toContain('Round-trip price signal');
+    expect(card.textContent).not.toContain('Should Not Render');
+    expect(card.textContent).not.toContain('Nonstop');
+    expect(container.textContent).not.toContain('Alternative Must Not Render');
+    expect(container.textContent).not.toContain('1 stop');
+  });
+
+  it('calls_return_leg_once_for_recommended_partial_offer', async () => {
+    setupRoundTrip();
+    mockFetch.mockImplementation(async (url) => {
+      if (url === '/api/awards') return { ok: true, json: async () => awardRoundTripResponse() };
+      if (url === '/api/cheap') return { ok: true, json: async () => ({ ok: true, cash_guidance: { recommended_offer_id: 'rec' }, offers: [{ offer_id: 'rec', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }] }) };
+      return { ok: true, json: async () => ({ ok: true, offer_id: 'rec', itinerary_state: 'complete', return_segments: roundTripSegments.inbound }) };
+    });
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(screen.getByTestId('cash-round-trip-complete')).toBeTruthy());
+    expect(mockFetch.mock.calls.filter(([url]) => url === '/api/return-leg')).toHaveLength(1);
+  });
+
+  it('does_not_continue_non_recommended_partial_offer', async () => {
+    setupRoundTrip();
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => awardRoundTripResponse() }
+      : { ok: true, json: async () => ({ ok: true, cash_guidance: { recommended_offer_id: 'complete' }, offers: [{ offer_id: 'partial', price: 600, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }, { offer_id: 'complete', price: 700, returnDate: '2030-10-20', itinerary_state: 'complete', outbound_segments: roundTripSegments.outbound, return_segments: roundTripSegments.inbound }] }) });
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(screen.getByTestId('cash-round-trip-complete')).toBeTruthy());
+    expect(mockFetch.mock.calls.filter(([url]) => url === '/api/return-leg')).toHaveLength(0);
+  });
+
+  it('upgrades_only_matching_offer', async () => {
+    setupRoundTrip();
+    mockFetch.mockImplementation(async (url) => {
+      if (url === '/api/awards') return { ok: true, json: async () => awardRoundTripResponse() };
+      if (url === '/api/cheap') return { ok: true, json: async () => ({ ok: true, cash_guidance: { recommended_offer_id: 'target' }, offers: [{ offer_id: 'other', price: 620, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }, { offer_id: 'target', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }] }) };
+      return { ok: true, json: async () => ({ ok: true, offer_id: 'target', itinerary_state: 'complete', return_segments: roundTripSegments.inbound }) };
+    });
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(screen.getByTestId('cash-round-trip-complete')).toBeTruthy());
+    expect(screen.getByTestId('cash-candidate-card').getAttribute('data-offer-id')).toBe('target');
+    expect(container.textContent).toContain('Outbound details only');
+  });
+
+  it('continuation_failure_preserves_partial_state', async () => {
+    setupRoundTrip();
+    mockFetch.mockImplementation(async (url) => {
+      if (url === '/api/awards') return { ok: true, json: async () => awardRoundTripResponse() };
+      if (url === '/api/cheap') return { ok: true, json: async () => ({ ok: true, cash_guidance: { recommended_offer_id: 'rec' }, offers: [{ offer_id: 'rec', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }] }) };
+      return { ok: true, json: async () => ({ ok: false, itinerary_state: 'partial' }) };
+    });
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(screen.getByText('Return details unavailable')).toBeTruthy());
+    expect(screen.getByTestId('cash-round-trip-partial')).toBeTruthy();
+  });
+
+  it('ignores_stale_continuation_after_new_search', async () => {
+    setupRoundTrip();
+    let resolveContinuation!: (value: unknown) => void;
+    const continuation = new Promise(resolve => { resolveContinuation = resolve; });
+    let cheapCalls = 0;
+    mockFetch.mockImplementation(async (url) => {
+      if (url === '/api/awards') return { ok: true, json: async () => awardRoundTripResponse() };
+      if (url === '/api/cheap') {
+        cheapCalls += 1;
+        return cheapCalls === 1
+          ? { ok: true, json: async () => ({ ok: true, cash_guidance: { recommended_offer_id: 'old' }, offers: [{ offer_id: 'old', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }] }) }
+          : { ok: true, json: async () => ({ ok: true, offers: [{ offer_id: 'new', price: 999, returnDate: '2030-10-20', itinerary_state: 'complete', outbound_segments: roundTripSegments.outbound, return_segments: [{ dep_iata: 'JFK', arr_iata: 'FRA', airline: 'New Return' }] }] }) };
+      }
+      return continuation;
+    });
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(mockFetch.mock.calls.some(([url]) => url === '/api/return-leg')).toBe(true));
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(container.textContent).toContain('New Return'));
+    resolveContinuation({ ok: true, json: async () => ({ ok: true, offer_id: 'old', itinerary_state: 'complete', return_segments: [{ dep_iata: 'JFK', arr_iata: 'FRA', airline: 'Old Return' }] }) });
+    await Promise.resolve();
+    expect(container.textContent).not.toContain('Old Return');
+  });
+
+  it('does_not_expose_continuation_token', async () => {
+    setupRoundTrip();
+    mockFetch.mockImplementation(async (url) => {
+      if (url === '/api/awards') return { ok: true, json: async () => awardRoundTripResponse() };
+      if (url === '/api/cheap') return { ok: true, json: async () => ({ ok: true, cash_guidance: { recommended_offer_id: 'rec' }, offers: [{ offer_id: 'rec', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }] }) };
+      return { ok: true, json: async () => ({ ok: false, itinerary_state: 'partial' }) };
+    });
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(mockFetch.mock.calls.filter(([url]) => url === '/api/return-leg')).toHaveLength(1));
+    const call = mockFetch.mock.calls.find(([url]) => url === '/api/return-leg');
+    expect(call?.[1].body).not.toContain('token');
+    expect(container.textContent).not.toContain('token');
+  });
+
+  it('shows_outbound_only_award_disclosure', async () => {
+    setupRoundTrip();
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => awardRoundTripResponse() }
+      : { ok: true, json: async () => ({ ok: true, offers: [] }) });
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(screen.getByTestId('award-outbound-only-disclosure')).toBeTruthy());
+  });
+
+  it('suppresses_incompatible_round_trip_verdict', async () => {
+    setupRoundTrip();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => awardRoundTripResponse() }
+      : { ok: true, json: async () => ({ ok: true, offers: [{ offer_id: 'price', price: 600, returnDate: '2030-10-20', itinerary_state: 'price_only' }] }) });
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(screen.getByTestId('decision-verdict').textContent).toBe('Cash and award are not directly comparable'));
+    expect(container.textContent).not.toContain('Excellent Award Value');
+    fireEvent.click(screen.getByTestId('share-export-button'));
+    fireEvent.click(await screen.findByTestId('copy-summary-button'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(writeText.mock.calls[0][0]).toContain('Cash and award are not directly comparable');
+    expect(writeText.mock.calls[0][0]).not.toContain('Excellent Award Value');
+  });
+
+  it('renders_unknown_taxes_as_unknown', async () => {
+    setupRoundTrip();
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => awardRoundTripResponse({ programs: [{ program: 'Miles & More', miles: 50000 }] }) }
+      : { ok: true, json: async () => ({ ok: true, offers: [] }) });
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(container.textContent).toContain('Taxes and fees unknown'));
+    expect(container.textContent).not.toContain('€0');
+  });
+
+  it('renders_only_sanitized_provider_links', async () => {
+    setupRoundTrip();
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => awardRoundTripResponse({ programs: [{ program: 'Unsafe', miles: 50000, url: 'javascript:alert(1)' }] }) }
+      : { ok: true, json: async () => ({ ok: true, offers: [{ offer_id: 'price', price: 600, returnDate: '2030-10-20', itinerary_state: 'price_only', links: { Unsafe: 'data:text/html,bad', Safe: 'https://example.com/check' } }] }) });
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(container.querySelector('a[href="https://example.com/check"]')).toBeTruthy());
+    expect(container.querySelector('a[href^="javascript:"]')).toBeNull();
+    expect(container.querySelector('a[href^="data:"]')).toBeNull();
+    const external = container.querySelector('a.verification-link') as HTMLAnchorElement;
+    expect(external.target).toBe('_blank');
+    expect(external.rel).toBe('noopener noreferrer');
+  });
+
+  it('keeps_round_trip_controls_and_results_accessible', async () => {
+    setupRoundTrip();
+    mockFetch.mockImplementation(async (url) => url === '/api/awards'
+      ? { ok: true, json: async () => awardRoundTripResponse() }
+      : { ok: true, json: async () => ({ ok: true, offers: [{ offer_id: 'partial', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }] }) });
+    const { container } = render(<App />);
+    expect(container.textContent).toContain('Trip type');
+    expect(container.querySelector('time[datetime="2030-10-20"]')).toBeTruthy();
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(container.querySelector('[aria-label="Return details unavailable"]')).toBeTruthy());
   });
 });

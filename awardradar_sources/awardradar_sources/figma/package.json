@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build --base=/static/landing/ --outDir=../../../static/landing --emptyOutDir",
+    "test": "vitest run",
     "preview": "vite preview",
     "format": "oxfmt"
   },
@@ -17,11 +18,15 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
     "@vitejs/plugin-react": "^6.0.0",
+    "jsdom": "^29.1.1",
     "tailwindcss": "^4.0.0",
     "@tailwindcss/vite": "^4.0.0",
     "oxfmt": "^0.2.0",
     "typescript": "^5.7.0",
-    "vite": "^8.0.0"
+    "vite": "^8.0.0",
+    "vitest": "^4.1.10"
   }
 }

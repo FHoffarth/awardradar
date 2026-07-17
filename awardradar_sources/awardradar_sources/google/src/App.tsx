@@ -8,6 +8,132 @@ const IATA_CODE_PATTERN = /^[A-Z]{3}$/;
 const LABELED_IATA_PATTERN = /\(([A-Z]{3})\)\s*$/i;
 
 type PaneStatus = 'idle' | 'loading' | 'success' | 'error' | 'empty';
+type TripType = 'one_way' | 'round_trip';
+type ItineraryState = 'complete' | 'partial' | 'price_only';
+type ContinuationStatus = 'idle' | 'loading' | 'complete' | 'failed';
+
+type SearchRequest = {
+  lang: 'en';
+  origin: string;
+  dest: string;
+  date: string;
+  oneWay: boolean;
+  returnDate: string;
+  direct: false;
+  mmOnly: false;
+  currency: 'eur';
+  cabin: 'Economy';
+  cabins: ['Economy'];
+  flexDays: 0;
+};
+
+type FlightSegment = {
+  flight_number?: string | null;
+  airline?: string | null;
+  aircraft?: string | null;
+  dep_iata: string;
+  departure_datetime_raw?: string | null;
+  departure_date?: string | null;
+  dep_time?: string | null;
+  arr_iata: string;
+  arrival_datetime_raw?: string | null;
+  arrival_date?: string | null;
+  arr_time?: string | null;
+  arrival_day_offset?: number | null;
+  duration_min?: number | null;
+  overnight?: boolean | null;
+};
+
+type CashOffer = {
+  offer_id?: string;
+  source?: string;
+  price: number;
+  currency?: string;
+  origin?: string;
+  dest?: string;
+  date?: string;
+  returnDate?: string | null;
+  itinerary_state?: ItineraryState;
+  outbound_segments?: FlightSegment[];
+  return_segments?: FlightSegment[];
+  segments?: FlightSegment[];
+  time_data_status?: 'complete' | 'partial' | 'unavailable';
+  dep_time?: string | null;
+  arr_time?: string | null;
+  durationMin?: number | null;
+  stops?: number | null;
+  airline?: string | null;
+  airlineCode?: string | null;
+  bookUrl?: string | null;
+  links?: Record<string, string>;
+};
+
+type CashResponse = {
+  ok: boolean;
+  offers?: CashOffer[];
+  cash_guidance?: { recommended_offer_id?: string | null } | null;
+  cash_provenance?: { status?: string; reason?: string };
+  error?: string;
+};
+
+type AwardProgram = {
+  program?: string;
+  miles?: number | null;
+  miles_required?: number | null;
+  surcharge?: number | null;
+  taxes_fees?: number | null;
+  currency?: string;
+  url?: string | null;
+  verification_note?: string;
+  provider_limitations?: string[];
+  trip_type?: 'one_way' | 'round_trip' | 'unknown';
+  requested_trip_type?: 'one_way' | 'round_trip';
+  grade?: { tier?: string } | null;
+};
+
+type DecisionResult = {
+  signal?: string;
+  verdict?: string;
+  confidence?: string;
+  trip_basis_compatible?: boolean;
+  cash_trip_type?: string;
+  award_trip_type?: string;
+  verification_guidance?: string;
+};
+
+type AwardResult = {
+  origin?: string;
+  dest?: string;
+  date?: string;
+  returnDate?: string | null;
+  cabin?: string;
+  programs?: AwardProgram[];
+  has_live_data?: boolean;
+  verified_identical_routing?: boolean;
+  decision?: DecisionResult;
+  links?: Record<string, string>;
+};
+
+type AwardResponse = { ok: boolean; results?: AwardResult[]; error?: string };
+
+type ReturnLegRequest = {
+  origin: string;
+  dest: string;
+  date: string;
+  returnDate: string;
+  cabin: string;
+  cabins: string[];
+  currency: string;
+  mmOnly: boolean;
+  lang: string;
+  offer_id: string;
+};
+
+type ReturnLegResponse =
+  | { ok: true; offer_id: string; itinerary_state: 'complete'; outbound_segments?: FlightSegment[]; return_segments: FlightSegment[] }
+  | { ok: false; itinerary_state?: 'partial'; error?: string; message?: string; retryable?: boolean };
+
+type ContinuationState = { offerId: string | null; status: ContinuationStatus };
 
 function isValidDateString(dateStr: string): boolean {
   if (!DATE_PARAM_PATTERN.test(dateStr)) return false;
@@ -24,6 +150,32 @@ function getTripParam(name: string): string {
   } catch {
     return '';
   }
+}
+
+function parseTripType(value: string): TripType | null {
+  if (!value || value === 'one_way') return 'one_way';
+  if (value === 'round_trip') return 'round_trip';
+  return null;
+}
+
+export function safeExternalUrl(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+function cashVerificationUrl(offer: CashOffer): string | null {
+  const preferred = offer.links?.['Google Flights'];
+  const candidates = [preferred, ...Object.values(offer.links || {}), offer.bookUrl];
+  for (const candidate of candidates) {
+    const safe = safeExternalUrl(candidate);
+    if (safe) return safe;
+  }
+  return null;
 }
 
 function resolveAirportCode(value: string): string | null {
@@ -52,15 +204,27 @@ function formatTravelDate(value: string, forum = false): string {
   }).format(date);
 }
 
-function formatCashLine(cashOffer: any): string {
+function formatCashLine(cashOffer: any, tripType: TripType = 'one_way'): string {
   const hasPrice = cashOffer?.price !== undefined && cashOffer?.price !== null;
   const currency = String(cashOffer?.currency || 'EUR').toUpperCase();
   const price = hasPrice ? (currency === 'EUR' ? `€${cashOffer.price}` : `${cashOffer.price} ${currency}`) : '';
+  if (tripType === 'round_trip') {
+    const state = cashOffer?.itinerary_state === 'complete'
+      ? 'round-trip itinerary'
+      : cashOffer?.itinerary_state === 'partial'
+        ? 'round-trip price; outbound details only'
+        : 'round-trip price signal';
+    return [price, state].filter(Boolean).join(' · ') || 'Round-trip cash result available; verify the itinerary with the provider.';
+  }
   return [price, cashOffer?.airline].filter(Boolean).join(' · ') || 'Cash result available; verify the final fare with the provider.';
 }
 
-function formatCashAlternativeLine(cashOffer: any, forum = false): string {
-  const parts: string[] = [formatCashLine(cashOffer)];
+function formatCashAlternativeLine(cashOffer: any, forum = false, tripType: TripType = 'one_way'): string {
+  const parts: string[] = [formatCashLine(cashOffer, tripType)];
+  if (tripType === 'round_trip') {
+    const line = parts.filter(Boolean).join(' · ');
+    return forum ? line.replaceAll('€', '').replace(/(\d)\s*(?=·|$)/, '$1 EUR ') : line;
+  }
   if (cashOffer?.time_data_status === 'complete' && cashOffer?.dep_time && cashOffer?.arr_time) {
     parts.push(`${cashOffer.dep_time}–${cashOffer.arr_time}`);
   }
@@ -109,6 +273,7 @@ function buildShareContent({
   origin,
   destination,
   travelDate,
+  tripType,
 }: {
   result: any;
   cashOffer: any;
@@ -119,10 +284,11 @@ function buildShareContent({
   origin: string;
   destination: string;
   travelDate: string;
+  tripType: TripType;
 }): ShareContent {
   const date = formatTravelDate(travelDate);
   const forumDate = formatTravelDate(travelDate, true);
-  const decision = result ? getDecisionCopy(result, cashStatus === 'success', cashUnavailable) : null;
+  const decision = result ? getDecisionCopy(result, cashStatus === 'success', cashUnavailable, tripType) : null;
   const confidence = result?.decision?.confidence
     ? `${String(result.decision.confidence).charAt(0).toUpperCase()}${String(result.decision.confidence).slice(1)}`
     : null;
@@ -133,7 +299,7 @@ function buildShareContent({
     : null;
 
   const cashLine = cashStatus === 'success' && cashOffer
-    ? formatCashLine(cashOffer)
+    ? formatCashLine(cashOffer, tripType)
     : cashUnavailable
       ? 'Current cash comparison unavailable'
       : cashStatus === 'error'
@@ -149,8 +315,8 @@ function buildShareContent({
   const compactCashLine = additionalCashCount
     ? `${cashLine}\n${additionalCashCount} additional cash option${additionalCashCount === 1 ? '' : 's'} available`
     : cashLine;
-  const emailAlternatives = cashAlternatives.slice(0, 3).map(offer => `- ${formatCashAlternativeLine(offer)}`);
-  const forumAlternatives = cashAlternatives.slice(0, 3).map(offer => `- ${formatCashAlternativeLine(offer, true)}`);
+  const emailAlternatives = cashAlternatives.slice(0, 3).map(offer => `- ${formatCashAlternativeLine(offer, false, tripType)}`);
+  const forumAlternatives = cashAlternatives.slice(0, 3).map(offer => `- ${formatCashAlternativeLine(offer, true, tripType)}`);
 
   const notes: string[] = [];
   if (cashUnavailable) notes.push('A current cash comparison is unavailable.');
@@ -248,7 +414,13 @@ const SIGNAL_COPY: Record<string, { verdict: string; why: string }> = {
   },
 };
 
-function getDecisionCopy(result: any, cashAvailable: boolean, cashUnavailable: boolean) {
+function getDecisionCopy(result: AwardResult | undefined, cashAvailable: boolean, cashUnavailable: boolean, tripType: TripType = 'one_way') {
+  if (tripType === 'round_trip' && result?.decision?.trip_basis_compatible !== true) {
+    return {
+      verdict: 'Cash and award are not directly comparable',
+      why: 'The cash result covers a round trip, while the award signal covers the outbound journey only.',
+    };
+  }
   const copy = SIGNAL_COPY[result?.decision?.signal] || SIGNAL_COPY.unknown;
   const strongAwardSignal = ['exceptional_miles_value', 'strong_miles_value'].includes(result?.decision?.signal) ||
     ['exceptional', 'great'].includes(result?.programs?.[0]?.grade?.tier);
@@ -276,7 +448,7 @@ const SearchInstrument = ({
   validationError,
   compact,
 }: {
-  onAnalyze: (origin: string, dest: string, date: string) => void;
+  onAnalyze: (origin: string, dest: string, date: string, tripType: TripType, returnDate: string) => void;
   status: string;
   validationError: string | null;
   compact: boolean;
@@ -284,22 +456,38 @@ const SearchInstrument = ({
   const origin = getTripParam('from');
   const destination = getTripParam('to');
   const dateParam = getTripParam('date');
+  const tripParam = getTripParam('trip');
+  const returnDateParam = getTripParam('returnDate');
+  const tripType = parseTripType(tripParam);
   const originCode = resolveAirportCode(origin);
   const destinationCode = resolveAirportCode(destination);
   const originDisplay = origin || 'Origin';
   const destinationDisplay = destination || 'Destination';
   const dateIsValid = isValidDateString(dateParam);
+  const returnDateIsValid = isValidDateString(returnDateParam);
+  const tripValidationError = tripType === null
+    ? 'Trip type in this link is invalid.'
+    : tripType === 'round_trip' && !returnDateParam
+      ? 'A return date is required for a round-trip search.'
+      : tripType === 'round_trip' && !returnDateIsValid
+        ? 'A valid future return date (YYYY-MM-DD) is required.'
+        : tripType === 'round_trip' && dateIsValid && returnDateParam < dateParam
+          ? 'Return date must not be before the departure date.'
+          : null;
   const dateLabel = dateIsValid ? dateParam : 'Date not selected';
-  const canAnalyze = Boolean(originCode && destinationCode && originCode !== destinationCode && dateIsValid);
+  const canAnalyze = Boolean(originCode && destinationCode && originCode !== destinationCode && dateIsValid && tripType && !tripValidationError);
 
   useEffect(() => {
     if (!originCode || !destinationCode) return;
-    if (origin === originCode && destination === destinationCode) return;
+    const hasCanonicalCodes = origin === originCode && destination === destinationCode;
+    const hasStrayOneWayReturn = tripType === 'one_way' && Boolean(returnDateParam);
+    if (hasCanonicalCodes && !hasStrayOneWayReturn) return;
     const canonicalUrl = new URL(window.location.href);
     canonicalUrl.searchParams.set('from', originCode);
     canonicalUrl.searchParams.set('to', destinationCode);
+    if (tripType === 'one_way') canonicalUrl.searchParams.delete('returnDate');
     window.history.replaceState(window.history.state, '', `${canonicalUrl.pathname}${canonicalUrl.search}${canonicalUrl.hash}`);
-  }, [origin, destination, originCode, destinationCode]);
+  }, [origin, destination, originCode, destinationCode, tripType, returnDateParam]);
 
   return (
     <motion.section
@@ -312,13 +500,13 @@ const SearchInstrument = ({
     >
       <div className="section-kicker" id="search-context-title">Search context</div>
 
-      {validationError && (
+      {(validationError || tripValidationError) && (
         <div className="validation-error" role="alert" data-testid="validation-error">
-          <AlertTriangle aria-hidden="true" /> {validationError}
+          <AlertTriangle aria-hidden="true" /> {validationError || tripValidationError}
         </div>
       )}
 
-      <div className="search-instrument">
+      <div className={`search-instrument ${tripType === 'round_trip' ? 'search-instrument--round-trip' : ''}`}>
         <div className="search-field search-field--accent">
           <span className="field-label">From</span>
           <strong>{originDisplay}</strong>
@@ -331,8 +519,18 @@ const SearchInstrument = ({
           <span className="field-label">Date</span>
           <time dateTime={dateParam || undefined}>{dateLabel}</time>
         </div>
+        <div className="search-field">
+          <span className="field-label">Trip type</span>
+          <strong>{tripType === 'round_trip' ? 'Round-trip' : tripType === 'one_way' ? 'One-way' : 'Invalid'}</strong>
+        </div>
+        {tripType === 'round_trip' && (
+          <div className="search-field">
+            <span className="field-label">Return</span>
+            <time dateTime={returnDateParam || undefined}>{returnDateIsValid ? returnDateParam : 'Return date not selected'}</time>
+          </div>
+        )}
         <button
-          onClick={() => originCode && destinationCode && onAnalyze(originCode, destinationCode, dateParam)}
+          onClick={() => originCode && destinationCode && tripType && onAnalyze(originCode, destinationCode, dateParam, tripType, tripType === 'round_trip' ? returnDateParam : '')}
           disabled={status === 'loading' || !canAnalyze}
           data-testid="analyze-button"
           className="primary-action interactive-only"
@@ -347,8 +545,8 @@ const SearchInstrument = ({
   );
 };
 
-const DecisionSummary = ({ result, cashAvailable, cashUnavailable }: { result: any; cashAvailable: boolean; cashUnavailable: boolean }) => {
-  const copy = getDecisionCopy(result, cashAvailable, cashUnavailable);
+const DecisionSummary = ({ result, cashAvailable, cashUnavailable, tripType }: { result: AwardResult; cashAvailable: boolean; cashUnavailable: boolean; tripType: TripType }) => {
+  const copy = getDecisionCopy(result, cashAvailable, cashUnavailable, tripType);
   return (
     <>
       <motion.section className="result-section decision-summary" aria-labelledby="decision-title" data-testid="decision-summary"
@@ -369,8 +567,72 @@ const DecisionSummary = ({ result, cashAvailable, cashUnavailable }: { result: a
   );
 };
 
-const CashCandidate = ({ cashOffer, isLimited }: { cashOffer: any; isLimited: boolean }) => (
-  <article className="option-card" data-testid="cash-candidate-card" aria-labelledby="cash-option-title">
+const SegmentList = ({ label, segments }: { label: string; segments: FlightSegment[] }) => (
+  <section className="journey-leg" aria-label={label}>
+    <h4>{label}</h4>
+    <ol>
+      {segments.map((segment, index) => (
+        <li key={`${segment.dep_iata}-${segment.arr_iata}-${segment.flight_number || index}`}>
+          <strong>{segment.dep_iata} <span aria-hidden="true">→</span> {segment.arr_iata}</strong>
+          {(segment.dep_time || segment.arr_time) && <span>{segment.dep_time || '—'}–{segment.arr_time || '—'}</span>}
+          {(segment.airline || segment.flight_number) && <span>{[segment.airline, segment.flight_number].filter(Boolean).join(' · ')}</span>}
+        </li>
+      ))}
+    </ol>
+  </section>
+);
+
+const CashVerification = ({ offer }: { offer: CashOffer }) => {
+  const url = cashVerificationUrl(offer);
+  return url ? (
+    <a className="verification-link" href={url} target="_blank" rel="noopener noreferrer">Check current fare</a>
+  ) : (
+    <p className="verification-guidance">Verify the current fare with a flight provider.</p>
+  );
+};
+
+const CashRoundTripDetails = ({ offer, continuationStatus }: { offer: CashOffer; continuationStatus: ContinuationStatus }) => {
+  const state = offer.itinerary_state;
+  const requestedReturn = offer.returnDate ? formatTravelDate(offer.returnDate) : 'Not provided';
+  if (state === 'price_only') {
+    return (
+      <div className="round-trip-integrity price-only" data-testid="cash-round-trip-price-only">
+        <p className="integrity-label">Round-trip price signal</p>
+        <dl className="trip-request-facts">
+          <div><dt>Route</dt><dd>{offer.origin || 'Origin'} → {offer.dest || 'Destination'}</dd></div>
+          <div><dt>Departure</dt><dd>{formatTravelDate(offer.date || '')}</dd></div>
+          <div><dt>Requested return</dt><dd>{requestedReturn}</dd></div>
+        </dl>
+        <p className="card-caveat">The current source returned a round-trip price without reliable itinerary details.</p>
+      </div>
+    );
+  }
+  if (state === 'complete') {
+    return (
+      <div className="round-trip-integrity complete" data-testid="cash-round-trip-complete">
+        <p className="integrity-label">Round-trip details available</p>
+        <SegmentList label="Outbound" segments={offer.outbound_segments || []} />
+        <SegmentList label="Return" segments={offer.return_segments || []} />
+        <p className="requested-return">Requested return: {requestedReturn}</p>
+        <p className="card-caveat">Returned fare data includes both journey legs. Verify schedules and fare conditions before purchase.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="round-trip-integrity partial" data-testid="cash-round-trip-partial">
+      <p className="integrity-label">{continuationStatus === 'loading' ? 'Checking return details…' : 'Return details unavailable'}</p>
+      <SegmentList label="Outbound" segments={offer.outbound_segments || []} />
+      <section className="return-placeholder" aria-label="Return details unavailable">
+        <h4>Return</h4>
+        <p>Return itinerary details are not available.</p>
+        <p>Requested return: {requestedReturn}</p>
+      </section>
+    </div>
+  );
+};
+
+const CashCandidate = ({ cashOffer, isLimited, isRoundTrip, continuationStatus }: { cashOffer: CashOffer; isLimited: boolean; isRoundTrip: boolean; continuationStatus: ContinuationStatus }) => (
+  <article className="option-card" data-testid="cash-candidate-card" data-offer-id={cashOffer.offer_id} aria-labelledby="cash-option-title">
     <div className="option-card__header">
       <div>
         <p className="option-type">Cash option</p>
@@ -378,7 +640,14 @@ const CashCandidate = ({ cashOffer, isLimited }: { cashOffer: any; isLimited: bo
       </div>
       {cashOffer.currency && <span className="data-source">{cashOffer.currency}</span>}
     </div>
-    <dl className="option-facts">
+    {isRoundTrip ? (
+      <>
+        <dl className="option-facts option-facts--price-only">
+          <div className="primary-fact"><dt>Price</dt><dd>{cashOffer.currency === 'EUR' || !cashOffer.currency ? '€' : ''}{cashOffer.price}</dd></div>
+        </dl>
+        <CashRoundTripDetails offer={cashOffer} continuationStatus={continuationStatus} />
+      </>
+    ) : <dl className="option-facts">
       <div className="primary-fact">
         <dt>Price</dt>
         <dd>{cashOffer.currency === 'EUR' || !cashOffer.currency ? '€' : ''}{cashOffer.price}</dd>
@@ -395,40 +664,43 @@ const CashCandidate = ({ cashOffer, isLimited }: { cashOffer: any; isLimited: bo
           <dt>Schedule detail</dt><dd>Time and stop details unavailable. Please verify with the provider.</dd>
         </div>
       )}
-    </dl>
+    </dl>}
     {isLimited && (
       <p className="card-caveat" data-testid="limited-comparison-disclaimer">
         This cash itinerary may route differently than the award option.
       </p>
     )}
+    <CashVerification offer={cashOffer} />
   </article>
 );
 
-const CashAlternatives = ({ offers }: { offers: any[] }) => {
+const CashAlternatives = ({ offers, isRoundTrip }: { offers: CashOffer[]; isRoundTrip: boolean }) => {
   if (!offers.length) return null;
   return (
     <section className="cash-alternatives" aria-labelledby="cash-alternatives-title" data-testid="cash-alternatives">
       <h3 id="cash-alternatives-title">Other viable cash options</h3>
       <div className="cash-alternatives__list">
         {offers.map((offer, index) => {
-          const hasCompleteTimes = offer?.time_data_status === 'complete' && offer?.dep_time && offer?.arr_time;
+          const hasCompleteTimes = !isRoundTrip && offer?.time_data_status === 'complete' && offer?.dep_time && offer?.arr_time;
           return (
             <article className="cash-alternative-row" key={`${offer?.offer_id || 'cash-alternative'}-${index}`} data-testid="cash-alternative-row">
               <div className="cash-alternative-row__lead">
                 <strong>{offer?.currency === 'EUR' || !offer?.currency ? '€' : ''}{offer?.price}</strong>
                 {offer?.currency && offer.currency !== 'EUR' && <span>{offer.currency}</span>}
-                {offer?.airline && <span>{offer.airline}</span>}
+                {!isRoundTrip && offer?.airline && <span>{offer.airline}</span>}
               </div>
               <div className="cash-alternative-row__facts">
+                {isRoundTrip && <span>{offer.itinerary_state === 'complete' ? 'Round-trip details available' : offer.itinerary_state === 'price_only' ? 'Round-trip price signal' : 'Outbound details only'}</span>}
                 {hasCompleteTimes && <span>{offer.dep_time}–{offer.arr_time}</span>}
-                {Number.isFinite(offer?.durationMin) && (
+                {!isRoundTrip && Number.isFinite(offer?.durationMin) && (
                   <span>{Math.floor(offer.durationMin / 60)}h{offer.durationMin % 60 ? ` ${offer.durationMin % 60}m` : ''}</span>
                 )}
-                {Number.isFinite(offer?.stops) && <span>{offer.stops === 0 ? 'Nonstop' : `${offer.stops} stop${offer.stops === 1 ? '' : 's'}`}</span>}
+                {!isRoundTrip && Number.isFinite(offer?.stops) && <span>{offer.stops === 0 ? 'Nonstop' : `${offer.stops} stop${offer.stops === 1 ? '' : 's'}`}</span>}
               </div>
-              {!hasCompleteTimes && (
+              {!isRoundTrip && !hasCompleteTimes && (
                 <p className="cash-alternative-row__disclosure">Schedule details unavailable. Verify with the provider.</p>
               )}
+              {isRoundTrip && offer.returnDate && <p className="cash-alternative-row__disclosure">Requested return: {formatTravelDate(offer.returnDate)}. Verify return details before purchase.</p>}
             </article>
           );
         })}
@@ -437,8 +709,9 @@ const CashAlternatives = ({ offers }: { offers: any[] }) => {
   );
 };
 
-const AwardCandidate = ({ result }: { result: any }) => {
+const AwardCandidate = ({ result, tripType }: { result: AwardResult; tripType: TripType }) => {
   const bestProgram = result?.programs?.[0];
+  const verificationUrl = safeExternalUrl(bestProgram?.url);
   return (
     <article className="option-card" data-testid="award-candidate-card" aria-labelledby="award-option-title">
       <div className="option-card__header">
@@ -451,13 +724,23 @@ const AwardCandidate = ({ result }: { result: any }) => {
       {bestProgram ? (
         <dl className="option-facts" data-testid="award-candidate">
           <div className="primary-fact"><dt>Miles</dt><dd>{bestProgram.miles?.toLocaleString()}</dd></div>
-          {bestProgram.surcharge !== undefined && <div><dt>Surcharges</dt><dd>€{bestProgram.surcharge}</dd></div>}
+          {bestProgram.taxes_fees != null || bestProgram.surcharge != null
+            ? <div><dt>Estimated taxes &amp; fees</dt><dd>€{bestProgram.taxes_fees ?? bestProgram.surcharge}</dd></div>
+            : <div className="fact-disclosure"><dt>Taxes &amp; fees</dt><dd>Taxes and fees unknown — verify with the program.</dd></div>}
           {bestProgram.program && <div><dt>Program</dt><dd>{bestProgram.program}</dd></div>}
         </dl>
       ) : (
         <p className="missing-pane" data-testid="missing-award-detail">No program-level award detail is available in this analysis.</p>
       )}
+      {tripType === 'round_trip' && (
+        <p className="card-caveat award-outbound-disclosure" data-testid="award-outbound-only-disclosure">
+          Outbound award signal only. Return award availability is not included in this round-trip analysis.
+        </p>
+      )}
       {!result?.has_live_data && <p className="card-caveat">Award figures are estimates and do not confirm availability.</p>}
+      {verificationUrl
+        ? <a className="verification-link" href={verificationUrl} target="_blank" rel="noopener noreferrer">Verify with program</a>
+        : <p className="verification-guidance">Check award availability manually with the loyalty program.</p>}
     </article>
   );
 };
@@ -627,30 +910,102 @@ const ResultActions = ({ content, onPrint }: { content: ShareContent; onPrint: (
 export default function App() {
   const [awardStatus, setAwardStatus] = useState<PaneStatus>('idle');
   const [cashStatus, setCashStatus] = useState<PaneStatus>('idle');
-  const [awardData, setAwardData] = useState<any>(null);
-  const [cashData, setCashData] = useState<any>(null);
+  const [awardData, setAwardData] = useState<AwardResponse | null>(null);
+  const [cashData, setCashData] = useState<CashResponse | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [exportTimestamp, setExportTimestamp] = useState<Date | null>(null);
+  const [activeRequest, setActiveRequest] = useState<SearchRequest | null>(null);
+  const [continuationState, setContinuationState] = useState<ContinuationState>({ offerId: null, status: 'idle' });
+  const searchEpochRef = useRef(0);
+  const continuationAttemptsRef = useRef<Set<string>>(new Set());
+  const continuationAbortRef = useRef<AbortController | null>(null);
 
-  const handleAnalyze = async (origin: string, dest: string, date: string) => {
+  useEffect(() => () => continuationAbortRef.current?.abort(), []);
+
+  const verifyRecommendedReturnLeg = async (cashResponse: CashResponse, request: SearchRequest, epoch: number) => {
+    if (request.oneWay || !request.returnDate) return;
+    const recommendedId = cashResponse.cash_guidance?.recommended_offer_id?.trim();
+    if (!recommendedId) return;
+    const offer = (cashResponse.offers || []).find(candidate => candidate.offer_id === recommendedId);
+    if (!offer || offer.itinerary_state !== 'partial' || !offer.offer_id) return;
+
+    const guardKey = `${epoch}|${offer.offer_id}|${request.date}|${request.returnDate}`;
+    if (continuationAttemptsRef.current.has(guardKey)) return;
+    continuationAttemptsRef.current.add(guardKey);
+
+    continuationAbortRef.current?.abort();
+    const controller = new AbortController();
+    continuationAbortRef.current = controller;
+    setContinuationState({ offerId: offer.offer_id, status: 'loading' });
+
+    const continuationRequest: ReturnLegRequest = {
+      origin: request.origin,
+      dest: request.dest,
+      date: request.date,
+      returnDate: request.returnDate,
+      cabin: request.cabin,
+      cabins: request.cabins,
+      currency: request.currency,
+      mmOnly: request.mmOnly,
+      lang: request.lang,
+      offer_id: offer.offer_id,
+    };
+
+    try {
+      const response = await fetch('/api/return-leg', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(continuationRequest),
+        signal: controller.signal,
+      });
+      const json = await response.json() as ReturnLegResponse;
+      if (searchEpochRef.current !== epoch) return;
+      if (!json.ok || json.offer_id !== offer.offer_id || json.itinerary_state !== 'complete' || !Array.isArray(json.return_segments) || !json.return_segments.length) {
+        setContinuationState({ offerId: offer.offer_id, status: 'failed' });
+        return;
+      }
+      setCashData(previous => previous ? {
+        ...previous,
+        offers: (previous.offers || []).map(candidate => candidate.offer_id === offer.offer_id ? {
+          ...candidate,
+          itinerary_state: 'complete',
+          outbound_segments: json.outbound_segments?.length ? json.outbound_segments : candidate.outbound_segments,
+          return_segments: json.return_segments,
+        } : candidate),
+      } : previous);
+      setContinuationState({ offerId: offer.offer_id, status: 'complete' });
+    } catch {
+      if (searchEpochRef.current === epoch && !controller.signal.aborted) {
+        setContinuationState({ offerId: offer.offer_id, status: 'failed' });
+      }
+    }
+  };
+
+  const handleAnalyze = async (origin: string, dest: string, date: string, tripType: TripType, returnDate: string) => {
     const originCode = resolveAirportCode(origin);
     const destinationCode = resolveAirportCode(dest);
     if (!originCode) { setValidationError('A resolved three-letter origin airport code is required.'); return; }
     if (!destinationCode) { setValidationError('A resolved three-letter destination airport code is required.'); return; }
     if (originCode === destinationCode) { setValidationError('Origin and destination must be different.'); return; }
     if (!isValidDateString(date)) { setValidationError('A valid future date (YYYY-MM-DD) is required.'); return; }
+    if (tripType === 'round_trip' && !isValidDateString(returnDate)) { setValidationError('A valid future return date (YYYY-MM-DD) is required.'); return; }
+    if (tripType === 'round_trip' && returnDate < date) { setValidationError('Return date must not be before the departure date.'); return; }
 
+    const epoch = ++searchEpochRef.current;
+    continuationAbortRef.current?.abort();
+    continuationAttemptsRef.current.clear();
+    setContinuationState({ offerId: null, status: 'idle' });
     setValidationError(null);
     setAwardStatus('loading');
     setCashStatus('loading');
 
-    const requestPayload = {
+    const requestPayload: SearchRequest = {
       lang: 'en',
       origin: originCode,
       dest: destinationCode,
       date: date,
-      oneWay: true,
-      returnDate: '',
+      oneWay: tripType === 'one_way',
+      returnDate: tripType === 'round_trip' ? returnDate : '',
       direct: false,
       mmOnly: false,
       currency: 'eur',
@@ -658,6 +1013,7 @@ export default function App() {
       cabins: ['Economy'],
       flexDays: 0,
     };
+    setActiveRequest(requestPayload);
 
     const awardPromise = fetch('/api/awards', {
       method: 'POST',
@@ -674,7 +1030,7 @@ export default function App() {
     const [awardRes, cashRes] = await Promise.allSettled([awardPromise, cashPromise]);
 
     if (awardRes.status === 'fulfilled') {
-      const json = awardRes.value;
+      const json = awardRes.value as AwardResponse;
       if (!json.ok) {
         setAwardStatus('error');
         setAwardData(json);
@@ -690,7 +1046,7 @@ export default function App() {
     }
 
     if (cashRes.status === 'fulfilled') {
-      const json = cashRes.value;
+      const json = cashRes.value as CashResponse;
       if (!json.ok) {
         setCashStatus('error');
         setCashData(json);
@@ -700,6 +1056,7 @@ export default function App() {
       } else {
         setCashData(json);
         setCashStatus('success');
+        void verifyRecommendedReturnLeg(json, requestPayload, epoch);
       }
     } else {
       setCashStatus('error');
@@ -711,10 +1068,17 @@ export default function App() {
     (awardStatus === 'error' && cashStatus === 'error') ? 'error' : 'empty';
 
   const result = awardData?.results?.[0];
-  const cashOffers = Array.isArray(cashData?.offers) ? cashData.offers : [];
+  const returnedCashOffers = Array.isArray(cashData?.offers) ? cashData.offers : [];
+  const recommendedCashId = cashData?.cash_guidance?.recommended_offer_id;
+  const cashOffers = recommendedCashId && returnedCashOffers.some(offer => offer.offer_id === recommendedCashId)
+    ? [returnedCashOffers.find(offer => offer.offer_id === recommendedCashId)!, ...returnedCashOffers.filter(offer => offer.offer_id !== recommendedCashId)]
+    : returnedCashOffers;
   const cashOffer = cashOffers[0];
   const cashAlternatives = cashStatus === 'success' ? cashOffers.slice(1, 4) : [];
   const cashUnavailable = cashData?.cash_provenance?.status === 'unavailable';
+  const hydratedTripType = parseTripType(getTripParam('trip')) || 'one_way';
+  const tripType: TripType = activeRequest ? (activeRequest.oneWay ? 'one_way' : 'round_trip') : hydratedTripType;
+  const isRoundTrip = tripType === 'round_trip';
   const isLimited = result?.verified_identical_routing !== true;
   const hasSuccessfulPane = awardStatus === 'success' || cashStatus === 'success';
   const routeOrigin = result?.origin || getTripParam('from') || 'Origin';
@@ -730,7 +1094,8 @@ export default function App() {
     origin: routeOrigin,
     destination: routeDestination,
     travelDate,
-  }), [result, cashOffer, cashAlternatives, cashUnavailable, awardStatus, cashStatus, routeOrigin, routeDestination, travelDate]);
+    tripType,
+  }), [result, cashOffer, cashAlternatives, cashUnavailable, awardStatus, cashStatus, routeOrigin, routeDestination, travelDate, tripType]);
 
   const handlePrint = () => {
     flushSync(() => setExportTimestamp(new Date()));
@@ -773,16 +1138,16 @@ export default function App() {
 
         {hasSuccessfulPane && (
           <div className="result-flow" data-testid="result-flow">
-            {awardStatus === 'success' && result && <DecisionSummary result={result} cashAvailable={cashStatus === 'success'} cashUnavailable={cashUnavailable} />}
+            {awardStatus === 'success' && result && <DecisionSummary result={result} cashAvailable={cashStatus === 'success'} cashUnavailable={cashUnavailable} tripType={tripType} />}
 
             <section className="result-section options-section" aria-labelledby="options-title">
               <h2 id="options-title">Best Options</h2>
               <div className="options-grid" data-testid="options-grid">
                 <div className="cash-option-stack" data-testid="cash-option-stack">
-                  {cashStatus === 'success' && cashOffer ? <CashCandidate cashOffer={cashOffer} isLimited={isLimited} /> : cashUnavailable ? <CashUnavailable /> : <PaneUnavailable kind="Cash" status={cashStatus} />}
-                  {cashStatus === 'success' && cashOffer && <CashAlternatives offers={cashAlternatives} />}
+                  {cashStatus === 'success' && cashOffer ? <CashCandidate cashOffer={cashOffer} isLimited={isLimited} isRoundTrip={isRoundTrip} continuationStatus={continuationState.offerId === cashOffer.offer_id ? continuationState.status : 'idle'} /> : cashUnavailable ? <CashUnavailable /> : <PaneUnavailable kind="Cash" status={cashStatus} />}
+                  {cashStatus === 'success' && cashOffer && <CashAlternatives offers={cashAlternatives} isRoundTrip={isRoundTrip} />}
                 </div>
-                {awardStatus === 'success' && result ? <AwardCandidate result={result} /> : <PaneUnavailable kind="Award" status={awardStatus} />}
+                {awardStatus === 'success' && result ? <AwardCandidate result={result} tripType={tripType} /> : <PaneUnavailable kind="Award" status={awardStatus} />}
               </div>
             </section>
 
