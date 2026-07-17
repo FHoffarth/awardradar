@@ -548,6 +548,16 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("consent.css?v=2", html)
         self.assertNotIn("app.js?v=147", html)
 
+    def test_about_theme_script_initializes_document_root_before_use(self):
+        response = self.client.get("/about")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        initialization = "var root = document.documentElement;"
+        first_use = "root.dataset.theme"
+        self.assertIn(initialization, html)
+        self.assertIn(first_use, html)
+        self.assertLess(html.index(initialization), html.index(first_use))
+
     def test_about_navigation_exists_on_legacy_tool(self):
         response = self.client.get("/tool")
         self.assertEqual(response.status_code, 200)

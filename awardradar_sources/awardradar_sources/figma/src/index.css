@@ -405,6 +405,24 @@ html, body, #root {
     width: calc(100% + 96px) !important;
     flex-direction: row !important;
   }
+  .ar-instrument--round-trip .ar-field--from,
+  .ar-instrument--round-trip .ar-field--to {
+    flex: 1 1 0;
+    min-width: 120px;
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+  }
+  .ar-instrument--round-trip .ar-field--date,
+  .ar-instrument--round-trip .ar-field--return {
+    flex: 0 0 140px;
+    min-width: 0;
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
+  .ar-instrument--round-trip .ar-date-input {
+    width: 100% !important;
+    min-width: 0;
+  }
   .ar-field {
     padding: 24px 48px 22px !important;
   }

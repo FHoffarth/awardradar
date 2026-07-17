@@ -826,7 +826,7 @@ export default function App() {
                 <span>Round-trip</span>
               </label>
             </fieldset>
-            <div className="ar-instrument" style={{
+            <div className={`ar-instrument${tripType === 'round_trip' ? ' ar-instrument--round-trip' : ''}`} style={{
               width: '100%',
               display: 'flex',
               alignItems: 'stretch',

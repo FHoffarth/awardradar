@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
 import App, { buildAppSearchUrl } from './App'
+
+const landingCss = readFileSync('src/index.css', 'utf8')
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -39,15 +42,30 @@ describe('Landing round-trip search', () => {
   afterEach(() => cleanup())
 
   it('defaults_to_one_way_and_hides_return_date', () => {
-    render(<App />)
+    const { container } = render(<App />)
     expect((screen.getByRole('radio', { name: 'One-way' }) as HTMLInputElement).checked).toBe(true)
     expect(screen.queryByLabelText('Return date')).toBeNull()
+    expect(container.querySelector('.ar-instrument--round-trip')).toBeNull()
   })
 
   it('shows_return_date_for_round_trip', () => {
-    render(<App />)
+    const { container } = render(<App />)
     fireEvent.click(screen.getByRole('radio', { name: 'Round-trip' }))
     expect(screen.getByLabelText('Return date')).toBeTruthy()
+    const instrument = container.querySelector('.ar-instrument--round-trip')
+    expect(instrument).toBeTruthy()
+    expect(instrument?.querySelector('.ar-field--from')).toBeTruthy()
+    expect(instrument?.querySelector('.ar-field--to')).toBeTruthy()
+    expect(instrument?.querySelector('.ar-field--date')).toBeTruthy()
+    expect(instrument?.querySelector('.ar-field--return')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Analyze route' })).toBeTruthy()
+  })
+
+  it('keeps_round_trip_desktop_width_constraints_scoped_to_its_layout_marker', () => {
+    expect(landingCss).toContain('.ar-instrument--round-trip .ar-field--from')
+    expect(landingCss).toContain('.ar-instrument--round-trip .ar-field--return')
+    expect(landingCss).toContain('min-width: 120px')
+    expect(landingCss).toContain('flex: 0 0 140px')
   })
 
   it('requires_return_date_for_round_trip', () => {
