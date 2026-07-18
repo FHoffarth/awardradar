@@ -1,0 +1,63 @@
+{
+  "scenario": "cash_one_way_complete",
+  "source_provenance": "synthetic_test_fixture",
+  "live_availability_claimed": false,
+  "offers": [
+    {
+      "origin": "FRA",
+      "dest": "JFK",
+      "date": "2030-10-10",
+      "price": 499.0,
+      "currency": "EUR",
+      "airline": "Lufthansa",
+      "airlineCode": "LH",
+      "dep_time": "10:00",
+      "arr_time": "13:00",
+      "durationMin": 480,
+      "stops": 0,
+      "time_data_status": "complete",
+      "dealScore": 92,
+      "links": {
+        "Google Flights": "https://example.com/verify/fra-jfk-primary"
+      },
+      "outbound_segments": [
+        {
+          "dep_iata": "FRA",
+          "arr_iata": "JFK",
+          "dep_time": "10:00",
+          "arr_time": "13:00",
+          "airline": "Lufthansa",
+          "flight_number": "LH 400"
+        }
+      ]
+    },
+    {
+      "origin": "FRA",
+      "dest": "JFK",
+      "date": "2030-10-10",
+      "price": 545.0,
+      "currency": "EUR",
+      "airline": "United",
+      "airlineCode": "UA",
+      "dep_time": "11:30",
+      "arr_time": "15:10",
+      "durationMin": 520,
+      "stops": 1,
+      "time_data_status": "complete",
+      "dealScore": 78,
+      "links": {
+        "Google Flights": "https://example.com/verify/fra-jfk-alt"
+      },
+      "outbound_segments": [
+        {
+          "dep_iata": "FRA",
+          "arr_iata": "EWR",
+          "dep_time": "11:30",
+          "arr_time": "14:00",
+          "airline": "United",
+          "flight_number": "UA 961"
+        }
+      ]
+    }
+  ]
+}

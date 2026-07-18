@@ -1,0 +1,81 @@
+{
+  "scenario": "cash_round_trip_complete",
+  "source_provenance": "synthetic_test_fixture",
+  "live_availability_claimed": false,
+  "offers": [
+    {
+      "origin": "FRA",
+      "dest": "JFK",
+      "date": "2030-10-10",
+      "returnDate": "2030-10-20",
+      "price": 701.0,
+      "currency": "EUR",
+      "airline": "Lufthansa",
+      "airlineCode": "LH",
+      "dep_time": "10:00",
+      "arr_time": "13:00",
+      "durationMin": 480,
+      "stops": 0,
+      "time_data_status": "complete",
+      "dealScore": 90,
+      "itinerary_state": "complete",
+      "outbound_segments": [
+        {
+          "dep_iata": "FRA",
+          "arr_iata": "JFK",
+          "dep_time": "10:00",
+          "arr_time": "13:00",
+          "airline": "Lufthansa",
+          "flight_number": "LH 400"
+        }
+      ],
+      "return_segments": [
+        {
+          "dep_iata": "JFK",
+          "arr_iata": "FRA",
+          "dep_time": "18:00",
+          "arr_time": "08:00",
+          "airline": "Lufthansa",
+          "flight_number": "LH 401"
+        }
+      ]
+    },
+    {
+      "origin": "FRA",
+      "dest": "JFK",
+      "date": "2030-10-10",
+      "returnDate": "2030-10-20",
+      "price": 755.0,
+      "currency": "EUR",
+      "airline": "United",
+      "airlineCode": "UA",
+      "dep_time": "09:30",
+      "arr_time": "13:20",
+      "durationMin": 540,
+      "stops": 1,
+      "time_data_status": "complete",
+      "dealScore": 74,
+      "itinerary_state": "complete",
+      "outbound_segments": [
+        {
+          "dep_iata": "FRA",
+          "arr_iata": "EWR",
+          "dep_time": "09:30",
+          "arr_time": "12:15",
+          "airline": "United",
+          "flight_number": "UA 961"
+        }
+      ],
+      "return_segments": [
+        {
+          "dep_iata": "JFK",
+          "arr_iata": "FRA",
+          "dep_time": "17:25",
+          "arr_time": "07:35",
+          "airline": "United",
+          "flight_number": "UA 962"
+        }
+      ]
+    }
+  ]
+}

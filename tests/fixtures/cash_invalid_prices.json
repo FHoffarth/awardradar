@@ -1,0 +1,94 @@
+{
+  "scenario": "cash_invalid_prices",
+  "source_provenance": "synthetic_test_fixture",
+  "live_availability_claimed": false,
+  "offers": [
+    {
+      "origin": "FRA",
+      "dest": "JFK",
+      "date": "2030-10-10",
+      "price": 0,
+      "currency": "EUR",
+      "dealScore": 99
+    },
+    {
+      "origin": "FRA",
+      "dest": "JFK",
+      "date": "2030-10-10",
+      "price": -1,
+      "currency": "EUR",
+      "dealScore": 99
+    },
+    {
+      "origin": "FRA",
+      "dest": "JFK",
+      "date": "2030-10-10",
+      "price": null,
+      "currency": "EUR",
+      "dealScore": 99
+    },
+    {
+      "origin": "FRA",
+      "dest": "JFK",
+      "date": "2030-10-10",
+      "price": "",
+      "currency": "EUR",
+      "dealScore": 99
+    },
+    {
+      "origin": "FRA",
+      "dest": "JFK",
+      "date": "2030-10-10",
+      "price": "   ",
+      "currency": "EUR",
+      "dealScore": 99
+    },
+    {
+      "origin": "FRA",
+      "dest": "JFK",
+      "date": "2030-10-10",
+      "price": "abc",
+      "currency": "EUR",
+      "dealScore": 99
+    },
+    {
+      "origin": "FRA",
+      "dest": "JFK",
+      "date": "2030-10-10",
+      "price": "NaN",
+      "currency": "EUR",
+      "dealScore": 99
+    },
+    {
+      "origin": "FRA",
+      "dest": "JFK",
+      "date": "2030-10-10",
+      "price": "Infinity",
+      "currency": "EUR",
+      "dealScore": 99
+    },
+    {
+      "origin": "FRA",
+      "dest": "JFK",
+      "date": "2030-10-10",
+      "price": true,
+      "currency": "EUR",
+      "dealScore": 99
+    },
+    {
+      "origin": "FRA",
+      "dest": "JFK",
+      "date": "2030-10-10",
+      "price": 150.0,
+      "currency": "EUR",
+      "airline": "Valid Control",
+      "airlineCode": "VC",
+      "dep_time": "09:00",
+      "arr_time": "12:00",
+      "durationMin": 540,
+      "stops": 0,
+      "time_data_status": "complete",
+      "dealScore": 75
+    }
+  ]
+}

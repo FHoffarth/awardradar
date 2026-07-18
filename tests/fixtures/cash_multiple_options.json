@@ -1,0 +1,73 @@
+{
+  "scenario": "cash_multiple_options",
+  "source_provenance": "synthetic_test_fixture",
+  "live_availability_claimed": false,
+  "offers": [
+    {
+      "origin": "FRA",
+      "dest": "JFK",
+      "date": "2030-10-10",
+      "price": 410.0,
+      "currency": "EUR",
+      "airline": "Primary Air",
+      "airlineCode": "PA",
+      "dep_time": "08:00",
+      "arr_time": "09:00",
+      "durationMin": 60,
+      "stops": 0,
+      "time_data_status": "complete",
+      "dealScore": 95,
+      "outbound_segments": [
+        {
+          "dep_iata": "FRA",
+          "arr_iata": "JFK",
+          "dep_time": "08:00",
+          "arr_time": "09:00",
+          "airline": "Primary Air",
+          "flight_number": "PA 100"
+        }
+      ]
+    },
+    {
+      "origin": "FRA",
+      "dest": "JFK",
+      "date": "2030-10-10",
+      "price": 900.0,
+      "currency": "EUR",
+      "airline": "Backend First",
+      "airlineCode": "BF",
+      "dep_time": "10:00",
+      "arr_time": "11:30",
+      "durationMin": 90,
+      "stops": 1,
+      "time_data_status": "complete",
+      "dealScore": 40
+    },
+    {
+      "origin": "FRA",
+      "dest": "JFK",
+      "date": "2030-10-10",
+      "price": 100.0,
+      "currency": "EUR",
+      "airline": "Backend Second",
+      "airlineCode": "BS",
+      "dep_time": "12:00",
+      "arr_time": "13:00",
+      "durationMin": 60,
+      "stops": 0,
+      "time_data_status": "complete",
+      "dealScore": 82
+    },
+    {
+      "origin": "FRA",
+      "dest": "JFK",
+      "date": "2030-10-10",
+      "price": 500.0,
+      "currency": "EUR",
+      "airline": "Backend Third",
+      "airlineCode": "BT",
+      "time_data_status": "unavailable",
+      "dealScore": 61
+    }
+  ]
+}

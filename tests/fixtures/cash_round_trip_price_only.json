@@ -1,0 +1,17 @@
+{
+  "scenario": "cash_round_trip_price_only",
+  "source_provenance": "synthetic_test_fixture",
+  "live_availability_claimed": false,
+  "offers": [
+    {
+      "origin": "FRA",
+      "dest": "JFK",
+      "date": "2030-10-10",
+      "returnDate": "2030-10-20",
+      "price": 600.0,
+      "currency": "EUR",
+      "dealScore": 83,
+      "itinerary_state": "price_only"
+    }
+  ]
+}
