@@ -46,6 +46,8 @@ describe('Landing round-trip search', () => {
     expect((screen.getByRole('radio', { name: 'One-way' }) as HTMLInputElement).checked).toBe(true)
     expect(screen.queryByLabelText('Return date')).toBeNull()
     expect(container.querySelector('.ar-instrument--round-trip')).toBeNull()
+    expect((screen.getByLabelText('From') as HTMLInputElement).getAttribute('placeholder')).toBe('FRA, Frankfurt')
+    expect((screen.getByLabelText('To') as HTMLInputElement).getAttribute('placeholder')).toBe('JFK, New York')
   })
 
   it('shows_return_date_for_round_trip', () => {
@@ -64,15 +66,29 @@ describe('Landing round-trip search', () => {
   it('keeps_round_trip_desktop_width_constraints_scoped_to_its_layout_marker', () => {
     expect(landingCss).toContain('.ar-instrument--round-trip .ar-field--from')
     expect(landingCss).toContain('.ar-instrument--round-trip .ar-field--return')
-    expect(landingCss).toContain('min-width: 120px')
+    expect(landingCss).toContain('min-width: 156px')
     expect(landingCss).toContain('flex: 0 0 140px')
   })
 
-  it('requires_return_date_for_round_trip', () => {
+  it('does_not_show_round_trip_validation_before_interaction', () => {
     render(<App />)
     fireEvent.click(screen.getByRole('radio', { name: 'Round-trip' }))
-    expect(screen.getByText('Select a return date.')).toBeTruthy()
+    expect(screen.queryByText('Select a return date.')).toBeNull()
     expect((screen.getByRole('button', { name: 'Analyze route' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('shows_round_trip_validation_after_submit_attempt', () => {
+    const { container } = render(<App />)
+    fireEvent.click(screen.getByRole('radio', { name: 'Round-trip' }))
+    fireEvent.submit(container.querySelector('.ar-instrument-form') as HTMLFormElement)
+    expect(screen.getByText('Select a return date.')).toBeTruthy()
+  })
+
+  it('shows_round_trip_validation_after_return_field_interaction', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('radio', { name: 'Round-trip' }))
+    fireEvent.focus(screen.getByLabelText('Return date'))
+    expect(screen.getByText('Select a return date.')).toBeTruthy()
   })
 
   it('rejects_return_before_departure', () => {
@@ -114,6 +130,18 @@ describe('Landing round-trip search', () => {
     expect(group.contains(roundTrip)).toBe(true)
     roundTrip.focus()
     expect(document.activeElement).toBe(roundTrip)
+  })
+
+  it('renders_footer_x_link_with_safe_external_attributes_and_local_icon', () => {
+    render(<App />)
+    expect(screen.getByText('@awardradar')).toBeTruthy()
+    const xLink = screen.getByRole('link', { name: 'AwardRadar on X' })
+    expect(xLink.getAttribute('href')).toBe('https://x.com/awardradar')
+    expect(xLink.getAttribute('target')).toBe('_blank')
+    expect(xLink.getAttribute('rel')).toBe('noopener noreferrer')
+    const icon = xLink.querySelector('img')
+    expect(icon).toBeTruthy()
+    expect(icon?.getAttribute('src')).toContain('x-logo.png')
   })
 
   it('keeps_mobile_dom_order', () => {

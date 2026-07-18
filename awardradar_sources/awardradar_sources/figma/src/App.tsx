@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent, type CSSProperties, type KeyboardEvent } from 'react'
+import { useState, useEffect, type FormEvent, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 
 // ─── THEME ────────────────────────────────────────────────────────────────────
 
@@ -271,12 +271,14 @@ function FooterLink({
   t,
   onClick,
   external,
+  ariaLabel,
 }: {
-  children: string
+  children: ReactNode
   href?: string
   t: any
   onClick?: () => void
   external?: boolean
+  ariaLabel?: string
 }) {
   const [hover, setHover] = useState(false)
   const style: CSSProperties = {
@@ -311,6 +313,7 @@ function FooterLink({
     <a
       href={href ?? '#'}
       style={style}
+      aria-label={ariaLabel}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
@@ -491,6 +494,8 @@ export default function App() {
   const [date, setDate]     = useState('')
   const [tripType, setTripType] = useState<TripType>('one_way')
   const [returnDate, setReturnDate] = useState('')
+  const [returnDateTouched, setReturnDateTouched] = useState(false)
+  const [roundTripSubmitAttempted, setRoundTripSubmitAttempted] = useState(false)
 
   // Hero second block reveal — runs once on mount
   const [secondBlockVisible, setSecondBlockVisible] = useState(false)
@@ -561,17 +566,25 @@ export default function App() {
         ? 'Return date must not be before the departure date.'
         : ''
     : ''
+  const shouldShowReturnError = tripType === 'round_trip' && Boolean(returnError) && (returnDateTouched || roundTripSubmitAttempted)
   const isValid = fromCode.length > 0 && toCode.length > 0 && !sameRoute && isValidDate(date) && !returnError
 
   function selectFrom(s: Suggestion) { setFrom(`${s.city || s.name} (${s.code})`); setFromCode(s.code) }
   function selectTo(s: Suggestion)   { setTo(`${s.city || s.name} (${s.code})`); setToCode(s.code) }
   function selectTripType(next: TripType) {
     setTripType(next)
-    if (next === 'one_way') setReturnDate('')
+    if (next === 'one_way') {
+      setReturnDate('')
+      setReturnDateTouched(false)
+      setRoundTripSubmitAttempted(false)
+      return
+    }
+    setRoundTripSubmitAttempted(false)
   }
 
   function handleSearch(e: FormEvent) {
     e.preventDefault()
+    if (tripType === 'round_trip') setRoundTripSubmitAttempted(true)
     if (!isValid) return
     window.location.href = buildAppSearchUrl(fromCode, toCode, date, tripType, returnDate)
   }
@@ -803,7 +816,7 @@ export default function App() {
           </p>
 
           <form className="ar-instrument-form" onSubmit={handleSearch}>
-            <fieldset className="ar-trip-type" aria-describedby={returnError ? 'ar-return-error' : undefined}>
+            <fieldset className="ar-trip-type" aria-describedby={shouldShowReturnError ? 'ar-return-error' : undefined}>
               <legend>Trip type</legend>
               <label>
                 <input
@@ -843,7 +856,7 @@ export default function App() {
                 code={fromCode}
                 onText={v => { setFrom(v); setFromCode('') }}
                 onSelect={selectFrom}
-                placeholder="City or airport"
+                placeholder="FRA, Frankfurt"
                 t={t}
               />
               <div className="ar-divider" style={{ width: '0.5px', background: t.divider, margin: '17px 0', flexShrink: 0 }} />
@@ -853,7 +866,7 @@ export default function App() {
                 code={toCode}
                 onText={v => { setTo(v); setToCode('') }}
                 onSelect={selectTo}
-                placeholder="City or airport"
+                placeholder="JFK, New York"
                 t={t}
               />
               <div className="ar-divider" style={{ width: '0.5px', background: t.divider, margin: '17px 0', flexShrink: 0 }} />
@@ -885,11 +898,12 @@ export default function App() {
                       type="date"
                       value={returnDate}
                       min={date || new Date().toISOString().slice(0, 10)}
-                      onChange={e => setReturnDate(e.target.value)}
+                      onChange={e => { setReturnDate(e.target.value); setReturnDateTouched(true) }}
+                      onFocus={() => setReturnDateTouched(true)}
                       onClick={e => { try { (e.currentTarget as HTMLInputElement).showPicker?.() } catch {} }}
                       aria-label="Return date"
-                      aria-invalid={Boolean(returnError)}
-                      aria-describedby={returnError ? 'ar-return-error' : undefined}
+                      aria-invalid={shouldShowReturnError}
+                      aria-describedby={shouldShowReturnError ? 'ar-return-error' : undefined}
                       style={{
                         background: 'transparent', border: 'none', outline: 'none', padding: 0, margin: 0,
                         fontFamily: 'inherit', fontSize: '15px', fontWeight: 520, letterSpacing: '0.002em',
@@ -902,7 +916,7 @@ export default function App() {
               )}
             </div>
 
-            {tripType === 'round_trip' && returnError && (
+            {shouldShowReturnError && (
               <p className="ar-form-error" id="ar-return-error" role="status">{returnError}</p>
             )}
 
@@ -973,7 +987,17 @@ export default function App() {
               <FooterLink href="/privacy" t={t}>Privacy</FooterLink>
               <FooterLink href="/impressum" t={t}>Imprint</FooterLink>
               <FooterLink onClick={toggleTheme} t={t}>Theme</FooterLink>
-              <FooterLink href="https://x.com/awardradar" external t={t}>@AwardRadar</FooterLink>
+              <FooterLink href="https://x.com/awardradar" external t={t} ariaLabel="AwardRadar on X">
+                <span className="footer-x-link">
+                  <img
+                    src={`${import.meta.env.BASE_URL}x-logo.png`}
+                    alt=""
+                    aria-hidden="true"
+                    className="footer-x-link__icon"
+                  />
+                  <span>@awardradar</span>
+                </span>
+              </FooterLink>
             </div>
             <div className="copyright" style={{ fontSize: '12px', color: t.coord }}>&copy; 2026 AwardRadar</div>
           </div>
