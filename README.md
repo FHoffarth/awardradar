@@ -17,6 +17,7 @@ Flask remains AwardRadar's backend and server layer. The product has three disti
 Project state and product decisions:
 
 - [Canonical Repository State](docs/canonical_state.md)
+- [Deployment Governance](docs/deployment_governance.md)
 - [Decision Log](docs/decision_log.md)
 - [Roadmap & Programming Memo](docs/awardradar_roadmap_memo.md)
 
@@ -50,6 +51,16 @@ http://127.0.0.1:5000/tool   # frozen legacy application
 ```text
 web: gunicorn -w ${WEB_CONCURRENCY:-1} --threads 4 --timeout 90 -b 0.0.0.0:$PORT app:app
 ```
+
+## Deployment governance
+
+- `main` is the canonical integration branch.
+- Pushing to `main` does not by itself publish Production.
+- `staging` is the pre-production deployment branch; Railway Staging auto-deploys from `staging`.
+- Railway Production remains connected to `main`, but Production auto-deploy is disabled.
+- Every Production release requires a fresh explicit `PRODUCTION GO`, an intentional manual Railway deploy, and post-deploy Production verification.
+
+See [Deployment Governance](docs/deployment_governance.md) for the full approval flow and evidence rules.
 
 Die asynchrone Round-trip-Continuation ist in der Railway-Beta nur mit genau
 einer Service-Replica und `WEB_CONCURRENCY=1` freigegeben. Die Threads teilen

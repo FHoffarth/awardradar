@@ -6,6 +6,7 @@ Related project documents:
 
 - [Repository overview](../README.md)
 - [AwardRadar roadmap](awardradar_roadmap_memo.md)
+- [Deployment governance](deployment_governance.md)
 
 ## Decision lifecycle
 
@@ -49,3 +50,34 @@ AwardRadar uses `/app` as its only canonical product surface. The `/tool` route 
   - `/` — React/Vite landing
   - `/app` — canonical React/Vite application
   - `/tool` — frozen legacy Flask/Jinja/static-JS application
+
+## AR-DEC-002 — Manual Production Release Governance
+
+- **Decision ID:** AR-DEC-002
+- **Date:** 2026-07-18
+- **Status:** DECIDED
+- **Confirmed by:** Florian Hoffarth
+
+### Decision
+
+Railway Production auto-deploy from `main` is disabled. Railway Staging auto-deploy from `staging` remains enabled. Production release now requires a fresh explicit `PRODUCTION GO` and an intentional manual Railway Production deployment of the approved `main` commit.
+
+### Rationale
+
+This preserves explicit founder approval over every Production release and prevents an ordinary push to `main` from publishing to Production by accident.
+
+### Consequences
+
+- `main` remains the canonical integration branch, but may contain commits that are not yet released to Production.
+- `staging` remains the pre-production deployment branch and Railway Staging target.
+- Successful push or merge to `main` does not by itself prove a Production release.
+- Staging deployment and smoke remain required before Production release.
+- Every Production release requires a fresh approval scoped to that exact release action; no prior approval carries forward.
+
+### Evidence
+
+- Verified Railway Production source branch: `main`
+- Verified Railway Production auto-deploy state: disabled
+- Verified Railway Staging source branch: `staging`
+- Verified Railway Staging auto-deploy state: enabled
+- Verified live commit on both environments at time of confirmation: `536e0b23665c2a36ec504dad928a9f79a9715799`

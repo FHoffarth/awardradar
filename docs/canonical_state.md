@@ -1,7 +1,7 @@
 # AwardRadar Canonical Repository State
 
-Last updated: 2026-07-17
-Verified against: `origin/main` at `f310e0e8a4194163a5fbd42fedaffb1e14aa066c`
+Last updated: 2026-07-18
+Verified against: `origin/main` at `536e0b23665c2a36ec504dad928a9f79a9715799`
 
 ## Scope and authority
 
@@ -12,6 +12,10 @@ decisions. The roadmap describes intended sequencing and open work.
 Repository evidence does not establish the current Railway deployment,
 environment variables, replica count, provider quota or approval, staging or
 production smoke-test results, or live browser behaviour.
+
+Railway deployment metadata is preferred evidence for live deployment state.
+Git SHA alone does not prove Staging or Production deployment, and live asset
+identity is supporting evidence only.
 
 ## Surface classification
 
@@ -54,6 +58,25 @@ confirms the route and asset wiring; Git cannot enforce the governance policy.
 - Operations and metadata: `/health`, `/robots.txt`, `/sitemap.xml`, favicon and
   application-icon routes.
 
+## Verified deployment governance
+
+The following release-governance facts were verified outside Git on 2026-07-18
+and are recorded here for canonical repository context:
+
+- `main` is the canonical integration branch.
+- `staging` is the pre-production deployment branch.
+- Railway Staging auto-deploys from `staging`.
+- Railway Production remains connected to `main`.
+- Railway Production auto-deploy is disabled.
+- A push to `main` does not by itself publish Production.
+- Production release requires a fresh explicit `PRODUCTION GO`, an intentional
+  manual Railway Production deployment, and post-deploy Production verification.
+
+This governance model is documented in detail in
+[deployment_governance.md](deployment_governance.md). The repository may record
+the currently verified live commit as historical evidence, but Git alone never
+proves that a commit is live.
+
 ## Current repository-backed gaps
 
 - React `/app` does not expose the backend round-trip/continuation capability.
@@ -70,6 +93,8 @@ confirms the route and asset wiring; Git cannot enforce the governance policy.
 ## Document roles
 
 - `canonical_state.md`: current repository-backed architecture and surface state.
+- `deployment_governance.md`: release model, approval gates, evidence rules and
+  rollback procedure for Staging and Production.
 - `decision_log.md`: attributable, durable product and architecture decisions.
 - `awardradar_roadmap_memo.md`: current gates, open work and future sequencing.
 - `README.md`: concise repository orientation.

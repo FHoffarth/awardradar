@@ -13,7 +13,8 @@
 ## Branch-Strategie
 
 ```
-main          ← Production. Nur reviewed, getesteter Code.
+main          ← Integrationsbranch. Push nach `main` veröffentlicht Production nicht automatisch.
+staging       ← Pre-Production-Deploy-Branch. Railway Staging auto-deployt aus `staging`.
 codex/*       ← Codex-Branches (z.B. codex/booking-links-audit)
 feature/*     ← Größere Features von Claude oder Flo
 ```
@@ -23,7 +24,7 @@ feature/*     ← Größere Features von Claude oder Flo
 1. **Codex arbeitet NIEMALS direkt auf `main`** — immer `codex/` Branch erstellen
 2. Jeder Codex-PR wird von Claude gereviewed, bevor er gemergt wird
 3. Vor jedem Push: `python -m py_compile app.py` muss sauber sein
-4. CSS/JS: Version in `index.html` hochzählen (`?v=NNN`) bei jeder Änderung
+4. Production-Deployment ist manuell und erfordert explizite Freigabe; Push nach `main` allein reicht nicht
 
 ---
 
