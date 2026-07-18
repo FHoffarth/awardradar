@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import App from './App';
 
 // Mock matchMedia for motion
@@ -20,6 +21,80 @@ Object.defineProperty(window, 'matchMedia', {
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
+
+type CashFixtureOffer = Record<string, unknown> & {
+  offer_id?: string;
+};
+
+type CashFixtureFile = {
+  scenario: string;
+  source_provenance: string;
+  live_availability_claimed: boolean;
+  offers: CashFixtureOffer[];
+};
+
+const fixtureRoot = path.resolve(__dirname, '../../../../tests/fixtures');
+
+function loadCashFixture(name: string): CashFixtureFile {
+  const fixturePath = path.join(fixtureRoot, name);
+  return JSON.parse(readFileSync(fixturePath, 'utf8')) as CashFixtureFile;
+}
+
+function withOfferIds(offers: CashFixtureOffer[], ids: string[]): CashFixtureOffer[] {
+  return offers.map((offer, index) => ({ ...offer, offer_id: ids[index] }));
+}
+
+function buildCashFixtureResponse(
+  fixtureName: string,
+  ids: string[],
+  recommendedOfferId?: string,
+) {
+  const fixture = loadCashFixture(fixtureName);
+  const offers = withOfferIds(fixture.offers, ids);
+  return {
+    ok: true,
+    offers,
+    cash_guidance: recommendedOfferId ? { recommended_offer_id: recommendedOfferId } : undefined,
+    fixture_provenance: fixture.source_provenance,
+  };
+}
+
+function awardEmptyResponse() {
+  return { ok: true, results: [] };
+}
+
+function strictCashFixtureMock(responses: {
+  cheap: Record<string, unknown>;
+  awards?: Record<string, unknown>;
+  returnLeg?: Record<string, unknown> | (() => Promise<Record<string, unknown>> | Record<string, unknown>);
+  forbidReturnLeg?: boolean;
+}) {
+  const {
+    cheap,
+    awards = awardEmptyResponse(),
+    returnLeg,
+    forbidReturnLeg = true,
+  } = responses;
+  mockFetch.mockImplementation(async (url) => {
+    if (url === '/api/awards') {
+      return { ok: true, json: async () => awards };
+    }
+    if (url === '/api/cheap') {
+      return { ok: true, json: async () => cheap };
+    }
+    if (url === '/api/return-leg') {
+      if (forbidReturnLeg) {
+        throw new Error('Unexpected /api/return-leg request for fixture scenario');
+      }
+      if (typeof returnLeg === 'function') {
+        const payload = await returnLeg();
+        return { ok: true, json: async () => payload };
+      }
+      return { ok: true, json: async () => returnLeg };
+    }
+    throw new Error(`Unexpected fetch URL: ${String(url)}`);
+  });
+}
 
 describe('App', () => {
   beforeEach(() => {
@@ -1042,5 +1117,244 @@ describe('App', () => {
     expect(container.querySelector('time[datetime="2030-10-20"]')).toBeTruthy();
     fireEvent.click(getButton(container));
     await waitFor(() => expect(container.querySelector('[aria-label="Return details unavailable"]')).toBeTruthy());
+  });
+
+  it('consumes_shared_fixture_one_way_complete_without_inventing_return_data', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      cheap: buildCashFixtureResponse(
+        'cash_one_way_complete.json',
+        ['one-way-primary', 'one-way-alt'],
+        'one-way-primary',
+      ),
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => expect(screen.getByTestId('cash-candidate-card')).toBeTruthy());
+    const card = screen.getByTestId('cash-candidate-card').textContent || '';
+    expect(mockFetch.mock.calls.filter(([url]) => url === '/api/cheap')).toHaveLength(1);
+    expect(mockFetch.mock.calls.filter(([url]) => url === '/api/awards')).toHaveLength(1);
+    expect(screen.queryByTestId('cash-round-trip-complete')).toBeNull();
+    expect(screen.queryByTestId('cash-round-trip-partial')).toBeNull();
+    expect(screen.queryByTestId('cash-round-trip-price-only')).toBeNull();
+    expect(card).toContain('€499');
+    expect(card).toContain('10:00');
+    expect(card).toContain('13:00');
+    expect(card).toContain('Nonstop');
+    expect(card).toContain('8h');
+    expect(card).not.toContain('Return itinerary details are not available');
+    expect(card).not.toContain('Return Air');
+    expect(container.textContent).not.toContain('Requested return');
+  });
+
+  it('consumes_shared_fixture_round_trip_complete_with_directional_separation', async () => {
+    setupRoundTrip();
+    strictCashFixtureMock({
+      cheap: buildCashFixtureResponse(
+        'cash_round_trip_complete.json',
+        ['rt-complete-primary', 'rt-complete-alt'],
+        'rt-complete-primary',
+      ),
+      awards: awardRoundTripResponse(),
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => expect(screen.getByTestId('cash-round-trip-complete')).toBeTruthy());
+    const card = screen.getByTestId('cash-candidate-card').textContent || '';
+    expect(card).toContain('Outbound');
+    expect(card).toContain('Return');
+    expect(card).toContain('LH 400');
+    expect(card).toContain('LH 401');
+    expect(card).not.toContain('Return itinerary details are not available');
+    expect(container.querySelector('[data-testid="cash-round-trip-partial"]')).toBeNull();
+    expect(container.querySelector('[data-testid="cash-round-trip-price-only"]')).toBeNull();
+  });
+
+  it('consumes_shared_fixture_round_trip_partial_without_inventing_return_details', async () => {
+    setupRoundTrip();
+    strictCashFixtureMock({
+      cheap: buildCashFixtureResponse(
+        'cash_round_trip_partial_return.json',
+        ['rt-partial-primary'],
+        'rt-partial-primary',
+      ),
+      awards: awardRoundTripResponse(),
+      returnLeg: { ok: false, itinerary_state: 'partial' },
+      forbidReturnLeg: false,
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => expect(screen.getByTestId('cash-round-trip-partial')).toBeTruthy());
+    expect(container.textContent).toContain('Return itinerary details are not available');
+    expect(container.textContent).not.toContain('LH 401');
+    expect(container.textContent).not.toContain('Return Air');
+    expect(mockFetch.mock.calls.filter(([url]) => url === '/api/return-leg')).toHaveLength(1);
+  });
+
+  it('consumes_shared_fixture_round_trip_price_only_without_route_fabrication', async () => {
+    setupRoundTrip();
+    strictCashFixtureMock({
+      cheap: buildCashFixtureResponse(
+        'cash_round_trip_price_only.json',
+        ['rt-price-only-primary'],
+        'rt-price-only-primary',
+      ),
+      awards: awardRoundTripResponse(),
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => expect(screen.getByTestId('cash-round-trip-price-only')).toBeTruthy());
+    const card = screen.getByTestId('cash-candidate-card').textContent || '';
+    expect(card).toContain('€600');
+    expect(card).toContain('Round-trip price signal');
+    expect(card).not.toContain('LH 400');
+    expect(card).not.toContain('LH 401');
+    expect(card).not.toContain('10:00');
+    expect(card).not.toContain('13:00');
+    expect(card).not.toContain('Nonstop');
+  });
+
+  it('consumes_shared_fixture_multiple_options_with_backend_driven_recommendation_mapping', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      cheap: buildCashFixtureResponse(
+        'cash_multiple_options.json',
+        ['backend-first', 'backend-second', 'backend-third', 'backend-fourth'],
+        'backend-second',
+      ),
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => expect(screen.getByTestId('cash-candidate-card')).toBeTruthy());
+    const primary = screen.getByTestId('cash-candidate-card');
+    const alternatives = screen.getAllByTestId('cash-alternative-row');
+    expect(primary.getAttribute('data-offer-id')).toBe('backend-second');
+    expect(primary.textContent).toContain('Backend First');
+    expect(primary.textContent).not.toContain('Primary Air');
+    expect(alternatives).toHaveLength(3);
+    expect(alternatives[0].textContent).toContain('Primary Air');
+    expect(alternatives[1].textContent).toContain('Backend Second');
+    expect(alternatives[2].textContent).toContain('Backend Third');
+    expect(container.textContent).not.toContain('recommended recommendation');
+  });
+
+  it('filters_shared_fixture_invalid_prices_at_full_react_render_level', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      cheap: buildCashFixtureResponse(
+        'cash_invalid_prices.json',
+        ['invalid-0', 'invalid-negative', 'invalid-null', 'invalid-empty', 'invalid-whitespace', 'invalid-text', 'invalid-nan', 'invalid-infinity', 'invalid-bool', 'valid-control'],
+        'valid-control',
+      ),
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => expect(screen.getByTestId('cash-candidate-card')).toBeTruthy());
+    const card = screen.getByTestId('cash-candidate-card').textContent || '';
+    expect(card).toContain('Valid Control');
+    expect(card).toContain('€150');
+    expect(container.textContent).not.toContain('€0');
+    const alternativeCards = screen.queryAllByTestId('cash-alternative-row');
+    const alternativesText = alternativeCards.map(node => node.textContent || '').join(' ');
+    expect(alternativesText).not.toContain('€-1');
+    expect(alternativesText).not.toContain('NaN');
+    expect(alternativesText).not.toContain('Infinity');
+    expect(alternativesText).not.toContain('true');
+    expect(alternativeCards).toHaveLength(0);
+  });
+
+  it('drops_invalid_recommended_offer_before_recommendation_mapping', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      cheap: {
+        ok: true,
+        offers: [
+          { offer_id: 'invalid-rec', price: 0, currency: 'EUR', airline: 'Invalid Recommended', time_data_status: 'complete' },
+          { offer_id: 'valid-fallback', price: 220, currency: 'EUR', airline: 'Valid Fallback', dep_time: '08:00', arr_time: '11:00', durationMin: 180, stops: 0, time_data_status: 'complete' },
+        ],
+        cash_guidance: { recommended_offer_id: 'invalid-rec' },
+      },
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => expect(screen.getByTestId('cash-candidate-card')).toBeTruthy());
+    const card = screen.getByTestId('cash-candidate-card').textContent || '';
+    expect(screen.getByTestId('cash-candidate-card').getAttribute('data-offer-id')).toBe('valid-fallback');
+    expect(card).toContain('Valid Fallback');
+    expect(card).toContain('€220');
+    expect(card).not.toContain('Invalid Recommended');
+    expect(screen.queryAllByTestId('cash-alternative-row')).toHaveLength(0);
+    expect(container.textContent).not.toContain('Invalid Recommended');
+  });
+
+  it('accepts_positive_numeric_string_prices_but_rejects_whitespace_and_nonfinite_strings', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      cheap: {
+        ok: true,
+        offers: [
+          { offer_id: 'whitespace', price: '   ', currency: 'EUR', airline: 'Whitespace', time_data_status: 'complete' },
+          { offer_id: 'nan-string', price: 'NaN', currency: 'EUR', airline: 'NaN Airline', time_data_status: 'complete' },
+          { offer_id: 'infinity-string', price: 'Infinity', currency: 'EUR', airline: 'Infinity Airline', time_data_status: 'complete' },
+          { offer_id: 'string-valid', price: '199.99', currency: 'EUR', airline: 'String Valid', dep_time: '07:00', arr_time: '10:00', durationMin: 180, stops: 0, time_data_status: 'complete' },
+        ],
+        cash_guidance: { recommended_offer_id: 'string-valid' },
+      },
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => expect(screen.getByTestId('cash-candidate-card')).toBeTruthy());
+    const card = screen.getByTestId('cash-candidate-card').textContent || '';
+    const alternativesText = screen.queryAllByTestId('cash-alternative-row').map(node => node.textContent || '').join(' ');
+    expect(card).toContain('String Valid');
+    expect(card).toContain('€199.99');
+    expect(card).not.toContain('Whitespace');
+    expect(alternativesText).not.toContain('Whitespace');
+    expect(card).not.toContain('NaN Airline');
+    expect(alternativesText).not.toContain('NaN Airline');
+    expect(card).not.toContain('Infinity Airline');
+    expect(alternativesText).not.toContain('Infinity Airline');
+  });
+
+  it('rejects_boolean_prices_before_numeric_coercion', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      cheap: {
+        ok: true,
+        offers: [
+          { offer_id: 'bool-true', price: true, currency: 'EUR', airline: 'Boolean True', time_data_status: 'complete' },
+          { offer_id: 'valid-control', price: 180, currency: 'EUR', airline: 'Boolean Control', dep_time: '06:00', arr_time: '09:00', durationMin: 180, stops: 0, time_data_status: 'complete' },
+        ],
+        cash_guidance: { recommended_offer_id: 'valid-control' },
+      },
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => expect(screen.getByTestId('cash-candidate-card')).toBeTruthy());
+    const card = screen.getByTestId('cash-candidate-card').textContent || '';
+    const alternativesText = screen.queryAllByTestId('cash-alternative-row').map(node => node.textContent || '').join(' ');
+    expect(card).toContain('Boolean Control');
+    expect(card).toContain('€180');
+    expect(card).not.toContain('Boolean True');
+    expect(alternativesText).not.toContain('Boolean True');
+    expect(screen.queryAllByTestId('cash-alternative-row')).toHaveLength(0);
   });
 });

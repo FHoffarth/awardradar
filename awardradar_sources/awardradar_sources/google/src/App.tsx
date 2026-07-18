@@ -143,6 +143,12 @@ function isValidDateString(dateStr: string): boolean {
   return date instanceof Date && !isNaN(date.getTime()) && date.toISOString().startsWith(dateStr) && date >= now;
 }
 
+function hasValidPositivePrice(value: unknown): boolean {
+  if (typeof value === 'boolean' || value === null || value === undefined) return false;
+  const price = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
+  return Number.isFinite(price) && price > 0;
+}
+
 function getTripParam(name: string): string {
   try {
     const value = new URLSearchParams(window.location.search).get(name);
@@ -1068,7 +1074,7 @@ export default function App() {
     (awardStatus === 'error' && cashStatus === 'error') ? 'error' : 'empty';
 
   const result = awardData?.results?.[0];
-  const returnedCashOffers = Array.isArray(cashData?.offers) ? cashData.offers : [];
+  const returnedCashOffers = Array.isArray(cashData?.offers) ? cashData.offers.filter(offer => hasValidPositivePrice(offer?.price)) : [];
   const recommendedCashId = cashData?.cash_guidance?.recommended_offer_id;
   const cashOffers = recommendedCashId && returnedCashOffers.some(offer => offer.offer_id === recommendedCashId)
     ? [returnedCashOffers.find(offer => offer.offer_id === recommendedCashId)!, ...returnedCashOffers.filter(offer => offer.offer_id !== recommendedCashId)]
