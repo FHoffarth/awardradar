@@ -205,6 +205,21 @@ def _new_provider_monitoring_store() -> dict:
 
 
 _PROVIDER_MONITORING = _new_provider_monitoring_store()
+_PUBLIC_PROVIDER_MONITORING_FIELDS = (
+    "state",
+    "requests_total",
+    "cache_hits",
+    "cache_misses",
+    "rate_limited_total",
+    "provider_5xx_total",
+    "timeout_total",
+    "parser_error_total",
+    "degraded_total",
+    "last_success_at",
+    "last_error_at",
+    "last_error_kind",
+    "last_cache_age_seconds",
+)
 
 
 def _serpapi_hard_limit_reached() -> bool:
@@ -289,6 +304,35 @@ def _provider_monitoring_snapshot() -> dict:
     for provider in PROVIDER_MONITORING_PROVIDERS:
         snapshot[provider]["state"] = _derive_provider_monitoring_state(provider)
     return snapshot
+
+
+def _public_provider_monitoring_snapshot() -> dict:
+    snapshot = _provider_monitoring_snapshot()
+    public = {"scope": "process_local"}
+    for provider in PROVIDER_MONITORING_PROVIDERS:
+        metrics = snapshot[provider]
+        public[provider] = {field: metrics.get(field) for field in _PUBLIC_PROVIDER_MONITORING_FIELDS}
+    return public
+
+
+def _public_degraded_states(snapshot: dict | None = None) -> list[dict]:
+    snapshot = snapshot or _provider_monitoring_snapshot()
+    out: list[dict] = []
+    for provider in PROVIDER_MONITORING_PROVIDERS:
+        metrics = snapshot[provider]
+        state = metrics.get("state")
+        if state not in ("degraded", "disabled", "exhausted"):
+            continue
+        out.append({
+            "provider": provider,
+            "state": state,
+            "reason": metrics.get("last_error_kind"),
+        })
+    return out
+
+
+def _safe_exception_label(exc: Exception) -> str:
+    return exc.__class__.__name__
 
 
 def _reset_provider_monitoring_for_tests() -> None:
@@ -2267,8 +2311,8 @@ def serpapi_offers(
     except SerpApiError:
         raise
     except Exception as exc:
-        app.logger.warning("serpapi_offers %sâ†’%s: %s", origin, dest, exc)
-        return [], str(exc)
+        app.logger.warning("serpapi_offers failed: %s", _safe_exception_label(exc))
+        return [], _safe_exception_label(exc)
     insights = data.get("price_insights") or {}
     typical_range = insights.get("typical_price_range")
     items = (data.get("best_flights") or []) + (data.get("other_flights") or [])
@@ -2281,7 +2325,7 @@ def serpapi_offers(
         try:
             offer = _serp_item_to_offer(dict(item), currency, typical_range, mm_only, ret.isoformat() if ret else None)
         except Exception as exc:
-            app.logger.warning("skip malformed cheap item %sâ†’%s: %s", origin, dest, exc)
+            app.logger.warning("skip malformed cheap item: %s", _safe_exception_label(exc))
             continue
         if not offer:
             continue
@@ -2563,7 +2607,7 @@ def fetch_seatsaero(origin: str, dest: str, cabin: str, dep: dt.date, window_day
         if r.status_code != 200:
             reason = classify_seatsaero_failure(status_code=r.status_code, body_text=r.text) or "provider_error"
             _record_provider_monitoring_failure("seats_aero", reason)
-            app.logger.warning("seats.aero non-200 body: %s", r.text[:500])
+            app.logger.warning("seats.aero non-200 status=%s body_length=%d", r.status_code, len(r.text or ""))
             raise SeatsAeroGuardError("provider_remaining_unknown")
         payload = r.json()
         if not isinstance(payload, dict):
@@ -2580,7 +2624,7 @@ def fetch_seatsaero(origin: str, dest: str, cabin: str, dep: dt.date, window_day
         reason = classify_seatsaero_failure(exc=exc) or "parser_error"
         _record_provider_monitoring_failure("seats_aero", reason)
         _mark_seatsaero_remaining_unknown()
-        app.logger.warning("seats.aero fetch failed %sâ†’%s %s: %s", origin, dest, cabin, exc)
+        app.logger.warning("seats.aero fetch failed: %s", _safe_exception_label(exc))
         raise SeatsAeroGuardError("provider_remaining_unknown") from None
 
 
@@ -3367,7 +3411,7 @@ def cheap():
             with cf.ThreadPoolExecutor(max_workers=min(SERPAPI_MAX_PAIRS, max(1, len(tasks)))) as pool:
                 for origin, dest, found, err in pool.map(serpapi_task, tasks):
                     if err:
-                        app.logger.warning("cheap %sâ†’%s: %s", origin, dest, err)
+                        app.logger.warning("cheap provider result error: %s", err.__class__.__name__ if isinstance(err, Exception) else err)
                     else:
                         offers.extend(found)
         except SerpApiError as exc:
@@ -3729,10 +3773,10 @@ def awards():
     except QuotaError:
         return api_error("quota_exhausted", "Search quota is exhausted. Please try again later.", 429, retryable=True)
     except requests.Timeout as exc:
-        app.logger.warning("awards provider timeout: %s", exc)
+        app.logger.warning("awards provider timeout: %s", _safe_exception_label(exc))
         return api_error("provider_timeout", "Award analysis timed out. Please try again shortly.", 504, retryable=True)
     except requests.RequestException as exc:
-        app.logger.warning("awards provider unavailable: %s", exc)
+        app.logger.warning("awards provider unavailable: %s", _safe_exception_label(exc))
         return api_error("provider_unavailable", "Award analysis is temporarily unavailable. Please try again shortly.", 503, retryable=True)
     except BadRequest as exc:
         app.logger.info("awards invalid json: %s", exc)
@@ -3951,7 +3995,7 @@ def _write_file_cache(opportunities: list) -> None:
         pathlib.Path(tmp).write_text(payload)
         os.replace(tmp, _TOP_OPP_FILE)
     except Exception as exc:
-        app.logger.warning("top-opp file cache write failed: %s", exc)
+        app.logger.warning("top-opp file cache write failed: %s", _safe_exception_label(exc))
 
 
 @app.route("/api/top-opportunities")
@@ -4065,6 +4109,7 @@ def top_opportunities():
 
 @app.route("/health")
 def health():
+    provider_monitoring = _public_provider_monitoring_snapshot()
     return jsonify({
         "ok": True,
         "app": APP_NAME,
@@ -4080,6 +4125,8 @@ def health():
         "continuation_enabled": MAX_CONTINUATIONS_PER_SEARCH > 0,
         "continuation_mode": "inline" if CONTINUATION_INLINE else "async",
         "continuation_timeout_ms": CONTINUATION_TIMEOUT_MS,
+        "provider_monitoring": provider_monitoring,
+        "degraded_states": _public_degraded_states(),
     })
 
 

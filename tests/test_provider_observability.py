@@ -297,6 +297,55 @@ def test_serpapi_continuation_event_never_logs_token(monkeypatch, caplog):
     assert "provider-departure-token" not in events[0]
 
 
+def test_seats_aero_exception_log_redacts_sensitive_exception_text(monkeypatch, caplog):
+    _enable_event_capture(caplog)
+    monkeypatch.setattr(awardradar, "SEATSAERO_KEY", "secret-seats-key")
+    monkeypatch.setattr(awardradar, "_seatsaero_remaining", 999)
+    monkeypatch.setattr(awardradar, "_seatsaero_remaining_utc_date", awardradar._seatsaero_utc_today())
+    sensitive = "token=secret-seats-key origin=FRA destination=JFK date=2030-01-15"
+    monkeypatch.setattr(
+        awardradar.HTTP,
+        "get",
+        mock.Mock(side_effect=awardradar.requests.ConnectionError(sensitive)),
+    )
+
+    with awardradar._seatsaero_reserved_capacity(), pytest.raises(awardradar.SeatsAeroGuardError):
+        awardradar.fetch_seatsaero("FRA", "JFK", "Business", dt.date(2030, 1, 15))
+
+    rendered = "\n".join(record.getMessage() for record in caplog.records)
+    assert "ConnectionError" in rendered
+    assert sensitive not in rendered
+    assert "secret-seats-key" not in rendered
+    assert "FRA" not in rendered
+    assert "JFK" not in rendered
+    assert "2030-01-15" not in rendered
+
+
+def test_seats_aero_non_200_log_redacts_raw_provider_response(monkeypatch, caplog):
+    _enable_event_capture(caplog)
+    monkeypatch.setattr(awardradar, "SEATSAERO_KEY", "secret-seats-key")
+    monkeypatch.setattr(awardradar, "_seatsaero_remaining", 999)
+    monkeypatch.setattr(awardradar, "_seatsaero_remaining_utc_date", awardradar._seatsaero_utc_today())
+    body = "raw provider response with token=secret-seats-key FRA JFK 2030-01-15"
+    monkeypatch.setattr(
+        awardradar.HTTP,
+        "get",
+        mock.Mock(return_value=FakeResponse({"error": "down"}, headers={"X-RateLimit-Remaining": "999"})),
+    )
+    awardradar.HTTP.get.return_value.status_code = 503
+    awardradar.HTTP.get.return_value.text = body
+
+    with awardradar._seatsaero_reserved_capacity(), pytest.raises(awardradar.SeatsAeroGuardError):
+        awardradar.fetch_seatsaero("FRA", "JFK", "Business", dt.date(2030, 1, 15))
+
+    rendered = "\n".join(record.getMessage() for record in caplog.records)
+    assert "status=503" in rendered
+    assert "body_length=" in rendered
+    assert body not in rendered
+    assert "secret-seats-key" not in rendered
+    assert "2030-01-15" not in rendered
+
+
 def test_serpapi_fingerprint_excludes_api_key_and_changes_with_request():
     base = {
         "engine": "google_flights",

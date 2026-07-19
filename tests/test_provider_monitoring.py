@@ -1,6 +1,7 @@
 import threading
 import datetime as dt
 import os
+import json
 
 import pytest
 
@@ -12,6 +13,130 @@ def setup_function():
     awardradar._SERP_CACHE.clear()
     awardradar._serpapi_paid_calls = 0
     awardradar.SERPAPI_HARD_CALL_LIMIT = None
+
+
+def test_health_contains_public_safe_provider_monitoring_summary():
+    data = awardradar.app.test_client().get("/health").get_json()
+    assert data["ok"] is True
+    assert "provider_monitoring" in data
+    assert "degraded_states" in data
+    assert data["provider_monitoring"]["scope"] == "process_local"
+    assert set(data["provider_monitoring"].keys()) == {"scope", "serpapi", "seats_aero"}
+
+
+def test_health_preserves_existing_fields():
+    data = awardradar.app.test_client().get("/health").get_json()
+    for field in (
+        "ok",
+        "app",
+        "version",
+        "price_source",
+        "serpapi_token",
+        "tp_token",
+        "award_source",
+        "seatsaero_key",
+        "seats_aero_budget",
+        "serpapi_paid_calls",
+        "serpapi_max_pairs",
+        "continuation_enabled",
+        "continuation_mode",
+        "continuation_timeout_ms",
+    ):
+        assert field in data
+
+
+def test_health_provider_states_use_allowed_enum():
+    data = awardradar.app.test_client().get("/health").get_json()
+    allowed = {"healthy", "degraded", "disabled", "exhausted", "unknown"}
+    assert data["provider_monitoring"]["serpapi"]["state"] in allowed
+    assert data["provider_monitoring"]["seats_aero"]["state"] in allowed
+
+
+def test_health_initial_state_is_unknown():
+    data = awardradar.app.test_client().get("/health").get_json()
+    assert data["provider_monitoring"]["serpapi"]["state"] == "unknown"
+    assert data["provider_monitoring"]["seats_aero"]["state"] == "unknown"
+    assert data["degraded_states"] == []
+
+
+def test_health_disabled_state_is_exposed_correctly():
+    awardradar._record_provider_monitoring_failure("seats_aero", "provider_disabled")
+    data = awardradar.app.test_client().get("/health").get_json()
+    seats = data["provider_monitoring"]["seats_aero"]
+    assert seats["state"] == "disabled"
+    assert {"provider": "seats_aero", "state": "disabled", "reason": "provider_disabled"} in data["degraded_states"]
+
+
+def test_health_exhausted_state_is_exposed_correctly():
+    awardradar._record_provider_monitoring_failure("serpapi", "quota_exhausted")
+    data = awardradar.app.test_client().get("/health").get_json()
+    serp = data["provider_monitoring"]["serpapi"]
+    assert serp["state"] == "exhausted"
+    assert {"provider": "serpapi", "state": "exhausted", "reason": "quota_exhausted"} in data["degraded_states"]
+
+
+def test_health_degraded_state_and_reason_are_exposed_correctly():
+    awardradar._record_provider_monitoring_failure("serpapi", "provider_timeout")
+    data = awardradar.app.test_client().get("/health").get_json()
+    serp = data["provider_monitoring"]["serpapi"]
+    assert serp["state"] == "degraded"
+    assert serp["last_error_kind"] == "provider_timeout"
+    assert {"provider": "serpapi", "state": "degraded", "reason": "provider_timeout"} in data["degraded_states"]
+
+
+def test_later_success_removes_provider_from_degraded_states():
+    awardradar._record_provider_monitoring_failure("serpapi", "provider_timeout")
+    awardradar._record_provider_monitoring_success("serpapi")
+    data = awardradar.app.test_client().get("/health").get_json()
+    assert data["provider_monitoring"]["serpapi"]["state"] == "healthy"
+    assert all(item["provider"] != "serpapi" for item in data["degraded_states"])
+
+
+def test_health_response_mutation_cannot_affect_internal_state():
+    response = awardradar.app.test_client().get("/health").get_json()
+    response["provider_monitoring"]["serpapi"]["requests_total"] = 999
+    response["degraded_states"].append({"provider": "serpapi", "state": "degraded", "reason": "provider_timeout"})
+    fresh = awardradar.app.test_client().get("/health").get_json()
+    assert fresh["provider_monitoring"]["serpapi"]["requests_total"] == 0
+    assert fresh["degraded_states"] == []
+
+
+def test_health_response_contains_no_secret_keys_or_values():
+    awardradar._record_provider_monitoring_failure("serpapi", "provider_timeout")
+    rendered = json.dumps(awardradar.app.test_client().get("/health").get_json()).lower()
+    forbidden = [
+        "api_key",
+        "authorization",
+        "cookie",
+        "departure_id",
+        "arrival_id",
+        "origin",
+        "destination",
+        "request_fingerprint",
+        "partner-authorization",
+    ]
+    for item in forbidden:
+        assert item not in rendered
+
+
+def test_health_response_contains_no_threshold_or_quota_value_fields():
+    rendered = json.dumps(awardradar.app.test_client().get("/health").get_json()).lower()
+    forbidden = [
+        "hard_call_limit",
+        "remaining_quota",
+        "x-ratelimit-remaining",
+        "seatsaero_safety_floor",
+        "provider_remaining_unknown_total",
+        "provider_disabled_total",
+        "quota_exhausted_total",
+    ]
+    for item in forbidden:
+        assert item not in rendered
+
+
+def test_health_response_is_json_serializable():
+    data = awardradar.app.test_client().get("/health").get_json()
+    assert isinstance(json.dumps(data), str)
 
 
 def test_clean_initial_snapshot():
