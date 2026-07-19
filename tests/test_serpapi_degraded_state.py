@@ -23,7 +23,7 @@ class FakeResponse:
     [
         ({"status_code": 402, "payload": {"error": "Your account has run out of searches."}}, "quota_exhausted"),
         ({"status_code": 429, "payload": {"error": "Too many requests"}}, "rate_limited"),
-        ({"status_code": 503}, "provider_error"),
+        ({"status_code": 503}, "provider_5xx"),
         ({"exc": requests.Timeout()}, "provider_timeout"),
     ],
 )
@@ -39,7 +39,7 @@ def test_serpapi_search_classifies_malformed_success(monkeypatch):
     with pytest.raises(awardradar.SerpApiError) as caught:
         awardradar.serpapi_search("FRA", "JFK", dt.date(2030, 1, 1), None, "Economy", "EUR")
 
-    assert caught.value.reason == "invalid_response"
+    assert caught.value.reason == "parser_error"
 
 
 def test_cheap_quota_is_http_200_degraded_and_not_retried(monkeypatch):

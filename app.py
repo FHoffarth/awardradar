@@ -32,7 +32,8 @@ from werkzeug.exceptions import BadRequest
 
 SERPAPI_FALLBACK_REASONS = {
     "quota_exhausted", "rate_limited", "provider_timeout",
-    "provider_error", "invalid_response", "configuration_error",
+    "provider_5xx", "parser_error", "provider_error",
+    "invalid_response", "configuration_error",
 }
 
 
@@ -59,6 +60,22 @@ TP_TOKEN = os.environ.get("TRAVELPAYOUTS_TOKEN", "")
 TP_BASE = "https://api.travelpayouts.com"
 AUTOCOMPLETE_BASE = "https://autocomplete.travelpayouts.com/places2"
 PORT = int(os.environ.get("PORT", "5000"))
+
+
+def _parse_optional_non_negative_int(name: str) -> int | None:
+    raw = os.environ.get(name)
+    if raw is None:
+        return None
+    raw = raw.strip()
+    if raw == "":
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        return 0
+    return value if value >= 0 else 0
+
+
 SKIPLAG_MAX_WORKERS = int(os.environ.get("SKIPLAG_MAX_WORKERS", "8"))
 SKIPLAG_MAX_CANDIDATES = int(os.environ.get("SKIPLAG_MAX_CANDIDATES", "16"))
 SKIPLAG_MAX_SEARCHES = int(os.environ.get("SKIPLAG_MAX_SEARCHES", "6"))
@@ -70,6 +87,7 @@ SKIPLAG_MAX_SEARCHES = int(os.environ.get("SKIPLAG_MAX_SEARCHES", "6"))
 SERPAPI_TOKEN = os.environ.get("SERPAPI_TOKEN", "")
 SERPAPI_BASE = "https://serpapi.com/search"
 PRICE_SOURCE = (os.environ.get("PRICE_SOURCE") or ("serpapi" if SERPAPI_TOKEN else "travelpayouts")).lower()
+SERPAPI_HARD_CALL_LIMIT = _parse_optional_non_negative_int("SERPAPI_HARD_CALL_LIMIT")
 
 # --- seats.aero live award availability ---
 AWARD_SOURCE   = os.environ.get("AWARD_SOURCE", "estimated").lower()  # "estimated" | "static" | "seatsaero"
@@ -185,6 +203,10 @@ def _new_provider_monitoring_store() -> dict:
 
 
 _PROVIDER_MONITORING = _new_provider_monitoring_store()
+
+
+def _serpapi_hard_limit_reached() -> bool:
+    return SERPAPI_HARD_CALL_LIMIT is not None and _serpapi_paid_calls >= SERPAPI_HARD_CALL_LIMIT
 
 
 def _get_provider_monitoring_metrics(provider: str) -> dict:
@@ -1884,7 +1906,15 @@ def _cached_serpapi_payload(key: tuple, now: float | None = None) -> dict | None
     with _SERP_CACHE_LOCK:
         _prune_serpapi_cache(checked_at)
         cached = _SERP_CACHE.get(key)
-        return cached[1] if cached else None
+        if not cached:
+            return None
+        created_at, payload = cached
+    _record_provider_monitoring_cache_result(
+        "serpapi",
+        hit=True,
+        age_seconds=max(0, int(checked_at - created_at)),
+    )
+    return payload
 
 
 def classify_serpapi_failure(status_code: int | None = None, payload: object = None,
@@ -1900,6 +1930,8 @@ def classify_serpapi_failure(status_code: int | None = None, payload: object = N
         return "quota_exhausted"
     if status_code == 429:
         return "rate_limited"
+    if status_code is not None and 500 <= status_code <= 599:
+        return "provider_5xx"
     if status_code is not None and status_code >= 400:
         return "provider_error"
     if isinstance(payload, dict) and payload.get("error"):
@@ -1935,6 +1967,7 @@ def serpapi_search(origin: str, dest: str, dep: dt.date, ret: dt.date | None, ca
     cached = _cached_serpapi_payload(key, now)
     if cached is not None:
         return cached
+    _record_provider_monitoring_cache_result("serpapi", hit=False, age_seconds=None)
     params = {
         "engine": "google_flights",
         "api_key": SERPAPI_TOKEN,
@@ -1952,31 +1985,42 @@ def serpapi_search(origin: str, dest: str, dep: dt.date, ret: dt.date | None, ca
         params["return_date"] = ret.isoformat()
     if SERPAPI_DEEP:
         params["deep_search"] = "true"
+    if _serpapi_hard_limit_reached():
+        _record_provider_monitoring_failure("serpapi", "quota_exhausted")
+        raise QuotaError()
     # Observability: count only billed calls (cache misses reach this point).
     global _serpapi_paid_calls
     _serpapi_paid_calls += 1
+    _increment_provider_monitoring("serpapi", "requests_total")
     try:
         _log_provider_outbound_call(
             "serpapi", _SERPAPI_FEATURE_PATH.get(), "initial", params, {"api_key"}
         )
         r = HTTP.get(SERPAPI_BASE, params=params, timeout=30)
     except requests.Timeout as exc:
-        _raise_serpapi_failure(classify_serpapi_failure(exc=exc) or "provider_timeout")
+        reason = classify_serpapi_failure(exc=exc) or "provider_timeout"
+        _record_provider_monitoring_failure("serpapi", reason)
+        _raise_serpapi_failure(reason)
     except requests.RequestException:
+        _record_provider_monitoring_failure("serpapi", "provider_error")
         raise SerpApiError("provider_error")
     try:
         data = r.json()
     except ValueError:
         reason = classify_serpapi_failure(status_code=r.status_code, body_text=r.text)
-        _raise_serpapi_failure(reason or "invalid_response")
+        _record_provider_monitoring_failure("serpapi", reason or "parser_error")
+        _raise_serpapi_failure(reason or "parser_error")
     reason = classify_serpapi_failure(status_code=r.status_code, payload=data, body_text=r.text)
     if reason:
+        _record_provider_monitoring_failure("serpapi", reason)
         _raise_serpapi_failure(reason)
     if not isinstance(data, dict):
-        raise SerpApiError("invalid_response")
+        _record_provider_monitoring_failure("serpapi", "parser_error")
+        raise SerpApiError("parser_error")
     with _SERP_CACHE_LOCK:
         _SERP_CACHE[key] = (now, data)
         _prune_serpapi_cache(now)
+    _record_provider_monitoring_success("serpapi")
     return data
 
 
@@ -2013,12 +2057,16 @@ def serpapi_continuation_search(
     started = time.time()
     app.logger.debug("SerpApi continuation request sent")
     try:
+        if _serpapi_hard_limit_reached():
+            _record_provider_monitoring_failure("serpapi", "quota_exhausted")
+            return None
         global _serpapi_paid_calls
         _serpapi_paid_calls += 1
+        _increment_provider_monitoring("serpapi", "requests_total")
         _log_provider_outbound_call(
             "serpapi", "continuation", "continuation", params, {"api_key"}
         )
-        response = requests.get(SERPAPI_BASE, params=params, timeout=max(1.0, CONTINUATION_TIMEOUT_MS / 1000.0))
+        response = HTTP.get(SERPAPI_BASE, params=params, timeout=max(1.0, CONTINUATION_TIMEOUT_MS / 1000.0))
         elapsed = time.time() - started
         app.logger.debug(
             "SerpApi continuation response status=%s seconds=%.3f bytes=%d",
@@ -2029,10 +2077,21 @@ def serpapi_continuation_search(
         response.raise_for_status()
         payload = response.json() or {}
         if payload.get("error"):
+            _record_provider_monitoring_failure("serpapi", "provider_error")
             app.logger.debug("SerpApi continuation provider_error=true")
             return None
+        _record_provider_monitoring_success("serpapi")
         return payload
+    except ValueError:
+        _record_provider_monitoring_failure("serpapi", "parser_error")
+        return None
+    except requests.Timeout:
+        _record_provider_monitoring_failure("serpapi", "provider_timeout")
+        return None
     except Exception as exc:
+        status_code = getattr(getattr(exc, "response", None), "status_code", None)
+        reason = classify_serpapi_failure(status_code=status_code, exc=exc) or "provider_error"
+        _record_provider_monitoring_failure("serpapi", reason)
         app.logger.debug(
             "SerpApi continuation failed seconds=%.3f error_type=%s",
             time.time() - started,
