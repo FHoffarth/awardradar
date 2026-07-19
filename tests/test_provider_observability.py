@@ -276,7 +276,7 @@ def test_serpapi_continuation_event_never_logs_token(monkeypatch, caplog):
     _enable_event_capture(caplog)
     monkeypatch.setattr(awardradar, "SERPAPI_TOKEN", "secret-continuation-key")
     outbound = mock.Mock(return_value=FakeResponse())
-    monkeypatch.setattr(awardradar.requests, "get", outbound)
+    monkeypatch.setattr(awardradar.HTTP, "get", outbound)
 
     awardradar.serpapi_continuation_search(
         "FRA",
