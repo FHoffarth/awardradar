@@ -102,6 +102,176 @@ CONTINUATION_TIMEOUT_MS = int(os.environ.get("CONTINUATION_TIMEOUT_MS", "12000")
 CONTINUATION_INLINE = (os.environ.get("CONTINUATION_INLINE", "1") == "1")
 FLEX_MAX_DAYS = int(os.environ.get("FLEX_MAX_DAYS", "3"))       # max. Flex-Tage (Â±N) fÃ¼r Datums-Kalender
 
+# Process-local monitoring core for Controlled Beta V1 only. This state is
+# thread-safe within one worker process but is not aggregated across Gunicorn
+# workers or replicas.
+PROVIDER_MONITORING_PROVIDERS = ("serpapi", "seats_aero")
+PROVIDER_MONITORING_CACHE_PROVIDERS = ("top_opportunities",)
+PROVIDER_FAILURE_KINDS = (
+    "rate_limited",
+    "provider_5xx",
+    "provider_timeout",
+    "parser_error",
+    "provider_error",
+    "quota_exhausted",
+    "provider_disabled",
+    "provider_remaining_unknown",
+)
+PROVIDER_STATES = ("healthy", "degraded", "disabled", "exhausted", "unknown")
+_PROVIDER_FAILURE_COUNTER_FIELDS = {
+    "rate_limited": "rate_limited_total",
+    "provider_5xx": "provider_5xx_total",
+    "provider_timeout": "timeout_total",
+    "parser_error": "parser_error_total",
+    "provider_error": "provider_error_total",
+    "quota_exhausted": "quota_exhausted_total",
+    "provider_disabled": "provider_disabled_total",
+}
+_PROVIDER_DEGRADED_FAILURE_KINDS = {
+    "rate_limited",
+    "provider_5xx",
+    "provider_timeout",
+    "parser_error",
+    "provider_error",
+    "provider_remaining_unknown",
+}
+_PROVIDER_TERMINAL_STATE_FIELDS = {
+    "provider_disabled": "is_disabled",
+    "quota_exhausted": "is_exhausted",
+}
+_PROVIDER_MONITORING_LOCK = threading.Lock()
+
+
+def _monitoring_now_iso() -> str:
+    return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _new_provider_monitoring_metrics() -> dict:
+    return {
+        "requests_total": 0,
+        "cache_hits": 0,
+        "cache_misses": 0,
+        "rate_limited_total": 0,
+        "provider_5xx_total": 0,
+        "timeout_total": 0,
+        "parser_error_total": 0,
+        "provider_error_total": 0,
+        "quota_exhausted_total": 0,
+        "provider_disabled_total": 0,
+        "degraded_total": 0,
+        "last_success_at": None,
+        "last_error_at": None,
+        "last_error_kind": None,
+        "last_cache_age_seconds": None,
+        "last_provider_observed_at": None,
+        "is_disabled": False,
+        "is_exhausted": False,
+        "has_active_degradation": False,
+    }
+
+
+def _new_cache_monitoring_metrics() -> dict:
+    return {
+        "cache_hits": 0,
+        "cache_misses": 0,
+        "last_cache_age_seconds": None,
+    }
+
+
+def _new_provider_monitoring_store() -> dict:
+    store = {provider: _new_provider_monitoring_metrics() for provider in PROVIDER_MONITORING_PROVIDERS}
+    store.update({provider: _new_cache_monitoring_metrics() for provider in PROVIDER_MONITORING_CACHE_PROVIDERS})
+    return store
+
+
+_PROVIDER_MONITORING = _new_provider_monitoring_store()
+
+
+def _get_provider_monitoring_metrics(provider: str) -> dict:
+    if provider not in _PROVIDER_MONITORING:
+        raise KeyError(f"Unknown provider monitoring key: {provider}")
+    return _PROVIDER_MONITORING[provider]
+
+
+def _increment_provider_monitoring(provider: str, field: str, amount: int = 1) -> None:
+    with _PROVIDER_MONITORING_LOCK:
+        _get_provider_monitoring_metrics(provider)[field] += amount
+
+
+def _record_provider_monitoring_success(
+    provider: str,
+    *,
+    observed_at: str | None = None,
+) -> None:
+    with _PROVIDER_MONITORING_LOCK:
+        metrics = _get_provider_monitoring_metrics(provider)
+        metrics["last_success_at"] = _monitoring_now_iso()
+        metrics["last_error_at"] = None
+        metrics["last_error_kind"] = None
+        metrics["has_active_degradation"] = False
+        metrics["is_disabled"] = False
+        metrics["is_exhausted"] = False
+        if observed_at is not None:
+            metrics["last_provider_observed_at"] = observed_at
+
+
+def _record_provider_monitoring_failure(provider: str, failure_kind: str) -> None:
+    if failure_kind not in PROVIDER_FAILURE_KINDS:
+        raise ValueError(f"Unknown provider failure kind: {failure_kind}")
+    with _PROVIDER_MONITORING_LOCK:
+        metrics = _get_provider_monitoring_metrics(provider)
+        counter_field = _PROVIDER_FAILURE_COUNTER_FIELDS.get(failure_kind)
+        if counter_field:
+            metrics[counter_field] += 1
+        if failure_kind in _PROVIDER_DEGRADED_FAILURE_KINDS:
+            metrics["degraded_total"] += 1
+            metrics["has_active_degradation"] = True
+        terminal_field = _PROVIDER_TERMINAL_STATE_FIELDS.get(failure_kind)
+        if terminal_field:
+            metrics[terminal_field] = True
+        metrics["last_error_at"] = _monitoring_now_iso()
+        metrics["last_error_kind"] = failure_kind
+
+
+def _record_provider_monitoring_cache_result(
+    provider: str,
+    *,
+    hit: bool,
+    age_seconds: int | None = None,
+) -> None:
+    normalized_age = None if age_seconds is None else max(0, int(age_seconds))
+    with _PROVIDER_MONITORING_LOCK:
+        metrics = _get_provider_monitoring_metrics(provider)
+        metrics["cache_hits" if hit else "cache_misses"] += 1
+        metrics["last_cache_age_seconds"] = normalized_age
+
+
+def _derive_provider_monitoring_state(provider: str) -> str:
+    metrics = _get_provider_monitoring_metrics(provider)
+    if metrics.get("is_disabled"):
+        return "disabled"
+    if metrics.get("is_exhausted"):
+        return "exhausted"
+    if metrics.get("has_active_degradation"):
+        return "degraded"
+    if metrics.get("last_success_at"):
+        return "healthy"
+    return "unknown"
+
+
+def _provider_monitoring_snapshot() -> dict:
+    with _PROVIDER_MONITORING_LOCK:
+        snapshot = json.loads(json.dumps(_PROVIDER_MONITORING))
+    for provider in PROVIDER_MONITORING_PROVIDERS:
+        snapshot[provider]["state"] = _derive_provider_monitoring_state(provider)
+    return snapshot
+
+
+def _reset_provider_monitoring_for_tests() -> None:
+    with _PROVIDER_MONITORING_LOCK:
+        _PROVIDER_MONITORING.clear()
+        _PROVIDER_MONITORING.update(_new_provider_monitoring_store())
+
 # Ensure self-hosted WOFF2 fonts are served as font/woff2 (not application/
 # octet-stream) â€” some Linux hosts (e.g. Railway) lack the .woff2 mimetype.
 mimetypes.add_type("font/woff2", ".woff2")
