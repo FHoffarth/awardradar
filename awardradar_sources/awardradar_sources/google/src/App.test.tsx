@@ -3,6 +3,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import App from './App';
+import { awardTrustFixtures, REFERENCE_NOW_ISO } from './trust/awardTrustFixtures';
+
+const REAL_DATE_NOW = Date.now;
 
 // Mock matchMedia for motion
 Object.defineProperty(window, 'matchMedia', {
@@ -63,6 +66,50 @@ function awardEmptyResponse() {
   return { ok: true, results: [] };
 }
 
+function awardTrustApiResponse(name: keyof typeof awardTrustFixtures, overrides: Record<string, unknown> = {}) {
+  const fixture = awardTrustFixtures[name];
+  if (fixture.state === 'no_results') return { ok: true, results: [] };
+  if (fixture.state === 'provider_error') return { ok: false, error: 'provider_unavailable', status: 503 };
+  if (fixture.state === 'rate_limited') return { ok: false, error: 'rate_limited', status: 429 };
+  if (fixture.state === 'malformed_payload') return { ok: true, results: [{}] };
+
+  const liveLike = fixture.state === 'cached_recent' || fixture.state === 'cached_stale';
+  const result = {
+    origin: 'FRA',
+    dest: 'JFK',
+    date: '2030-10-10',
+    verified_identical_routing: fixture.itineraryOwnershipVerified ?? false,
+    has_live_data: liveLike,
+    decision: { signal: 'strong_miles_value', confidence: 'low', trip_basis_compatible: fixture.routingConfidence === 'complete' },
+    programs: [{
+      program: 'Miles & More',
+      miles: 33000,
+      surcharge: 85,
+      verification_note: 'Open the loyalty program site and search manually with the route, date and cabin shown here.',
+      data_source: liveLike ? 'live' : fixture.state === 'estimated' ? 'estimated' : undefined,
+      is_live_data: liveLike || undefined,
+      is_estimate: fixture.state === 'estimated' || undefined,
+      fetched_at: fixture.checkedAt ?? undefined,
+      last_seen_at: fixture.checkedAt ?? undefined,
+      freshness_label: fixture.state === 'cached_stale' ? 'cached_stale' : fixture.state === 'cached_recent' ? 'cached_recent' : fixture.state === 'estimated' ? 'estimate' : undefined,
+      seats: fixture.seatCount ?? undefined,
+    }],
+    ...overrides,
+  };
+
+  if (fixture.state === 'partial') {
+    return {
+      ok: true,
+      results: [{
+        ...result,
+        programs: [{ program: 'Miles & More', verification_note: 'Open the loyalty program site and search manually with the route, date and cabin shown here.' }],
+      }],
+    };
+  }
+
+  return { ok: true, results: [result] };
+}
+
 function strictCashFixtureMock(responses: {
   cheap: Record<string, unknown>;
   awards?: Record<string, unknown>;
@@ -101,6 +148,7 @@ describe('App', () => {
     cleanup();
     document.body.innerHTML = '';
     vi.clearAllMocks();
+    Date.now = vi.fn(() => Date.parse(REFERENCE_NOW_ISO));
     window.history.pushState({}, 'Test Title', '/app');
     Object.defineProperty(window, 'print', { writable: true, value: vi.fn() });
     Object.defineProperty(navigator, 'share', { configurable: true, writable: true, value: undefined });
@@ -109,6 +157,7 @@ describe('App', () => {
   });
 
   afterEach(() => {
+    Date.now = REAL_DATE_NOW;
     cleanup();
     document.body.innerHTML = '';
   });
@@ -464,6 +513,245 @@ describe('App', () => {
     });
   });
 
+  it('maps no_results to provider-reported absence without implying provider failure', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      awards: awardTrustApiResponse('award_zero_results'),
+      cheap: buildCashFixtureResponse('cash_one_way_complete.json', ['cash-control'], 'cash-control'),
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => expect(screen.getByTestId('award-pane-empty')).toBeTruthy());
+    expect(screen.getByTestId('award-pane-empty').textContent).toContain('Provider reported no matching results.');
+    expect(screen.getByTestId('award-pane-empty').textContent).not.toContain('temporarily unavailable');
+    expect(screen.queryByTestId('decision-summary')).toBeNull();
+  });
+
+  it('maps missing award detail to partial and blocks a stronger verdict', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      awards: awardTrustApiResponse('award_partial_outbound_only'),
+      cheap: buildCashFixtureResponse('cash_one_way_complete.json', ['cash-control'], 'cash-control'),
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => expect(screen.getByTestId('award-trust')).toBeTruthy());
+    expect(screen.getByTestId('award-trust').getAttribute('data-state')).toBe('partial');
+    expect(screen.getByTestId('decision-verdict').textContent).toBe('More Evidence Required');
+    expect(screen.getByTestId('award-trust-copy').textContent).toContain('Valid miles requirement is currently unavailable.');
+    expect(container.textContent).not.toContain('Provider-reported');
+  });
+
+  it('maps timestamped live-like award data to stale when the freshness is old', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      awards: awardTrustApiResponse('award_cached_stale'),
+      cheap: buildCashFixtureResponse('cash_one_way_complete.json', ['cash-control'], 'cash-control'),
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => expect(screen.getByTestId('award-trust')).toBeTruthy());
+    expect(screen.getByTestId('award-trust').getAttribute('data-state')).toBe('cached_stale');
+    expect(screen.getByTestId('decision-verdict').textContent).toBe('Worth checking');
+    expect(screen.getByTestId('award-trust-freshness').textContent).toContain('Last checked');
+    expect(container.textContent).not.toContain('Live data');
+  });
+
+  it('maps timestamped live-like award data to cached_recent when the freshness is recent', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      awards: awardTrustApiResponse('award_cached_recent'),
+      cheap: buildCashFixtureResponse('cash_one_way_complete.json', ['cash-control'], 'cash-control'),
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => expect(screen.getByTestId('award-trust')).toBeTruthy());
+    expect(screen.getByTestId('award-trust').getAttribute('data-state')).toBe('cached_recent');
+    expect(screen.getByTestId('award-trust-freshness').textContent).toContain('Last checked 45 minutes ago');
+    expect(container.textContent).toContain('Best Award Option');
+  });
+
+  it('maps rate-limited award errors from explicit 429 status', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      awards: { ok: false, status: 429, error: 'provider_unavailable' },
+      cheap: buildCashFixtureResponse('cash_one_way_complete.json', ['cash-control'], 'cash-control'),
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => expect(screen.getByTestId('award-pane-error')).toBeTruthy());
+    expect(screen.getByTestId('award-pane-error').textContent).toContain('provider limits');
+    expect(screen.getByTestId('award-pane-error').textContent).not.toContain('no matching results');
+    expect(container.querySelector('[data-testid="cash-candidate-card"]')).not.toBeNull();
+  });
+
+  it('maps rate-limited award errors from explicit canonical rate-limit codes', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      awards: { ok: false, code: 'quota_exceeded' },
+      cheap: buildCashFixtureResponse('cash_one_way_complete.json', ['cash-control'], 'cash-control'),
+    });
+
+    render(<App />);
+    fireEvent.click(getButton(document.body));
+
+    await waitFor(() => expect(screen.getByTestId('award-pane-error')).toBeTruthy());
+    expect(screen.getByTestId('award-pane-error').textContent).toContain('provider limits');
+  });
+
+  it('maps provider_error to temporary unavailability without claiming no results', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      awards: awardTrustApiResponse('award_provider_error'),
+      cheap: buildCashFixtureResponse('cash_one_way_complete.json', ['cash-control'], 'cash-control'),
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => expect(screen.getByTestId('award-pane-error')).toBeTruthy());
+    expect(screen.getByTestId('award-pane-error').textContent).toContain('Search temporarily unavailable.');
+    expect(screen.getByTestId('award-pane-error').textContent).not.toContain('no matching results');
+    expect(container.querySelector('[data-testid="cash-candidate-card"]')).not.toBeNull();
+  });
+
+  it('maps ordinary server-side failures to provider_error instead of rate_limited', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      awards: { ok: false, status: 500, error: 'provider_unavailable' },
+      cheap: buildCashFixtureResponse('cash_one_way_complete.json', ['cash-control'], 'cash-control'),
+    });
+
+    render(<App />);
+    fireEvent.click(getButton(document.body));
+
+    await waitFor(() => expect(screen.getByTestId('award-pane-error')).toBeTruthy());
+    expect(screen.getByTestId('award-pane-error').textContent).toContain('Search temporarily unavailable.');
+    expect(screen.getByTestId('award-pane-error').textContent).not.toContain('provider limits');
+  });
+
+  it('does not accidentally map generic errors to rate_limited from unrelated wording', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      awards: { ok: false, error: 'provider_unavailable', message: 'The provider returned an unrelated upstream failure.' },
+      cheap: buildCashFixtureResponse('cash_one_way_complete.json', ['cash-control'], 'cash-control'),
+    });
+
+    render(<App />);
+    fireEvent.click(getButton(document.body));
+
+    await waitFor(() => expect(screen.getByTestId('award-pane-error')).toBeTruthy());
+    expect(screen.getByTestId('award-pane-error').textContent).toContain('Search temporarily unavailable.');
+    expect(screen.getByTestId('award-pane-error').textContent).not.toContain('provider limits');
+  });
+
+  it('maps malformed_payload to a blocked trust state instead of live-provider wording', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      awards: awardTrustApiResponse('award_malformed_payload'),
+      cheap: buildCashFixtureResponse('cash_one_way_complete.json', ['cash-control'], 'cash-control'),
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => expect(screen.getByTestId('award-trust')).toBeTruthy());
+    expect(screen.getByTestId('award-trust').getAttribute('data-state')).toBe('malformed_payload');
+    expect(screen.getByTestId('decision-verdict').textContent).toBe('More Evidence Required');
+    expect(screen.getByTestId('award-trust-copy').textContent).toContain('could not be safely interpreted');
+    expect(container.textContent).not.toContain('Provider-reported');
+  });
+
+  it('maps unavailable to unavailable wording without claiming no matching results', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      awards: { ok: false, error: 'unknown_failure' },
+      cheap: { ok: true, offers: [] },
+    });
+
+    render(<App />);
+    fireEvent.click(getButton(document.body));
+
+    await waitFor(() => expect(screen.getByTestId('empty-state')).toBeTruthy());
+    expect(screen.getByTestId('award-pane-error').textContent).not.toContain('no matching results');
+  });
+
+  it('does not map has_live_data alone to live_provider_reported', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      awards: awardTrustApiResponse('award_cached_recent', {
+        programs: [{
+          program: 'Miles & More',
+          miles: 33000,
+          surcharge: 85,
+          verification_note: 'Open the loyalty program site and search manually with the route, date and cabin shown here.',
+        }],
+        has_live_data: true,
+      }),
+      cheap: buildCashFixtureResponse('cash_one_way_complete.json', ['cash-control'], 'cash-control'),
+    });
+
+    render(<App />);
+    fireEvent.click(getButton(document.body));
+
+    await waitFor(() => expect(screen.getByTestId('award-trust')).toBeTruthy());
+    expect(screen.getByTestId('award-trust').getAttribute('data-state')).not.toBe('live_provider_reported');
+    expect(screen.getByTestId('award-trust').textContent).not.toContain('Provider-reported');
+  });
+
+  it('does not map a recent timestamp alone to live_provider_reported', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      awards: awardTrustApiResponse('award_cached_recent', {
+        programs: [{
+          program: 'Miles & More',
+          miles: 33000,
+          surcharge: 85,
+          verification_note: 'Open the loyalty program site and search manually with the route, date and cabin shown here.',
+          fetched_at: REFERENCE_NOW_ISO,
+          last_seen_at: REFERENCE_NOW_ISO,
+        }],
+      }),
+      cheap: buildCashFixtureResponse('cash_one_way_complete.json', ['cash-control'], 'cash-control'),
+    });
+
+    render(<App />);
+    fireEvent.click(getButton(document.body));
+
+    await waitFor(() => expect(screen.getByTestId('award-trust')).toBeTruthy());
+    expect(screen.getByTestId('award-trust').getAttribute('data-state')).toBe('partial');
+    expect(screen.getByTestId('award-trust').getAttribute('data-state')).not.toBe('live_provider_reported');
+  });
+
+  it('does not map complete recent success payloads to live_provider_reported without explicit current-request provenance', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      awards: awardTrustApiResponse('award_cached_recent', {
+        has_live_data: true,
+        verified_identical_routing: true,
+        decision: { signal: 'strong_miles_value', confidence: 'high', trip_basis_compatible: true },
+      }),
+      cheap: buildCashFixtureResponse('cash_one_way_complete.json', ['cash-control'], 'cash-control'),
+    });
+
+    render(<App />);
+    fireEvent.click(getButton(document.body));
+
+    await waitFor(() => expect(screen.getByTestId('award-trust')).toBeTruthy());
+    expect(screen.getByTestId('award-trust').getAttribute('data-state')).toBe('cached_recent');
+    expect(screen.getByTestId('award-trust').getAttribute('data-state')).not.toBe('live_provider_reported');
+  });
+
   it('keeps Award visible and renders the neutral quota-degraded Cash state', async () => {
     setupUrlParams('FRA', 'JFK', '2030-10-10');
     mockFetch.mockImplementation(async (url) => url === '/api/awards'
@@ -483,8 +771,8 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText('Current cash comparison unavailable')).toBeTruthy();
       expect(screen.getByText('Award results can still be reviewed, but relative value cannot be fully assessed without a current cash fare.')).toBeTruthy();
-      expect(screen.getByText('Promising award signal')).toBeTruthy();
-      expect(screen.getByText('A current cash comparison is unavailable, so the relative value cannot be fully assessed.')).toBeTruthy();
+      expect(screen.getByTestId('decision-verdict').textContent).toBe('Worth checking');
+      expect(screen.getByTestId('decision-why').textContent).toBe('Estimated from historical or modeled data; it does not report current availability.');
       expect(container.querySelector('[data-testid="award-candidate-card"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="cash-alternatives"]')).toBeNull();
       expect(container.querySelector('[data-testid="error-state"]')).toBeNull();
@@ -509,7 +797,9 @@ describe('App', () => {
     fireEvent.click(getButton(container));
 
     await waitFor(() => {
-      expect(screen.getByText('Strong Award Value')).toBeTruthy();
+      expect(screen.getByTestId('decision-verdict').textContent).toBe('More Evidence Required');
+      expect(screen.getByTestId('award-trust-copy').textContent).toContain('Verified freshness timestamp is currently unavailable.');
+      expect(screen.getByTestId('award-trust-copy').textContent).toContain('Program-level award detail');
       expect(container.querySelector('[data-testid="cash-candidate-card"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="cash-unavailable-state"]')).toBeNull();
     });
@@ -780,7 +1070,7 @@ describe('App', () => {
     const copied = writeText.mock.calls[0][0];
     expect(copied).toContain('Current cash comparison unavailable');
     expect(copied).toContain('not verified as identical itineraries');
-    expect(copied).toContain('Award figures are estimates');
+    expect(copied).toContain('Estimated from historical or modeled data; it does not report current availability.');
     expect(copied).not.toContain('quota_exhausted');
     expect(copied).not.toContain('serpapi');
   });
