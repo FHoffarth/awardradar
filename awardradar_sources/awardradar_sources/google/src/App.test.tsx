@@ -247,9 +247,91 @@ describe('App', () => {
 
     expect(container.textContent).toContain('FRA');
     expect(container.textContent).toContain('MUC');
-    expect(container.textContent).toContain('2026-08-06');
+    expect(container.textContent).toContain('06 Aug 2026');
     expect((getButton(container) as HTMLButtonElement).disabled).toBe(false);
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('renders the visible one-way date with the approved formatter and keeps ISO in the time element', () => {
+    setupUrlParams('FRA', 'MUC', '2026-08-06');
+    const { container } = render(<App />);
+
+    const summary = screen.getByTestId('search-context');
+    expect(summary.textContent).toContain('06 Aug 2026');
+    expect(summary.textContent).not.toContain('2026-08-06');
+    expect(container.querySelector('time[datetime="2026-08-06"]')).toBeTruthy();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('formats the visible round-trip departure and return dates while preserving ISO datetime attributes', () => {
+    window.history.pushState({}, 'Test Title', '/app?from=FRA&to=JFK&date=2030-10-10&trip=round_trip&returnDate=2030-10-20');
+    const { container } = render(<App />);
+
+    const summary = screen.getByTestId('search-context');
+    expect(summary.textContent).toContain('10 Oct 2030');
+    expect(summary.textContent).toContain('20 Oct 2030');
+    expect(summary.textContent).not.toContain('2030-10-10');
+    expect(summary.textContent).not.toContain('2030-10-20');
+    expect(container.querySelector('time[datetime="2030-10-10"]')).toBeTruthy();
+    expect(container.querySelector('time[datetime="2030-10-20"]')).toBeTruthy();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('exposes a read-only search summary with no form inputs and a labelled Analyze control', () => {
+    setupUrlParams('FRA', 'MUC', '2026-08-06');
+    render(<App />);
+
+    const summary = screen.getByTestId('search-context');
+    expect(summary.querySelectorAll('input, select, textarea')).toHaveLength(0);
+    const group = summary.querySelector('[role="group"]');
+    expect(group?.getAttribute('aria-label')).toBe('Current search summary');
+    expect(screen.getByTestId('search-readonly-tag').textContent).toBe('Read-only');
+    const analyze = screen.getByTestId('analyze-button');
+    expect(analyze.tagName).toBe('BUTTON');
+    expect(analyze.getAttribute('aria-label')).toBe('Analyze this route');
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('provides an Edit search link that returns to the landing search with the current one-way route', () => {
+    setupUrlParams('FRA', 'MUC', '2026-08-06');
+    render(<App />);
+
+    const editLink = screen.getByTestId('edit-search-link');
+    expect(editLink.tagName).toBe('A');
+    expect(editLink.textContent).toBe('Edit search');
+    const href = editLink.getAttribute('href') || '';
+    expect(href.startsWith('/?')).toBe(true);
+    const params = new URLSearchParams(href.split('?')[1] || '');
+    expect(params.get('from')).toBe('FRA');
+    expect(params.get('to')).toBe('MUC');
+    expect(params.get('date')).toBe('2026-08-06');
+    expect(params.get('trip')).toBeNull();
+    expect(params.get('returnDate')).toBeNull();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('carries round-trip context on the Edit search link', () => {
+    window.history.pushState({}, 'Test Title', '/app?from=FRA&to=JFK&date=2030-10-10&trip=round_trip&returnDate=2030-10-20');
+    render(<App />);
+
+    const href = screen.getByTestId('edit-search-link').getAttribute('href') || '';
+    const params = new URLSearchParams(href.split('?')[1] || '');
+    expect(params.get('from')).toBe('FRA');
+    expect(params.get('to')).toBe('JFK');
+    expect(params.get('date')).toBe('2030-10-10');
+    expect(params.get('trip')).toBe('round_trip');
+    expect(params.get('returnDate')).toBe('2030-10-20');
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('resolves a labelled airport to its IATA code on the Edit search link', () => {
+    setupUrlParams('FRA', 'München (MUC)', '2030-10-10');
+    render(<App />);
+
+    const href = screen.getByTestId('edit-search-link').getAttribute('href') || '';
+    const params = new URLSearchParams(href.split('?')[1] || '');
+    expect(params.get('to')).toBe('MUC');
+    expect(href).not.toContain('M%C3%BCnchen');
   });
 
   it('separates a human-readable airport label from canonical URL and payload values', async () => {
@@ -336,6 +418,34 @@ describe('App', () => {
     await waitFor(() => {
       expect(container.querySelector('[data-testid="empty-state"]')).not.toBeNull();
     });
+  });
+
+  it('states cash-unavailable honestly on error without implying no flights exist', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    mockFetch.mockRejectedValue(new Error('Network error'));
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => expect(screen.getByTestId('cash-pane-error')).toBeTruthy());
+    const cashPane = screen.getByTestId('cash-pane-error');
+    expect(cashPane.textContent).toContain('Cash analysis unavailable');
+    expect(cashPane.textContent).toContain('could not be completed, so no conclusion was drawn');
+    expect(cashPane.textContent).not.toMatch(/no flights|no fares|no seats|no results/i);
+    expect(cashPane.textContent).not.toContain('Network error');
+  });
+
+  it('uses neutral no-conclusion copy for a cash-empty result', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    mockFetch.mockImplementation(async () => ({ ok: true, json: async () => ({ ok: true, results: [], offers: [] }) }));
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => expect(screen.getByTestId('cash-pane-empty')).toBeTruthy());
+    const cashPane = screen.getByTestId('cash-pane-empty');
+    expect(cashPane.textContent).toContain('No reliable cash result was returned, so no conclusion was drawn');
+    expect(cashPane.textContent).not.toContain('route and date');
   });
 
   it('renders both cash and awards when both succeed', async () => {
@@ -1153,7 +1263,7 @@ describe('App', () => {
     window.history.pushState({}, 'Test Title', '/app?from=FRA&to=JFK&date=2030-10-10&trip=round_trip&returnDate=2030-10-20');
     const { container } = render(<App />);
     expect(container.textContent).toContain('Round-trip');
-    expect(container.textContent).toContain('2030-10-20');
+    expect(container.textContent).toContain('20 Oct 2030');
     expect((getButton(container) as HTMLButtonElement).disabled).toBe(false);
   });
 

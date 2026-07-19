@@ -724,8 +724,22 @@ const SearchInstrument = ({
         : tripType === 'round_trip' && dateIsValid && returnDateParam < dateParam
           ? 'Return date must not be before the departure date.'
           : null;
-  const dateLabel = dateIsValid ? dateParam : 'Date not selected';
+  const dateLabel = dateIsValid ? formatTravelDate(dateParam) : 'Date not selected';
   const canAnalyze = Boolean(originCode && destinationCode && originCode !== destinationCode && dateIsValid && tripType && !tripValidationError);
+
+  // This row is a READ-ONLY summary of the search composed on the Landing form
+  // (`/`). Editing happens there, so the Edit link carries the current route
+  // back to `/` as query params. The Landing form does not yet hydrate from
+  // these params (separate slice); today it opens a blank form.
+  const editParams = new URLSearchParams();
+  if (origin) editParams.set('from', originCode || origin);
+  if (destination) editParams.set('to', destinationCode || destination);
+  if (dateParam) editParams.set('date', dateParam);
+  if (tripType === 'round_trip') {
+    editParams.set('trip', 'round_trip');
+    if (returnDateParam) editParams.set('returnDate', returnDateParam);
+  }
+  const editSearchUrl = editParams.toString() ? `/?${editParams.toString()}` : '/';
 
   useEffect(() => {
     if (!originCode || !destinationCode) return;
@@ -748,7 +762,10 @@ const SearchInstrument = ({
       aria-labelledby="search-context-title"
       data-testid="search-context"
     >
-      <div className="section-kicker" id="search-context-title">Search context</div>
+      <div className="search-context__head">
+        <div className="section-kicker" id="search-context-title">Search context</div>
+        <span className="readonly-tag" data-testid="search-readonly-tag">Read-only</span>
+      </div>
 
       {(validationError || tripValidationError) && (
         <div className="validation-error" role="alert" data-testid="validation-error">
@@ -756,7 +773,7 @@ const SearchInstrument = ({
         </div>
       )}
 
-      <div className={`search-instrument ${tripType === 'round_trip' ? 'search-instrument--round-trip' : ''}`}>
+      <div className={`search-instrument ${tripType === 'round_trip' ? 'search-instrument--round-trip' : ''}`} role="group" aria-label="Current search summary">
         <div className="search-field search-field--accent">
           <span className="field-label">From</span>
           <strong>{originDisplay}</strong>
@@ -776,7 +793,7 @@ const SearchInstrument = ({
         {tripType === 'round_trip' && (
           <div className="search-field">
             <span className="field-label">Return</span>
-            <time dateTime={returnDateParam || undefined}>{returnDateIsValid ? returnDateParam : 'Return date not selected'}</time>
+            <time dateTime={returnDateParam || undefined}>{returnDateIsValid ? formatTravelDate(returnDateParam) : 'Return date not selected'}</time>
           </div>
         )}
         <button
@@ -790,6 +807,10 @@ const SearchInstrument = ({
           <span>{status === 'loading' ? 'Analyzing…' : 'Analyze this route'}</span>
           <Activity aria-hidden="true" className={status === 'loading' ? 'is-pulsing' : ''} />
         </button>
+      </div>
+
+      <div className="search-context__footer interactive-only">
+        <a className="edit-search" href={editSearchUrl} data-testid="edit-search-link">Edit search</a>
       </div>
     </motion.section>
   );
@@ -1041,8 +1062,12 @@ const PaneUnavailable = ({
 }) => (
   <article className="option-card option-card--unavailable print-omit" data-testid={`${kind.toLowerCase()}-pane-${status}`}>
     <p className="option-type">{kind} option</p>
-    <h3>{kind === 'Award' && awardTrust ? awardTrust.freshnessLabel : `${kind} data unavailable`}</h3>
-    <p>{kind === 'Award' && awardTrust ? awardTrust.supportingCopy : status === 'error' ? 'This part of the analysis could not be completed.' : 'No reliable result was returned for this route and date.'}</p>
+    <h3>{kind === 'Award' && awardTrust ? awardTrust.freshnessLabel : `${kind} analysis unavailable`}</h3>
+    <p>{kind === 'Award' && awardTrust
+      ? awardTrust.supportingCopy
+      : status === 'error'
+        ? `The ${kind.toLowerCase()} portion of this analysis could not be completed, so no conclusion was drawn.`
+        : `No reliable ${kind.toLowerCase()} result was returned, so no conclusion was drawn.`}</p>
     {kind === 'Award' && awardTrust?.verificationNotice && (
       <p className="verification-guidance" data-testid="award-pane-verification">
         {awardTrust.verificationNotice}
