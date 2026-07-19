@@ -144,6 +144,7 @@ _PROVIDER_FAILURE_COUNTER_FIELDS = {
     "provider_error": "provider_error_total",
     "quota_exhausted": "quota_exhausted_total",
     "provider_disabled": "provider_disabled_total",
+    "provider_remaining_unknown": "provider_remaining_unknown_total",
 }
 _PROVIDER_DEGRADED_FAILURE_KINDS = {
     "rate_limited",
@@ -176,6 +177,7 @@ def _new_provider_monitoring_metrics() -> dict:
         "provider_error_total": 0,
         "quota_exhausted_total": 0,
         "provider_disabled_total": 0,
+        "provider_remaining_unknown_total": 0,
         "degraded_total": 0,
         "last_success_at": None,
         "last_error_at": None,
@@ -552,6 +554,7 @@ def _update_seatsaero_remaining(raw_value: object) -> bool:
 def _reserve_seatsaero_capacity(planned_calls: int) -> None:
     """Reserve a complete operation inside this worker or reject it atomically."""
     if SEATSAERO_HARD_DISABLED:
+        _record_provider_monitoring_failure("seats_aero", "provider_disabled")
         raise SeatsAeroGuardError("provider_disabled")
     if planned_calls < 1:
         return
@@ -565,8 +568,14 @@ def _reserve_seatsaero_capacity(planned_calls: int) -> None:
             if planned_calls == 1 and _seatsaero_bootstrap_utc_date != today:
                 _seatsaero_bootstrap_utc_date = today
                 return
+            _record_provider_monitoring_failure("seats_aero", "provider_remaining_unknown")
             raise SeatsAeroGuardError("provider_remaining_unknown")
         if _seatsaero_remaining < planned_calls + SEATSAERO_SAFETY_FLOOR:
+            _record_provider_monitoring_failure("seats_aero", "quota_exhausted")
+            _record_provider_monitoring_failure("seats_aero", "rate_limited")
+            _record_provider_monitoring_failure("seats_aero", "quota_exhausted")
+            _record_provider_monitoring_failure("seats_aero", "rate_limited")
+            _record_provider_monitoring_failure("seats_aero", "quota_exhausted")
             raise SeatsAeroGuardError("provider_budget_exhausted")
         _seatsaero_remaining -= planned_calls
         _seatsaero_remaining_updated_at = time.time()
@@ -1939,6 +1948,25 @@ def classify_serpapi_failure(status_code: int | None = None, payload: object = N
     return None
 
 
+def classify_seatsaero_failure(status_code: int | None = None, payload: object = None,
+                               body_text: str = "", exc: Exception | None = None) -> str | None:
+    if isinstance(exc, requests.Timeout):
+        return "provider_timeout"
+    if isinstance(exc, ValueError):
+        return "parser_error"
+    if status_code == 429:
+        return "rate_limited"
+    if status_code is not None and 500 <= status_code <= 599:
+        return "provider_5xx"
+    if status_code is not None and status_code >= 400:
+        return "provider_error"
+    if isinstance(payload, dict) and payload.get("error"):
+        return "provider_error"
+    if exc is not None:
+        return "provider_error"
+    return None
+
+
 def _raise_serpapi_failure(reason: str) -> None:
     if reason == "quota_exhausted":
         raise QuotaError()
@@ -2507,6 +2535,7 @@ def fetch_seatsaero(origin: str, dest: str, cabin: str, dep: dt.date, window_day
             "availability_search",
             params,
         )
+        _increment_provider_monitoring("seats_aero", "requests_total")
         r = HTTP.get(
             f"{SEATSAERO_BASE}/search",
             params=params,
@@ -2516,26 +2545,40 @@ def fetch_seatsaero(origin: str, dest: str, cabin: str, dep: dt.date, window_day
         # Track remaining budget from header
         remaining_hdr = r.headers.get("X-RateLimit-Remaining")
         if remaining_hdr is None:
+            _record_provider_monitoring_failure("seats_aero", "provider_remaining_unknown")
             _mark_seatsaero_remaining_unknown()
             raise SeatsAeroGuardError("provider_remaining_unknown")
         elif _update_seatsaero_remaining(remaining_hdr):
             app.logger.info("seats.aero remaining signal accepted")
         elif _seatsaero_budget_status() == "unknown":
+            _record_provider_monitoring_failure("seats_aero", "provider_remaining_unknown")
             app.logger.warning("seats.aero remaining signal invalid")
             raise SeatsAeroGuardError("provider_remaining_unknown")
         app.logger.info("seats.aero %sâ†’%s %s status=%s remaining=%s", origin, dest, cabin_param, r.status_code, _seatsaero_remaining)
         if r.status_code == 429:
+            _record_provider_monitoring_failure("seats_aero", "rate_limited")
+            _record_provider_monitoring_failure("seats_aero", "quota_exhausted")
             app.logger.warning("seats.aero 429 â€” daily limit hit, not retrying")
             raise SeatsAeroGuardError("provider_budget_exhausted")
         if r.status_code != 200:
+            reason = classify_seatsaero_failure(status_code=r.status_code, body_text=r.text) or "provider_error"
+            _record_provider_monitoring_failure("seats_aero", reason)
             app.logger.warning("seats.aero non-200 body: %s", r.text[:500])
-            return []
-        rows = r.json().get("data", []) or []
+            raise SeatsAeroGuardError("provider_remaining_unknown")
+        payload = r.json()
+        if not isinstance(payload, dict):
+            _record_provider_monitoring_failure("seats_aero", "parser_error")
+            _mark_seatsaero_remaining_unknown()
+            raise SeatsAeroGuardError("provider_remaining_unknown")
+        rows = payload.get("data", []) or []
+        _record_provider_monitoring_success("seats_aero")
         app.logger.info("seats.aero returned %d rows for %sâ†’%s", len(rows), origin, dest)
         return rows
     except SeatsAeroGuardError:
         raise
     except Exception as exc:
+        reason = classify_seatsaero_failure(exc=exc) or "parser_error"
+        _record_provider_monitoring_failure("seats_aero", reason)
         _mark_seatsaero_remaining_unknown()
         app.logger.warning("seats.aero fetch failed %sâ†’%s %s: %s", origin, dest, cabin, exc)
         raise SeatsAeroGuardError("provider_remaining_unknown") from None

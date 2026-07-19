@@ -174,6 +174,19 @@ class FakeSerpResponse:
             raise err
 
 
+class FakeSeatsResponse:
+    def __init__(self, *, status_code=200, payload=None, headers=None, text=""):
+        self.status_code = status_code
+        self._payload = payload if payload is not None else {"data": []}
+        self.headers = headers if headers is not None else {"X-RateLimit-Remaining": "999"}
+        self.text = text
+
+    def json(self):
+        if isinstance(self._payload, Exception):
+            raise self._payload
+        return self._payload
+
+
 def test_serpapi_successful_outbound_attempt_increments_requests(monkeypatch):
     monkeypatch.setattr(awardradar, "SERPAPI_TOKEN", "test-token")
     monkeypatch.setattr(awardradar.HTTP, "get", lambda *a, **k: FakeSerpResponse(payload={"best_flights": [], "other_flights": []}))
@@ -275,3 +288,134 @@ def test_serpapi_hard_limit_blocks_without_outbound_request(monkeypatch):
     assert snapshot["serpapi"]["requests_total"] == 0
     assert snapshot["serpapi"]["quota_exhausted_total"] == 1
     assert snapshot["serpapi"]["state"] == "exhausted"
+
+
+def test_seatsaero_successful_outbound_attempt_increments_requests(monkeypatch):
+    monkeypatch.setattr(awardradar, "SEATSAERO_KEY", "test-seats-key")
+    monkeypatch.setattr(awardradar, "_seatsaero_remaining", 999)
+    monkeypatch.setattr(awardradar, "_seatsaero_remaining_utc_date", awardradar._seatsaero_utc_today())
+    monkeypatch.setattr(awardradar.HTTP, "get", lambda *a, **k: FakeSeatsResponse(payload={"data": []}))
+
+    with awardradar._seatsaero_reserved_capacity():
+        awardradar.fetch_seatsaero("FRA", "JFK", "Business", dt.date(2030, 1, 1))
+
+    snapshot = awardradar._provider_monitoring_snapshot()
+    assert snapshot["seats_aero"]["requests_total"] == 1
+    assert snapshot["seats_aero"]["state"] == "healthy"
+
+
+def test_seatsaero_hard_disabled_blocks_without_outbound_request(monkeypatch):
+    monkeypatch.setattr(awardradar, "SEATSAERO_HARD_DISABLED", True)
+    called = {"count": 0}
+
+    def should_not_run(*args, **kwargs):
+        called["count"] += 1
+        return FakeSeatsResponse()
+
+    monkeypatch.setattr(awardradar.HTTP, "get", should_not_run)
+
+    with pytest.raises(awardradar.SeatsAeroGuardError) as caught:
+        awardradar._reserve_seatsaero_capacity(1)
+
+    snapshot = awardradar._provider_monitoring_snapshot()
+    assert caught.value.code == "provider_disabled"
+    assert called["count"] == 0
+    assert snapshot["seats_aero"]["requests_total"] == 0
+    assert snapshot["seats_aero"]["provider_disabled_total"] == 1
+    assert snapshot["seats_aero"]["state"] == "disabled"
+
+
+def test_seatsaero_unknown_remaining_blocks_without_outbound_request(monkeypatch):
+    monkeypatch.setattr(awardradar, "_seatsaero_bootstrap_utc_date", awardradar._seatsaero_utc_today())
+
+    with pytest.raises(awardradar.SeatsAeroGuardError) as caught:
+        awardradar._reserve_seatsaero_capacity(1)
+
+    snapshot = awardradar._provider_monitoring_snapshot()
+    assert caught.value.code == "provider_remaining_unknown"
+    assert snapshot["seats_aero"]["requests_total"] == 0
+    assert snapshot["seats_aero"]["provider_remaining_unknown_total"] == 1
+    assert snapshot["seats_aero"]["last_error_kind"] == "provider_remaining_unknown"
+    assert snapshot["seats_aero"]["state"] == "degraded"
+
+
+def test_seatsaero_http_429_records_rate_limit_and_exhaustion(monkeypatch):
+    monkeypatch.setattr(awardradar, "SEATSAERO_KEY", "test-seats-key")
+    monkeypatch.setattr(awardradar, "_seatsaero_remaining", 999)
+    monkeypatch.setattr(awardradar, "_seatsaero_remaining_utc_date", awardradar._seatsaero_utc_today())
+    monkeypatch.setattr(
+        awardradar.HTTP,
+        "get",
+        lambda *a, **k: FakeSeatsResponse(
+            status_code=429,
+            payload={"error": "limited"},
+            headers={"X-RateLimit-Remaining": "0"},
+            text="limited",
+        ),
+    )
+
+    with awardradar._seatsaero_reserved_capacity(), pytest.raises(awardradar.SeatsAeroGuardError) as caught:
+        awardradar.fetch_seatsaero("FRA", "JFK", "Business", dt.date(2030, 1, 1))
+
+    snapshot = awardradar._provider_monitoring_snapshot()
+    assert caught.value.code == "provider_budget_exhausted"
+    assert snapshot["seats_aero"]["requests_total"] == 1
+    assert snapshot["seats_aero"]["rate_limited_total"] == 1
+    assert snapshot["seats_aero"]["quota_exhausted_total"] == 1
+    assert snapshot["seats_aero"]["state"] == "exhausted"
+
+
+def test_seatsaero_http_5xx_is_not_treated_as_empty_success(monkeypatch):
+    monkeypatch.setattr(awardradar, "SEATSAERO_KEY", "test-seats-key")
+    monkeypatch.setattr(awardradar, "_seatsaero_remaining", 999)
+    monkeypatch.setattr(awardradar, "_seatsaero_remaining_utc_date", awardradar._seatsaero_utc_today())
+    monkeypatch.setattr(
+        awardradar.HTTP,
+        "get",
+        lambda *a, **k: FakeSeatsResponse(status_code=503, payload={"error": "down"}, text="down"),
+    )
+
+    with awardradar._seatsaero_reserved_capacity(), pytest.raises(awardradar.SeatsAeroGuardError) as caught:
+        awardradar.fetch_seatsaero("FRA", "JFK", "Business", dt.date(2030, 1, 1))
+
+    snapshot = awardradar._provider_monitoring_snapshot()
+    assert caught.value.code == "provider_remaining_unknown"
+    assert snapshot["seats_aero"]["requests_total"] == 1
+    assert snapshot["seats_aero"]["provider_5xx_total"] == 1
+    assert snapshot["seats_aero"]["state"] == "degraded"
+
+
+def test_seatsaero_timeout_records_timeout(monkeypatch):
+    monkeypatch.setattr(awardradar, "SEATSAERO_KEY", "test-seats-key")
+    monkeypatch.setattr(awardradar, "_seatsaero_remaining", 999)
+    monkeypatch.setattr(awardradar, "_seatsaero_remaining_utc_date", awardradar._seatsaero_utc_today())
+    monkeypatch.setattr(awardradar.HTTP, "get", lambda *a, **k: (_ for _ in ()).throw(awardradar.requests.Timeout()))
+
+    with awardradar._seatsaero_reserved_capacity(), pytest.raises(awardradar.SeatsAeroGuardError) as caught:
+        awardradar.fetch_seatsaero("FRA", "JFK", "Business", dt.date(2030, 1, 1))
+
+    snapshot = awardradar._provider_monitoring_snapshot()
+    assert caught.value.code == "provider_remaining_unknown"
+    assert snapshot["seats_aero"]["requests_total"] == 1
+    assert snapshot["seats_aero"]["timeout_total"] == 1
+    assert snapshot["seats_aero"]["state"] == "degraded"
+
+
+def test_seatsaero_parser_error_records_parser_failure(monkeypatch):
+    monkeypatch.setattr(awardradar, "SEATSAERO_KEY", "test-seats-key")
+    monkeypatch.setattr(awardradar, "_seatsaero_remaining", 999)
+    monkeypatch.setattr(awardradar, "_seatsaero_remaining_utc_date", awardradar._seatsaero_utc_today())
+    monkeypatch.setattr(
+        awardradar.HTTP,
+        "get",
+        lambda *a, **k: FakeSeatsResponse(payload=ValueError("bad json")),
+    )
+
+    with awardradar._seatsaero_reserved_capacity(), pytest.raises(awardradar.SeatsAeroGuardError) as caught:
+        awardradar.fetch_seatsaero("FRA", "JFK", "Business", dt.date(2030, 1, 1))
+
+    snapshot = awardradar._provider_monitoring_snapshot()
+    assert caught.value.code == "provider_remaining_unknown"
+    assert snapshot["seats_aero"]["requests_total"] == 1
+    assert snapshot["seats_aero"]["parser_error_total"] == 1
+    assert snapshot["seats_aero"]["state"] == "degraded"
