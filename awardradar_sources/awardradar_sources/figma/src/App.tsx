@@ -354,6 +354,58 @@ export function buildAppSearchUrl(
   return `/app?${params.toString()}`
 }
 
+const IATA_CODE_PATTERN = /^[A-Z]{3}$/
+
+export type InitialSearchState = {
+  from: string
+  fromCode: string
+  to: string
+  toCode: string
+  date: string
+  tripType: TripType
+  returnDate: string
+}
+
+// Inverse of buildAppSearchUrl: read the search once from the URL so the
+// "Edit search" action on /app can restore the form. Only committed, valid
+// values hydrate; anything malformed falls back to the blank default. A hydrated
+// airport code doubles as its committed selection (display text = the code), so
+// the autocomplete never fires a lookup. This is a pure function used from a
+// useState initializer — it runs a single time, never overwrites later edits,
+// and triggers no submission or network access.
+export function readInitialSearchFromUrl(search: string): InitialSearchState {
+  const blank: InitialSearchState = {
+    from: '', fromCode: '', to: '', toCode: '', date: '', tripType: 'one_way', returnDate: '',
+  }
+  let params: URLSearchParams
+  try {
+    params = new URLSearchParams(search)
+  } catch {
+    return blank
+  }
+  const readCode = (value: string | null): string => {
+    const code = (value ?? '').trim().toUpperCase()
+    return IATA_CODE_PATTERN.test(code) ? code : ''
+  }
+  const fromCode = readCode(params.get('from'))
+  const toCode = readCode(params.get('to'))
+  const dateRaw = (params.get('date') ?? '').trim()
+  const date = isValidDate(dateRaw) ? dateRaw : ''
+  const tripType: TripType = (params.get('trip') ?? '').trim() === 'round_trip' ? 'round_trip' : 'one_way'
+  const returnRaw = (params.get('returnDate') ?? '').trim()
+  // Round-trip restores its return date; one-way ignores any stray returnDate.
+  const returnDate = tripType === 'round_trip' && isValidDate(returnRaw) ? returnRaw : ''
+  return {
+    from: fromCode,
+    fromCode,
+    to: toCode,
+    toCode,
+    date,
+    tripType,
+    returnDate,
+  }
+}
+
 // Airport/city autocomplete over /api/airports. Debounced, keyboard + pointer
 // navigable, with loading/empty/error states. `code` is the committed IATA
 // selection; typing clears it so the CTA can't validate on free text.
@@ -487,13 +539,16 @@ function AutocompleteField({
 // ─── APP ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [theme, setTheme]   = useState<Theme>('dark')
-  const [from, setFrom]     = useState('')
-  const [to, setTo]         = useState('')
-  const [fromCode, setFromCode] = useState('')
-  const [toCode, setToCode]     = useState('')
-  const [date, setDate]     = useState('')
-  const [tripType, setTripType] = useState<TripType>('one_way')
-  const [returnDate, setReturnDate] = useState('')
+  // Hydrate the form once from the URL so "Edit search" on /app restores values.
+  // Lazy initializer → runs a single time; later user edits are never overwritten.
+  const [initialSearch] = useState(() => readInitialSearchFromUrl(typeof window !== 'undefined' ? window.location.search : ''))
+  const [from, setFrom]     = useState(initialSearch.from)
+  const [to, setTo]         = useState(initialSearch.to)
+  const [fromCode, setFromCode] = useState(initialSearch.fromCode)
+  const [toCode, setToCode]     = useState(initialSearch.toCode)
+  const [date, setDate]     = useState(initialSearch.date)
+  const [tripType, setTripType] = useState<TripType>(initialSearch.tripType)
+  const [returnDate, setReturnDate] = useState(initialSearch.returnDate)
   const [returnDateTouched, setReturnDateTouched] = useState(false)
   const [roundTripSubmitAttempted, setRoundTripSubmitAttempted] = useState(false)
 

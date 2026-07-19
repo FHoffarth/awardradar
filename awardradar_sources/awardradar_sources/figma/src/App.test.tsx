@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
-import App, { buildAppSearchUrl } from './App'
+import App, { buildAppSearchUrl, readInitialSearchFromUrl } from './App'
 
 const landingCss = readFileSync('src/index.css', 'utf8')
 
@@ -158,5 +158,121 @@ describe('Landing round-trip search', () => {
     nodes.slice(0, -1).forEach((node, index) => {
       expect(node.compareDocumentPosition(nodes[index + 1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
+  })
+})
+
+describe('Landing URL hydration', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockFetch.mockRejectedValue(new Error('Unexpected network access'))
+    window.history.pushState({}, '', '/')
+  })
+
+  afterEach(() => {
+    cleanup()
+    window.history.pushState({}, '', '/')
+  })
+
+  const fromInput = () => screen.getByLabelText('From') as HTMLInputElement
+  const toInput = () => screen.getByLabelText('To') as HTMLInputElement
+  const departureInput = () => screen.getByLabelText('Departure date') as HTMLInputElement
+  const analyzeButton = () => screen.getByRole('button', { name: 'Analyze route' }) as HTMLButtonElement
+
+  it('parses valid params and rejects malformed ones (pure helper)', () => {
+    expect(readInitialSearchFromUrl('?from=hel&to=LON&date=2030-10-10')).toEqual({
+      from: 'HEL', fromCode: 'HEL', to: 'LON', toCode: 'LON',
+      date: '2030-10-10', tripType: 'one_way', returnDate: '',
+    })
+    expect(readInitialSearchFromUrl('?from=FRA&to=JFK&date=2030-10-10&trip=round_trip&returnDate=2030-10-20').returnDate).toBe('2030-10-20')
+    expect(readInitialSearchFromUrl('?from=HEL&to=LON&date=2030-10-10&returnDate=2030-10-20').returnDate).toBe('')
+    expect(readInitialSearchFromUrl('?trip=weird').tripType).toBe('one_way')
+    expect(readInitialSearchFromUrl('?from=Munich&to=L&date=not-a-date')).toEqual({
+      from: '', fromCode: '', to: '', toCode: '', date: '', tripType: 'one_way', returnDate: '',
+    })
+  })
+
+  it('one-way params populate the form', () => {
+    window.history.pushState({}, '', '/?from=HEL&to=LON&date=2030-10-10')
+    render(<App />)
+    expect(fromInput().value).toBe('HEL')
+    expect(toInput().value).toBe('LON')
+    expect(departureInput().value).toBe('2030-10-10')
+    expect((screen.getByRole('radio', { name: 'One-way' }) as HTMLInputElement).checked).toBe(true)
+    expect(screen.queryByLabelText('Return date')).toBeNull()
+    expect(analyzeButton().disabled).toBe(false)
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('round-trip params populate all fields', () => {
+    window.history.pushState({}, '', '/?from=FRA&to=JFK&date=2030-10-10&trip=round_trip&returnDate=2030-10-20')
+    render(<App />)
+    expect(fromInput().value).toBe('FRA')
+    expect(toInput().value).toBe('JFK')
+    expect(departureInput().value).toBe('2030-10-10')
+    expect((screen.getByRole('radio', { name: 'Round-trip' }) as HTMLInputElement).checked).toBe(true)
+    expect((screen.getByLabelText('Return date') as HTMLInputElement).value).toBe('2030-10-20')
+    expect(analyzeButton().disabled).toBe(false)
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('missing params preserve normal defaults', () => {
+    render(<App />)
+    expect(fromInput().value).toBe('')
+    expect(toInput().value).toBe('')
+    expect(departureInput().value).toBe('')
+    expect((screen.getByRole('radio', { name: 'One-way' }) as HTMLInputElement).checked).toBe(true)
+    expect(screen.queryByLabelText('Return date')).toBeNull()
+    expect(analyzeButton().disabled).toBe(true)
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('rejects a malformed date safely while keeping valid airports', () => {
+    window.history.pushState({}, '', '/?from=HEL&to=LON&date=not-a-date')
+    render(<App />)
+    expect(fromInput().value).toBe('HEL')
+    expect(toInput().value).toBe('LON')
+    expect(departureInput().value).toBe('')
+    expect(analyzeButton().disabled).toBe(true)
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('rejects malformed airport codes safely', () => {
+    window.history.pushState({}, '', '/?from=Munich&to=L&date=2030-10-10')
+    render(<App />)
+    expect(fromInput().value).toBe('')
+    expect(toInput().value).toBe('')
+    expect(departureInput().value).toBe('2030-10-10')
+    expect(analyzeButton().disabled).toBe(true)
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('ignores returnDate for a one-way link', () => {
+    window.history.pushState({}, '', '/?from=HEL&to=LON&date=2030-10-10&returnDate=2030-10-20')
+    render(<App />)
+    expect((screen.getByRole('radio', { name: 'One-way' }) as HTMLInputElement).checked).toBe(true)
+    expect(screen.queryByLabelText('Return date')).toBeNull()
+    // The stray returnDate is not carried into a later round-trip toggle.
+    fireEvent.click(screen.getByRole('radio', { name: 'Round-trip' }))
+    expect((screen.getByLabelText('Return date') as HTMLInputElement).value).toBe('')
+  })
+
+  it('lets the user edit fields after hydration without reverting to URL values', () => {
+    window.history.pushState({}, '', '/?from=HEL&to=LON&date=2030-10-10')
+    render(<App />)
+    fireEvent.change(departureInput(), { target: { value: '2030-12-01' } })
+    expect(departureInput().value).toBe('2030-12-01')
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Round-trip' }))
+    expect(fromInput().value).toBe('HEL')
+    expect(toInput().value).toBe('LON')
+    fireEvent.change(screen.getByLabelText('Return date'), { target: { value: '2030-12-10' } })
+    expect((screen.getByLabelText('Return date') as HTMLInputElement).value).toBe('2030-12-10')
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('makes no automatic API calls on hydration', () => {
+    window.history.pushState({}, '', '/?from=FRA&to=JFK&date=2030-10-10&trip=round_trip&returnDate=2030-10-20')
+    render(<App />)
+    expect(mockFetch).not.toHaveBeenCalled()
   })
 })
