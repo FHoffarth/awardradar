@@ -254,22 +254,6 @@ input:focus          { outline: none; }
 .ar-input:focus-visible { outline: none; }
 .ar-input::selection { background: rgba(199, 122, 50, 0.14); color: inherit; }
 
-.ar-search-button {
-  -webkit-tap-highlight-color: transparent;
-  -webkit-appearance: none;
-  appearance: none;
-  border-radius: 0;
-  touch-action: manipulation;
-  user-select: none;
-}
-.ar-search-button svg { display: block; }
-
-/* Focus state for the search button — keyboard accessible */
-.ar-search-button:focus-visible {
-  outline: 1.5px solid rgba(140, 200, 255, 0.5);
-  outline-offset: -2px;
-}
-
 /* ─── Act II CTA — Analyze route ──────────────────────────────────────────── */
 .ar-analyze-button {
   -webkit-tap-highlight-color: transparent;
@@ -332,22 +316,6 @@ input:focus          { outline: none; }
   color: rgba(214, 204, 190, 0.64) !important;
   background: rgba(255, 255, 255, 0.025) !important;
   opacity: 1 !important;
-}
-
-.footer-x-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.footer-x-link__icon {
-  width: 16px;
-  height: 16px;
-  display: block;
-}
-
-[data-theme='dark'] .footer-x-link__icon {
-  filter: invert(1) brightness(1.12);
 }
 
 .footer-links a:focus-visible,
@@ -414,15 +382,6 @@ html, body, #root {
   flex: 1 0 auto !important;
 }
 
-.ar-footer {
-  position: relative !important;
-  bottom: auto !important;
-  left: auto !important;
-  right: auto !important;
-  padding-top: 24px !important;
-  padding-bottom: 3.5vh !important;
-}
-
 /* Base mobile styles (under 768px) */
 .ar-nav-links {
   display: none !important;
@@ -439,24 +398,10 @@ html, body, #root {
 .ar-field {
   padding: 16px 20px 14px !important;
 }
-.ar-search-button {
-  width: 100% !important;
-  flex: 0 0 56px !important;
-}
 .ar-divider {
   width: 100% !important;
   height: 0.5px !important;
   margin: 0 !important;
-}
-
-.ar-footer {
-  flex-direction: column !important;
-  align-items: flex-start !important;
-  gap: 16px !important;
-}
-.ar-footer-links {
-  flex-wrap: wrap !important;
-  gap: 12px 24px !important;
 }
 
 /* Desktop styles (over 768px) */
@@ -474,15 +419,6 @@ html, body, #root {
     bottom: 0 !important;
     left: 0 !important;
     padding-bottom: 8vh !important;
-  }
-  .ar-footer {
-    position: absolute !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    padding-top: 0 !important;
-    padding-bottom: 3.5vh !important;
-    margin-top: 0 !important;
   }
   .ar-nav-links {
     display: flex !important;
@@ -512,18 +448,10 @@ html, body, #root {
   .ar-field {
     padding: 24px 48px 22px !important;
   }
-  .ar-search-button {
-    width: 96px !important;
-    flex: 0 0 96px !important;
-  }
   .ar-divider {
     width: 0.5px !important;
     height: auto !important;
     margin: 17px 0 !important;
-  }
-  .ar-footer {
-    flex-direction: row !important;
-    align-items: center !important;
   }
 }
 

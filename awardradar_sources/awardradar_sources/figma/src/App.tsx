@@ -1039,20 +1039,11 @@ export default function App() {
           </div>
           <div className="footer-nav-group" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
             <div className="footer-links" style={{ display: 'flex', flexWrap: 'wrap', gap: '16px 24px', justifyContent: 'flex-end' }}>
+              <FooterLink href="/about" t={t}>About</FooterLink>
+              <FooterLink href="/methodology" t={t}>Methodology</FooterLink>
               <FooterLink href="/privacy" t={t}>Privacy</FooterLink>
               <FooterLink href="/impressum" t={t}>Imprint</FooterLink>
               <FooterLink onClick={toggleTheme} t={t}>Theme</FooterLink>
-              <FooterLink href="https://x.com/awardradar" external t={t} ariaLabel="AwardRadar on X">
-                <span className="footer-x-link">
-                  <img
-                    src={`${import.meta.env.BASE_URL}x-logo.png`}
-                    alt=""
-                    aria-hidden="true"
-                    className="footer-x-link__icon"
-                  />
-                  <span>@awardradar</span>
-                </span>
-              </FooterLink>
             </div>
             <div className="copyright" style={{ fontSize: '12px', color: t.coord }}>&copy; 2026 AwardRadar</div>
           </div>
