@@ -1,50 +1,11 @@
-<!doctype html>
-<html lang="de">
-<head>
-  <meta charset="utf-8">
-  <script>
-    window.AWARDRADAR_ANALYTICS = {
-      production: {{ "true" if request.host in ["awardradar.app", "www.awardradar.app"] else "false" }},
-      gtmId: 'GTM-TBBPLXGV',
-      ga4Id: 'G-MGN0MCDQKB'
-    };
-  </script>
-  <script>
-    (function () {
-      try {
-        var theme = localStorage.getItem('awardradar_theme');
-        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
-      } catch (e) {}
-    })();
-  </script>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Impressum – AwardRadar</title>
-  <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://awardradar.app/impressum">
-  <link rel="stylesheet" href="/static/app.css?v=160">
-  <link rel="stylesheet" href="/static/consent.css?v=2">
-  <link rel="stylesheet" href="/static/ui-next.css?v=12">
-  <link rel="stylesheet" href="/static/public.css?v=1">
-  <script src="/static/consent.js?v=1" defer></script>
-  </head>
-<body class="about-page">
-    <nav class="navbar">
-    <div class="nav-inner">
-      <a href="/" class="logo">
-        <div>
-          <div class="logo-name"><span class="logo-award">Award</span><span class="logo-radar">Radar</span></div>
-          <div class="logo-tagline">Travel Decision Intelligence</div>
-        </div>
-      </a>
-      <div class="nav-right">
-        <button class="theme-btn" id="themeBtn" aria-label="Toggle light/dark mode">
-          <svg id="themeIconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          <svg id="themeIconSun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-        </button>
-      </div>
-    </div>
-  </nav>
-  <main class="about-shell legal" tabindex="-1">
+{% extends "base_public.html" %}
+
+{% block html_lang %}de{% endblock %}
+{% block title %}Impressum – AwardRadar{% endblock %}
+{% block canonical %}<link rel="canonical" href="https://awardradar.app/impressum">{% endblock %}
+{% block main_class %}about-shell legal{% endblock %}
+
+{% block content %}
     <a href="/" class="back">← Zurück zu AwardRadar</a>
     <h1>Impressum</h1>
 
@@ -86,37 +47,4 @@
     <p>Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit: <a href="https://ec.europa.eu/consumers/odr/" target="_blank" rel="noopener">https://ec.europa.eu/consumers/odr/</a>. Wir sind nicht bereit oder verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.</p>
 
     <p style="margin-top:32px"><a href="/datenschutz">→ Datenschutzerklärung</a></p>
-  </main>
-    <footer class="public-footer">
-    <div class="trust-note">Verify before booking — AwardRadar provides decision support only. Always confirm availability, pricing and rules with official airline, booking-site and loyalty-program sources.</div>
-    <div class="footer-links">
-      <a href="/privacy">Privacy</a>
-      <a href="/impressum">Imprint</a>
-      <button type="button" class="theme-btn" aria-label="Toggle light/dark mode">Theme</button>
-      <a href="https://x.com/awardradar" target="_blank" rel="noopener noreferrer">@AwardRadar</a>
-    </div>
-    <p>&copy; 2026 AwardRadar</p>
-  </footer>
-  <script>
-    (function () {
-      var root = document.documentElement;
-      var themeBtns = document.querySelectorAll('.theme-btn');
-      var moon = document.getElementById('themeIconMoon');
-      var sun = document.getElementById('themeIconSun');
-      function applyTheme(theme) {
-        root.dataset.theme = theme;
-        try { localStorage.setItem('awardradar_theme', theme); } catch (e) {}
-        if (moon && sun) {
-          moon.style.display = theme === 'dark' ? '' : 'none';
-          sun.style.display = theme === 'light' ? '' : 'none';
-        }
-      }
-      var currentTheme = root.dataset.theme || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-      applyTheme(currentTheme);
-      themeBtns.forEach(function(btn) { btn.addEventListener('click', function () {
-        applyTheme(root.dataset.theme === 'dark' ? 'light' : 'dark');
-      }); });
-    })();
-  </script>
-</body>
-</html>
+{% endblock %}
