@@ -552,11 +552,15 @@ class AboutMethodologyPage(unittest.TestCase):
         response = self.client.get("/about")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        initialization = "var root = document.documentElement;"
-        first_use = "root.dataset.theme"
-        self.assertIn(initialization, html)
-        self.assertIn(first_use, html)
-        self.assertLess(html.index(initialization), html.index(first_use))
+        # Public shell consolidation: the early theme init now applies the
+        # resolved theme to the document root in <head> (before first paint),
+        # while the shared controller lives in static/theme.js. The init must
+        # still run before the controller and before the body is opened.
+        applied = "document.documentElement.dataset.theme"
+        self.assertIn(applied, html)
+        self.assertIn("/static/theme.js", html)
+        self.assertLess(html.index(applied), html.index("/static/theme.js"))
+        self.assertLess(html.index(applied), html.index("<body"))
 
     def test_about_navigation_exists_on_legacy_tool(self):
         response = self.client.get("/tool")
@@ -603,7 +607,10 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertNotIn("decision-support context based on fare and award data", html)
         trust_note = html.split('<div class="trust-note">', 1)[1].split('</div>', 1)[0]
         self.assertNotIn("hello@awardradar.app", trust_note)
-        self.assertIn('<a href="https://x.com/awardradar" target="_blank" rel="noopener noreferrer">@AwardRadar</a>', html)
+        # Public shell consolidation (Phase D footer hygiene): the X/Twitter
+        # link has been removed from the shared public footer.
+        self.assertNotIn("x.com/awardradar", html)
+        self.assertNotIn("twitter.com", html)
 
     def test_legacy_notice_css_removed(self):
         css = (pathlib.Path(__file__).parents[1] / "static" / "app.css").read_text(encoding="utf-8")
