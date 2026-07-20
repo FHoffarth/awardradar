@@ -229,7 +229,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--focus); outline
 .trip-request-facts dd { margin: 0; color: var(--text); font-size: 13px; }
 .verification-link { display: inline-flex; margin-top: 24px; color: var(--gold-bright); font-size: 13px; font-weight: 600; text-decoration: none; }
 .verification-link:hover { text-decoration: underline; }
-.verification-link:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+.verification-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 .verification-guidance { color: var(--text-muted); }
 .award-outbound-disclosure { color: #e0b88d; }
 .missing-pane { margin: 28px 0 0; color: var(--text-secondary); font-size: 14px; line-height: 1.55; }
@@ -267,7 +267,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--focus); outline
 .secondary-action svg { width: 16px; height: 16px; }
 .secondary-action:hover { color: var(--gold-bright); border-color: var(--gold); background: rgba(199, 122, 50, .04); }
 .secondary-action--primary { color: #f0cfac; background: rgba(199, 122, 50, .1); border-color: rgba(199, 122, 50, .72); }
-.secondary-action:focus-visible, .result-action-menu :focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+.secondary-action:focus-visible, .result-action-menu :focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 .result-action-menu {
   position: absolute;
   z-index: 20;
