@@ -132,16 +132,19 @@ describe('Landing round-trip search', () => {
     expect(document.activeElement).toBe(roundTrip)
   })
 
-  it('renders_footer_x_link_with_safe_external_attributes_and_local_icon', () => {
+  it('footer_has_no_x_twitter_link_and_exposes_info_links', () => {
     render(<App />)
-    expect(screen.getByText('@awardradar')).toBeTruthy()
-    const xLink = screen.getByRole('link', { name: 'AwardRadar on X' })
-    expect(xLink.getAttribute('href')).toBe('https://x.com/awardradar')
-    expect(xLink.getAttribute('target')).toBe('_blank')
-    expect(xLink.getAttribute('rel')).toBe('noopener noreferrer')
-    const icon = xLink.querySelector('img')
-    expect(icon).toBeTruthy()
-    expect(icon?.getAttribute('src')).toContain('x-logo.png')
+    // Beta rescue: the X/Twitter link and its logo image were removed.
+    expect(screen.queryByText('@awardradar')).toBeNull()
+    expect(screen.queryByRole('link', { name: 'AwardRadar on X' })).toBeNull()
+    expect(document.querySelector('img[src*="x-logo.png"]')).toBeNull()
+    // About and Methodology now live in the footer (also reachable on mobile,
+    // where the header nav links are hidden).
+    const footer = document.querySelector('footer')!
+    expect(footer.querySelector('a[href="/about"]')).toBeTruthy()
+    expect(footer.querySelector('a[href="/methodology"]')).toBeTruthy()
+    expect(footer.querySelector('a[href="/privacy"]')).toBeTruthy()
+    expect(footer.querySelector('a[href="/impressum"]')).toBeTruthy()
   })
 
   it('keeps_mobile_dom_order', () => {
