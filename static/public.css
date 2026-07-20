@@ -137,7 +137,14 @@ body.about-page {
   text-transform: uppercase;
 }
 
-.about-page .legal::before { content: "AwardRadar · Public Information"; }
+/* System-chrome breadcrumb removed — legal pages orient via the H1, not a
+   pseudo-technical "Public Information" eyebrow. */
+.about-page .legal::before { content: none; }
+
+/* Remove the decorative four-pointed sparkle injected by ui-next.css
+   .eyebrow::before on the public surface. AwardRadar reads as an instrument,
+   not AI chrome. */
+.about-page .eyebrow::before { content: none !important; display: none !important; }
 
 .about-hero h1,
 .about-page .legal h1 {
@@ -239,20 +246,33 @@ body.about-page {
   box-shadow: none;
 }
 
-.about-actions { display: flex; flex-wrap: wrap; gap: 16px 30px; }
+.about-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 28px; }
 .about-primary-link,
 .about-secondary-link {
-  min-height: 44px;
+  min-height: 46px;
   display: inline-flex;
   align-items: center;
-  color: var(--public-text);
-  border: 0;
-  border-bottom: 1px solid var(--public-amber);
   border-radius: 0;
-  background: transparent;
-  box-shadow: none;
   text-decoration: none;
+  font-size: 15px;
+  font-weight: 550;
 }
+/* Primary: a clear filled action ("start the analysis"). */
+.about-primary-link {
+  padding: 0 22px;
+  color: var(--public-bg);
+  background: var(--public-amber);
+  border: 1px solid var(--public-amber);
+}
+.about-primary-link:hover { filter: brightness(1.08); }
+/* Secondary: quiet, underlined text link ("contact"). */
+.about-secondary-link {
+  color: var(--public-text);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--public-line);
+}
+.about-secondary-link:hover { border-bottom-color: var(--public-amber); }
 
 .about-page footer,
 .public-footer {

@@ -10,7 +10,9 @@ the unfinished-methodology indexing rule.
 import app as awardradar
 
 
-PUBLIC_PAGES = ("/about", "/methodology", "/impressum", "/datenschutz", "/privacy")
+# /methodology now redirects to /about#methodology (placeholder removed), so it
+# is not part of the shared-shell page set; it is covered separately below.
+PUBLIC_PAGES = ("/about", "/impressum", "/datenschutz", "/privacy")
 
 
 def _client():
@@ -107,9 +109,22 @@ def test_pages_share_favicon_and_manifest_baseline():
         assert "/static/apple-touch-icon.png" in html, path
 
 
-def test_methodology_is_temporarily_noindex():
-    _, html = _html("/methodology")
-    assert '<meta name="robots" content="noindex, follow">' in html
+def test_methodology_redirects_to_about_anchor():
+    resp = _client().get("/methodology")
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/about#methodology")
+
+
+def test_methodology_placeholder_is_not_publicly_visible():
+    # Following the redirect must not surface the old placeholder copy.
+    resp = _client().get("/methodology", follow_redirects=True)
+    assert resp.status_code == 200
+    assert "Methodology is being prepared" not in resp.get_data(as_text=True)
+
+
+def test_about_exposes_stable_methodology_anchor():
+    _, html = _html("/about")
+    assert 'id="methodology"' in html
 
 
 def test_indexable_pages_keep_index_follow():
@@ -133,7 +148,6 @@ def test_canonicals_preserved():
 def test_page_titles_preserved():
     expected = {
         "/about": "<title>About &amp; Methodology – AwardRadar</title>",
-        "/methodology": "<title>Methodology – AwardRadar</title>",
         "/impressum": "<title>Impressum – AwardRadar</title>",
         "/datenschutz": "<title>Datenschutzerklärung – AwardRadar</title>",
         "/privacy": "<title>Privacy Notice – AwardRadar</title>",

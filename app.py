@@ -3272,7 +3272,11 @@ def about():
 
 @app.route("/methodology")
 def methodology():
-    return render_template("methodology.html")
+    # The standalone methodology page is not yet written. Rather than expose a
+    # public "being prepared" placeholder (a trust cost), redirect to the
+    # methodology anchor on About, which already carries the equivalent
+    # explanation of how AwardRadar evaluates data.
+    return redirect("/about#methodology", code=302)
 
 
 @app.route("/impressum")
