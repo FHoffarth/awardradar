@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="AwardRadar">
+  <!-- Header/app transparent variant of icon.svg: identical geometry, square
+       background removed, amber recolored to the restrained cyan accent.
+       Tuned for dark surfaces. The original static/icon.svg is unchanged and
+       remains the favicon / app-icon source. -->
+  <circle cx="256" cy="268" r="158" fill="none" stroke="#74d5ff" stroke-width="5" opacity=".45"/>
+  <ellipse cx="256" cy="268" rx="158" ry="52" fill="none" stroke="#74d5ff" stroke-width="4" opacity=".35"/>
+  <path d="M256 110 Q310 188 310 268 Q310 348 256 426" fill="none" stroke="#74d5ff" stroke-width="3" opacity=".25"/>
+  <path d="M130 370 Q200 170 380 158" fill="none" stroke="#74d5ff" stroke-width="14" stroke-linecap="round" opacity=".92"/>
+  <path d="M256 268 L256 124 A144 144 0 0 1 382 196 Z" fill="#74d5ff" fill-opacity=".08" stroke="#74d5ff" stroke-width="3" stroke-linejoin="round" opacity=".6"/>
+  <line x1="256" y1="268" x2="382" y2="196" stroke="#74d5ff" stroke-width="3.5" opacity=".7" stroke-linecap="round"/>
+  <line x1="256" y1="268" x2="256" y2="124" stroke="#74d5ff" stroke-width="2.5" opacity=".4" stroke-linecap="round"/>
+  <circle cx="148" cy="355" r="10" fill="#74d5ff" opacity=".9"/>
+  <circle cx="372" cy="162" r="10" fill="#74d5ff" opacity=".9"/>
+</svg>

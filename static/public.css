@@ -1,11 +1,20 @@
 :root {
-  --public-bg: #030308;
-  --public-surface: #111216;
+  /* Deep navy foundation (brand direction) — a restrained shift from the
+     former near-black. Surfaces keep tonal separation from the shell bg. */
+  --public-bg: #060a14;
+  --public-surface: #0e1526;
   --public-text: #f1f0ee;
   --public-muted: rgba(241, 240, 238, .66);
   --public-quiet: rgba(241, 240, 238, .45);
   --public-line: rgba(241, 240, 238, .12);
-  --public-amber: #a9692d;
+  /* Restrained cyan accent — set explicitly (NOT via --cyan, which ui-next.css
+     overrides to amber #e2c287 on this surface). Replaces the former amber. */
+  --public-accent: #74d5ff;
+  /* Primary CTA — a deeper, calmer cyan than the bright --public-accent so the
+     filled button reads as primary without dominating the navy shell. Off-white
+     label keeps it clearly a filled action (not a weak secondary). */
+  --public-cta-bg: #1a6884;
+  --public-cta-fg: var(--public-text);
   --public-gutter: clamp(24px, 7.3vw, 116px);
 }
 
@@ -16,7 +25,9 @@
   --public-muted: rgba(23, 22, 20, .68);
   --public-quiet: rgba(23, 22, 20, .48);
   --public-line: rgba(23, 22, 20, .14);
-  --public-amber: #93561f;
+  --public-accent: #0d6e8a;
+  --public-cta-bg: #0d6e8a;
+  --public-cta-fg: var(--public-bg);
 }
 
 body.about-page {
@@ -48,21 +59,28 @@ body.about-page {
   box-sizing: border-box;
 }
 
-.about-page .logo,
+/* Primary header lockup: transparent radar mark + AwardRadar wordmark. */
+.about-page .logo {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 11px;
+  color: var(--public-text);
+  text-decoration: none;
+}
+
+/* Legacy fallback: some shells render the brand as a plain first nav-link
+   (text-only). Kept as a defensive column lockup. */
 .about-page .nav-inner > .nav-link:first-child {
   display: inline-flex;
   flex-direction: column;
   gap: 2px;
   color: var(--public-text);
   text-decoration: none;
-  font-size: 15px;
+  font-size: 0;
   font-weight: 650;
   line-height: 1;
   letter-spacing: .01em;
-}
-
-.about-page .nav-inner > .nav-link:first-child {
-  font-size: 0;
 }
 
 .about-page .nav-inner > .nav-link:first-child::before {
@@ -71,8 +89,7 @@ body.about-page {
   color: var(--public-text);
 }
 
-.about-page .nav-inner > .nav-link:first-child::after,
-.about-page .logo::after {
+.about-page .nav-inner > .nav-link:first-child::after {
   content: "TRAVEL DECISION INTELLIGENCE";
   color: var(--public-quiet);
   font-size: 9px;
@@ -81,11 +98,41 @@ body.about-page {
   line-height: 1.2;
 }
 
-.about-page .logo-mark { display: none; }
-.about-page .logo-name { font-size: 15px; line-height: 1; }
+/* Transparent header mark — no square background, restrained cyan radar dot.
+   Overrides the boxed .logo-mark styling inherited from app.css / ui-next.css. */
+.about-page .logo .logo-mark {
+  display: block;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  filter: none;
+}
+/* Colours for the icon.svg-derived mark. currentColor = the cyan accent, so the
+   whole mark stays theme-aware; per-shape opacity/stroke-width live inline and
+   preserve the original icon geometry exactly. The former amber route arc + dot
+   now read in the same restrained cyan (no amber on the header surface). */
+.about-page .logo .logo-mark { color: var(--public-accent); }
+.about-page .logo .logo-mark .ic-stroke { fill: none; stroke: currentColor; }
+.about-page .logo .logo-mark .ic-sweep { stroke: currentColor; fill: currentColor; fill-opacity: .08; }
+.about-page .logo .logo-mark .ic-fill { fill: currentColor; }
+
+.about-page .logo-text { display: inline-flex; flex-direction: column; gap: 3px; }
+.about-page .logo-name { font-size: 15px; font-weight: 650; line-height: 1; letter-spacing: .01em; }
 .about-page .logo-award { color: var(--public-text); }
-.about-page .logo-radar { color: var(--public-amber); }
-.about-page .logo-tagline { display: none; }
+.about-page .logo-radar { color: var(--public-accent); }
+.about-page .logo-tagline {
+  display: block;
+  color: var(--public-quiet);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .24em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
 
 .about-page .nav-right {
   display: flex;
@@ -130,7 +177,7 @@ body.about-page {
 
 .about-hero .eyebrow,
 .about-page .legal::before {
-  color: var(--public-amber);
+  color: var(--public-accent);
   font-size: 10px;
   font-weight: 650;
   letter-spacing: .22em;
@@ -220,7 +267,7 @@ body.about-page {
 .about-section p,
 .about-section li { color: var(--public-muted); line-height: 1.75; }
 .about-section a,
-.about-page .legal a { color: var(--public-amber); text-underline-offset: 4px; }
+.about-page .legal a { color: var(--public-accent); text-underline-offset: 4px; }
 
 .about-status-grid {
   display: grid;
@@ -257,22 +304,25 @@ body.about-page {
   font-size: 15px;
   font-weight: 550;
 }
-/* Primary: a clear filled action ("start the analysis"). */
-.about-primary-link {
+/* Primary: a clear filled action ("start the analysis").
+   Scoped with .about-page so the filled-button text color wins over the
+   generic `.about-section a { color: accent }` link rule (otherwise the
+   label renders in the accent colour on an accent background — invisible). */
+.about-page .about-primary-link {
   padding: 0 22px;
-  color: var(--public-bg);
-  background: var(--public-amber);
-  border: 1px solid var(--public-amber);
+  color: var(--public-cta-fg);
+  background: var(--public-cta-bg);
+  border: 1px solid var(--public-cta-bg);
 }
 .about-primary-link:hover { filter: brightness(1.08); }
 /* Secondary: quiet, underlined text link ("contact"). */
-.about-secondary-link {
+.about-page .about-secondary-link {
   color: var(--public-text);
   background: transparent;
   border: 0;
   border-bottom: 1px solid var(--public-line);
 }
-.about-secondary-link:hover { border-bottom-color: var(--public-amber); }
+.about-secondary-link:hover { border-bottom-color: var(--public-accent); }
 
 .about-page footer,
 .public-footer {
