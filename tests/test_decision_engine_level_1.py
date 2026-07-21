@@ -545,7 +545,7 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("Independence and commercial links", html)
         self.assertIn("Limitations", html)
         self.assertIn("app.css?v=160", html)
-        self.assertIn("consent.css?v=2", html)
+        self.assertIn("consent.css?v=3", html)
         self.assertNotIn("app.js?v=147", html)
 
     def test_about_theme_script_initializes_document_root_before_use(self):
@@ -601,16 +601,21 @@ class AboutMethodologyPage(unittest.TestCase):
 
     def test_about_legacy_notice_replaced(self):
         html = self.client.get("/about").get_data(as_text=True)
-        self.assertIn("Verify before booking — AwardRadar provides decision support only.", html)
+        # Copy consolidation: the legacy "Verify before booking" strip and the
+        # interim footer tagline are both gone — the footer carries no slogan,
+        # only the brand lockup, links and copyright.
+        self.assertNotIn("Verify before booking", html)
+        self.assertNotIn("Decision support for fares, award travel, and status strategy.", html)
         self.assertNotIn("beta-notice", html)
         self.assertNotIn("beta-tag", html)
         self.assertNotIn("decision-support context based on fare and award data", html)
-        trust_note = html.split('<div class="trust-note">', 1)[1].split('</div>', 1)[0]
-        self.assertNotIn("hello@awardradar.app", trust_note)
-        # Public shell consolidation (Phase D footer hygiene): the X/Twitter
-        # link has been removed from the shared public footer.
-        self.assertNotIn("x.com/awardradar", html)
+        # The footer links the confirmed official AwardRadar X profile (no
+        # legacy Twitter bird domain).
+        self.assertIn("https://x.com/AwardRadar", html)
         self.assertNotIn("twitter.com", html)
+        # Footer still presents the brand lockup nav and copyright.
+        self.assertIn("footer-nav", html)
+        self.assertIn("2026 AwardRadar", html)
 
     def test_legacy_notice_css_removed(self):
         css = (pathlib.Path(__file__).parents[1] / "static" / "app.css").read_text(encoding="utf-8")
@@ -1063,7 +1068,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
         self.assertIn("app.css?v=160", html)
-        self.assertIn("consent.css?v=2", html)
+        self.assertIn("consent.css?v=3", html)
         # Informational-only disclaimer and controlling-version statement
         self.assertIn(
             "This English version is provided for information only. "
@@ -1110,7 +1115,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
         self.assertIn("app.css?v=160", html)
-        self.assertIn("consent.css?v=2", html)
+        self.assertIn("consent.css?v=3", html)
         self.assertIn('href="/privacy"', html)
         # German legal substance remains intact
         self.assertIn("Art. 6 Abs. 1 lit. f DSGVO", html)
@@ -1119,12 +1124,12 @@ class EnglishPrivacyNotice(unittest.TestCase):
     def test_impressum_uses_current_assets(self):
         html = self.client.get("/impressum").get_data(as_text=True)
         self.assertIn("app.css?v=160", html)
-        self.assertIn("consent.css?v=2", html)
+        self.assertIn("consent.css?v=3", html)
         self.assertNotIn("app.css?v=156", html)
         self.assertNotIn("app.css?v=155", html)
         self.assertNotIn("app.css?v=154", html)
         self.assertNotIn("app.css?v=153", html)
-        self.assertNotIn("consent.css?v=1", html)
+        self.assertNotIn("consent.css?v=2", html)
 
     def test_legal_pages_include_theme_toggle_hooks(self):
         for path in ("/impressum", "/privacy", "/datenschutz"):

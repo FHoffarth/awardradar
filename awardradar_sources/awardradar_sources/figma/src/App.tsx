@@ -11,7 +11,7 @@ const T = {
     vignL:              'linear-gradient(to right, #03030a 22%, rgba(3,3,10,0.88) 46%, rgba(3,3,10,0.22) 68%, transparent 100%)',
     vignV:              'linear-gradient(to bottom, rgba(3,3,10,0.6) 0%, transparent 18%, transparent 78%, rgba(3,3,10,0.7) 100%)',
     wordmark:           '#E7E0D5',
-    wordmarkRadar:      '#C77A32',
+    wordmarkRadar:      '#74d5ff',
     navLink:            '#C9C1B5',
     navLinkHover:       '#F5F2EC',
     eyebrow:            '#6F7480',
@@ -29,8 +29,8 @@ const T = {
     btnBorder:          'rgba(245,242,236,0.05)',
     btnBg:              '#111317',
     btnBgHover:         '#111317',
-    btnColor:           '#C77A32',
-    btnColorHover:      '#C77A32',
+    btnColor:           '#74d5ff',
+    btnColorHover:      '#74d5ff',
     footer:             '#BEB6AA',
     footerHover:        '#E6DED2',
     footerToggleActive: '#E6DED2',
@@ -42,7 +42,7 @@ const T = {
     vignL:              'linear-gradient(to right, #F3F4F6 0%, #F3F4F6 43%, rgba(243,244,246,0.985) 54%, rgba(243,244,246,0.58) 69%, transparent 82%)',
     vignV:              'linear-gradient(to bottom, rgba(243,244,246,0.08) 0%, transparent 16%, transparent 84%, rgba(243,244,246,0.14) 100%)',
     wordmark:           '#1F2937', /* Dark slate for less harsh contrast */
-    wordmarkRadar:      '#C77A32',
+    wordmarkRadar:      '#0d6e8a',
     navLink:            '#4B5563', /* Slate gray */
     navLinkHover:       '#111827',
     eyebrow:            'rgba(75,85,99,0.8)',
@@ -60,8 +60,8 @@ const T = {
     btnBorder:          'rgba(245,242,236,0.05)',
     btnBg:              '#111317',
     btnBgHover:         '#111317',
-    btnColor:           '#C77A32',
-    btnColorHover:      '#C77A32',
+    btnColor:           '#74d5ff',
+    btnColorHover:      '#74d5ff',
     footer:             '#6B7280',
     footerHover:        '#1F2937',
     footerToggleActive: '#1F2937',
@@ -282,9 +282,9 @@ function FooterLink({
 }) {
   const [hover, setHover] = useState(false)
   const style: CSSProperties = {
-    fontSize: '9px',
-    fontWeight: 400,
-    letterSpacing: '0.09em',
+    fontSize: '13px',
+    fontWeight: 500,
+    letterSpacing: '0.01em',
     color: hover ? t.footerHover : t.footer,
     textDecoration: 'none',
     lineHeight: 1,
@@ -687,30 +687,59 @@ export default function App() {
         <a
           href="/"
           className="logo"
+          aria-label="AwardRadar home"
           style={{
             display: 'inline-flex',
-            flexDirection: 'column',
-            gap: '2px',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: '10px',
             color: t.wordmark,
             textDecoration: 'none',
-            fontSize: '15px',
-            fontWeight: 650,
-            lineHeight: 1,
-            letterSpacing: '0.01em',
             transition: 'color 0.4s ease'
           }}
         >
-          <div>
-            <div className="logo-name" style={{ fontSize: '15px', lineHeight: 1 }}>
-              <span className="logo-award" style={{ color: 'inherit' }}>Award</span>
-              <span className="logo-radar" style={{ color: t.wordmarkRadar, transition: 'color 0.4s ease' }}>Radar</span>
-            </div>
-          </div>
+          <svg className="logo-mark" viewBox="0 0 512 512" width="24" height="24" aria-hidden="true" focusable="false" style={{ flex: 'none', transition: 'stroke 0.4s ease, fill 0.4s ease' }}>
+            <circle cx="256" cy="268" r="158" fill="none" stroke={t.wordmarkRadar} strokeWidth="5" opacity=".45" />
+            <ellipse cx="256" cy="268" rx="158" ry="52" fill="none" stroke={t.wordmarkRadar} strokeWidth="4" opacity=".35" />
+            <path d="M256 110 Q310 188 310 268 Q310 348 256 426" fill="none" stroke={t.wordmarkRadar} strokeWidth="3" opacity=".25" />
+            <path d="M130 370 Q200 170 380 158" fill="none" stroke={t.wordmarkRadar} strokeWidth="14" strokeLinecap="round" opacity=".92" />
+            <path d="M256 268 L256 124 A144 144 0 0 1 382 196 Z" fill={t.wordmarkRadar} fillOpacity=".08" stroke={t.wordmarkRadar} strokeWidth="3" strokeLinejoin="round" opacity=".6" />
+            <line x1="256" y1="268" x2="382" y2="196" stroke={t.wordmarkRadar} strokeWidth="3.5" opacity=".7" strokeLinecap="round" />
+            <line x1="256" y1="268" x2="256" y2="124" stroke={t.wordmarkRadar} strokeWidth="2.5" opacity=".4" strokeLinecap="round" />
+            <circle cx="148" cy="355" r="10" fill={t.wordmarkRadar} opacity=".9" />
+            <circle cx="372" cy="162" r="10" fill={t.wordmarkRadar} opacity=".9" />
+          </svg>
+          <span className="logo-name" style={{ fontSize: '15px', fontWeight: 650, lineHeight: 1, letterSpacing: '0.01em' }}>
+            <span className="logo-award" style={{ color: 'inherit' }}>Award</span>
+            <span className="logo-radar" style={{ color: t.wordmarkRadar, transition: 'color 0.4s ease' }}>Radar</span>
+          </span>
         </a>
 
-        <div className="ar-nav-links" style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-          <NavLink href="/about" t={t}>About</NavLink>
-          <NavLink href="/methodology" t={t}>Methodology</NavLink>
+        <div className="ar-nav-right" style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+          <div className="ar-nav-links" style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+            <NavLink href="/about" t={t}>About</NavLink>
+            <NavLink href="/methodology" t={t}>Methodology</NavLink>
+          </div>
+          {/* Theme toggle lives outside .ar-nav-links (which hides < 768px) so it
+              stays reachable on mobile — the only theme control on the landing. */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label="Toggle light/dark mode"
+            aria-pressed={theme === 'light'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: '32px', height: '32px', padding: 0,
+              background: 'none', border: 'none', color: t.navLink,
+              cursor: 'pointer', transition: 'color 0.2s',
+            }}
+          >
+            {theme === 'dark' ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></svg>
+            )}
+          </button>
         </div>
       </nav>
 
@@ -733,60 +762,34 @@ export default function App() {
         }}>
           {/* ── Manifesto ── */}
           <div style={{ marginBottom: '0' }}>
-            {/* Couplet one — immediately visible */}
+            {/* Primary claim — immediately visible */}
             <p className="ar-hero-first" style={{
-              margin: '0 0 0.15em 0',
+              margin: '0 0 0.3em 0',
               fontSize: 'clamp(28px, 3vw, 42px)',
               fontWeight: 500,
-              lineHeight: 1.22,
+              lineHeight: 1.2,
               letterSpacing: '-0.018em',
               color: t.line1,
               transition: 'color 0.4s ease',
             }}>
-              We don&apos;t tell you
-            </p>
-            <p className="ar-hero-first" style={{
-              margin: '0 0 0.6em 0',
-              fontSize: 'clamp(28px, 3vw, 42px)',
-              fontWeight: 500,
-              lineHeight: 1.22,
-              letterSpacing: '-0.018em',
-              color: t.line1,
-              transition: 'color 0.4s ease',
-            }}>
-              what to book.
+              Decide what&apos;s worth booking.
             </p>
 
-            {/* Couplet two — delayed reveal with blur + slide + opacity */}
+            {/* Descriptor — delayed reveal */}
             <p
               className="ar-reveal-block"
               style={{
-                margin: '0 0 0.15em 0',
-                fontSize: 'clamp(28px, 3vw, 42px)',
-                fontWeight: 340,
-                lineHeight: 1.22,
-                letterSpacing: '-0.012em',
+                margin: '0.15em 0 0 0',
+                fontSize: 'clamp(17px, 1.7vw, 21px)',
+                fontWeight: 400,
+                lineHeight: 1.3,
+                letterSpacing: '-0.008em',
                 color: t.line2,
                 transition: 'color 0.4s ease',
               }}
               data-visible={secondBlockVisible ? 'true' : 'false'}
             >
-              We help you understand
-            </p>
-            <p
-              className="ar-reveal-block"
-              style={{
-                margin: '0.15em 0 0 0',
-                fontSize: 'clamp(28px, 3vw, 42px)',
-                fontWeight: 380,
-                lineHeight: 1.22,
-                letterSpacing: '-0.014em',
-                color: t.lineWhy,
-                transition: 'color 0.4s ease',
-              }}
-              data-visible={secondBlockVisible ? 'true' : 'false'}
-            >
-              why.
+              Travel decision intelligence for frequent flyers.
             </p>
           </div>
         </div>
@@ -855,7 +858,7 @@ export default function App() {
             color: t.line2,
             transition: 'color 0.4s ease',
           }}>
-            <strong style={{ fontWeight: 500, color: t.line1 }}>AwardRadar.</strong> Your Travel Decision Companion.
+            <strong style={{ fontWeight: 500, color: t.line1 }}>AwardRadar</strong> brings cash fares, award options, routing quality and status context into one clear assessment.
           </p>
 
           <p style={{
@@ -1019,35 +1022,55 @@ export default function App() {
         </div>
       </section>
 
-      {/* ── Footer ── */}
+      {/* ── Footer (shared public brand footer) ── */}
       <footer className="public-footer" style={{
         position: 'relative',
         zIndex: 10,
-        paddingBottom: '48px',
-        paddingTop: '24px',
+        margin: `0 ${PX}`,
+        paddingTop: 'clamp(40px, 5vw, 64px)',
+        paddingBottom: '44px',
+        borderTop: `1px solid ${t.divider}`,
+        color: t.footer,
+        fontSize: '13px',
+        lineHeight: 1.6,
+        display: 'grid',
+        gap: '22px',
+        boxSizing: 'border-box',
       }}>
-        <div className="footer-layout" style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr auto',
-          alignItems: 'center',
-          gap: '40px',
-          paddingLeft: PX,
-          paddingRight: PX,
-        }}>
-          <div className="trust-note" style={{ maxWidth: '640px', margin: 0, lineHeight: 1.5, color: t.footer, fontSize: '13.5px' }}>
-            <strong style={{ fontWeight: 600, color: t.wordmark }}>Verify before booking</strong> &mdash; AwardRadar provides decision support only. Always confirm availability, pricing and rules with official airline, booking-site and loyalty-program sources.
-          </div>
-          <div className="footer-nav-group" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
-            <div className="footer-links" style={{ display: 'flex', flexWrap: 'wrap', gap: '16px 24px', justifyContent: 'flex-end' }}>
-              <FooterLink href="/about" t={t}>About</FooterLink>
-              <FooterLink href="/methodology" t={t}>Methodology</FooterLink>
-              <FooterLink href="/privacy" t={t}>Privacy</FooterLink>
-              <FooterLink href="/impressum" t={t}>Imprint</FooterLink>
-              <FooterLink onClick={toggleTheme} t={t}>Theme</FooterLink>
-            </div>
-            <div className="copyright" style={{ fontSize: '12px', color: t.coord }}>&copy; 2026 AwardRadar</div>
-          </div>
+        <div className="footer-brand" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <span className="footer-lockup" style={{ display: 'inline-flex', alignItems: 'center', gap: '9px' }}>
+            <svg viewBox="0 0 512 512" width="20" height="20" aria-hidden="true" focusable="false" style={{ flex: 'none', transition: 'stroke 0.4s ease, fill 0.4s ease' }}>
+              <circle cx="256" cy="268" r="158" fill="none" stroke={t.wordmarkRadar} strokeWidth="5" opacity=".45" />
+              <ellipse cx="256" cy="268" rx="158" ry="52" fill="none" stroke={t.wordmarkRadar} strokeWidth="4" opacity=".35" />
+              <path d="M256 110 Q310 188 310 268 Q310 348 256 426" fill="none" stroke={t.wordmarkRadar} strokeWidth="3" opacity=".25" />
+              <path d="M130 370 Q200 170 380 158" fill="none" stroke={t.wordmarkRadar} strokeWidth="14" strokeLinecap="round" opacity=".92" />
+              <path d="M256 268 L256 124 A144 144 0 0 1 382 196 Z" fill={t.wordmarkRadar} fillOpacity=".08" stroke={t.wordmarkRadar} strokeWidth="3" strokeLinejoin="round" opacity=".6" />
+              <line x1="256" y1="268" x2="382" y2="196" stroke={t.wordmarkRadar} strokeWidth="3.5" opacity=".7" strokeLinecap="round" />
+              <line x1="256" y1="268" x2="256" y2="124" stroke={t.wordmarkRadar} strokeWidth="2.5" opacity=".4" strokeLinecap="round" />
+              <circle cx="148" cy="355" r="10" fill={t.wordmarkRadar} opacity=".9" />
+              <circle cx="372" cy="162" r="10" fill={t.wordmarkRadar} opacity=".9" />
+            </svg>
+            <span style={{ color: t.wordmark, fontSize: '14px', fontWeight: 600, letterSpacing: '0.01em' }}>AwardRadar</span>
+          </span>
         </div>
+        <nav className="footer-nav" aria-label="Footer" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px 26px', margin: 0 }}>
+          <FooterLink href="/about" t={t}>About</FooterLink>
+          <FooterLink href="/methodology" t={t}>Methodology</FooterLink>
+          <FooterLink href="/privacy" t={t}>Privacy</FooterLink>
+          <FooterLink href="/impressum" t={t}>Imprint</FooterLink>
+        </nav>
+        <a
+          className="footer-social"
+          href="https://x.com/AwardRadar"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="AwardRadar on X"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', width: 'fit-content', color: t.coord, textDecoration: 'none', fontSize: '12px', fontWeight: 500, letterSpacing: '0.01em', transition: 'color 0.2s' }}
+        >
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true" focusable="false" style={{ flex: 'none' }}><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24h-6.66l-5.214-6.817L5.8 21.75H2.49l7.73-8.835L2.066 2.25H8.9l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+          <span>@AwardRadar</span>
+        </a>
+        <p className="copyright" style={{ margin: 0, color: t.coord, fontSize: '12px' }}>&copy; 2026 AwardRadar</p>
       </footer>
     </div>
   )

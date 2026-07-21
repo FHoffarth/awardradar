@@ -127,6 +127,20 @@
   }
 
   function addPreferencesButton() {
+    // Prefer an in-page trigger (a quiet footer link) so the preferences
+    // control matches the surrounding shell. Only fall back to a floating
+    // button on pages that don't provide one (e.g. the legacy /tool).
+    // This changes only where the reopen control lives, not consent logic.
+    const slot = document.querySelector('[data-consent-preferences]');
+    if (slot) {
+      if (slot.dataset.consentBound === '1') return;
+      slot.dataset.consentBound = '1';
+      slot.addEventListener('click', function(event) {
+        event.preventDefault();
+        showBanner();
+      });
+      return;
+    }
     if (document.getElementById('consent-preferences')) return;
     const button = document.createElement('button');
     button.id = 'consent-preferences';

@@ -318,8 +318,9 @@ input:focus          { outline: none; }
   opacity: 1 !important;
 }
 
-.footer-links a:focus-visible,
-.footer-links button:focus-visible {
+.footer-nav a:focus-visible,
+.footer-nav button:focus-visible,
+.footer-social:focus-visible {
   outline: 1.5px solid rgba(140, 200, 255, 0.5);
   outline-offset: 3px;
 }
@@ -453,12 +454,4 @@ html, body, #root {
     height: auto !important;
     margin: 17px 0 !important;
   }
-}
-
-@media (max-width: 1024px) {
-  .public-footer { position: relative !important; bottom: auto !important; padding-top: 24px !important; }
-  .public-footer .footer-layout { display: flex !important; flex-direction: column !important; align-items: flex-start !important; gap: 32px !important; }
-  .public-footer .trust-note { max-width: 100% !important; }
-  .public-footer .footer-nav-group { align-items: flex-start !important; width: 100% !important; }
-  .public-footer .footer-links { justify-content: flex-start !important; }
 }

@@ -132,13 +132,17 @@ describe('Landing round-trip search', () => {
     expect(document.activeElement).toBe(roundTrip)
   })
 
-  it('footer_has_no_x_twitter_link_and_exposes_info_links', () => {
+  it('footer_links_official_x_profile_and_exposes_info_links', () => {
     render(<App />)
-    // Beta rescue: the X/Twitter link and its logo image were removed.
-    expect(screen.queryByText('@awardradar')).toBeNull()
-    expect(screen.queryByRole('link', { name: 'AwardRadar on X' })).toBeNull()
+    // The confirmed official AwardRadar X profile is linked from the footer.
+    // The icon is an inline monochrome SVG — never a raster image, never the
+    // legacy Twitter bird.
+    const x = screen.getByRole('link', { name: 'AwardRadar on X' })
+    expect(x.getAttribute('href')).toBe('https://x.com/AwardRadar')
+    expect(x.getAttribute('target')).toBe('_blank')
+    expect(x.getAttribute('rel')).toContain('noopener')
     expect(document.querySelector('img[src*="x-logo.png"]')).toBeNull()
-    // About and Methodology now live in the footer (also reachable on mobile,
+    // About and Methodology live in the footer (also reachable on mobile,
     // where the header nav links are hidden).
     const footer = document.querySelector('footer')!
     expect(footer.querySelector('a[href="/about"]')).toBeTruthy()

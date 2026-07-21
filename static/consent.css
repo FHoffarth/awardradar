@@ -1,93 +1,102 @@
-/* Premium Consent Dialog */
-#ar-consent {
+/* Consent prompt + preferences reopener.
+   Styles the elements consent.js actually renders (.consent-banner /
+   .consent-preferences). Restrained navy card, cyan accent, no amber.
+   Presentation only — consent logic lives in static/consent.js. */
+
+.consent-banner {
   position: fixed;
-  bottom: 32px;
-  left: 32px;
-  width: calc(100% - 64px);
-  max-width: 360px;
-  background: rgba(10, 25, 47, 0.65); /* Matches deep midnight theme */
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  padding: 24px;
+  bottom: 24px;
+  left: 24px;
+  width: calc(100% - 48px);
+  max-width: 380px;
   z-index: 99999;
   box-sizing: border-box;
-  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
-  transform: translateY(20px);
-  opacity: 0;
-  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s ease;
-  pointer-events: none;
-}
-
-#ar-consent.ar-visible {
-  transform: translateY(0);
-  opacity: 1;
-  pointer-events: auto;
-}
-
-#ar-consent h3 {
-  font-family: Inter, ui-sans-serif, sans-serif;
-  font-size: 14px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.95);
-  margin: 0 0 8px 0;
-  line-height: 1.4;
-}
-
-#ar-consent p {
-  font-family: Inter, ui-sans-serif, sans-serif;
-  font-size: 13px;
-  font-weight: 400;
-  color: rgba(255, 255, 255, 0.5);
-  margin: 0 0 24px 0;
-  line-height: 1.5;
-}
-
-#ar-consent .ar-consent-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-#ar-consent button {
-  flex: 1;
-  height: 40px;
-  border-radius: 8px;
-  font-family: Inter, ui-sans-serif, sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
-}
-
-#ar-consent button.ar-accept {
-  background: rgba(226, 194, 135, 0.1);
-  color: #e2c287;
-  border: 1px solid rgba(226, 194, 135, 0.2);
-}
-
-#ar-consent button.ar-accept:hover {
-  background: rgba(226, 194, 135, 0.15);
-  border-color: rgba(226, 194, 135, 0.3);
-}
-
-#ar-consent button.ar-reject {
-  background: transparent;
-  color: rgba(255, 255, 255, 0.6);
+  padding: 20px;
+  background: rgba(10, 18, 34, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
+  color: #f1f0ee;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
-#ar-consent button.ar-reject:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.8);
+.consent-copy strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #f1f0ee;
+}
+
+.consent-copy p {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(241, 240, 238, 0.62);
+}
+
+.consent-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.consent-btn {
+  flex: 1;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  font: 500 13px Inter, ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, filter 0.18s ease;
+}
+
+.consent-btn-primary {
+  background: #1a6884;
+  border-color: #1a6884;
+  color: #f1f0ee;
+}
+.consent-btn-primary:hover { filter: brightness(1.08); }
+
+.consent-btn-secondary {
+  background: transparent;
+  border-color: rgba(241, 240, 238, 0.18);
+  color: rgba(241, 240, 238, 0.72);
+}
+.consent-btn-secondary:hover {
+  border-color: rgba(241, 240, 238, 0.34);
+  color: #f1f0ee;
+}
+
+/* Fallback floating reopener — only appears on pages without an in-page
+   [data-consent-preferences] trigger (e.g. the legacy /tool). Quiet, small,
+   not a jarring legacy tab. Public pages use a footer link instead. */
+.consent-preferences {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 99998;
+  padding: 8px 14px;
+  border-radius: 9px;
+  border: 1px solid rgba(241, 240, 238, 0.16);
+  background: rgba(10, 18, 34, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: rgba(241, 240, 238, 0.8);
+  font: 500 12px Inter, ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+}
+.consent-preferences:hover {
+  border-color: rgba(241, 240, 238, 0.3);
+  color: #f1f0ee;
 }
 
 @media (max-width: 640px) {
-  #ar-consent {
-    bottom: 24px;
-    left: 24px;
-    width: calc(100% - 48px);
+  .consent-banner {
+    bottom: 16px;
+    left: 16px;
+    width: calc(100% - 32px);
   }
 }

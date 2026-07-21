@@ -1,7 +1,7 @@
 {
   "name": "AwardRadar",
   "short_name": "AwardRadar",
-  "description": "Travel Decision Intelligence",
+  "description": "Travel decision intelligence for frequent flyers.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",

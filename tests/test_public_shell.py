@@ -85,10 +85,13 @@ def test_theme_applied_on_document_element():
 
 # ---- Footer hygiene -------------------------------------------------------
 
-def test_no_public_page_links_to_x_or_twitter():
+def test_public_footer_links_official_x_only():
+    # The footer links the confirmed official AwardRadar X profile; no legacy
+    # Twitter bird domain and no other social platforms.
     for path in PUBLIC_PAGES:
         _, html = _html(path)
-        assert "x.com" not in html, path
+        assert "https://x.com/AwardRadar" in html, path
+        assert 'aria-label="AwardRadar on X"' in html, path
         assert "twitter.com" not in html, path
 
 

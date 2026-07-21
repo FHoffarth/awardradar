@@ -324,23 +324,65 @@ body.about-page {
 }
 .about-secondary-link:hover { border-bottom-color: var(--public-accent); }
 
+/* Public footer — brand lockup (quieter than the header), one trust line,
+   a single row of links, and copyright. Calm, modern, no legacy chrome. */
 .about-page footer,
 .public-footer {
   margin: 0 var(--public-gutter);
-  padding: 30px 0 max(44px, env(safe-area-inset-bottom));
-  color: var(--public-muted);
+  padding: clamp(40px, 5vw, 64px) 0 max(40px, env(safe-area-inset-bottom));
   border-top: 1px solid var(--public-line);
   background: transparent;
-  font-size: 11px;
-  font-weight: 550;
+  color: var(--public-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  display: grid;
+  gap: 22px;
 }
 
-.about-page footer a,
-.public-footer a { color: inherit; text-decoration: none; }
-.about-page footer a:hover,
-.public-footer a:hover { color: var(--public-text); }
-.footer-links { display: flex; flex-wrap: wrap; gap: 14px 28px; }
-.trust-note { max-width: 820px; margin-bottom: 20px; line-height: 1.6; }
+.footer-brand { display: flex; flex-direction: column; gap: 12px; }
+
+/* Footer lockup: same radar mark, smaller (20px) and quieter than the header —
+   the wordmark stays a single restrained colour (no cyan "Radar" split). */
+.footer-lockup { display: inline-flex; align-items: center; gap: 9px; color: var(--public-accent); }
+.footer-lockup .footer-mark { flex: none; width: 20px; height: 20px; }
+.footer-lockup .footer-mark .ic-stroke { fill: none; stroke: currentColor; }
+.footer-lockup .footer-mark .ic-sweep { stroke: currentColor; fill: currentColor; fill-opacity: .08; }
+.footer-lockup .footer-mark .ic-fill { fill: currentColor; }
+.footer-wordmark { color: var(--public-text); font-size: 14px; font-weight: 600; letter-spacing: .01em; }
+
+.footer-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 26px; margin: 0; }
+.footer-nav a,
+.footer-nav .footer-consent {
+  color: var(--public-muted);
+  font: inherit;
+  font-weight: 500;
+  letter-spacing: .01em;
+  text-decoration: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.footer-nav a:hover,
+.footer-nav .footer-consent:hover { color: var(--public-text); }
+
+/* Official X profile — a quiet social link (quieter than the nav links and
+   lockup). Inline SVG uses currentColor, so it is theme-aware. No box/pill/glow. */
+.footer-social {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  color: var(--public-quiet);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .01em;
+}
+.footer-social:hover { color: var(--public-text); }
+.footer-social .footer-social-icon { flex: none; }
+
+.footer-copyright { margin: 0; color: var(--public-quiet); font-size: 12px; }
 
 @media (max-width: 700px) {
   :root { --public-gutter: 22px; }
