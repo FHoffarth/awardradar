@@ -10,6 +10,9 @@ import app as awardradar
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 LEGACY_JS = ROOT / "static" / "app.js"
+LEGACY_TEMPLATE = ROOT / "templates" / "index.html"
+CONSENT_CSS = ROOT / "static" / "consent.css"
+APP_CSS = ROOT / "static" / "app.css"
 
 
 def test_tool_is_route_specifically_noindex_nofollow():
@@ -34,6 +37,36 @@ def test_legacy_source_contains_no_top_opportunities_call_or_scheduler():
     assert "loadOpportunities" not in source
     assert "new IntersectionObserver" not in source
     assert "setTimeout(loadOpportunities" not in source
+
+
+def test_legacy_search_form_keeps_its_semantic_target_without_dead_review_cta():
+    template = LEGACY_TEMPLATE.read_text(encoding="utf-8")
+    script = LEGACY_JS.read_text(encoding="utf-8")
+    css = APP_CSS.read_text(encoding="utf-8")
+    rendered = awardradar.app.test_client().get("/tool").get_data(as_text=True)
+
+    assert template.count('id="search-panel"') == 1
+    assert rendered.count('id="search-panel"') == 1
+    assert 'aria-label="Journey search"' in rendered
+    assert 'id="origin"' in rendered
+    assert 'id="dest"' in rendered
+    assert 'id="date"' in rendered
+    assert 'id="go"' in rendered
+    assert "Review value signals" not in rendered
+    assert "discovery-cta-top" not in template
+    assert "discovery-cta-top" not in script
+    assert "discovery-cta-top" not in css
+
+
+def test_legacy_privacy_reopener_has_mobile_safe_route_scoping():
+    template = LEGACY_TEMPLATE.read_text(encoding="utf-8")
+    css = CONSENT_CSS.read_text(encoding="utf-8")
+
+    assert '<body class="legacy-tool-page">' in template
+    assert "consent.css?v=4" in template
+    assert ".legacy-tool-page .consent-preferences" in css
+    assert "safe-area-inset-top" in css
+    assert "bottom: auto" in css
 
 
 def test_loading_legacy_discovery_schedules_and_invokes_nothing():

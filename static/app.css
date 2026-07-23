@@ -448,8 +448,6 @@ body:has(.shell.has-results) #globe-wrap{opacity:.22;filter:saturate(.6) blur(1p
 .discovery-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
 .discovery-title{font-size:17px;font-weight:700;color:var(--text);margin:0 0 3px}
 .discovery-sub{font-size:12px;color:var(--muted);margin:0}
-.discovery-cta-top{background:none;border:1px solid var(--border);color:var(--cyan);font-size:13px;font-weight:600;padding:6px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;transition:border-color .15s,background .15s}
-.discovery-cta-top:hover{border-color:var(--cyan);background:rgba(106,215,255,.07)}
 .discovery-scroll{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
 .discovery-scroll::-webkit-scrollbar{height:3px}
 .discovery-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
@@ -1737,7 +1735,7 @@ span.flatpickr-weekday{
 .pa-code,.date-chip,.flex-opt,.pill,.seg,.sort-btn{font-size:calc(11px * var(--text-scale))}
 .pa-target,.pa-toggle,.go-sub{font-size:calc(10px * var(--text-scale))}
 .go-main{font-size:calc(17px * var(--text-scale))}
-.ac-code,.ac-label,.discovery-cta-top,.disc-rec-label{font-size:calc(13px * var(--text-scale))}
+.ac-code,.ac-label,.disc-rec-label{font-size:calc(13px * var(--text-scale))}
 .discovery-title,.card h3{font-size:calc(17px * var(--text-scale))}
 .discovery-sub,.disc-offer-row,.disc-meta,.disc-reason,.ex-cabin,.ex-value,.price-sub,.tiny,.warn,.links a,.aw-card-surcharge,.aw-link-unavailable,.aw-schedule-note,.aw-action-link,.aw-evaluated-meta,.aw-more-programs summary,.aw-cards-caption,footer{font-size:calc(12px * var(--text-scale))}
 .disc-route,.aw-evaluated-title{font-size:calc(15px * var(--text-scale))}
@@ -1987,5 +1985,3 @@ span.flatpickr-weekday{
         .hero { max-width: 500px; }
         .panel { max-width: 680px; }
     }
-    
-    

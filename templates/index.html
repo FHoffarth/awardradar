@@ -76,7 +76,7 @@
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" sizes="180x180">
   <link rel="mask-icon" href="/static/favicon-mono.svg" color="#57A9C6">
   <link rel="stylesheet" href="/static/app.css?v=160">
-  <link rel="stylesheet" href="/static/consent.css?v=3">
+  <link rel="stylesheet" href="/static/consent.css?v=4">
   <link rel="stylesheet" href="/static/saved_searches.css?v=1">
   <link rel="stylesheet" href="/static/flatpickr.min.css">
   <link rel="stylesheet" href="/static/ui-next.css?v=1">
@@ -1351,6 +1351,10 @@
     }
 
     /* Sprint M0 — mobile recovery only; desktop remains frozen. */
+    #search-panel {
+      scroll-margin-top: calc(120px + env(safe-area-inset-top, 0px));
+    }
+
     @media (min-width: 601px) and (max-width: 900px),
            (max-width: 900px) and (max-height: 500px) {
       body:has(.shell:not(.has-results)) { overflow-x: hidden; }
@@ -1401,6 +1405,7 @@
     }
 
     @media (max-width: 600px) and (orientation: portrait) {
+      #search-panel { scroll-margin-top: calc(72px + env(safe-area-inset-top, 0px)); }
       html, body { max-width: 100%; overflow-x: hidden; }
       body:has(.shell:not(.has-results)) #globe-wrap {
         inset: 0 -280px auto auto !important; width: 680px !important; height: 52vh !important;
@@ -1528,7 +1533,7 @@
     }
   </style>
 </head>
-<body>
+<body class="legacy-tool-page">
   <a class="skip-link" href="#results">Skip to decision workspace</a>
   <div id="progress-bar" aria-hidden="true"><div id="progress-fill"></div></div>
     <nav class="navbar" aria-label="Main navigation">
@@ -1564,7 +1569,7 @@
       </a>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="search-panel" aria-label="Journey search">
       <div id="panelForm">
       <!-- Tabs -->
       <div class="tabs" role="tablist" aria-label="Analysis mode">
@@ -1834,9 +1839,6 @@
           <h2 class="discovery-title">Current Award Signals</h2>
           <p class="discovery-sub">Award redemption value signals surfaced for review.</p>
         </div>
-        <button class="discovery-cta-top" onclick="document.querySelector('.tab[data-tab=\'awards\']').click();document.getElementById('panel')?.scrollIntoView({behavior:'smooth'})">
-          Review value signals <span aria-hidden="true">→</span>
-        </button>
       </div>
       <div class="discovery-scroll" id="discovery-cards">
         <!-- Skeleton state -->
