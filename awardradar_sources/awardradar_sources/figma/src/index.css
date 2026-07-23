@@ -44,6 +44,11 @@ body,
   min-height: 100%;
 }
 
+.ar-root {
+  --ar-page-pad: clamp(64px, 7.5vw, 120px);
+  overflow-x: clip;
+}
+
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -355,9 +360,7 @@ input:focus          { outline: none; }
 .ar-field--to .ar-technical-code { letter-spacing: 0.19em; }
 
 /* ─── Mobile layout ──────────────────────────────────────────────────────── */
-html, body, #root {
-  overflow-x: hidden;
-}
+html, body, #root { max-width: 100%; }
 
 /* Base mobile styles (under 768px) */
 .ar-root {
@@ -370,6 +373,10 @@ html, body, #root {
 .ar-nav {
   position: relative !important;
   padding-bottom: 24px !important;
+}
+
+.ar-search-section {
+  scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 16px);
 }
 
 .ar-editorial {
@@ -403,6 +410,84 @@ html, body, #root {
   width: 100% !important;
   height: 0.5px !important;
   margin: 0 !important;
+}
+
+@media (max-width: 767px) {
+  .ar-root {
+    --ar-page-pad: clamp(20px, 6vw, 32px);
+  }
+
+  .ar-nav {
+    padding-top: max(18px, env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: 16px !important;
+  }
+
+  .ar-nav-right > button {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  #act-1 {
+    min-height: 100svh !important;
+  }
+
+  .ar-scroll-cue {
+    bottom: max(18px, env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .ar-search-section {
+    min-height: 100svh !important;
+    justify-content: flex-start !important;
+    padding-top: 24px;
+    padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .ar-search-intro {
+    margin-bottom: 14px !important;
+    font-size: 16px !important;
+  }
+
+  .ar-route-label {
+    margin-bottom: 10px !important;
+  }
+
+  .ar-trip-type {
+    column-gap: 8px;
+    row-gap: 4px;
+    margin-bottom: 10px;
+  }
+
+  .ar-trip-type label {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+    padding-inline: 8px;
+  }
+
+  .ar-trip-type legend {
+    margin-bottom: 0;
+  }
+
+  .ar-field {
+    min-height: 48px;
+    gap: 4px !important;
+    padding: 7px 16px 6px !important;
+  }
+
+  .ar-date-input {
+    font-size: 16px !important;
+  }
+
+  .ar-analyze-button {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+    margin-top: 12px !important;
+  }
+
+  .public-footer {
+    padding-bottom: max(32px, env(safe-area-inset-bottom, 0px)) !important;
+  }
 }
 
 /* Desktop styles (over 768px) */

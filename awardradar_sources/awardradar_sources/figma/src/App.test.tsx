@@ -5,20 +5,31 @@ import { readFileSync } from 'node:fs'
 import App, { buildAppSearchUrl, readInitialSearchFromUrl } from './App'
 
 const landingCss = readFileSync('src/index.css', 'utf8')
+const landingTemplate = readFileSync('../../../templates/landing.html', 'utf8')
+
+const mediaQueryResult = (query: string, reducedMotion = true) => ({
+  matches: query === '(prefers-reduced-motion: reduce)' ? reducedMotion : false,
+  media: query,
+  onchange: null,
+  addListener: vi.fn(),
+  removeListener: vi.fn(),
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
+  dispatchEvent: vi.fn(),
+})
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: vi.fn().mockImplementation((query: string) => ({
-    matches: true,
-    media: query,
-    onchange: null,
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  })),
+  value: vi.fn().mockImplementation((query: string) => mediaQueryResult(query)),
 })
+Object.defineProperty(window, 'requestAnimationFrame', {
+  writable: true,
+  value: vi.fn().mockImplementation((callback: FrameRequestCallback) => {
+    callback(0)
+    return 1
+  }),
+})
+Object.defineProperty(window, 'cancelAnimationFrame', { writable: true, value: vi.fn() })
 
 class MockIntersectionObserver {
   observe = vi.fn()
@@ -36,6 +47,7 @@ globalThis.fetch = mockFetch
 describe('Landing round-trip search', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(window.matchMedia).mockImplementation((query: string) => mediaQueryResult(query))
     mockFetch.mockRejectedValue(new Error('Unexpected network access'))
   })
 
@@ -166,11 +178,51 @@ describe('Landing round-trip search', () => {
       expect(node.compareDocumentPosition(nodes[index + 1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
   })
+
+  it('uses_one_stable_navigation_target_after_early_pointer_input', () => {
+    render(<App />)
+    const target = document.getElementById('route-search')!
+    const from = screen.getByLabelText('From') as HTMLInputElement
+    const targetScroll = vi.spyOn(target, 'scrollIntoView')
+    const focus = vi.spyOn(from, 'focus')
+    vi.spyOn(from, 'getBoundingClientRect').mockReturnValue({
+      top: 120, bottom: 144, left: 20, right: 280, width: 260, height: 24, x: 20, y: 120, toJSON: () => ({}),
+    })
+
+    fireEvent.pointerDown(window)
+    fireEvent.click(screen.getByRole('button', { name: 'Scroll to route search' }))
+
+    expect(targetScroll).toHaveBeenCalledTimes(1)
+    expect(targetScroll).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' })
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true })
+    expect(document.querySelectorAll('#route-search')).toHaveLength(1)
+    expect(document.getElementById('act-2')).toBeNull()
+  })
+
+  it('uses_smooth_navigation_when_reduced_motion_is_not_requested', () => {
+    vi.mocked(window.matchMedia).mockImplementation((query: string) => mediaQueryResult(query, false))
+    render(<App />)
+    const target = document.getElementById('route-search')!
+    const targetScroll = vi.spyOn(target, 'scrollIntoView')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Scroll to route search' }))
+
+    expect(targetScroll).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
+  })
+
+  it('protects_iPhone_viewport_and_mobile_input_sizes', () => {
+    expect(landingTemplate).toContain('viewport-fit=cover')
+    expect(landingCss).toContain('--ar-page-pad: clamp(20px, 6vw, 32px)')
+    expect(landingCss).toContain('scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 16px)')
+    expect(landingCss).toContain('.ar-date-input')
+    expect(landingCss).toContain('font-size: 16px !important')
+  })
 })
 
 describe('Landing URL hydration', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(window.matchMedia).mockImplementation((query: string) => mediaQueryResult(query))
     mockFetch.mockRejectedValue(new Error('Unexpected network access'))
     window.history.pushState({}, '', '/')
   })

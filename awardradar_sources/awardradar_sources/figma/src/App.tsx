@@ -1,4 +1,14 @@
-import { useState, useEffect, type FormEvent, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
+import {
+  useState,
+  useEffect,
+  useRef,
+  type FormEvent,
+  type FocusEvent,
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+} from 'react'
 
 // ─── THEME ────────────────────────────────────────────────────────────────────
 
@@ -410,13 +420,16 @@ export function readInitialSearchFromUrl(search: string): InitialSearchState {
 // navigable, with loading/empty/error states. `code` is the committed IATA
 // selection; typing clears it so the CTA can't validate on free text.
 function AutocompleteField({
-  label, text, code, onText, onSelect, placeholder, t,
+  label, text, code, onText, onSelect, onFieldFocus, onFieldBlur, inputRef, placeholder, t,
 }: {
   label: string
   text: string
   code: string
   onText: (v: string) => void
   onSelect: (s: Suggestion) => void
+  onFieldFocus: (event: FocusEvent<HTMLInputElement>) => void
+  onFieldBlur: () => void
+  inputRef?: RefObject<HTMLInputElement | null>
   placeholder: string
   t: any
 }) {
@@ -472,6 +485,7 @@ function AutocompleteField({
     <div className={`ar-field ar-field--${label.toLowerCase()}`} style={{ flex: '1 1 auto', padding: '24px 48px 22px', display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0, position: 'relative' }}>
       <span className="ar-field-label" style={{ color: t.fieldLabel }}>{label}</span>
       <input
+        ref={inputRef}
         className="ar-input ar-place-input"
         type="text"
         role="combobox"
@@ -483,8 +497,14 @@ function AutocompleteField({
         value={text}
         onChange={e => onText(e.target.value)}
         onKeyDown={onKeyDown}
-        onFocus={() => { if (!code && items.length) setOpen(true) }}
-        onBlur={() => window.setTimeout(() => setOpen(false), 130)}
+        onFocus={event => {
+          if (!code && items.length) setOpen(true)
+          onFieldFocus(event)
+        }}
+        onBlur={() => {
+          onFieldBlur()
+          window.setTimeout(() => setOpen(false), 130)
+        }}
         placeholder={placeholder}
         aria-label={label}
         style={{ background: 'transparent', border: 'none', outline: 'none', padding: 0, margin: 0, fontFamily: 'inherit', fontSize: '21px', fontWeight: 400, letterSpacing: '-0.015em', lineHeight: 1, color: t.fieldValue, width: '100%' }}
@@ -551,6 +571,9 @@ export default function App() {
   const [returnDate, setReturnDate] = useState(initialSearch.returnDate)
   const [returnDateTouched, setReturnDateTouched] = useState(false)
   const [roundTripSubmitAttempted, setRoundTripSubmitAttempted] = useState(false)
+  const fromInputRef = useRef<HTMLInputElement>(null)
+  const navigationFrameRef = useRef<number | null>(null)
+  const viewportResizeHandlerRef = useRef<(() => void) | null>(null)
 
   // Hero second block reveal — runs once on mount
   const [secondBlockVisible, setSecondBlockVisible] = useState(false)
@@ -560,6 +583,76 @@ export default function App() {
   const [searchVisible, setSearchVisible] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
   )
+
+  function clearViewportFocusCheck() {
+    const viewport = window.visualViewport
+    const handler = viewportResizeHandlerRef.current
+    if (viewport && handler) viewport.removeEventListener('resize', handler)
+    viewportResizeHandlerRef.current = null
+  }
+
+  function keepFocusedFieldVisible(event: FocusEvent<HTMLInputElement>) {
+    const input = event.currentTarget
+    clearViewportFocusCheck()
+
+    const checkVisibility = () => {
+      if (document.activeElement !== input) return
+      const viewport = window.visualViewport
+      const viewportTop = viewport?.offsetTop ?? 0
+      const viewportBottom = viewportTop + (viewport?.height ?? window.innerHeight)
+      const rect = input.getBoundingClientRect()
+      const edgeInset = 16
+
+      if (rect.top < viewportTop + edgeInset || rect.bottom > viewportBottom - edgeInset) {
+        input.scrollIntoView({ behavior: 'auto', block: 'center' })
+      }
+    }
+
+    window.requestAnimationFrame(checkVisibility)
+
+    const viewport = window.visualViewport
+    if (viewport) {
+      const onViewportResize = () => {
+        clearViewportFocusCheck()
+        window.requestAnimationFrame(checkVisibility)
+      }
+      viewportResizeHandlerRef.current = onViewportResize
+      viewport.addEventListener('resize', onViewportResize, { once: true })
+    }
+  }
+
+  function focusFromWithoutScrolling(target: HTMLElement) {
+    const input = fromInputRef.current
+    if (!input) return
+
+    const targetTopBeforeFocus = target.getBoundingClientRect().top
+    try {
+      input.focus({ preventScroll: true })
+    } catch {
+      input.focus()
+      const targetTopAfterFocus = target.getBoundingClientRect().top
+      if (Math.abs(targetTopAfterFocus - targetTopBeforeFocus) > 1) {
+        target.scrollIntoView({ behavior: 'auto', block: 'start' })
+      }
+    }
+  }
+
+  function navigateToSearch({ focus = true }: { focus?: boolean } = {}) {
+    const target = document.getElementById('route-search')
+    if (!target) return
+
+    setSearchVisible(true)
+    if (navigationFrameRef.current !== null) {
+      window.cancelAnimationFrame(navigationFrameRef.current)
+    }
+
+    navigationFrameRef.current = window.requestAnimationFrame(() => {
+      navigationFrameRef.current = null
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+      if (focus) focusFromWithoutScrolling(target)
+    })
+  }
 
   useEffect(() => {
     // 1st text reveal CSS takes 900ms + 300ms delay = 1200ms
@@ -581,38 +674,30 @@ export default function App() {
       }
     }, { threshold: 0.25 })
 
-    const act2 = document.getElementById('act-2')
+    const act2 = document.getElementById('route-search')
     if (act2) observer.observe(act2)
 
     return () => observer.disconnect()
   }, [])
 
   useEffect(() => {
-    // Cinematic sequence: once the manifesto reveal has completed, scroll once
-    // to Act II. Runs a single time per load. Any user interaction (touch,
-    // wheel, pointer, key) cancels it immediately — no scroll trapping. Reduced
-    // motion opts out entirely.
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    // "Edit search" returns with hydrated query parameters. Move that explicit
+    // entry path to the form without opening the keyboard.
+    const hasHydratedSearch = Boolean(
+      initialSearch.fromCode || initialSearch.toCode || initialSearch.date || initialSearch.returnDate
+    )
+    if (hasHydratedSearch) navigateToSearch({ focus: false })
+  }, [])
 
-    let cancelled = false
-    const events = ['wheel', 'touchstart', 'touchmove', 'pointerdown', 'keydown', 'mousedown']
-    const stop = () => { events.forEach(e => window.removeEventListener(e, cancel)) }
-    const cancel = () => { cancelled = true; window.clearTimeout(timer); stop() }
-    events.forEach(e => window.addEventListener(e, cancel, { passive: true }))
-
-    // 1800ms reveal delay + ~800ms reveal animation + short beat.
-    const timer = window.setTimeout(() => {
-      stop()
-      // Only auto-advance if the reader is still idle at the top.
-      if (cancelled || window.scrollY > 8) return
-      document.getElementById('act-2')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 2900)
-
-    return () => { window.clearTimeout(timer); stop() }
+  useEffect(() => () => {
+    if (navigationFrameRef.current !== null) {
+      window.cancelAnimationFrame(navigationFrameRef.current)
+    }
+    clearViewportFocusCheck()
   }, [])
 
   const t  = T[theme]
-  const PX = 'clamp(64px, 7.5vw, 120px)'
+  const PX = 'var(--ar-page-pad)'
   const sameRoute = fromCode.length > 0 && fromCode === toCode
   const returnError = tripType === 'round_trip'
     ? !isValidDate(returnDate)
@@ -644,12 +729,6 @@ export default function App() {
     window.location.href = buildAppSearchUrl(fromCode, toCode, date, tripType, returnDate)
   }
   function toggleTheme() { setTheme(th => th === 'dark' ? 'light' : 'dark') }
-  function scrollToAct2() {
-    const el = document.getElementById('act-2')
-    if (!el) return
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
-  }
 
   return (
     <div
@@ -659,7 +738,9 @@ export default function App() {
         position: 'relative',
         width: '100%',
         minHeight: '100dvh',
-        overflowX: 'hidden',
+        // The animated globe is intentionally clipped inside the landing root;
+        // document-level overflow remains observable during responsive checks.
+        overflowX: 'clip',
         background: t.bg,
         fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
         transition: 'background 0.4s ease',
@@ -798,7 +879,7 @@ export default function App() {
         <button
           type="button"
           className="ar-scroll-cue"
-          onClick={scrollToAct2}
+          onClick={() => navigateToSearch()}
           aria-label="Scroll to route search"
           style={{
             position: 'absolute',
@@ -832,7 +913,7 @@ export default function App() {
       </section>
 
       {/* ── ACT II: Search Instrument ── */}
-      <section id="act-2" style={{
+      <section id="route-search" className="ar-search-section" aria-labelledby="route-search-label" style={{
         position: 'relative',
         width: '100%',
         minHeight: '85dvh',
@@ -850,7 +931,7 @@ export default function App() {
           transition: 'opacity 0.8s ease, transform 0.8s ease',
           willChange: 'opacity, transform',
         }}>
-          <p style={{
+          <p className="ar-search-intro" style={{
             margin: '0 0 40px 0',
             fontSize: '18px',
             fontWeight: 400,
@@ -861,7 +942,7 @@ export default function App() {
             <strong style={{ fontWeight: 500, color: t.line1 }}>AwardRadar</strong> brings cash fares, award options, routing quality and status context into one clear assessment.
           </p>
 
-          <p style={{
+          <p id="route-search-label" className="ar-route-label" style={{
             margin: '0 0 14px 0',
             fontSize: '8px',
             fontWeight: 500,
@@ -914,6 +995,9 @@ export default function App() {
                 code={fromCode}
                 onText={v => { setFrom(v); setFromCode('') }}
                 onSelect={selectFrom}
+                onFieldFocus={keepFocusedFieldVisible}
+                onFieldBlur={clearViewportFocusCheck}
+                inputRef={fromInputRef}
                 placeholder="FRA, Frankfurt"
                 t={t}
               />
@@ -924,6 +1008,8 @@ export default function App() {
                 code={toCode}
                 onText={v => { setTo(v); setToCode('') }}
                 onSelect={selectTo}
+                onFieldFocus={keepFocusedFieldVisible}
+                onFieldBlur={clearViewportFocusCheck}
                 placeholder="JFK, New York"
                 t={t}
               />
@@ -936,6 +1022,8 @@ export default function App() {
                   value={date}
                   min={new Date().toISOString().slice(0, 10)}
                   onChange={e => setDate(e.target.value)}
+                  onFocus={keepFocusedFieldVisible}
+                  onBlur={clearViewportFocusCheck}
                   onClick={e => { try { (e.currentTarget as HTMLInputElement).showPicker?.() } catch {} }}
                   aria-label="Departure date"
                   style={{
@@ -957,7 +1045,11 @@ export default function App() {
                       value={returnDate}
                       min={date || new Date().toISOString().slice(0, 10)}
                       onChange={e => { setReturnDate(e.target.value); setReturnDateTouched(true) }}
-                      onFocus={() => setReturnDateTouched(true)}
+                      onFocus={event => {
+                        setReturnDateTouched(true)
+                        keepFocusedFieldVisible(event)
+                      }}
+                      onBlur={clearViewportFocusCheck}
                       onClick={e => { try { (e.currentTarget as HTMLInputElement).showPicker?.() } catch {} }}
                       aria-label="Return date"
                       aria-invalid={shouldShowReturnError}
