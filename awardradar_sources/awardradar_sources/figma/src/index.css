@@ -317,9 +317,9 @@ input:focus          { outline: none; }
 }
 
 .ar-analyze-button:disabled {
-  border-color: rgba(214, 204, 190, 0.18) !important;
-  color: rgba(214, 204, 190, 0.64) !important;
-  background: rgba(255, 255, 255, 0.025) !important;
+  border-color: rgba(214, 204, 190, 0.24) !important;
+  color: rgba(232, 226, 215, 0.72) !important;
+  background: rgba(255, 255, 255, 0.045) !important;
   opacity: 1 !important;
 }
 
@@ -344,6 +344,21 @@ input:focus          { outline: none; }
   color: #111827;
   border-color: rgba(13, 110, 138, 0.50);
   background: rgba(13, 110, 138, 0.09);
+}
+
+[data-theme='light'] .ar-instrument::before {
+  background: #0d6e8a;
+}
+
+[data-theme='light'] .ar-analyze-button:disabled {
+  border-color: rgba(51, 65, 85, 0.20) !important;
+  color: #536171 !important;
+  background: #e9eff2 !important;
+}
+
+[data-theme='light'] .ar-analyze-button:not(:disabled) {
+  background: rgba(13, 110, 138, 0.06) !important;
+  border-color: rgba(13, 110, 138, 0.48) !important;
 }
 
 .ar-technical-code {
@@ -428,33 +443,44 @@ html, body, #root { max-width: 100%; }
   }
 
   #act-1 {
-    min-height: 100svh !important;
+    min-height: clamp(420px, 58svh, 520px) !important;
+    overflow: hidden;
   }
 
   .ar-scroll-cue {
-    bottom: max(18px, env(safe-area-inset-bottom, 0px)) !important;
+    bottom: max(36px, env(safe-area-inset-bottom, 0px)) !important;
   }
 
   .ar-search-section {
-    min-height: 100svh !important;
+    min-height: 75svh !important;
     justify-content: flex-start !important;
-    padding-top: 24px;
-    padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+    padding-top: 20px;
+    padding-bottom: max(28px, env(safe-area-inset-bottom, 0px));
+    box-sizing: border-box;
+  }
+
+  .ar-search-content {
+    width: 100%;
   }
 
   .ar-search-intro {
-    margin-bottom: 14px !important;
-    font-size: 16px !important;
+    margin-bottom: 10px !important;
+    font-size: 1rem !important;
+    line-height: 1.42 !important;
   }
 
   .ar-route-label {
-    margin-bottom: 10px !important;
+    margin-bottom: 8px !important;
+    font-size: 9px !important;
+    font-weight: 650 !important;
   }
 
   .ar-trip-type {
-    column-gap: 8px;
-    row-gap: 4px;
-    margin-bottom: 10px;
+    align-items: center;
+    flex-wrap: nowrap;
+    column-gap: 7px;
+    row-gap: 0;
+    margin-bottom: 8px;
   }
 
   .ar-trip-type label {
@@ -462,31 +488,45 @@ html, body, #root { max-width: 100%; }
     min-width: 0;
     justify-content: center;
     padding-inline: 8px;
+    font-size: 0.875rem;
   }
 
   .ar-trip-type legend {
-    margin-bottom: 0;
+    width: auto;
+    flex: 0 0 auto;
+    margin: 0 3px 0 0;
+    font-size: 9px;
+    letter-spacing: 0.11em;
   }
 
   .ar-field {
-    min-height: 48px;
+    min-height: 44px;
     gap: 4px !important;
-    padding: 7px 16px 6px !important;
+    padding: 6px 14px 5px !important;
+  }
+
+  .ar-place-input {
+    min-height: 21px;
+    font-size: 1.0625rem !important;
+    line-height: 1.2 !important;
   }
 
   .ar-date-input {
-    font-size: 16px !important;
+    font-size: max(16px, 1rem) !important;
   }
 
   .ar-analyze-button {
     width: 100%;
     min-height: 44px;
     justify-content: center;
-    margin-top: 12px !important;
+    margin-top: 9px !important;
+    font-size: 0.6875rem !important;
   }
 
   .public-footer {
+    padding-top: 28px !important;
     padding-bottom: max(32px, env(safe-area-inset-bottom, 0px)) !important;
+    gap: 18px !important;
   }
 }
 
