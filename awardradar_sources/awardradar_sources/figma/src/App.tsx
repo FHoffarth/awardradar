@@ -573,6 +573,11 @@ export default function App() {
   const [roundTripSubmitAttempted, setRoundTripSubmitAttempted] = useState(false)
   const fromInputRef = useRef<HTMLInputElement>(null)
   const navigationFrameRef = useRef<number | null>(null)
+  const initialNavigationFrameRef = useRef<number | null>(null)
+  const initialVerificationFrameRef = useRef<number | null>(null)
+  const bfcacheFrameRef = useRef<number | null>(null)
+  const initialNavigationStartedRef = useRef(false)
+  const initialNavigationCompletedRef = useRef(false)
   const viewportResizeHandlerRef = useRef<(() => void) | null>(null)
 
   // Hero second block reveal — runs once on mount
@@ -637,9 +642,44 @@ export default function App() {
     }
   }
 
+  function cancelFrame(frameRef: { current: number | null }) {
+    if (frameRef.current !== null) {
+      window.cancelAnimationFrame(frameRef.current)
+      frameRef.current = null
+    }
+  }
+
+  function hasRealLayout(target: HTMLElement) {
+    const rect = target.getBoundingClientRect()
+    return rect.width > 0 && rect.height > 0
+  }
+
+  function isTargetVisible(target: HTMLElement) {
+    const rect = target.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) return false
+
+    const viewport = window.visualViewport
+    const viewportTop = viewport?.offsetTop ?? 0
+    const viewportBottom = viewportTop + (viewport?.height ?? window.innerHeight)
+    return rect.bottom > viewportTop && rect.top < viewportBottom
+  }
+
+  function cancelInitialNavigation() {
+    cancelFrame(initialNavigationFrameRef)
+    cancelFrame(initialVerificationFrameRef)
+  }
+
   function navigateToSearch({ focus = true }: { focus?: boolean } = {}) {
     const target = document.getElementById('route-search')
     if (!target) return
+
+    // An explicit navigation supersedes a pending automatic navigation to the
+    // same target. Harmless pointer, touch and theme interactions do not.
+    if (focus) {
+      cancelInitialNavigation()
+      initialNavigationStartedRef.current = true
+      initialNavigationCompletedRef.current = true
+    }
 
     setSearchVisible(true)
     if (navigationFrameRef.current !== null) {
@@ -681,19 +721,72 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    // "Edit search" returns with hydrated query parameters. Move that explicit
-    // entry path to the form without opening the keyboard.
-    const hasHydratedSearch = Boolean(
-      initialSearch.fromCode || initialSearch.toCode || initialSearch.date || initialSearch.returnDate
-    )
-    if (hasHydratedSearch) navigateToSearch({ focus: false })
-  }, [])
+    const verifyFrames = 12
 
-  useEffect(() => () => {
-    if (navigationFrameRef.current !== null) {
-      window.cancelAnimationFrame(navigationFrameRef.current)
+    const scheduleInitialNavigation = () => {
+      if (initialNavigationStartedRef.current) return
+      initialNavigationStartedRef.current = true
+
+      // Two frames allow React's committed DOM and its responsive layout to
+      // settle before Safari receives the initial navigation request.
+      initialNavigationFrameRef.current = window.requestAnimationFrame(() => {
+        initialNavigationFrameRef.current = window.requestAnimationFrame(() => {
+          initialNavigationFrameRef.current = null
+          const target = document.getElementById('route-search')
+          if (!target || !hasRealLayout(target)) {
+            initialNavigationStartedRef.current = false
+            return
+          }
+
+          setSearchVisible(true)
+          const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+          target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+          initialNavigationCompletedRef.current = true
+
+          let framesRemaining = verifyFrames
+          const verificationDeadline = window.performance.now() + 240
+          const verifyNavigation = () => {
+            initialVerificationFrameRef.current = null
+            if (isTargetVisible(target)) return
+            if (framesRemaining <= 0 || window.performance.now() >= verificationDeadline) {
+              // Safari may ignore or interrupt the first request while its
+              // toolbar settles. Correct at most once, without animation.
+              target.scrollIntoView({ behavior: 'auto', block: 'start' })
+              return
+            }
+            framesRemaining -= 1
+            initialVerificationFrameRef.current = window.requestAnimationFrame(verifyNavigation)
+          }
+          initialVerificationFrameRef.current = window.requestAnimationFrame(verifyNavigation)
+        })
+      })
     }
-    clearViewportFocusCheck()
+
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return
+      cancelFrame(bfcacheFrameRef)
+      bfcacheFrameRef.current = window.requestAnimationFrame(() => {
+        bfcacheFrameRef.current = null
+        const target = document.getElementById('route-search')
+        if (!target || !hasRealLayout(target) || isTargetVisible(target)) return
+        setSearchVisible(true)
+        target.scrollIntoView({ behavior: 'auto', block: 'start' })
+      })
+    }
+
+    scheduleInitialNavigation()
+    window.addEventListener('pageshow', onPageShow)
+
+    return () => {
+      window.removeEventListener('pageshow', onPageShow)
+      cancelInitialNavigation()
+      cancelFrame(bfcacheFrameRef)
+      cancelFrame(navigationFrameRef)
+      clearViewportFocusCheck()
+      if (!initialNavigationCompletedRef.current) {
+        initialNavigationStartedRef.current = false
+      }
+    }
   }, [])
 
   const t  = T[theme]

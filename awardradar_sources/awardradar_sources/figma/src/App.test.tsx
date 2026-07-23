@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import App, { buildAppSearchUrl, readInitialSearchFromUrl } from './App'
@@ -44,9 +44,209 @@ Object.defineProperty(Element.prototype, 'scrollIntoView', { writable: true, val
 const mockFetch = vi.fn()
 globalThis.fetch = mockFetch
 
+const installImmediateAnimationFrames = () => {
+  vi.mocked(window.requestAnimationFrame).mockImplementation((callback: FrameRequestCallback) => {
+    callback(0)
+    return 1
+  })
+  vi.mocked(window.cancelAnimationFrame).mockImplementation(() => undefined)
+}
+
+const elementRect = (top: number, height = 500, width = 390): DOMRect => ({
+  top,
+  bottom: top + height,
+  left: 0,
+  right: width,
+  width,
+  height,
+  x: 0,
+  y: top,
+  toJSON: () => ({}),
+})
+
+describe('Landing initial search navigation', () => {
+  let nextFrameId = 0
+  let frames = new Map<number, FrameRequestCallback>()
+
+  const flushFrame = () => {
+    const next = frames.entries().next().value as [number, FrameRequestCallback] | undefined
+    if (!next) return false
+    const [id, callback] = next
+    frames.delete(id)
+    act(() => callback(id * 16))
+    return true
+  }
+
+  const flushFrames = (count: number) => {
+    for (let index = 0; index < count && flushFrame(); index += 1) {
+      // Drain only the requested bounded number of animation frames.
+    }
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    window.history.pushState({}, '', '/')
+    vi.mocked(window.matchMedia).mockImplementation((query: string) => mediaQueryResult(query, false))
+    mockFetch.mockRejectedValue(new Error('Unexpected network access'))
+    nextFrameId = 0
+    frames = new Map()
+    vi.mocked(window.requestAnimationFrame).mockImplementation((callback: FrameRequestCallback) => {
+      const id = ++nextFrameId
+      frames.set(id, callback)
+      return id
+    })
+    vi.mocked(window.cancelAnimationFrame).mockImplementation((id: number) => {
+      frames.delete(id)
+    })
+  })
+
+  afterEach(() => {
+    cleanup()
+    vi.restoreAllMocks()
+    installImmediateAnimationFrames()
+    window.history.pushState({}, '', '/')
+  })
+
+  it('automatically navigates an untouched fresh load after exactly two frames without focusing', () => {
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView')
+    const focus = vi.spyOn(HTMLInputElement.prototype, 'focus')
+    render(<App />)
+    const target = document.getElementById('route-search')!
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(elementRect(844))
+
+    expect(scroll).not.toHaveBeenCalled()
+    expect(frames.size).toBe(1)
+    flushFrame()
+    expect(scroll).not.toHaveBeenCalled()
+    expect(frames.size).toBe(1)
+    flushFrame()
+
+    expect(scroll).toHaveBeenCalledTimes(1)
+    expect(scroll).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
+    expect(focus).not.toHaveBeenCalled()
+  })
+
+  it('does nothing when the search target does not exist', () => {
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView')
+    const getElementById = vi.spyOn(document, 'getElementById')
+    const originalGetElementById = getElementById.getMockImplementation()
+    getElementById.mockImplementation((id: string) => {
+      if (id === 'route-search') return null
+      return originalGetElementById ? originalGetElementById(id) : document.querySelector(`#${id}`)
+    })
+
+    render(<App />)
+    flushFrames(2)
+
+    expect(scroll).not.toHaveBeenCalled()
+  })
+
+  it('does nothing while the search target has no real bounding box', () => {
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView')
+    render(<App />)
+    const target = document.getElementById('route-search')!
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(elementRect(844, 0, 0))
+
+    flushFrames(2)
+
+    expect(scroll).not.toHaveBeenCalled()
+  })
+
+  it('still navigates under Reduced Motion and uses immediate behavior', () => {
+    vi.mocked(window.matchMedia).mockImplementation((query: string) => mediaQueryResult(query, true))
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView')
+    render(<App />)
+    const target = document.getElementById('route-search')!
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(elementRect(844))
+
+    flushFrames(2)
+
+    expect(scroll).toHaveBeenCalledTimes(1)
+    expect(scroll).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' })
+  })
+
+  it('is not cancelled by early pointer or theme interaction', () => {
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView')
+    render(<App />)
+    const target = document.getElementById('route-search')!
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(elementRect(844))
+
+    fireEvent.pointerDown(window)
+    fireEvent.touchStart(window)
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle light/dark mode' }))
+    flushFrames(2)
+
+    expect(scroll).toHaveBeenCalledTimes(1)
+  })
+
+  it('performs at most one immediate correction when the target remains outside the viewport', () => {
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView')
+    render(<App />)
+    const target = document.getElementById('route-search')!
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(elementRect(844))
+
+    flushFrames(30)
+
+    expect(scroll).toHaveBeenCalledTimes(2)
+    expect(scroll).toHaveBeenNthCalledWith(1, { behavior: 'smooth', block: 'start' })
+    expect(scroll).toHaveBeenNthCalledWith(2, { behavior: 'auto', block: 'start' })
+    flushFrames(30)
+    expect(scroll).toHaveBeenCalledTimes(2)
+  })
+
+  it('corrects a BFCache return only when the target is no longer visible', () => {
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView')
+    render(<App />)
+    const target = document.getElementById('route-search')!
+    const targetRect = vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(elementRect(100))
+    flushFrames(3)
+    scroll.mockClear()
+    targetRect.mockReturnValue(elementRect(844))
+
+    act(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })))
+    flushFrame()
+
+    expect(scroll).toHaveBeenCalledTimes(1)
+    expect(scroll).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' })
+  })
+
+  it('leaves an already visible BFCache target untouched', () => {
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView')
+    render(<App />)
+    const target = document.getElementById('route-search')!
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(elementRect(100))
+    flushFrames(3)
+    scroll.mockClear()
+
+    act(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })))
+    flushFrame()
+
+    expect(scroll).not.toHaveBeenCalled()
+  })
+
+  it('keeps the explicit CTA functional independently of a pending automatic navigation', () => {
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView')
+    const focus = vi.spyOn(HTMLInputElement.prototype, 'focus')
+    render(<App />)
+    const target = document.getElementById('route-search')!
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(elementRect(844))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Scroll to route search' }))
+    flushFrames(30)
+
+    const targetScrolls = scroll.mock.contexts
+      .map((context, index) => ({ context, args: scroll.mock.calls[index] }))
+      .filter(call => call.context === target)
+    expect(targetScrolls).toHaveLength(1)
+    expect(targetScrolls[0]?.args).toEqual([{ behavior: 'smooth', block: 'start' }])
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true })
+  })
+})
+
 describe('Landing round-trip search', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    installImmediateAnimationFrames()
     vi.mocked(window.matchMedia).mockImplementation((query: string) => mediaQueryResult(query))
     mockFetch.mockRejectedValue(new Error('Unexpected network access'))
   })
@@ -222,6 +422,7 @@ describe('Landing round-trip search', () => {
 describe('Landing URL hydration', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    installImmediateAnimationFrames()
     vi.mocked(window.matchMedia).mockImplementation((query: string) => mediaQueryResult(query))
     mockFetch.mockRejectedValue(new Error('Unexpected network access'))
     window.history.pushState({}, '', '/')
