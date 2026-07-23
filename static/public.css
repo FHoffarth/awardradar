@@ -403,6 +403,18 @@ body.about-page {
   .about-page .text-size-control { display: none; }
   .about-shell,
   .about-page .legal { width: calc(100% - 44px); padding-top: 54px; }
+  .about-page .legal > h1:first-of-type {
+    max-width: 100%;
+    font-size: clamp(
+      calc(34px * var(--text-scale)),
+      calc(10vw * var(--text-scale)),
+      calc(42px * var(--text-scale))
+    );
+    line-height: 1.02;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    hyphens: auto;
+  }
   .about-status-grid { grid-template-columns: 1fr; }
   .about-hero,
   .about-page .legal > h1:first-of-type { margin-bottom: 64px; }

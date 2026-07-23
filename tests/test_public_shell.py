@@ -7,12 +7,15 @@ snapshots -- and focus on shell presence, theme wiring, footer hygiene and
 the unfinished-methodology indexing rule.
 """
 
+from pathlib import Path
+
 import app as awardradar
 
 
 # /methodology now redirects to /about#methodology (placeholder removed), so it
 # is not part of the shared-shell page set; it is covered separately below.
 PUBLIC_PAGES = ("/about", "/impressum", "/datenschutz", "/privacy")
+PUBLIC_CSS = Path(__file__).resolve().parents[1] / "static" / "public.css"
 
 
 def _client():
@@ -66,6 +69,18 @@ def test_pages_have_no_duplicated_inline_toggle_script():
         _, html = _html(path)
         assert "function applyTheme" not in html, path
         assert "setItem('awardradar_theme'" not in html, path
+
+
+# ---- Responsive legal headings -------------------------------------------
+
+def test_mobile_legal_heading_wraps_and_respects_text_scale():
+    css = PUBLIC_CSS.read_text(encoding="utf-8")
+    mobile = css[css.index("@media (max-width: 700px)"):]
+
+    assert ".about-page .legal > h1:first-of-type" in mobile
+    assert "overflow-wrap: anywhere" in mobile
+    assert "hyphens: auto" in mobile
+    assert "var(--text-scale)" in mobile
 
 
 # ---- Theme resolution -----------------------------------------------------
