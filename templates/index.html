@@ -177,16 +177,27 @@
     }
 
     .logo-name { font-size: 15px; line-height: 1; }
-    .logo-award { color: inherit; }
-    .logo-radar { color: #74d5ff; }
-    /* Light mode: darker teal for readability on the light ground — matches the
-       shared shell (--public-accent #0d6e8a). Overrides app.css's dark-ink rule. */
-    [data-theme="light"] .logo-radar { color: #0d6e8a; -webkit-text-fill-color: #0d6e8a; }
-    .logo:hover .logo-radar { color: #74d5ff; }
-    .logo-tagline {
-      display: none;
+    /* Neutralize the gradient/transparent-fill wordmark paint from app.css so
+       /tool matches the landing reference: solid off-white Award + solid cyan
+       Radar (dark) / readable dark ink + teal (light). No gradient in either. */
+    .logo-award {
+      color: #e7e0d5;
+      -webkit-text-fill-color: #e7e0d5;
+      background: none;
+      -webkit-background-clip: border-box;
+      background-clip: border-box;
     }
-    
+    .logo-radar { color: #74d5ff; -webkit-text-fill-color: #74d5ff; }
+    [data-theme="light"] .logo-award {
+      color: #001e3d;
+      -webkit-text-fill-color: #001e3d;
+      background: none;
+      -webkit-background-clip: border-box;
+      background-clip: border-box;
+    }
+    [data-theme="light"] .logo-radar { color: #0d6e8a; -webkit-text-fill-color: #0d6e8a; }
+    .logo:hover .logo-radar { color: #74d5ff; -webkit-text-fill-color: #74d5ff; }
+
     .nav-about {
       font-family: 'Inter', sans-serif;
       font-size: 11px;
@@ -1529,7 +1540,6 @@
         </span>
         <div>
           <div class="logo-name"><span class="logo-award">Award</span><span class="logo-radar">Radar</span></div>
-          <div class="logo-tagline">Travel Decision Intelligence</div>
         </div>
       </a>
       <div class="freeze-nav-links"><a href="/about">About</a><span class="freeze-nav-dot" aria-hidden="true">•</span><a href="/methodology">Methodology</a></div>

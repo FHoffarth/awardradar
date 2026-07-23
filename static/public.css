@@ -89,15 +89,6 @@ body.about-page {
   color: var(--public-text);
 }
 
-.about-page .nav-inner > .nav-link:first-child::after {
-  content: "TRAVEL DECISION INTELLIGENCE";
-  color: var(--public-quiet);
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: .24em;
-  line-height: 1.2;
-}
-
 /* Approved AwardRadar mark (favicon design brief), theme-swapped between the
    two canonical files. Overrides the boxed .logo-mark styling inherited from
    app.css / ui-next.css. */
@@ -127,16 +118,35 @@ body.about-page {
 
 .about-page .logo-text { display: inline-flex; flex-direction: column; gap: 3px; }
 .about-page .logo-name { font-size: 15px; font-weight: 650; line-height: 1; letter-spacing: .01em; }
-.about-page .logo-award { color: var(--public-text); }
-.about-page .logo-radar { color: var(--public-accent); }
-.about-page .logo-tagline {
-  display: block;
-  color: var(--public-quiet);
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: .24em;
-  line-height: 1.2;
-  text-transform: uppercase;
+/* Neutralize the gradient/transparent-fill wordmark paint inherited from
+   app.css (.logo-award/.logo-radar) so the shell matches the landing
+   reference exactly: dark-mode Award #e7e0d5 (pixel-consistent with the
+   landing) + solid cyan Radar. #e7e0d5 is scoped to this wordmark rule only
+   and does not touch the --public-text token or legal-page body text.
+   public.css loads after app.css so these win. */
+.about-page .logo-award {
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  color: #e7e0d5;
+  -webkit-text-fill-color: #e7e0d5;
+}
+.about-page .logo-radar {
+  color: var(--public-accent);
+  -webkit-text-fill-color: var(--public-accent);
+}
+/* Light mode: Award returns to the readable dark-ink public text; Radar keeps
+   the light accent via the token. The #e7e0d5 above is the dark-mode value
+   only — light is restored here for both explicit toggle and system pref. */
+[data-theme="light"] .about-page .logo-award {
+  color: var(--public-text);
+  -webkit-text-fill-color: var(--public-text);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .about-page .logo-award {
+    color: var(--public-text);
+    -webkit-text-fill-color: var(--public-text);
+  }
 }
 
 .about-page .nav-right {
