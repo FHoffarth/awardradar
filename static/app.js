@@ -2990,7 +2990,12 @@ if (innerWidth <= 640) {
     const canvas = document.getElementById('globe');
     if (!canvas || canvas.width > 0) return;
     const wrap = document.getElementById('globe-wrap');
-    if (wrap) wrap.innerHTML = '<img src="/static/icon.svg" alt="" style="width:200px;height:200px;display:block;margin:30px auto;opacity:.7">';
+    if (wrap) {
+      const markSrc = document.documentElement.getAttribute('data-theme') === 'light'
+        ? '/static/logo-mark-light.svg'
+        : '/static/logo-mark.svg';
+      wrap.innerHTML = '<img src="' + markSrc + '" alt="" style="width:200px;height:200px;display:block;margin:30px auto;opacity:.7">';
+    }
   }, 800);
 }
 

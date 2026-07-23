@@ -7,9 +7,9 @@ export type TripType = 'one_way' | 'round_trip'
 
 const T = {
   dark: {
-    bg:                 '#03030a',
-    vignL:              'linear-gradient(to right, #03030a 22%, rgba(3,3,10,0.88) 46%, rgba(3,3,10,0.22) 68%, transparent 100%)',
-    vignV:              'linear-gradient(to bottom, rgba(3,3,10,0.6) 0%, transparent 18%, transparent 78%, rgba(3,3,10,0.7) 100%)',
+    bg:                 '#060a14',
+    vignL:              'linear-gradient(to right, #060a14 22%, rgba(6,10,20,0.88) 46%, rgba(6,10,20,0.22) 68%, transparent 100%)',
+    vignV:              'linear-gradient(to bottom, rgba(6,10,20,0.6) 0%, transparent 18%, transparent 78%, rgba(6,10,20,0.7) 100%)',
     wordmark:           '#E7E0D5',
     wordmarkRadar:      '#74d5ff',
     navLink:            '#C9C1B5',
@@ -19,7 +19,7 @@ const T = {
     line2:              '#B8BBC3',
     lineWhy:            '#F3F4F6',
     instrLabel:         'rgba(190,181,168,0.7)',
-    instrBg:            '#111317',
+    instrBg:            '#0e1526',
     instrBorder:        'rgba(255,255,255,0.06)',
     instrBorderTop:     'rgba(255,255,255,0.08)',
     instrShadow:        'none',
@@ -27,8 +27,8 @@ const T = {
     fieldValue:         '#F5F2EC',
     divider:            'rgba(245,242,236,0.05)',
     btnBorder:          'rgba(245,242,236,0.05)',
-    btnBg:              '#111317',
-    btnBgHover:         '#111317',
+    btnBg:              '#0e1526',
+    btnBgHover:         '#0e1526',
     btnColor:           '#74d5ff',
     btnColorHover:      '#74d5ff',
     footer:             '#BEB6AA',
@@ -50,7 +50,7 @@ const T = {
     line2:              'rgba(55,65,81,0.7)',
     lineWhy:            '#111827',
     instrLabel:         'rgba(75,85,99,0.7)',
-    instrBg:            '#111317', /* keep same for now as dark mode if user wants it */
+    instrBg:            '#0e1526', /* keep same for now as dark mode if user wants it */
     instrBorder:        'rgba(0,0,0,0.06)',
     instrBorderTop:     'rgba(0,0,0,0.08)',
     instrShadow:        'none',
@@ -58,8 +58,8 @@ const T = {
     fieldValue:         '#F3EEE5',
     divider:            'rgba(245,242,236,0.05)',
     btnBorder:          'rgba(245,242,236,0.05)',
-    btnBg:              '#111317',
-    btnBgHover:         '#111317',
+    btnBg:              '#0e1526',
+    btnBgHover:         '#0e1526',
     btnColor:           '#74d5ff',
     btnColorHover:      '#74d5ff',
     footer:             '#6B7280',
@@ -698,17 +698,17 @@ export default function App() {
             transition: 'color 0.4s ease'
           }}
         >
-          <svg className="logo-mark" viewBox="0 0 512 512" width="24" height="24" aria-hidden="true" focusable="false" style={{ flex: 'none', transition: 'stroke 0.4s ease, fill 0.4s ease' }}>
-            <circle cx="256" cy="268" r="158" fill="none" stroke={t.wordmarkRadar} strokeWidth="5" opacity=".45" />
-            <ellipse cx="256" cy="268" rx="158" ry="52" fill="none" stroke={t.wordmarkRadar} strokeWidth="4" opacity=".35" />
-            <path d="M256 110 Q310 188 310 268 Q310 348 256 426" fill="none" stroke={t.wordmarkRadar} strokeWidth="3" opacity=".25" />
-            <path d="M130 370 Q200 170 380 158" fill="none" stroke={t.wordmarkRadar} strokeWidth="14" strokeLinecap="round" opacity=".92" />
-            <path d="M256 268 L256 124 A144 144 0 0 1 382 196 Z" fill={t.wordmarkRadar} fillOpacity=".08" stroke={t.wordmarkRadar} strokeWidth="3" strokeLinejoin="round" opacity=".6" />
-            <line x1="256" y1="268" x2="382" y2="196" stroke={t.wordmarkRadar} strokeWidth="3.5" opacity=".7" strokeLinecap="round" />
-            <line x1="256" y1="268" x2="256" y2="124" stroke={t.wordmarkRadar} strokeWidth="2.5" opacity=".4" strokeLinecap="round" />
-            <circle cx="148" cy="355" r="10" fill={t.wordmarkRadar} opacity=".9" />
-            <circle cx="372" cy="162" r="10" fill={t.wordmarkRadar} opacity=".9" />
-          </svg>
+          {/* Approved AwardRadar mark (favicon design brief). Single source:
+              /static/logo-mark.svg (dark) / logo-mark-light.svg (light). */}
+          <img
+            className="logo-mark"
+            src={theme === 'light' ? '/static/logo-mark-light.svg' : '/static/logo-mark.svg'}
+            alt=""
+            width={24}
+            height={24}
+            aria-hidden="true"
+            style={{ flex: 'none', display: 'block' }}
+          />
           <span className="logo-name" style={{ fontSize: '15px', fontWeight: 650, lineHeight: 1, letterSpacing: '0.01em' }}>
             <span className="logo-award" style={{ color: 'inherit' }}>Award</span>
             <span className="logo-radar" style={{ color: t.wordmarkRadar, transition: 'color 0.4s ease' }}>Radar</span>
@@ -1039,17 +1039,14 @@ export default function App() {
       }}>
         <div className="footer-brand" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <span className="footer-lockup" style={{ display: 'inline-flex', alignItems: 'center', gap: '9px' }}>
-            <svg viewBox="0 0 512 512" width="20" height="20" aria-hidden="true" focusable="false" style={{ flex: 'none', transition: 'stroke 0.4s ease, fill 0.4s ease' }}>
-              <circle cx="256" cy="268" r="158" fill="none" stroke={t.wordmarkRadar} strokeWidth="5" opacity=".45" />
-              <ellipse cx="256" cy="268" rx="158" ry="52" fill="none" stroke={t.wordmarkRadar} strokeWidth="4" opacity=".35" />
-              <path d="M256 110 Q310 188 310 268 Q310 348 256 426" fill="none" stroke={t.wordmarkRadar} strokeWidth="3" opacity=".25" />
-              <path d="M130 370 Q200 170 380 158" fill="none" stroke={t.wordmarkRadar} strokeWidth="14" strokeLinecap="round" opacity=".92" />
-              <path d="M256 268 L256 124 A144 144 0 0 1 382 196 Z" fill={t.wordmarkRadar} fillOpacity=".08" stroke={t.wordmarkRadar} strokeWidth="3" strokeLinejoin="round" opacity=".6" />
-              <line x1="256" y1="268" x2="382" y2="196" stroke={t.wordmarkRadar} strokeWidth="3.5" opacity=".7" strokeLinecap="round" />
-              <line x1="256" y1="268" x2="256" y2="124" stroke={t.wordmarkRadar} strokeWidth="2.5" opacity=".4" strokeLinecap="round" />
-              <circle cx="148" cy="355" r="10" fill={t.wordmarkRadar} opacity=".9" />
-              <circle cx="372" cy="162" r="10" fill={t.wordmarkRadar} opacity=".9" />
-            </svg>
+            <img
+              src={theme === 'light' ? '/static/logo-mark-light.svg' : '/static/logo-mark.svg'}
+              alt=""
+              width={20}
+              height={20}
+              aria-hidden="true"
+              style={{ flex: 'none', display: 'block' }}
+            />
             <span style={{ color: t.wordmark, fontSize: '14px', fontWeight: 600, letterSpacing: '0.01em' }}>AwardRadar</span>
           </span>
         </div>

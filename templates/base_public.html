@@ -33,15 +33,16 @@
   <link rel="manifest" href="/static/site.webmanifest">
   <meta name="theme-color" content="#060a14" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#f2efe8" media="(prefers-color-scheme: light)">
-  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="/static/favicon.ico" sizes="any">
-  <link rel="icon" href="/static/favicon-48x48.png" type="image/png" sizes="48x48">
-  <link rel="icon" href="/static/favicon-96x96.png" type="image/png" sizes="96x96">
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/favicon-16.png" type="image/png" sizes="16x16">
+  <link rel="icon" href="/static/favicon-32.png" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" sizes="180x180">
+  <link rel="mask-icon" href="/static/favicon-mono.svg" color="#57A9C6">
   <link rel="stylesheet" href="/static/app.css?v=160">
   <link rel="stylesheet" href="/static/consent.css?v=3">
   <link rel="stylesheet" href="/static/ui-next.css?v=12">
-  <link rel="stylesheet" href="/static/public.css?v=12">
+  <link rel="stylesheet" href="/static/public.css?v=13">
   <script src="/static/theme.js?v=1" defer></script>
   <script src="/static/consent.js?v=2" defer></script>
   {% block extra_head %}{% endblock %}
@@ -51,20 +52,13 @@
   <nav class="navbar">
     <div class="nav-inner">
       <a href="/" class="logo" aria-label="AwardRadar home">
-        <!-- Header-safe variant of static/icon.svg: identical geometry, square
-             background dropped, amber recolored to the restrained cyan accent,
-             colors theme-aware via public.css (icon.svg itself stays untouched). -->
-        <svg class="logo-mark" viewBox="0 0 512 512" width="28" height="28" aria-hidden="true" focusable="false">
-          <circle class="ic-stroke" cx="256" cy="268" r="158" stroke-width="5" opacity=".45"/>
-          <ellipse class="ic-stroke" cx="256" cy="268" rx="158" ry="52" stroke-width="4" opacity=".35"/>
-          <path class="ic-stroke" d="M256 110 Q310 188 310 268 Q310 348 256 426" stroke-width="3" opacity=".25"/>
-          <path class="ic-stroke" d="M130 370 Q200 170 380 158" stroke-width="14" stroke-linecap="round" opacity=".92"/>
-          <path class="ic-sweep" d="M256 268 L256 124 A144 144 0 0 1 382 196 Z" stroke-width="3" stroke-linejoin="round" opacity=".6"/>
-          <line class="ic-stroke" x1="256" y1="268" x2="382" y2="196" stroke-width="3.5" opacity=".7" stroke-linecap="round"/>
-          <line class="ic-stroke" x1="256" y1="268" x2="256" y2="124" stroke-width="2.5" opacity=".4" stroke-linecap="round"/>
-          <circle class="ic-fill" cx="148" cy="355" r="10" opacity=".9"/>
-          <circle class="ic-fill" cx="372" cy="162" r="10" opacity=".9"/>
-        </svg>
+        <!-- Approved AwardRadar mark (favicon design brief). Single source:
+             static/logo-mark.svg (dark surfaces) / logo-mark-light.svg (light).
+             Theme-swapped via public.css — no inline path duplication. -->
+        <span class="logo-mark" aria-hidden="true">
+          <img class="mk mk-dark" src="/static/logo-mark.svg" alt="" width="28" height="28">
+          <img class="mk mk-light" src="/static/logo-mark-light.svg" alt="" width="28" height="28">
+        </span>
         <span class="logo-text">
           <span class="logo-name"><span class="logo-award">Award</span><span class="logo-radar">Radar</span></span>
           <span class="logo-tagline">Travel Decision Intelligence</span>
@@ -86,17 +80,10 @@
   <footer class="public-footer">
     <div class="footer-brand">
       <span class="footer-lockup">
-        <svg class="footer-mark" viewBox="0 0 512 512" width="20" height="20" aria-hidden="true" focusable="false">
-          <circle class="ic-stroke" cx="256" cy="268" r="158" stroke-width="5" opacity=".45"/>
-          <ellipse class="ic-stroke" cx="256" cy="268" rx="158" ry="52" stroke-width="4" opacity=".35"/>
-          <path class="ic-stroke" d="M256 110 Q310 188 310 268 Q310 348 256 426" stroke-width="3" opacity=".25"/>
-          <path class="ic-stroke" d="M130 370 Q200 170 380 158" stroke-width="14" stroke-linecap="round" opacity=".92"/>
-          <path class="ic-sweep" d="M256 268 L256 124 A144 144 0 0 1 382 196 Z" stroke-width="3" stroke-linejoin="round" opacity=".6"/>
-          <line class="ic-stroke" x1="256" y1="268" x2="382" y2="196" stroke-width="3.5" opacity=".7" stroke-linecap="round"/>
-          <line class="ic-stroke" x1="256" y1="268" x2="256" y2="124" stroke-width="2.5" opacity=".4" stroke-linecap="round"/>
-          <circle class="ic-fill" cx="148" cy="355" r="10" opacity=".9"/>
-          <circle class="ic-fill" cx="372" cy="162" r="10" opacity=".9"/>
-        </svg>
+        <span class="footer-mark" aria-hidden="true">
+          <img class="mk mk-dark" src="/static/logo-mark.svg" alt="" width="20" height="20">
+          <img class="mk mk-light" src="/static/logo-mark-light.svg" alt="" width="20" height="20">
+        </span>
         <span class="footer-wordmark">AwardRadar</span>
       </span>
     </div>

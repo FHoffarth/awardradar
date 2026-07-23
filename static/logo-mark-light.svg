@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="AwardRadar">
+  <!-- Approved AwardRadar mark (favicon design brief). Light-surface lockup:
+       exact favicon-light.svg. Geometry unaltered.
+       Ring + radar sweep in ink #10151B, cyan dot #2C7D99. -->
+  <circle cx="50" cy="50" r="36" fill="none" stroke="#10151B" stroke-width="10"/>
+  <path d="M50 50 L50 14 A36 36 0 0 1 77.6 26.9 Z" fill="#10151B"/>
+  <circle cx="34" cy="66" r="6.5" fill="#2C7D99"/>
+</svg>

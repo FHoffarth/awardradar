@@ -4134,7 +4134,7 @@ def health():
     })
 
 
-def _serve_png(filename: str, fallback_svg: str = "icon.svg"):
+def _serve_png(filename: str, fallback_svg: str = "favicon.svg"):
     """Serve a static PNG if it exists, otherwise redirect to SVG fallback."""
     import pathlib
     png_path = pathlib.Path(app.static_folder) / filename
@@ -4161,7 +4161,7 @@ def favicon():
     if ico_path.exists():
         return send_from_directory(app.static_folder, "favicon.ico",
                                    mimetype="image/x-icon", max_age=86400)
-    return redirect(url_for("static", filename="icon.svg"))
+    return redirect(url_for("static", filename="favicon.svg"))
 
 
 @app.route("/static/icon-<int:size>.png")

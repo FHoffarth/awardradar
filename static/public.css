@@ -98,10 +98,11 @@ body.about-page {
   line-height: 1.2;
 }
 
-/* Transparent header mark — no square background, restrained cyan radar dot.
-   Overrides the boxed .logo-mark styling inherited from app.css / ui-next.css. */
+/* Approved AwardRadar mark (favicon design brief), theme-swapped between the
+   two canonical files. Overrides the boxed .logo-mark styling inherited from
+   app.css / ui-next.css. */
 .about-page .logo .logo-mark {
-  display: block;
+  display: inline-flex;
   flex: none;
   width: 28px;
   height: 28px;
@@ -111,14 +112,18 @@ body.about-page {
   box-shadow: none;
   filter: none;
 }
-/* Colours for the icon.svg-derived mark. currentColor = the cyan accent, so the
-   whole mark stays theme-aware; per-shape opacity/stroke-width live inline and
-   preserve the original icon geometry exactly. The former amber route arc + dot
-   now read in the same restrained cyan (no amber on the header surface). */
-.about-page .logo .logo-mark { color: var(--public-accent); }
-.about-page .logo .logo-mark .ic-stroke { fill: none; stroke: currentColor; }
-.about-page .logo .logo-mark .ic-sweep { stroke: currentColor; fill: currentColor; fill-opacity: .08; }
-.about-page .logo .logo-mark .ic-fill { fill: currentColor; }
+.about-page .logo .logo-mark .mk,
+.footer-lockup .footer-mark .mk { width: 100%; height: 100%; }
+/* Dark surfaces show the ink-on-transparent variant; light shows the dark-ink
+   variant. data-theme wins in both directions; system preference is the base. */
+.mk-dark { display: block; }
+.mk-light { display: none; }
+[data-theme="light"] .mk-dark { display: none; }
+[data-theme="light"] .mk-light { display: block; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .mk-dark { display: none; }
+  :root:not([data-theme="dark"]) .mk-light { display: block; }
+}
 
 .about-page .logo-text { display: inline-flex; flex-direction: column; gap: 3px; }
 .about-page .logo-name { font-size: 15px; font-weight: 650; line-height: 1; letter-spacing: .01em; }
@@ -343,11 +348,8 @@ body.about-page {
 
 /* Footer lockup: same radar mark, smaller (20px) and quieter than the header —
    the wordmark stays a single restrained colour (no cyan "Radar" split). */
-.footer-lockup { display: inline-flex; align-items: center; gap: 9px; color: var(--public-accent); }
-.footer-lockup .footer-mark { flex: none; width: 20px; height: 20px; }
-.footer-lockup .footer-mark .ic-stroke { fill: none; stroke: currentColor; }
-.footer-lockup .footer-mark .ic-sweep { stroke: currentColor; fill: currentColor; fill-opacity: .08; }
-.footer-lockup .footer-mark .ic-fill { fill: currentColor; }
+.footer-lockup { display: inline-flex; align-items: center; gap: 9px; }
+.footer-lockup .footer-mark { display: inline-flex; flex: none; width: 20px; height: 20px; }
 .footer-wordmark { color: var(--public-text); font-size: 14px; font-weight: 600; letter-spacing: .01em; }
 
 .footer-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 26px; margin: 0; }

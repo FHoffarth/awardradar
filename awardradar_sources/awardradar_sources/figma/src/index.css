@@ -160,12 +160,12 @@ input:focus          { outline: none; }
   cursor: pointer;
   transition: color 160ms linear, border-color 160ms linear, background-color 160ms linear, box-shadow 160ms linear;
 }
-.ar-trip-type input { accent-color: #C77A32; }
+.ar-trip-type input { accent-color: #74d5ff; }
 .ar-trip-type label:has(input:checked) {
   color: #F5F2EC;
-  border-color: rgba(199, 122, 50, 0.52);
-  background: rgba(199, 122, 50, 0.1);
-  box-shadow: inset 0 0 0 0.5px rgba(199, 122, 50, 0.24);
+  border-color: rgba(116, 213, 255, 0.55);
+  background: rgba(116, 213, 255, 0.10);
+  box-shadow: inset 0 0 0 0.5px rgba(116, 213, 255, 0.30);
 }
 .ar-trip-type label:hover {
   border-color: rgba(245, 242, 236, 0.18);
@@ -242,7 +242,7 @@ input:focus          { outline: none; }
 .ar-field--return { flex-grow: 0; }
 
 .ar-input {
-  caret-color: #C77A32;
+  caret-color: #74d5ff;
   -webkit-appearance: none;
   appearance: none;
   border-radius: 0;
@@ -252,7 +252,7 @@ input:focus          { outline: none; }
   transition: color 140ms linear, caret-color 140ms linear;
 }
 .ar-input:focus-visible { outline: none; }
-.ar-input::selection { background: rgba(199, 122, 50, 0.14); color: inherit; }
+.ar-input::selection { background: rgba(116, 213, 255, 0.16); color: inherit; }
 
 /* ─── Act II CTA — Analyze route ──────────────────────────────────────────── */
 .ar-analyze-button {
@@ -260,7 +260,7 @@ input:focus          { outline: none; }
   touch-action: manipulation;
   transition: color 200ms linear, border-color 200ms linear, opacity 200ms linear;
 }
-.ar-analyze-button:not(:disabled):hover { color: #E08A3C; border-color: rgba(199, 122, 50, 0.55); }
+.ar-analyze-button:not(:disabled):hover { color: #a6e4ff; border-color: rgba(116, 213, 255, 0.60); }
 .ar-analyze-button:focus-visible {
   outline: 1.5px solid rgba(140, 200, 255, 0.5);
   outline-offset: 3px;
@@ -337,8 +337,8 @@ input:focus          { outline: none; }
 
 [data-theme='light'] .ar-trip-type label:has(input:checked) {
   color: #111827;
-  border-color: rgba(199, 122, 50, 0.45);
-  background: rgba(199, 122, 50, 0.09);
+  border-color: rgba(13, 110, 138, 0.50);
+  background: rgba(13, 110, 138, 0.09);
 }
 
 .ar-technical-code {
