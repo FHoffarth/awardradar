@@ -366,6 +366,12 @@ export function buildAppSearchUrl(
 
 const IATA_CODE_PATTERN = /^[A-Z]{3}$/
 
+// Narrative-first pause before the single automatic transition to the route
+// search: long enough to read the primary claim and its supporting line, short
+// enough to feel intentional. This is the sole trigger for the transition — it
+// is never driven by load, font or resize events.
+export const INITIAL_NAV_DELAY_MS = 2300
+
 export type InitialSearchState = {
   from: string
   fromCode: string
@@ -576,6 +582,7 @@ export default function App() {
   const initialNavigationFrameRef = useRef<number | null>(null)
   const initialVerificationFrameRef = useRef<number | null>(null)
   const bfcacheFrameRef = useRef<number | null>(null)
+  const initialNavigationTimerRef = useRef<number | null>(null)
   const initialNavigationStartedRef = useRef(false)
   const initialNavigationCompletedRef = useRef(false)
   const viewportResizeHandlerRef = useRef<(() => void) | null>(null)
@@ -665,6 +672,10 @@ export default function App() {
   }
 
   function cancelInitialNavigation() {
+    if (initialNavigationTimerRef.current !== null) {
+      window.clearTimeout(initialNavigationTimerRef.current)
+      initialNavigationTimerRef.current = null
+    }
     cancelFrame(initialNavigationFrameRef)
     cancelFrame(initialVerificationFrameRef)
   }
@@ -722,11 +733,42 @@ export default function App() {
 
   useEffect(() => {
     const verifyFrames = 12
+    const searchSection = document.getElementById('route-search')
 
-    const scheduleInitialNavigation = () => {
-      if (initialNavigationStartedRef.current) return
+    const removeInteractionListeners = () => {
+      window.removeEventListener('scroll', onUserScroll)
+      if (searchSection) {
+        searchSection.removeEventListener('focusin', onSearchInteraction)
+        searchSection.removeEventListener('pointerdown', onSearchInteraction)
+      }
+    }
+
+    // A meaningful interaction before the pause elapses stands the transition
+    // down for good — the reader is already exploring, so we neither scroll nor
+    // reschedule. Harmless pointer moves, taps and theme toggles are excluded;
+    // only real scrolling or direct search engagement reaches here.
+    const suppressInitialNavigation = () => {
+      if (initialNavigationCompletedRef.current) return
+      if (initialNavigationTimerRef.current === null && initialNavigationFrameRef.current === null) {
+        removeInteractionListeners()
+        return
+      }
+      cancelInitialNavigation()
+      removeInteractionListeners()
       initialNavigationStartedRef.current = true
+      initialNavigationCompletedRef.current = true
+    }
 
+    function onUserScroll() {
+      // A 0→0 scroll event (e.g. a mobile toolbar settling on load) is not
+      // exploration; only a real page movement counts as a manual scroll.
+      if (window.scrollY > 8) suppressInitialNavigation()
+    }
+    function onSearchInteraction() {
+      suppressInitialNavigation()
+    }
+
+    const runInitialNavigation = () => {
       // Two frames allow React's committed DOM and its responsive layout to
       // settle before Safari receives the initial navigation request.
       initialNavigationFrameRef.current = window.requestAnimationFrame(() => {
@@ -738,6 +780,7 @@ export default function App() {
             return
           }
 
+          removeInteractionListeners()
           setSearchVisible(true)
           const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
           target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
@@ -762,6 +805,20 @@ export default function App() {
       })
     }
 
+    const scheduleInitialNavigation = () => {
+      if (initialNavigationStartedRef.current) return
+      initialNavigationStartedRef.current = true
+
+      // Hold the manifesto for a calm beat so the claim and its supporting line
+      // register, then guide to the search exactly once. This single timer is
+      // the only trigger. Under StrictMode the remount clears it (via the
+      // cleanup below) before re-arming, so the transition still fires once.
+      initialNavigationTimerRef.current = window.setTimeout(() => {
+        initialNavigationTimerRef.current = null
+        runInitialNavigation()
+      }, INITIAL_NAV_DELAY_MS)
+    }
+
     const onPageShow = (event: PageTransitionEvent) => {
       if (!event.persisted) return
       cancelFrame(bfcacheFrameRef)
@@ -775,10 +832,16 @@ export default function App() {
     }
 
     scheduleInitialNavigation()
+    window.addEventListener('scroll', onUserScroll, { passive: true })
+    if (searchSection) {
+      searchSection.addEventListener('focusin', onSearchInteraction)
+      searchSection.addEventListener('pointerdown', onSearchInteraction)
+    }
     window.addEventListener('pageshow', onPageShow)
 
     return () => {
       window.removeEventListener('pageshow', onPageShow)
+      removeInteractionListeners()
       cancelInitialNavigation()
       cancelFrame(bfcacheFrameRef)
       cancelFrame(navigationFrameRef)

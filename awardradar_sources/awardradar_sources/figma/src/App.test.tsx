@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
-import App, { buildAppSearchUrl, readInitialSearchFromUrl } from './App'
+import App, { buildAppSearchUrl, readInitialSearchFromUrl, INITIAL_NAV_DELAY_MS } from './App'
 
 const landingCss = readFileSync('src/index.css', 'utf8')
 const landingTemplate = readFileSync('../../../templates/landing.html', 'utf8')
@@ -83,8 +83,15 @@ describe('Landing initial search navigation', () => {
     }
   }
 
+  // Advance past the narrative pause so the single automatic transition arms.
+  const runNarrativePause = () => {
+    act(() => vi.advanceTimersByTime(INITIAL_NAV_DELAY_MS))
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
+    // Fake only the pause timer; the frame queue stays under manual control.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     window.history.pushState({}, '', '/')
     vi.mocked(window.matchMedia).mockImplementation((query: string) => mediaQueryResult(query, false))
     mockFetch.mockRejectedValue(new Error('Unexpected network access'))
@@ -102,19 +109,24 @@ describe('Landing initial search navigation', () => {
 
   afterEach(() => {
     cleanup()
+    vi.useRealTimers()
     vi.restoreAllMocks()
     installImmediateAnimationFrames()
     window.history.pushState({}, '', '/')
   })
 
-  it('automatically navigates an untouched fresh load after exactly two frames without focusing', () => {
+  it('waits for the narrative pause, then navigates once after two frames without focusing', () => {
     const scroll = vi.spyOn(Element.prototype, 'scrollIntoView')
     const focus = vi.spyOn(HTMLInputElement.prototype, 'focus')
     render(<App />)
     const target = document.getElementById('route-search')!
     vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(elementRect(844))
 
+    // No animation frame is scheduled until the pause elapses.
+    expect(frames.size).toBe(0)
     expect(scroll).not.toHaveBeenCalled()
+
+    runNarrativePause()
     expect(frames.size).toBe(1)
     flushFrame()
     expect(scroll).not.toHaveBeenCalled()
@@ -136,6 +148,7 @@ describe('Landing initial search navigation', () => {
     })
 
     render(<App />)
+    runNarrativePause()
     flushFrames(2)
 
     expect(scroll).not.toHaveBeenCalled()
@@ -147,6 +160,7 @@ describe('Landing initial search navigation', () => {
     const target = document.getElementById('route-search')!
     vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(elementRect(844, 0, 0))
 
+    runNarrativePause()
     flushFrames(2)
 
     expect(scroll).not.toHaveBeenCalled()
@@ -159,13 +173,14 @@ describe('Landing initial search navigation', () => {
     const target = document.getElementById('route-search')!
     vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(elementRect(844))
 
+    runNarrativePause()
     flushFrames(2)
 
     expect(scroll).toHaveBeenCalledTimes(1)
     expect(scroll).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' })
   })
 
-  it('is not cancelled by early pointer or theme interaction', () => {
+  it('is not cancelled by early pointer, touch or theme interaction', () => {
     const scroll = vi.spyOn(Element.prototype, 'scrollIntoView')
     render(<App />)
     const target = document.getElementById('route-search')!
@@ -174,9 +189,54 @@ describe('Landing initial search navigation', () => {
     fireEvent.pointerDown(window)
     fireEvent.touchStart(window)
     fireEvent.click(screen.getByRole('button', { name: 'Toggle light/dark mode' }))
+    runNarrativePause()
     flushFrames(2)
 
     expect(scroll).toHaveBeenCalledTimes(1)
+  })
+
+  it('stands the pending transition down after a real manual scroll', () => {
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView')
+    // A genuine page movement before the pause elapses.
+    Object.defineProperty(window, 'scrollY', { configurable: true, get: () => 600 })
+    render(<App />)
+    const target = document.getElementById('route-search')!
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(elementRect(844))
+
+    fireEvent.scroll(window)
+    runNarrativePause()
+    flushFrames(4)
+
+    expect(scroll).not.toHaveBeenCalled()
+    Object.defineProperty(window, 'scrollY', { configurable: true, get: () => 0 })
+  })
+
+  it('ignores a spurious 0-offset scroll and still navigates', () => {
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView')
+    Object.defineProperty(window, 'scrollY', { configurable: true, get: () => 0 })
+    render(<App />)
+    const target = document.getElementById('route-search')!
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(elementRect(844))
+
+    fireEvent.scroll(window)
+    runNarrativePause()
+    flushFrames(2)
+
+    expect(scroll).toHaveBeenCalledTimes(1)
+    expect(scroll).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
+  })
+
+  it('stands the pending transition down when the reader engages the search', () => {
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView')
+    render(<App />)
+    const target = document.getElementById('route-search')!
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(elementRect(844))
+
+    fireEvent.focusIn(screen.getByLabelText('From'))
+    runNarrativePause()
+    flushFrames(4)
+
+    expect(scroll).not.toHaveBeenCalled()
   })
 
   it('performs at most one immediate correction when the target remains outside the viewport', () => {
@@ -185,6 +245,7 @@ describe('Landing initial search navigation', () => {
     const target = document.getElementById('route-search')!
     vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(elementRect(844))
 
+    runNarrativePause()
     flushFrames(30)
 
     expect(scroll).toHaveBeenCalledTimes(2)
@@ -199,6 +260,7 @@ describe('Landing initial search navigation', () => {
     render(<App />)
     const target = document.getElementById('route-search')!
     const targetRect = vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(elementRect(100))
+    runNarrativePause()
     flushFrames(3)
     scroll.mockClear()
     targetRect.mockReturnValue(elementRect(844))
@@ -215,6 +277,7 @@ describe('Landing initial search navigation', () => {
     render(<App />)
     const target = document.getElementById('route-search')!
     vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(elementRect(100))
+    runNarrativePause()
     flushFrames(3)
     scroll.mockClear()
 
