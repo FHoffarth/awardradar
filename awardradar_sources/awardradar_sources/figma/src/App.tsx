@@ -107,8 +107,10 @@ function Globe({ theme }: { theme: Theme }) {
           borderRadius: '50%',
           pointerEvents: 'none',
           zIndex: 2,
-          // Warm center → cool outer edge gradient, swept diagonally
-          background: 'radial-gradient(ellipse 48% 48% at 52% 48%, rgba(255,230,160,0.18) 0%, rgba(180,210,255,0.06) 55%, transparent 80%)',
+          // Layered warm-white sunlight along the upper-right horizon: a defined
+          // pale-gold core over a wider warm→cool atmospheric halo. Soft, diffuse
+          // falloff — no hard edge, no saturated amber, kept off the left hero.
+          background: 'radial-gradient(ellipse 24% 22% at 59% 22%, rgba(255,249,231,0.32) 0%, rgba(255,241,209,0.13) 42%, transparent 68%), radial-gradient(ellipse 72% 60% at 56% 28%, rgba(255,234,194,0.11) 0%, rgba(212,226,255,0.05) 54%, transparent 92%)',
         }}
       />
 

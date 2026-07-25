@@ -98,7 +98,7 @@ input:focus          { outline: none; }
 @media (prefers-reduced-motion: reduce) {
   .ar-sunlight-sweep {
     animation: none !important;
-    opacity: 0.4 !important;
+    opacity: 0.45 !important;
   }
 }
 
