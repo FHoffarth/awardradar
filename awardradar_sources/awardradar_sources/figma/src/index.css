@@ -333,6 +333,21 @@ input:focus          { outline: none; }
   outline-offset: 3px;
 }
 
+/* Icon-only X link: keep a 44x44 touch target centred on the icon without
+   altering the footer's visual layout (the hit area is out of flow). */
+.footer-social {
+  position: relative;
+}
+.footer-social::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
 [data-theme='light'] .ar-trip-type legend {
   color: rgba(92, 82, 70, 0.75);
 }
