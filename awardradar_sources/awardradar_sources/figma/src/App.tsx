@@ -374,6 +374,42 @@ const IATA_CODE_PATTERN = /^[A-Z]{3}$/
 // is never driven by load, font or resize events.
 export const INITIAL_NAV_DELAY_MS = 3400
 
+// ─── CONSOLE NOTE ─────────────────────────────────────────────────────────────
+// A quiet note for anyone who opens the console. Production only, once per
+// browser session, plain text — no styling, no DOM, no network, and no bearing
+// on rendering, timing or navigation.
+const CONSOLE_RADAR_KEY = 'awardradar_console_radar'
+
+const CONSOLE_RADAR = `
+          .-=========-.
+       .-'      |      '-.
+      /    .----+----.    \\
+     |    /     |     \\    |
+     |   |      •------>   |
+     |    \\     |     /    |
+      \\    '----+----'    /
+       '-.      |      .-'
+          '-====+====-'
+
+           AWARDRADAR
+       signal found · compare wisely
+
+Built for people who compare before they book.
+Curious? hello@awardradar.app
+`
+
+function showConsoleRadar() {
+  if (!import.meta.env.PROD) return
+  // Storage can throw when cookies/site data are blocked — stay silent then.
+  try {
+    if (window.sessionStorage.getItem(CONSOLE_RADAR_KEY)) return
+    window.sessionStorage.setItem(CONSOLE_RADAR_KEY, '1')
+  } catch {
+    return
+  }
+  console.info(CONSOLE_RADAR)
+}
+
 export type InitialSearchState = {
   from: string
   fromCode: string
@@ -708,6 +744,10 @@ export default function App() {
       if (focus) focusFromWithoutScrolling(target)
     })
   }
+
+  // Console note only — deliberately separate from every timing/navigation
+  // effect below, and it schedules nothing.
+  useEffect(() => { showConsoleRadar() }, [])
 
   useEffect(() => {
     // 1st text reveal CSS takes 900ms + 300ms delay = 1200ms
