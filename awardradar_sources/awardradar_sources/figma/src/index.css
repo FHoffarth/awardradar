@@ -71,14 +71,15 @@ input:focus          { outline: none; }
 }
 
 /* ─── Globe sunlight sweep ────────────────────────────────────────────────── */
-/* One single diagonal pass on load. Warm center, cool outer edge.
-   Runs once, does not repeat. Respects prefers-reduced-motion.          */
+/* One single diagonal pass on load that settles into a restrained warm resting
+   glow — editorial, not a flare. Warm center, cool outer edge, confined to the
+   globe. Runs once, does not repeat. Respects prefers-reduced-motion.     */
 
 @keyframes ar-sunlight-sweep {
   0%   { opacity: 0; transform: translate(-18%, -18%) scale(0.9); }
   18%  { opacity: 1; }
   72%  { opacity: 0.72; }
-  100% { opacity: 0; transform: translate(12%, 8%) scale(1.06); }
+  100% { opacity: 0.5; transform: translate(12%, 8%) scale(1.06); }
 }
 
 .ar-sunlight-sweep {
@@ -88,14 +89,16 @@ input:focus          { outline: none; }
 /* On mobile, use lower intensity */
 @media (max-width: 767px) {
   .ar-sunlight-sweep {
-    opacity: 0.55 !important;
+    opacity: 0.5 !important;
   }
 }
 
+/* Reduced motion: freeze the glow as a static, subtle warm resting light —
+   no diagonal sweep, but the atmosphere is preserved. */
 @media (prefers-reduced-motion: reduce) {
   .ar-sunlight-sweep {
     animation: none !important;
-    opacity: 0 !important;
+    opacity: 0.4 !important;
   }
 }
 
@@ -203,7 +206,7 @@ input:focus          { outline: none; }
   left: 28px;
   width: 30px;
   height: 1px;
-  background: #C77A32;
+  background: #74d5ff;
   pointer-events: none;
 }
 
@@ -464,7 +467,7 @@ html, body, #root { max-width: 100%; }
   }
 
   .ar-search-intro {
-    margin-bottom: 10px !important;
+    margin-bottom: 22px !important;
     font-size: 1rem !important;
     line-height: 1.42 !important;
   }
@@ -480,14 +483,16 @@ html, body, #root { max-width: 100%; }
     flex-wrap: nowrap;
     column-gap: 7px;
     row-gap: 0;
-    margin-bottom: 8px;
+    margin-bottom: 16px;
   }
 
+  /* Compact, content-sized pills read as a quiet control rather than two
+     dominant full-width bars — touch target height is preserved below. */
   .ar-trip-type label {
-    flex: 1 1 0;
+    flex: 0 0 auto;
     min-width: 0;
     justify-content: center;
-    padding-inline: 8px;
+    padding-inline: 14px;
     font-size: 0.875rem;
   }
 
@@ -501,8 +506,8 @@ html, body, #root { max-width: 100%; }
 
   .ar-field {
     min-height: 44px;
-    gap: 4px !important;
-    padding: 6px 14px 5px !important;
+    gap: 5px !important;
+    padding: 12px 16px 11px !important;
   }
 
   .ar-place-input {
@@ -519,7 +524,7 @@ html, body, #root { max-width: 100%; }
     width: 100%;
     min-height: 44px;
     justify-content: center;
-    margin-top: 9px !important;
+    margin-top: 18px !important;
     font-size: 0.6875rem !important;
   }
 
