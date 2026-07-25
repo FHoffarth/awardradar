@@ -1,0 +1,19 @@
+Geist Sans / Geist Mono
+
+Source: official Vercel distribution, npm package "geist"
+Release: 1.7.2
+Package URL: https://registry.npmjs.org/geist/-/geist-1.7.2.tgz
+Repository: https://github.com/vercel/geist-font
+Homepage: https://vercel.com/font
+Copyright: (c) 2023 Vercel, in collaboration with basement.studio
+License: SIL Open Font License 1.1 (see Geist-OFL-1.1-LICENSE.txt)
+
+Files used:
+  Geist-Variable.woff2      variable weight axis, covers 400/500/600/700
+  GeistMono-Variable.woff2  variable weight axis, technical/code contexts
+
+Only the two upright variable WOFF2 files required by AwardRadar are bundled.
+The variable faces replace multiple static weights, so no synthetic bold is
+needed and the total payload stays below the previous static-weight set.
+The npm package itself is not a project dependency; the files are vendored
+here and self-hosted, with no external font CDN request at runtime.

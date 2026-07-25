@@ -1,4 +1,27 @@
+/* Self-hosted Geist — the same vendored assets the landing surface uses
+   (/static/fonts/), so no duplicate font files and no external font CDN.
+   Variable faces cover the full weight range, so no synthetic weights.
+   Source and licence: static/fonts/Geist-SOURCE.txt (SIL OFL 1.1). */
+@font-face {
+  font-family: 'Geist';
+  src: url('/static/fonts/Geist-Variable.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/static/fonts/GeistMono-Variable.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
+  /* Shared typography stack — mirrors the landing surface so /, /about and
+     the legal pages read as one product. Inter stays a fallback only. */
+  --public-font-sans: 'Geist', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --public-font-mono: 'Geist Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
   /* Deep navy foundation (brand direction) — a restrained shift from the
      former near-black. Surfaces keep tonal separation from the shell bg. */
   --public-bg: #060a14;
@@ -35,7 +58,13 @@ body.about-page {
   margin: 0;
   color: var(--public-text);
   background: var(--public-bg);
-  font-family: Inter, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--public-font-sans);
+  /* ui-next.css styles the shared about/legal blocks through these tokens;
+     re-pointing them here keeps the public pages on Geist without touching
+     the legacy /tool surface, which keeps its own stack. */
+  --nx-display: var(--public-font-sans);
+  --nx-reading: var(--public-font-sans);
+  --nx-hero: var(--public-font-sans);
 }
 
 .about-page .navbar {
