@@ -2,8 +2,11 @@
    Brand identity lives in every atom: typeface, grain, light, motion.
    Remove the logo — you should still feel AwardRadar in five seconds. */
 
-/* Hero display — editorial serif. Must be first import (CSS spec). */
-@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&display=swap");
+/* No external font import. Cormorant Garamond is not referenced by any
+   font-family declaration, but the @import still fired a live request to
+   fonts.googleapis.com on every public page — a third-party font CDN call
+   that contradicts the self-hosted font policy (CSP: font-src 'self').
+   Typography is self-hosted from /static/fonts/. */
 
 /* Display font — self-hosted Inter (CSP: font-src 'self'; no third-party CDN). */
 @font-face{

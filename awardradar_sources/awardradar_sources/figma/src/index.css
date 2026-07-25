@@ -1,8 +1,28 @@
 @import 'tailwindcss';
 
-/* Self-hosted Inter — no external Google Fonts request (privacy/consent).
-   Mirrors the public shell's faces so every AwardRadar surface shares one
-   font pipeline. Weights below 500 fall back to the Medium face. */
+/* Self-hosted Geist — no external Google Fonts or font CDN request
+   (privacy/consent). Variable faces cover the full weight range from one
+   file each, so no synthetic bold is required. Inter remains the first
+   fallback: it is still self-hosted for the shared public shell, so a
+   Geist miss degrades to the previous face rather than a system font.
+   Source and licence: static/fonts/Geist-SOURCE.txt (SIL OFL 1.1). */
+@font-face {
+  font-family: 'Geist';
+  src: url('/static/fonts/Geist-Variable.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/static/fonts/GeistMono-Variable.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Inter fallback faces — retained so the stack degrades to the previous
+   typeface, never to an unstyled system font. */
 @font-face {
   font-family: 'Inter';
   src: url('/static/fonts/Inter-Medium.woff2') format('woff2');
@@ -26,7 +46,13 @@
 }
 
 @theme {
-  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-sans: 'Geist', 'Inter', system-ui, sans-serif;
+}
+
+/* ─── Typography tokens ───────────────────────────────────────────────────── */
+:root {
+  --ar-font-sans: 'Geist', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --ar-font-mono: 'Geist Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
 }
 
 *,
@@ -377,6 +403,21 @@ input:focus          { outline: none; }
 [data-theme='light'] .ar-analyze-button:not(:disabled) {
   background: rgba(13, 110, 138, 0.06) !important;
   border-color: rgba(13, 110, 138, 0.48) !important;
+}
+
+/* ─── Technical / machine-like values ─────────────────────────────────────── */
+/* Geist Mono is reserved for reference data: airport and route codes and
+   compact numeric values. Never body copy, CTAs or editorial headlines. */
+.ar-technical-code,
+.ar-code-value {
+  font-family: var(--ar-font-mono);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Dates stay in Geist Sans — they are read, not parsed. Tabular lining
+   figures keep the columns aligned without making the placeholder louder. */
+.ar-date-input {
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 .ar-technical-code {

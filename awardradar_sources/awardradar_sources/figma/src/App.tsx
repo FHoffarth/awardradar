@@ -261,7 +261,7 @@ function NavLink({ children, href, t }: { children: string; href: string; t: any
       href={href}
       style={{
         fontSize: '11.5px',
-        fontWeight: 400,
+        fontWeight: 450,
         letterSpacing: '0.09em',
         color: hover ? t.navLinkHover : t.navLink,
         textDecoration: 'none',
@@ -515,7 +515,7 @@ function AutocompleteField({
         }}
         placeholder={placeholder}
         aria-label={label}
-        style={{ background: 'transparent', border: 'none', outline: 'none', padding: 0, margin: 0, fontFamily: 'inherit', fontSize: '21px', fontWeight: 400, letterSpacing: '-0.015em', lineHeight: 1, color: t.fieldValue, width: '100%' }}
+        style={{ background: 'transparent', border: 'none', outline: 'none', padding: 0, margin: 0, fontFamily: 'inherit', fontSize: '21px', fontWeight: 450, letterSpacing: '-0.015em', lineHeight: 1, color: t.fieldValue, width: '100%' }}
       />
 
       {showList && (
@@ -553,7 +553,9 @@ function AutocompleteField({
               <span style={{ fontSize: '14px', color: t.fieldValue, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {s.city || s.name}
               </span>
-              <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em', color: t.instrLabel, whiteSpace: 'nowrap', flexShrink: 0 }}>
+              {/* IATA code + country: machine-like reference data — Geist Mono
+                  keeps the three-letter codes aligned down the list. */}
+              <span className="ar-code-value" style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.06em', color: t.instrLabel, whiteSpace: 'nowrap', flexShrink: 0 }}>
                 {s.code}{s.country ? ` · ${s.country}` : ''}
               </span>
             </li>
@@ -900,7 +902,7 @@ export default function App() {
         // document-level overflow remains observable during responsive checks.
         overflowX: 'clip',
         background: t.bg,
-        fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+        fontFamily: 'var(--ar-font-sans)',
         transition: 'background 0.4s ease',
       }}
     >
@@ -1020,7 +1022,7 @@ export default function App() {
               style={{
                 margin: '0.15em 0 0 0',
                 fontSize: 'clamp(17px, 1.7vw, 21px)',
-                fontWeight: 400,
+                fontWeight: 450,
                 lineHeight: 1.3,
                 letterSpacing: '-0.008em',
                 color: t.line2,
@@ -1092,7 +1094,7 @@ export default function App() {
           <p className="ar-search-intro" style={{
             margin: '0 0 40px 0',
             fontSize: '18px',
-            fontWeight: 400,
+            fontWeight: 450,
             lineHeight: 1.4,
             color: t.line2,
             transition: 'color 0.4s ease',
