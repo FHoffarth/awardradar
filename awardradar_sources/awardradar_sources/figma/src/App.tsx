@@ -1239,7 +1239,7 @@ export default function App() {
                 gap: '10px',
                 padding: '13px 24px',
                 background: 'transparent',
-                border: `0.5px solid ${isValid ? 'rgba(199,122,50,0.5)' : t.instrBorder}`,
+                border: `0.5px solid ${isValid ? 'rgba(116,213,255,0.5)' : t.instrBorder}`,
                 borderRadius: '1px',
                 cursor: isValid ? 'pointer' : 'not-allowed',
                 color: isValid ? t.btnColor : t.instrLabel,
@@ -1262,7 +1262,7 @@ export default function App() {
             </button>
 
             {sameRoute && (
-              <p role="alert" style={{ margin: '12px 0 0', fontSize: '11px', letterSpacing: '0.03em', color: '#C77A32' }}>
+              <p role="alert" style={{ margin: '12px 0 0', fontSize: '11px', letterSpacing: '0.03em', color: '#e7a88e' }}>
                 Origin and destination must be different.
               </p>
             )}
