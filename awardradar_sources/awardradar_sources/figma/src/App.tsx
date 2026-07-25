@@ -370,7 +370,7 @@ const IATA_CODE_PATTERN = /^[A-Z]{3}$/
 // search: long enough to read the primary claim and its supporting line, short
 // enough to feel intentional. This is the sole trigger for the transition — it
 // is never driven by load, font or resize events.
-export const INITIAL_NAV_DELAY_MS = 2300
+export const INITIAL_NAV_DELAY_MS = 3400
 
 export type InitialSearchState = {
   from: string
