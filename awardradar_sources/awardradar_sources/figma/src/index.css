@@ -168,18 +168,18 @@ input:focus          { outline: none; }
 .ar-trip-type {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   border: 0;
-  margin: 0 0 14px;
+  margin: 0 0 24px;
   padding: 0;
 }
 .ar-trip-type legend {
-  margin: 0 12px 0 0;
+  margin: 0 14px 0 0;
   padding: 0;
-  color: rgba(214, 204, 190, 0.78);
+  color: rgba(214, 204, 190, 0.58);
   font-size: 10px;
-  font-weight: 600;
-  letter-spacing: .14em;
+  font-weight: 550;
+  letter-spacing: .12em;
   text-transform: uppercase;
 }
 .ar-trip-type label {
@@ -321,21 +321,26 @@ input:focus          { outline: none; }
   .ar-scroll-cue svg { animation: none !important; }
 }
 
+.ar-route-label {
+  opacity: 0.74;
+}
+
 .ar-field-label {
   display: block;
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 0.22em;
+  font-size: 10px;
+  font-weight: 550;
+  letter-spacing: 0.15em;
   line-height: 1;
   text-transform: uppercase;
+  opacity: 0.86;
   user-select: none;
 }
 .ar-field--from .ar-field-label,
-.ar-field--to .ar-field-label { letter-spacing: 0.23em; }
+.ar-field--to .ar-field-label { letter-spacing: 0.15em; }
 
 .ar-place-input {
   flex: 1 1 auto;
-  min-height: 23px;
+  min-height: 27px;
   min-width: 0;
   margin-top: 1px !important;
 }
@@ -460,7 +465,7 @@ html, body, #root { max-width: 100%; }
   left: auto !important;
   right: auto !important;
   padding-top: 0 !important;
-  padding-bottom: 48px !important;
+  padding-bottom: 24px !important;
   flex: 1 0 auto !important;
 }
 
@@ -502,7 +507,7 @@ html, body, #root { max-width: 100%; }
   }
 
   #act-1 {
-    min-height: clamp(420px, 58svh, 520px) !important;
+    min-height: clamp(296px, 39svh, 384px) !important;
     overflow: hidden;
   }
 
@@ -511,10 +516,10 @@ html, body, #root { max-width: 100%; }
   }
 
   .ar-search-section {
-    min-height: 75svh !important;
+    min-height: 0 !important;
     justify-content: flex-start !important;
-    padding-top: 20px;
-    padding-bottom: max(28px, env(safe-area-inset-bottom, 0px));
+    padding-top: 6px;
+    padding-bottom: max(36px, env(safe-area-inset-bottom, 0px));
     box-sizing: border-box;
   }
 
@@ -523,23 +528,28 @@ html, body, #root { max-width: 100%; }
   }
 
   .ar-search-intro {
-    margin-bottom: 22px !important;
-    font-size: 1rem !important;
-    line-height: 1.42 !important;
+    margin-bottom: 34px !important;
+    font-size: 1.0625rem !important;
+    line-height: 1.47 !important;
   }
 
   .ar-route-label {
-    margin-bottom: 8px !important;
-    font-size: 9px !important;
-    font-weight: 650 !important;
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    clip-path: inset(50%) !important;
+    white-space: nowrap !important;
   }
 
   .ar-trip-type {
     align-items: center;
     flex-wrap: nowrap;
-    column-gap: 7px;
+    column-gap: 8px;
     row-gap: 0;
-    margin-bottom: 16px;
+    margin-bottom: 22px;
   }
 
   /* Compact, content-sized pills read as a quiet control rather than two
@@ -562,26 +572,26 @@ html, body, #root { max-width: 100%; }
 
   .ar-field {
     min-height: 44px;
-    gap: 5px !important;
-    padding: 12px 16px 11px !important;
+    gap: 7px !important;
+    padding: 15px 18px 14px !important;
   }
 
   .ar-place-input {
-    min-height: 21px;
-    font-size: 1.0625rem !important;
+    min-height: 25px;
+    font-size: 1.25rem !important;
     line-height: 1.2 !important;
   }
 
   .ar-date-input {
-    font-size: max(16px, 1rem) !important;
+    font-size: max(16px, 1.25rem) !important;
   }
 
   .ar-analyze-button {
     width: 100%;
     min-height: 44px;
     justify-content: center;
-    margin-top: 18px !important;
-    font-size: 0.6875rem !important;
+    margin-top: 26px !important;
+    font-size: 0.75rem !important;
   }
 
   .public-footer {
@@ -606,6 +616,7 @@ html, body, #root { max-width: 100%; }
     bottom: 0 !important;
     left: 0 !important;
     padding-bottom: 8vh !important;
+    max-width: min(760px, 62vw) !important;
   }
   .ar-nav-links {
     display: flex !important;
@@ -616,28 +627,151 @@ html, body, #root { max-width: 100%; }
   }
   .ar-instrument--round-trip .ar-field--from,
   .ar-instrument--round-trip .ar-field--to {
-    flex: 1 1 0;
-    min-width: 156px;
-    padding-left: 26px !important;
-    padding-right: 26px !important;
+    flex: 1 1 auto !important;
+    min-width: 174px !important;
+    padding-left: 18px !important;
+    padding-right: 18px !important;
+  }
+  /* Round-trip packs four columns into the same instrument. One deliberate
+     density step keeps every value fully readable instead of ellipsising the
+     airports; one-way keeps the full display size. */
+  .ar-instrument--round-trip .ar-place-input,
+  .ar-instrument--round-trip .ar-date-input {
+    font-size: 21px !important;
   }
   .ar-instrument--round-trip .ar-field--date,
   .ar-instrument--round-trip .ar-field--return {
-    flex: 0 0 140px;
-    min-width: 0;
-    padding-left: 20px !important;
-    padding-right: 20px !important;
+    flex: 0 0 160px !important;
+    min-width: 0 !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
   }
   .ar-instrument--round-trip .ar-date-input {
     width: 100% !important;
     min-width: 0;
   }
   .ar-field {
-    padding: 24px 48px 22px !important;
+    padding: 26px 30px 24px !important;
   }
   .ar-divider {
     width: 0.5px !important;
     height: auto !important;
     margin: 17px 0 !important;
+  }
+}
+
+/* Wider instrument only where the page can carry it (§3: the search reads as
+   the operational centre without ever overhanging the viewport). */
+@media (min-width: 1024px) {
+  .ar-instrument {
+    width: calc(100% + 140px) !important;
+  }
+}
+
+/* Tablet range carries the narrower instrument, so the route values step down
+   one notch and the date columns give their surplus back to the airports.
+   Every value stays fully readable in both trip modes. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Reclaim the unused page width at this range so four round-trip columns get
+     real headroom rather than competing for the same 656px. */
+  .ar-instrument {
+    width: calc(100% + 120px) !important;
+  }
+  .ar-place-input,
+  .ar-date-input {
+    font-size: 21px !important;
+  }
+  .ar-field--date .ar-date-input {
+    width: 140px !important;
+  }
+  .ar-instrument--round-trip .ar-field--from,
+  .ar-instrument--round-trip .ar-field--to {
+    min-width: 170px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  .ar-instrument--round-trip .ar-field--date,
+  .ar-instrument--round-trip .ar-field--return {
+    flex: 0 0 158px !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+}
+
+/* ─── Mobile Earth: silhouette, not a zoomed-in crop ────────────────────────
+   The desktop composition places a 1060px globe far off-canvas so only a
+   heavily magnified slice shows. On a phone that reads as an accidental crop.
+   Here the globe is scaled to the column and pulled back on-screen so the
+   curved horizon is deliberate, sits behind the headline rather than under it,
+   and still clears the search instrument. */
+@media (max-width: 767px) {
+  .ar-globe {
+    width: 560px !important;
+    height: 560px !important;
+    right: -168px !important;
+    top: 46% !important;
+    transform: translateY(-50%) !important;
+    /* Dissolve the lower limb into the canvas so the section boundary never
+       reads as an accidental straight cut across the Earth. */
+    -webkit-mask-image: linear-gradient(to bottom, #000 52%, rgba(0,0,0,0.55) 76%, transparent 96%);
+    mask-image: linear-gradient(to bottom, #000 52%, rgba(0,0,0,0.55) 76%, transparent 96%);
+  }
+  .ar-globe > svg {
+    width: 560px !important;
+    height: 560px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .ar-globe {
+    width: 470px !important;
+    height: 470px !important;
+    right: -140px !important;
+  }
+  .ar-globe > svg {
+    width: 470px !important;
+    height: 470px !important;
+  }
+}
+
+/* ─── Geist rendering polish ────────────────────────────────────────────────
+   Smoothing, grayscale AA and font-synthesis are already set globally. What
+   was left on phones was ragged wrapping (a single orphan word on its own
+   line) and small-caps that go muddy below 10px on a dark canvas. */
+
+/* Balance the two display lines instead of leaving one word stranded. */
+.ar-hero-first,
+.ar-reveal-block {
+  text-wrap: balance;
+}
+
+/* Longer body copy: avoid orphans without re-flowing the whole paragraph. */
+.ar-search-intro {
+  text-wrap: pretty;
+}
+
+@media (max-width: 767px) {
+  /* Slightly tighter display tracking reads sharper at phone sizes. */
+  .ar-hero-first {
+    letter-spacing: -0.032em !important;
+  }
+
+  /* Small caps need a touch more weight and air to stay crisp on a dark
+     background at these sizes; Geist thins out otherwise. */
+  .ar-field-label {
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.14em !important;
+    opacity: 0.9 !important;
+  }
+
+  .ar-trip-type legend {
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.13em !important;
+  }
+
+  .ar-analyze-button {
+    letter-spacing: 0.16em !important;
   }
 }
