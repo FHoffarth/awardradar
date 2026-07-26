@@ -2322,4 +2322,112 @@ describe('App', () => {
       expect(serialized).not.toContain(raw);
     }
   });
+  // --- No SIGNAL_COPY entry may double up the word "signal" -------------------
+  //
+  // getDecisionCopy() appends " signal" for the limited-comparison case, so every
+  // SIGNAL_COPY verdict must be the bare value phrase. A trailing "Signal" in the
+  // source copy produced "Promising Award Value Signal signal".
+
+  const cardVerdictText = () => screen.getByTestId('decision-verdict').textContent || '';
+
+  const renderForSignal = async (signal: string) => renderAwardOnly({
+    decision: { signal, verdict: 'miles_value_leaning', confidence: 'low', evaluated_cash_offer_id: null },
+  });
+
+  const countSignalWords = (text: string) => (text.toLowerCase().match(/signal/g) || []).length;
+
+  it('renders exactly one "signal" for promising_miles_value on the card', async () => {
+    await renderForSignal('promising_miles_value');
+    expect(cardVerdictText()).toBe('Promising Award Value signal');
+    expect(countSignalWords(cardVerdictText())).toBe(1);
+  });
+
+  it('renders exactly one "signal" for promising_miles_value in share and forum copy', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    await renderForSignal('promising_miles_value');
+
+    fireEvent.click(screen.getByTestId('share-export-button'));
+    fireEvent.click(await screen.findByTestId('copy-summary-button'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByTestId('copy-forum-button'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+
+    const emailHref = screen.getByTestId('email-analysis-link').getAttribute('href') || '';
+    const surfaces = [
+      writeText.mock.calls[0][0] as string,
+      writeText.mock.calls[1][0] as string,
+      decodeURIComponent(emailHref),
+    ];
+    for (const text of surfaces) {
+      const line = (text.split(/\[?b?\]?Signal:(?:\[\/b\])?/)[1] || '').split('\n\n')[0].trim();
+      expect(line).toBe('Promising Award Value signal');
+      expect(countSignalWords(line)).toBe(1);
+    }
+  });
+
+  it('keeps card and export copy consistent for promising_miles_value', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    await renderForSignal('promising_miles_value');
+    const card = cardVerdictText();
+
+    fireEvent.click(screen.getByTestId('share-export-button'));
+    fireEvent.click(await screen.findByTestId('copy-summary-button'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+
+    const summary = writeText.mock.calls[0][0] as string;
+    expect(summary).toContain(`Signal:\n${card}`);
+  });
+
+  it('never doubles the word signal for any signal value', async () => {
+    const signals = [
+      'strong_miles_value', 'promising_miles_value', 'mixed_value',
+      'cash_may_be_stronger', 'insufficient_data', 'unknown', 'legacy_unknown_signal',
+    ];
+    for (const signal of signals) {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+      await renderForSignal(signal);
+      const card = cardVerdictText();
+
+      fireEvent.click(screen.getByTestId('share-export-button'));
+      fireEvent.click(await screen.findByTestId('copy-summary-button'));
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      const summary = writeText.mock.calls[0][0] as string;
+
+      for (const text of [card, summary]) {
+        expect(text).not.toContain('Signal signal');
+        expect(text).not.toContain('signal signal');
+        expect(text).not.toContain('Signal Signal');
+      }
+      expect(countSignalWords(card)).toBeLessThanOrEqual(1);
+      cleanup();
+    }
+  });
+
+  it('still falls back to the insufficient-data copy for unknown and missing signals', async () => {
+    await renderForSignal('legacy_unknown_signal');
+    expect(cardVerdictText()).toBe('More Evidence Required signal');
+    cleanup();
+
+    await renderAwardOnly({
+      decision: { verdict: 'miles_value_leaning', confidence: 'low', evaluated_cash_offer_id: null },
+    });
+    expect(cardVerdictText()).toBe('More Evidence Required signal');
+  });
+
+  it('leaves the other signal verdict phrases unchanged', async () => {
+    const expected: Record<string, string> = {
+      strong_miles_value: 'Strong Award Value signal',
+      mixed_value: 'Mixed Cash and Miles Value signal',
+      cash_may_be_stronger: 'Cash May Be Stronger signal',
+      insufficient_data: 'More Evidence Required',
+    };
+    for (const [signal, verdict] of Object.entries(expected)) {
+      await renderForSignal(signal);
+      expect(cardVerdictText()).toBe(verdict);
+      cleanup();
+    }
+  });
 });

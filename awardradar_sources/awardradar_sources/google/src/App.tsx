@@ -666,7 +666,9 @@ const SIGNAL_COPY: Record<string, { verdict: string; why: string }> = {
     why: 'The available comparison indicates strong value for the requested date based on the estimated cash fare and miles cost.',
   },
   promising_miles_value: {
-    verdict: 'Promising Award Value Signal',
+    // No trailing "Signal" here: getDecisionCopy() appends " signal" for the
+    // limited-comparison case, so every entry must be the bare value phrase.
+    verdict: 'Promising Award Value',
     why: 'The estimated mileage requirement compares reasonably with the evaluated cash offer.',
   },
   mixed_value: {
