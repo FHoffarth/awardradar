@@ -87,8 +87,8 @@ export interface AwardTrustPresentation {
   supportingCopy: string;
   // Mandatory verification requirement, or '' when not applicable (system errors).
   verificationNotice: string;
-  // A contract-fixed verdict string (e.g. "Worth checking"), or null when the
-  // verdict — if any — must come from external value scoring.
+  // A contract-fixed verdict string, or null when the verdict must come from
+  // the backend decision vocabulary.
   allowedVerdict: string | null;
   // May a value verdict be shown at all for this state?
   verdictAllowed: boolean;
@@ -146,7 +146,8 @@ export function isRecommendationAllowed(input: AwardTrustInput): boolean {
 
 // A value verdict (not necessarily a positive recommendation) may be shown for
 // provider-reported states with complete itinerary data, and the contract also
-// fixes a "Worth checking" verdict for stale/estimated orientation states.
+// permits only the backend's evidence-bounded decision signal for
+// stale/estimated orientation states.
 function verdictAllowedFor(input: AwardTrustInput): boolean {
   if (input.state === 'cached_stale' || input.state === 'estimated') return true;
   return isRecommendationAllowed(input);
@@ -200,7 +201,7 @@ export function resolveAwardTrust(input: AwardTrustInput, nowMs: number): AwardT
         freshnessLabel: `Last checked ${formatAge(checkedMs, nowMs)}`,
         supportingCopy: 'This result may no longer be available.',
         verificationNotice: VERIFY_AIRLINE,
-        allowedVerdict: 'Worth checking',
+        allowedVerdict: null,
         ctaOptions: ['Check current availability', 'Verify this opportunity'],
         isProviderReported: true,
       };
@@ -212,7 +213,7 @@ export function resolveAwardTrust(input: AwardTrustInput, nowMs: number): AwardT
         freshnessLabel: 'Estimated, not confirmed availability',
         supportingCopy: 'Estimated from historical or modeled data; it does not report current availability.',
         verificationNotice: VERIFY_AIRLINE,
-        allowedVerdict: 'Worth checking',
+        allowedVerdict: null,
         seatDisplay: null,
         ctaOptions: ['Check current availability', 'Verify this opportunity'],
         isEstimated: true,

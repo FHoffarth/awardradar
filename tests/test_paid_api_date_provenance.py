@@ -17,6 +17,7 @@ PROVIDER_BOUNDARIES = (
     "serpapi_task",
     "flex_date_task",
     "fetch_cash_details",
+    "canonical_cash_selection_for_search",
     "fetch_seatsaero",
     "tp_prices",
     "verify_skiplag_serpapi",
@@ -245,10 +246,13 @@ def test_valid_one_way_cheap_request_does_not_require_return_date(isolated_paid_
             assert boundary.call_count == 0, f"{name} was called"
 
 
-def test_valid_awards_behavior_remains_unchanged(isolated_paid_providers, monkeypatch):
+def test_awards_without_cash_identity_does_not_call_cash_provider(isolated_paid_providers, monkeypatch):
     client, boundaries = isolated_paid_providers
-    boundaries["fetch_cash_details"].side_effect = None
-    boundaries["fetch_cash_details"].return_value = {}
+    boundaries["canonical_cash_selection_for_search"].side_effect = None
+    boundaries["canonical_cash_selection_for_search"].return_value = (
+        awardradar.finalize_cash_offer_set([]),
+        None,
+    )
     static_search = Mock(return_value=[])
     monkeypatch.setattr(awardradar.STATIC_AWARD_SOURCE, "search", static_search)
 
@@ -256,5 +260,6 @@ def test_valid_awards_behavior_remains_unchanged(isolated_paid_providers, monkey
 
     assert response.status_code == 200
     assert response.get_json()["ok"] is True
-    assert boundaries["fetch_cash_details"].call_count == 1
+    assert boundaries["canonical_cash_selection_for_search"].call_count == 0
+    assert boundaries["fetch_cash_details"].call_count == 0
     assert static_search.call_count == 1

@@ -40,8 +40,8 @@ Implementation (provider-free, deterministic):
 |---|---|---|---|
 | live_provider_reported | "Checked just now · Provider-reported" | external value verdict, if routing+ownership complete | mandatory |
 | cached_recent | "Last checked X ago" | external value verdict, if complete | mandatory + "may have changed" |
-| cached_stale | "Last checked X hours ago" | "Worth checking" | "This result may no longer be available." |
-| estimated | "Estimated, not confirmed availability" | "Worth checking" | mandatory; no seat claim |
+| cached_stale | "Last checked X hours ago" | backend evidence-bounded signal only | "This result may no longer be available." |
+| estimated | "Estimated, not confirmed availability" | backend evidence-bounded signal only; never `book_miles` | mandatory; no seat claim |
 | partial | "Partial result" (+ what is known/missing) | none | verify missing details |
 | no_results | provider-reported | none | different dates/programs may differ |
 | rate_limited | "Search temporarily unavailable due to provider limits." | none | retry later |
@@ -57,8 +57,26 @@ A positive recommendation is blocked unless **all** hold:
 - `routingConfidence === 'complete'`
 - `itineraryOwnershipVerified === true`
 - not a round trip with a missing return leg
+- backend verdict is one of the centralized recommendation-eligible values:
+  `book_miles`, `lean_miles`, or `pay_cash`
+- the decision carries the canonical `evaluated_cash_offer_id`
 
-`cached_stale` and `estimated` may show only the fixed verdict "Worth checking".
+`cached_stale` and `estimated` never invent a generic verdict. They may show only
+the backend's evidence-bounded decision signal and cannot produce a positive
+booking recommendation.
+
+## Paired cash identity
+
+The canonical UI uses the paired `/api/cheap` → `/api/awards` flow.
+`/api/awards` evaluates cash only when the request supplies the canonical
+`cashOfferId` selected by `/api/cheap` and that ID resolves through the shared
+cash-selection logic. Missing or mismatched identity does not trigger a second
+cash selection: `selected_cash_offer_id` and `evaluated_cash_offer_id` remain
+null, and the decision remains `insufficient_data`.
+
+An `/api/awards` request without `cashOfferId` may still return award evidence,
+but it has no standalone cash-comparison mode and cannot produce a cash-versus-
+miles recommendation.
 
 ## Never list (forbidden language)
 

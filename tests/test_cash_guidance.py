@@ -799,7 +799,7 @@ process.stdout.write(JSON.stringify(result));
         response.content = b'{"best_flights": []}'
         response.json.return_value = {"best_flights": []}
         with mock.patch.object(app, "SERPAPI_TOKEN", "test-key"), mock.patch.object(
-            app.requests, "get", return_value=response
+            app.HTTP, "get", return_value=response
         ) as request_get:
             payload = app.serpapi_continuation_search(
                 "FRA", "JFK", app.dt.date(2026, 10, 20), app.dt.date(2026, 10, 28),
@@ -818,7 +818,7 @@ process.stdout.write(JSON.stringify(result));
 
     def test_continuation_http_failure_is_not_retried(self):
         with mock.patch.object(app, "SERPAPI_TOKEN", "test-key"), mock.patch.object(
-            app.requests, "get", side_effect=app.requests.Timeout("continuation timeout")
+            app.HTTP, "get", side_effect=app.requests.Timeout("continuation timeout")
         ) as request_get:
             payload = app.serpapi_continuation_search(
                 "FRA", "JFK", app.dt.date(2026, 10, 20), app.dt.date(2026, 10, 28),
@@ -835,7 +835,7 @@ process.stdout.write(JSON.stringify(result));
             "400 for url https://serpapi.com/search?api_key=test-key&departure_token=one-token"
         )
         with mock.patch.object(app, "SERPAPI_TOKEN", "test-key"), mock.patch.object(
-            app.requests, "get", return_value=response
+            app.HTTP, "get", return_value=response
         ), self.assertLogs(app.app.logger, level="DEBUG") as captured:
             payload = app.serpapi_continuation_search(
                 "FRA", "JFK", app.dt.date(2026, 10, 20), app.dt.date(2026, 10, 28),
@@ -988,7 +988,7 @@ class RoundTripContinuationTargeting(unittest.TestCase):
             return resp
         with mock.patch.object(app, "SERPAPI_TOKEN", "test"), \
              mock.patch.object(app, "CONTINUATION_TIMEOUT_MS", 8000), \
-             mock.patch.object(app.requests, "get", side_effect=fake_get):
+             mock.patch.object(app.HTTP, "get", side_effect=fake_get):
             app.serpapi_continuation_search("FRA", "JFK", app.dt.date(2026, 10, 20),
                                             app.dt.date(2026, 10, 28), "economy", "eur", "tok", "en")
         self.assertEqual(captured["timeout"], 8.0)

@@ -1475,6 +1475,9 @@ def rescore_offer_set(offers: list[dict]) -> list[dict]:
             confidence = "medium"  # incomplete itinerary data â†’ degrade gracefully
 
         # 3) Airline/alliance â€” minor modifier only.
+        if o.get("returnDate") and cash_offer_completeness(o) != "complete":
+            confidence = "low"
+
         if (o.get("airlineCode") or "") in MM_AIRLINES:
             score += cfg["alliance_bonus"]
 
@@ -1560,6 +1563,61 @@ def compute_offer_id(offer: dict) -> str:
     content = "|".join(parts)
     h = hashlib.sha256(content.encode()).hexdigest()[:12]
     return f"offer_{h}"
+
+
+def compute_itinerary_ref(offer: dict) -> str:
+    """Stable identity for the itinerary facts, independent of fare changes."""
+    import hashlib
+
+    def segment_key(segment: dict) -> tuple:
+        return (
+            str(segment.get("dep_iata") or "").upper(),
+            str(segment.get("arr_iata") or "").upper(),
+            str(segment.get("departure_datetime_raw") or segment.get("dep_time") or ""),
+            str(segment.get("arrival_datetime_raw") or segment.get("arr_time") or ""),
+            str(segment.get("flight_number") or "").upper(),
+        )
+
+    outbound = offer.get("outbound_segments") or offer.get("segments") or []
+    inbound = offer.get("return_segments") or []
+    payload = {
+        "origin": str(offer.get("origin") or "").upper(),
+        "dest": str(offer.get("dest") or "").upper(),
+        "date": str(offer.get("date") or ""),
+        "return_date": str(offer.get("returnDate") or ""),
+        "airline": str(offer.get("airlineCode") or offer.get("airline") or "").upper(),
+        "flight_number": str(offer.get("flight_number") or "").upper(),
+        "dep_time": str(offer.get("dep_time") or ""),
+        "arr_time": str(offer.get("arr_time") or ""),
+        "stops": offer.get("stops"),
+        "duration": offer.get("durationMin"),
+        "outbound": [segment_key(s) for s in outbound if isinstance(s, dict)],
+        "inbound": [segment_key(s) for s in inbound if isinstance(s, dict)],
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    return f"itinerary_{hashlib.sha256(canonical.encode()).hexdigest()[:12]}"
+
+
+def cash_offer_completeness(offer: dict) -> str:
+    if offer.get("returnDate"):
+        return offer.get("itinerary_state") or "price_only"
+    if offer.get("outbound_segments") or (
+        offer.get("time_data_status") == "complete" and offer.get("stops") is not None
+    ):
+        return "complete"
+    if offer.get("dep_time") or offer.get("arr_time"):
+        return "partial"
+    return "price_only"
+
+
+def ensure_cash_offer_identity(offer: dict) -> dict:
+    """Attach canonical identity at the normalization boundary."""
+    offer["offer_id"] = offer.get("offer_id") or compute_offer_id(offer)
+    offer["cash_offer_id"] = offer["offer_id"]
+    offer["itinerary_ref"] = offer.get("itinerary_ref") or compute_itinerary_ref(offer)
+    offer["trip_basis"] = "round_trip" if offer.get("returnDate") else "one_way"
+    offer["completeness"] = cash_offer_completeness(offer)
+    return offer
 
 
 def select_canonical_cash_offer(offers: list[dict]) -> dict | None:
@@ -1656,6 +1714,22 @@ def build_cash_guidance(offers: list[dict]) -> dict | None:
     typ_range = canonical.get("typicalRange")
     context = canonical.get("scoreContext")
     confidence = canonical.get("scoreConfidence", "high")
+
+    if canonical.get("returnDate") and cash_offer_completeness(canonical) != "complete":
+        return {
+            "recommendation_state": "limited_evidence",
+            "recommended_offer_id": canonical_id,
+            "headline": "Limited round-trip evidence",
+            "why": "The selected fare does not yet include a complete return itinerary.",
+            "watch_out": "A strong recommendation is blocked until both directions are verified.",
+            "next_step": "Verify the return itinerary before relying on this option.",
+            "evidence_level": "limited",
+            "comparison_evidence": "limited",
+            "market_context": "available" if typ_range else "unavailable",
+            "price_context_band": _below_typical(price, typ_range),
+            "supporting_signals": [],
+            "disqualifying_signals": ["incomplete_round_trip"],
+        }
 
     # Determine market context and price band
     band = _below_typical(price, typ_range)
@@ -1834,6 +1908,48 @@ def dedup_offers(offers: list[dict]) -> list[dict]:
     return list(seen.values())
 
 
+def finalize_cash_offer_set(offers: list[dict], limit: int | None = None) -> dict:
+    """Shared canonical cash selection used by cash results and award decisions."""
+    normalized = [ensure_cash_offer_identity(o) for o in offers if isinstance(o, dict)]
+    deduped = dedup_offers(normalized)
+    valid = [o for o in deduped if _valid_price(o.get("price")) is not None]
+    if not valid:
+        return {
+            "offers": [],
+            "all_offers": [],
+            "guidance": None,
+            "selected_offer": None,
+            "selected_cash_offer_id": None,
+        }
+
+    rescore_offer_set(valid)
+    for offer in valid:
+        ensure_cash_offer_identity(offer)
+    guidance = build_cash_guidance(valid)
+    selected_id = (guidance or {}).get("recommended_offer_id")
+    selected = next((o for o in valid if o.get("cash_offer_id") == selected_id), None)
+    if selected is None:
+        return {
+            "offers": [],
+            "all_offers": valid,
+            "guidance": None,
+            "selected_offer": None,
+            "selected_cash_offer_id": None,
+        }
+
+    valid.sort(key=lambda x: (-(x.get("dealScore") or 0), x.get("price") or 10**9))
+    returned = valid if limit is None else valid[:limit]
+    if limit and not any(o.get("cash_offer_id") == selected_id for o in returned):
+        returned = returned[:max(0, limit - 1)] + [selected]
+    return {
+        "offers": returned,
+        "all_offers": valid,
+        "guidance": guidance,
+        "selected_offer": selected,
+        "selected_cash_offer_id": selected_id,
+    }
+
+
 def _normalize_cash_segments(raw_segments) -> list[dict]:
     """Keep only real, usable provider segment data without inventing values."""
     if not isinstance(raw_segments, list):
@@ -1922,7 +2038,7 @@ def offer_from_tp(row: dict, currency: str, requested_return_date: str | None = 
             "outbound_segments": [],
             "segments": [],
         })
-    return offer
+    return ensure_cash_offer_identity(offer)
 
 
 # --- SerpApi / Google Flights -----------------------------------------------
@@ -2291,7 +2407,7 @@ def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, m
         token = item.get("departure_token")
         if token and not return_segments:
             offer["_continuation_token"] = token
-    return offer
+    return ensure_cash_offer_identity(offer)
 
 
 def serpapi_offers(
@@ -2315,6 +2431,12 @@ def serpapi_offers(
         return [], _safe_exception_label(exc)
     insights = data.get("price_insights") or {}
     typical_range = insights.get("typical_price_range")
+    search_meta = data.get("search_metadata") or {}
+    observed_at = (
+        search_meta.get("processed_at")
+        or search_meta.get("created_at")
+        or data.get("observed_at")
+    )
     items = (data.get("best_flights") or []) + (data.get("other_flights") or [])
     # This function only fetches and normalizes. In inline mode it carries the provider
     # token until the recommendation is selected; provider order never selects the
@@ -2329,6 +2451,8 @@ def serpapi_offers(
             continue
         if not offer:
             continue
+        if observed_at:
+            offer["observed_at"] = observed_at
         # Flex/no-continuation callers must never carry a continuation token forward.
         if not allow_continuation:
             offer.pop("_continuation_token", None)
@@ -2369,6 +2493,8 @@ def continue_recommended_offer(offer: dict | None, dep: dt.date, ret: dt.date | 
     offer["itinerary_state"] = derive_cash_itinerary_state(
         offer.get("outbound_segments"), raw_return, ret.isoformat()
     )
+    offer.pop("itinerary_ref", None)
+    ensure_cash_offer_identity(offer)
     return True
 
 
@@ -2421,6 +2547,40 @@ def serpapi_task(args: tuple) -> tuple[str, str, list[dict], str | None]:
             origin, dest, dep, ret, currency, mm_only, lang, cabin, allow_continuation
         )
     return origin, dest, offers, err
+
+
+def canonical_cash_selection_for_search(
+    origins: list[str],
+    dests: list[str],
+    dep: dt.date,
+    ret: dt.date | None,
+    currency: str,
+    mm_only: bool,
+    lang: str,
+    cabin: str,
+    feature_path: str,
+) -> tuple[dict, str | None]:
+    """Derive one canonical cash selection for the same route-pair search scope."""
+    pairs = [
+        (origin, dest)
+        for origin in origins[:2]
+        for dest in dests[:2]
+        if origin != dest
+    ][:SERPAPI_MAX_PAIRS]
+    offers: list[dict] = []
+    try:
+        for origin, dest in pairs:
+            with _serpapi_feature_context(feature_path):
+                found, error = serpapi_offers(
+                    origin, dest, dep, ret, currency, mm_only, lang, cabin,
+                    allow_continuation=False,
+                )
+            if error:
+                continue
+            offers.extend(found)
+    except SerpApiError as exc:
+        return finalize_cash_offer_set([]), exc.reason
+    return finalize_cash_offer_set(offers), None
 
 
 def flex_date_task(args: tuple) -> tuple[str, list[dict], str | None]:
@@ -2672,7 +2832,7 @@ def build_seatsaero_programs(
         surcharge = SURCHARGES_EUR.get(prog_name, {}).get(dz, 80)
         cpm = calc_cpm(cash_eur, miles, surcharge) if cash_eur else None
         grade = sweet_spot_grade(cpm) if cpm else None
-        programs.append({
+        programs.append(ensure_award_option_identity({
             "program":        prog_name,
             "miles":          miles,
             "surcharge":      surcharge,
@@ -2688,7 +2848,16 @@ def build_seatsaero_programs(
             "direct":         best["direct"],
             "airlines":       best["airlines"],
             "seats":          best["seats"],
-        })
+            "origin":         origin,
+            "destination":    dest,
+            "departure_date": best["date"] or dep.isoformat(),
+            "return_date":    None,
+            "cabin":          cabin,
+            "source":         "seats.aero",
+            "source_type":    "provider_reported",
+            "fetched_at":     None,
+            "completeness":   "partial",
+        }))
 
     programs.sort(key=lambda x: -(x["cpm"] or 0))
     return programs
@@ -2707,6 +2876,30 @@ def calc_cpm(cash_eur: float, miles: int, surcharge_eur: float) -> float:
     if miles <= 0 or net <= 0:
         return 0.0
     return round(net / miles * 100, 2)
+
+
+def compute_award_option_id(option: dict) -> str:
+    import hashlib
+
+    payload = {
+        "program": option.get("program"),
+        "origin": option.get("origin"),
+        "destination": option.get("destination") or option.get("dest"),
+        "departure_date": option.get("departure_date") or option.get("available_date"),
+        "return_date": option.get("return_date"),
+        "trip_type": option.get("trip_type"),
+        "cabin": option.get("cabin"),
+        "miles": option.get("miles") or option.get("miles_required"),
+        "surcharge": option.get("surcharge"),
+        "source": option.get("source") or option.get("data_source"),
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    return f"award_{hashlib.sha256(canonical.encode()).hexdigest()[:12]}"
+
+
+def ensure_award_option_identity(option: dict) -> dict:
+    option["award_option_id"] = option.get("award_option_id") or compute_award_option_id(option)
+    return option
 
 
 # --- Value tier calibration (single source of truth) ---
@@ -2897,7 +3090,7 @@ class StaticAwardSource(AwardSource):
             cpm = calc_cpm(effective_cash, miles, surcharge) if effective_cash else None
             grade = sweet_spot_grade(cpm) if cpm else None
             verify_url = program_verify_url(name)
-            results.append({
+            results.append(ensure_award_option_identity({
                 "program": name,
                 "miles": miles,
                 "miles_required": miles,
@@ -2926,7 +3119,8 @@ class StaticAwardSource(AwardSource):
                 "freshness_label": "estimate",
                 "confidence_level": "low",
                 "provider_limitations": STATIC_AWARD_LIMITATIONS,
-            })
+                "completeness": "estimated",
+            }))
 
         results.sort(key=lambda x: -(x["cpm"] or 0))
         return results
@@ -3047,7 +3241,8 @@ def _freshness_label(is_live_award: bool, cash_is_real: bool) -> str:
 
 def build_decision(best: dict | None, cash_eur, cash_is_real: bool,
                    cash_level: str, requested_trip_type: str,
-                   cash_trip_type: str | None = None) -> dict:
+                   cash_trip_type: str | None = None,
+                   cash_offer: dict | None = None) -> dict:
     """Assemble the Level-1 decision block for the best program on a route.
 
     Additive shape (existing keys preserved): also emits `signal`, `label`,
@@ -3058,6 +3253,10 @@ def build_decision(best: dict | None, cash_eur, cash_is_real: bool,
     award_trip = (best or {}).get("trip_type", "unknown")
     basis = normalize_trip_basis(cash_trip, award_trip, requested_trip_type)
     is_live = bool(best) and best.get("data_source") == "live"
+    cash_offer_id = (cash_offer or {}).get("cash_offer_id")
+    itinerary_ref = (cash_offer or {}).get("itinerary_ref")
+    cash_completeness = (cash_offer or {}).get("completeness")
+    award_option_id = (best or {}).get("award_option_id")
 
     decision = {
         # existing keys (unchanged, additive contract)
@@ -3078,6 +3277,9 @@ def build_decision(best: dict | None, cash_eur, cash_is_real: bool,
         "evaluated_miles": (best or {}).get("miles"),
         "evaluated_surcharge": (best or {}).get("surcharge"),
         "evaluated_data_source": (best or {}).get("data_source"),
+        "evaluated_cash_offer_id": cash_offer_id,
+        "evaluated_award_option_id": award_option_id,
+        "itinerary_ref": itinerary_ref,
         # new Level-1 fields
         "signal": "insufficient_data",
         "label": _SIGNAL_LABEL["insufficient_data"],
@@ -3085,11 +3287,59 @@ def build_decision(best: dict | None, cash_eur, cash_is_real: bool,
         "confidence_reason": "",
         "freshness_label": _freshness_label(is_live, cash_is_real),
         "verification_guidance": _VERIFY_GUIDANCE,
+        "evidence": [],
+        "evidence_refs": {
+            "cash_offer_id": cash_offer_id,
+            "award_option_id": award_option_id,
+            "itinerary_ref": itinerary_ref,
+            "trip_basis": {"cash": cash_trip, "award": award_trip},
+            "completeness": {
+                "cash": cash_completeness,
+                "award": (best or {}).get("completeness"),
+            },
+            "source": {
+                "cash": (cash_offer or {}).get("source"),
+                "award": (best or {}).get("source") or (best or {}).get("data_source"),
+            },
+            "observed_at": {
+                "cash": (cash_offer or {}).get("observed_at"),
+                "award": (best or {}).get("fetched_at") or (best or {}).get("last_seen_at"),
+            },
+        },
     }
+    if cash_offer_id:
+        decision["evidence"].append({
+            "kind": "cash_offer",
+            "cash_offer_id": cash_offer_id,
+            "award_option_id": None,
+            "itinerary_ref": itinerary_ref,
+            "trip_basis": cash_trip,
+            "completeness": cash_completeness,
+            "source": (cash_offer or {}).get("source"),
+            "observed_at": (cash_offer or {}).get("observed_at"),
+        })
+    if award_option_id:
+        decision["evidence"].append({
+            "kind": "award_option",
+            "cash_offer_id": cash_offer_id,
+            "award_option_id": award_option_id,
+            "itinerary_ref": None,
+            "trip_basis": award_trip,
+            "completeness": (best or {}).get("completeness") or (
+                "provider_reported" if is_live else "estimated"
+            ),
+            "source": (best or {}).get("source") or (best or {}).get("data_source"),
+            "observed_at": (best or {}).get("fetched_at") or (best or {}).get("last_seen_at"),
+        })
 
     if not best:
         decision["explanation"] = "No award option was found for this route."
         decision["confidence_reason"] = "No award availability or estimate to compare."
+        return decision
+
+    if not cash_offer_id or not itinerary_ref:
+        decision["explanation"] = "The evaluated cash offer has no canonical identity."
+        decision["confidence_reason"] = "Missing cash-offer identity; no fallback inference is permitted."
         return decision
 
     # No observed cash context â†’ cannot compare; availability only.
@@ -3107,11 +3357,23 @@ def build_decision(best: dict | None, cash_eur, cash_is_real: bool,
         decision["confidence_reason"] = "Incompatible or unclear trip basis (cash vs award)."
         return decision
 
+    if requested_trip_type == "round_trip" and cash_completeness != "complete":
+        decision["explanation"] = (
+            "The selected round-trip cash result is incomplete, so no strong "
+            "cash-versus-miles recommendation is permitted."
+        )
+        decision["confidence_reason"] = "Incomplete round-trip itinerary evidence."
+        return decision
+
     # Compatible basis â†’ reuse the single award valuation ladder (sweet_spot_grade).
     grade = best.get("grade") or sweet_spot_grade(best["cpm"])
     signal = _TIER_SIGNAL.get(grade["tier"], "mixed_value")
     decision["tier"] = grade["tier"]
-    decision["verdict"] = grade["recommendation"]   # legacy key kept
+    decision["verdict"] = (
+        grade["recommendation"]
+        if is_live
+        else ("consider" if grade["recommendation"] == "book_miles" else grade["recommendation"])
+    )
     decision["signal"] = signal
     decision["label"] = _SIGNAL_LABEL[signal]
     decision["estimated_value"] = round(best["cpm"], 1)
@@ -3424,6 +3686,7 @@ def cheap():
                 "ok": True,
                 "offers": [],
                 "cash_guidance": None,
+                "selected_cash_offer_id": None,
                 "calendar": [],
                 "fallback": fallback,
                 "warnings": [],
@@ -3472,37 +3735,11 @@ def cheap():
                     offers.append(offer_from_tp(row, currency, ret.isoformat() if ret else None))
         note_key = "cheap_note"
 
-    # Deduplizieren (gleiche Airline + Ziel), dann relativ zum Ergebnis-Set
-    # bewerten (zentrale Cash Result Intelligence), dann sortieren.
-    offers = dedup_offers(offers)
-
-    # Filter to valid priced offers using canonical validation helper
-    valid_offers = [o for o in offers if _valid_price(o.get("price")) is not None]
-
-    if valid_offers:
+    selection = finalize_cash_offer_set(offers, limit=8)
+    if selection["selected_offer"]:
         _t_dec = time.time()
-        valid_offers = rescore_offer_set(valid_offers)
-
-        # Assign stable offer IDs before sort
-        for o in valid_offers:
-            o["offer_id"] = compute_offer_id(o)
-
-        # Generate search-level guidance (before sort for stability)
-        cash_guidance = build_cash_guidance(valid_offers)
-
-        # Sort for visual display
-        valid_offers.sort(key=lambda x: (-(x.get("dealScore") or 0), x.get("price") or 10**9))
-        offers = valid_offers[:8]
-
-        # If a recommended offer was selected but is not in the returned slice, include it
-        if cash_guidance and cash_guidance.get("recommended_offer_id"):
-            recommended_id = cash_guidance["recommended_offer_id"]
-            if not any(o.get("offer_id") == recommended_id for o in offers):
-                # Recommended offer is outside [:8]; include it by replacing the last returned offer
-                rec_offer = next((o for o in valid_offers if o.get("offer_id") == recommended_id), None)
-                if rec_offer:
-                    # Swap out position 7 (last) with recommended offer to ensure it's returned
-                    offers = offers[:7] + [rec_offer]
+        offers = selection["offers"]
+        cash_guidance = selection["guidance"]
         t_decision_ms = round((time.time() - _t_dec) * 1000, 1)  # rescore + guidance + ranking
 
         # The single continuation targets AwardRadar's recommended result, never
@@ -3535,6 +3772,7 @@ def cheap():
         "ok": True,
         "offers": offers,
         "cash_guidance": cash_guidance,
+        "selected_cash_offer_id": selection["selected_cash_offer_id"],
         "calendar": calendar,
         "fallback": fallback,
         "warnings": [],
@@ -3600,6 +3838,9 @@ def return_leg():
     return jsonify({
         "ok": True,
         "offer_id": offer_id,
+        "cash_offer_id": target.get("cash_offer_id"),
+        "itinerary_ref": target.get("itinerary_ref"),
+        "completeness": target.get("completeness"),
         "itinerary_state": target.get("itinerary_state"),
         "outbound_segments": target.get("outbound_segments"),
         "return_segments": target.get("return_segments"),
@@ -3849,21 +4090,65 @@ def _awards_inner():
         except SeatsAeroGuardError as exc:
             return _seatsaero_guard_error_response(exc)
     results = []
-    cash_provider_failure_reason = None
+    requested_cash_offer_id = str(
+        data.get("cashOfferId") or data.get("selected_cash_offer_id") or ""
+    ).strip() or None
+    # The paired /api/cheap -> /api/awards flow must supply the canonical
+    # identity selected by /api/cheap.  An absent identity is not permission to
+    # run a second cash search and infer a potentially different offer.
+    if requested_cash_offer_id and SERPAPI_TOKEN:
+        cash_selection, cash_provider_failure_reason = canonical_cash_selection_for_search(
+            origins,
+            dests,
+            dep,
+            ret,
+            "EUR",
+            False,
+            lang,
+            cabin,
+            "awards",
+        )
+    else:
+        cash_selection = finalize_cash_offer_set([])
+        cash_provider_failure_reason = None
+    selected_cash_offer = cash_selection["selected_offer"]
+    if (
+        not requested_cash_offer_id
+        or not selected_cash_offer
+        or selected_cash_offer.get("cash_offer_id") != requested_cash_offer_id
+    ):
+        selected_cash_offer = None
+    selected_cash_offer_id = (
+        selected_cash_offer.get("cash_offer_id") if selected_cash_offer else None
+    )
 
     for origin in origins[:4]:
         for dest in dests[:3]:
             if origin == dest:
                 continue
-            if cash_provider_failure_reason:
-                cash_details = {}
+            route_has_selected_cash = bool(
+                selected_cash_offer
+                and selected_cash_offer.get("origin") == origin
+                and selected_cash_offer.get("dest") == dest
+            )
+            if route_has_selected_cash:
+                cash_details = {
+                    "price": selected_cash_offer.get("price"),
+                    "dep_time": selected_cash_offer.get("dep_time"),
+                    "arr_time": selected_cash_offer.get("arr_time"),
+                    "duration": _fmt_duration(selected_cash_offer.get("durationMin")),
+                    "duration_min": selected_cash_offer.get("durationMin"),
+                    "stops": selected_cash_offer.get("stops"),
+                    "via": selected_cash_offer.get("via") or [],
+                    "flight_number": selected_cash_offer.get("flight_number"),
+                    "segments": selected_cash_offer.get("outbound_segments")
+                        or selected_cash_offer.get("segments")
+                        or [],
+                    "typical_range": selected_cash_offer.get("typicalRange"),
+                    "cash_trip_type": selected_cash_offer.get("trip_basis"),
+                }
             else:
-                try:
-                    with _serpapi_feature_context("awards"):
-                        cash_details = fetch_cash_details(origin, dest, dep, cabin, ret=ret)
-                except SerpApiError as exc:
-                    cash_provider_failure_reason = exc.reason
-                    cash_details = {}
+                cash_details = {}
             cash_eur = cash_details.get("price")
             cash_status = "available" if cash_eur else "unavailable"
 
@@ -3901,6 +4186,7 @@ def _awards_inner():
                 cash_level,
                 trip_type,
                 cash_trip_type=cash_details.get("cash_trip_type"),
+                cash_offer=selected_cash_offer if route_has_selected_cash else None,
             )
 
             results.append({
@@ -3934,7 +4220,13 @@ def _awards_inner():
     else:
         note = f"Estimated values{MIDDLE_DOT_SEP}Verify before purchase"
 
-    return jsonify({"ok": True, "results": results, "note": note, "award_source": award_source_meta})
+    return jsonify({
+        "ok": True,
+        "results": results,
+        "note": note,
+        "award_source": award_source_meta,
+        "selected_cash_offer_id": selected_cash_offer_id,
+    })
 
 
 def score_award(origin: str, dest: str, cabin: str, lang: str = "de") -> dict:
