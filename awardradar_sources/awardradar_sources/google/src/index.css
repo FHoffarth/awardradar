@@ -479,11 +479,15 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--focus); outline
    190px = 710px one-way, 5 x 118px + 190px = 780px round-trip, against roughly
    625px of container at 768px. Grid tracks will not shrink below those
    minimums, so the row overflowed its own box and the action was cut off.
-   Below 761px the layout already stacks and from 900px the container is wide
-   enough, so only this band needs help: give the fields flexible columns and
-   let the action wrap onto its own full-width row. Nothing is hidden or
-   clipped away, and no text is scaled down. */
-@media (min-width: 761px) and (max-width: 899px) {
+   Below 761px the layout already stacks. The upper bound is measured, not
+   guessed: --page-pad resolves to 7.5vw above 853px, so the container is
+   0.85 * viewport, and the round-trip grid needs 780px of tracks plus the
+   instrument's 2px border. 0.85V >= 782 gives V >= 920, so the desktop grid
+   only genuinely fits from 920px and this band has to run to 919px.
+   Give the fields flexible columns and let the action wrap onto its own
+   full-width row. Nothing is hidden or clipped away, and no text is scaled
+   down. */
+@media (min-width: 761px) and (max-width: 919px) {
   .search-instrument,
   .search-instrument--round-trip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
