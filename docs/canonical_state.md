@@ -120,13 +120,6 @@ not evidenced in the repository.
 - Written provider approval for external/commercial seats.aero use is not
   evidenced in the repository.
 - `intelligence/` is not integrated into the Flask application.
-- The recorded Railway Production auto-deploy state (`disabled`, see
-  [AR-DEC-002](decision_log.md#ar-dec-002--manual-production-release-governance)
-  and [deployment_governance.md](deployment_governance.md)) was last verified
-  2026-07-18 and has not been re-verified against Railway deploy metadata since.
-  On 2026-07-26 production began serving the `main` merge commit's bundle without
-  a manual deployment step, which the repository cannot reconcile with that
-  recorded state. Railway dashboard evidence is required to resolve it.
 - Some historical work-package documents describe branch or planning states
   that no longer represent the current repository. Their status banners define
   how they should be read.

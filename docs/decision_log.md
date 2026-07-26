@@ -127,6 +127,9 @@ Decision Contract V1 is adopted as the binding contract for the `decision` block
   verdicts correct, recommendation gate exact, no legacy tokens, no raw enums in
   exports, fail-closed behaviour intact, no provider calls. Verdict:
   READY WITH NON-BLOCKING NOTES.
-- Production served the merged bundle `index-D7aC-1jM.js` on 2026-07-26,
-  byte-identical to `main`. Deploy identity is asset-hash evidence; Railway
-  deploy metadata was not available at the time of this entry.
+- Production release 2026-07-26: deployed manually by Florian Hoffarth after the
+  merge, following the AR-DEC-002 flow. No automatic production deployment
+  occurred; Railway Production auto-deploy from `main` remains disabled.
+- Post-deploy verification: production serves `index-D7aC-1jM.js` and
+  `index-DuIE4wDp.css` byte-identical to `main`, `/health` returns 200 with
+  `ok: true` and no degraded states.
