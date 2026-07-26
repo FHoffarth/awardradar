@@ -2209,4 +2209,117 @@ describe('App', () => {
     expect(alternativesText).not.toContain('Boolean True');
     expect(screen.queryAllByTestId('cash-alternative-row')).toHaveLength(0);
   });
+  // --- Decision Contract V1: no contract enum may reach an export surface ---
+  //
+  // The export "Signal:" line is intentionally driven by SIGNAL_COPY (the signal
+  // axis), never by the raw backend `verdict`. These tests lock that property so
+  // a future refactor cannot start interpolating a contract enum into user-facing
+  // text, and so unknown/legacy values keep failing closed to the conservative copy.
+
+  const EXTERNAL_VERDICT_ENUMS = [
+    'miles_value_supported',
+    'miles_value_leaning',
+    'comparison_inconclusive',
+    'cash_value_supported',
+    'availability_only',
+    'insufficient_data',
+  ];
+  const EXTERNAL_SIGNAL_ENUMS = [
+    'strong_miles_value',
+    'promising_miles_value',
+    'mixed_value',
+    'cash_may_be_stronger',
+    'insufficient_data',
+  ];
+  const INTERNAL_TIER_TOKENS = ['book_miles', 'lean_miles', 'pay_cash', 'consider'];
+
+  const exportSurfaces = async (decisionOverrides: Record<string, unknown>) => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    await renderAwardOnly({
+      decision: { signal: 'mixed_value', confidence: 'low', evaluated_cash_offer_id: null, ...decisionOverrides },
+    });
+
+    fireEvent.click(screen.getByTestId('share-export-button'));
+    fireEvent.click(await screen.findByTestId('copy-summary-button'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByTestId('copy-forum-button'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+
+    const emailHref = screen.getByTestId('email-analysis-link').getAttribute('href') || '';
+    return [
+      writeText.mock.calls[0][0] as string,
+      writeText.mock.calls[1][0] as string,
+      decodeURIComponent(emailHref),
+    ];
+  };
+
+  const signalLineOf = (text: string) => (text.split(/\[?b?\]?Signal:(?:\[\/b\])?/)[1] || '').split('\n\n')[0].trim();
+
+  it.each(EXTERNAL_VERDICT_ENUMS)('keeps every export surface free of the raw verdict enum %s', async (verdict) => {
+    for (const text of await exportSurfaces({ verdict })) {
+      for (const raw of EXTERNAL_VERDICT_ENUMS) expect(text).not.toContain(raw);
+      expect(signalLineOf(text)).toBe('Mixed Cash and Miles Value signal');
+    }
+  });
+
+  it.each(EXTERNAL_SIGNAL_ENUMS)('keeps every export surface free of the raw signal enum %s', async (signal) => {
+    for (const text of await exportSurfaces({ signal, verdict: 'comparison_inconclusive' })) {
+      for (const raw of EXTERNAL_SIGNAL_ENUMS) expect(text).not.toContain(raw);
+      expect(signalLineOf(text).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('never emits an internal tier token even if one reaches the client', async () => {
+    for (const token of INTERNAL_TIER_TOKENS) {
+      for (const text of await exportSurfaces({ verdict: token, signal: token })) {
+        for (const leaked of INTERNAL_TIER_TOKENS) expect(text).not.toContain(leaked);
+      }
+      cleanup();
+    }
+  });
+
+  it('falls back to the conservative copy for an unknown verdict and signal', async () => {
+    for (const text of await exportSurfaces({ verdict: 'legacy_book_now', signal: 'legacy_book_now' })) {
+      expect(text).not.toContain('legacy_book_now');
+      expect(signalLineOf(text)).toContain('More Evidence Required');
+    }
+  });
+
+  it('falls back to the conservative copy when verdict and signal are missing', async () => {
+    for (const text of await exportSurfaces({ verdict: undefined, signal: undefined })) {
+      expect(text).not.toContain('undefined');
+      expect(signalLineOf(text)).toContain('More Evidence Required');
+    }
+  });
+
+  it('keeps the export signal line free of imperative booking instructions', async () => {
+    for (const verdict of EXTERNAL_VERDICT_ENUMS) {
+      for (const text of await exportSurfaces({ verdict })) {
+        const line = signalLineOf(text).toLowerCase();
+        expect(line).not.toContain('book ');
+        expect(line).not.toContain('buy ');
+        expect(line).not.toContain('pay now');
+      }
+      cleanup();
+    }
+  });
+
+  it('keeps the native share payload free of contract enums', async () => {
+    const share = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'share', { configurable: true, value: share });
+    await renderAwardOnly({
+      decision: { signal: 'cash_may_be_stronger', verdict: 'cash_value_supported', confidence: 'low', evaluated_cash_offer_id: null },
+    });
+
+    fireEvent.click(screen.getByTestId('share-export-button'));
+    fireEvent.click(await screen.findByTestId('share-button'));
+    await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+
+    const serialized = JSON.stringify(share.mock.calls[0][0]);
+    expect(share.mock.calls[0][0].text).toContain('Cash May Be Stronger signal');
+    for (const raw of [...EXTERNAL_VERDICT_ENUMS, ...EXTERNAL_SIGNAL_ENUMS, ...INTERNAL_TIER_TOKENS]) {
+      expect(serialized).not.toContain(raw);
+    }
+  });
 });

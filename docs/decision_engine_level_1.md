@@ -157,13 +157,20 @@ Es existiert bereits genau **eine** Schwellenquelle. Sie ist wiederzuverwenden,
   `cpm = net / miles * 100`, gerundet auf 2 Nachkommastellen.
 - `sweet_spot_grade(cpm)` in `app.py` — die autoritative Tier-Grenze:
 
-  | cpm ≥ | tier         | recommendation |
-  |-------|--------------|----------------|
-  | 2.5   | exceptional  | book_miles     |
-  | 1.8   | great        | book_miles     |
-  | 1.2   | good         | lean_miles     |
-  | 0.7   | fair         | consider       |
-  | < 0.7 | poor         | pay_cash       |
+  | cpm ≥ | tier         | recommendation (internal) |
+  |-------|--------------|---------------------------|
+  | 2.5   | exceptional  | book_miles                |
+  | 1.8   | great        | book_miles                |
+  | 1.2   | good         | lean_miles                |
+  | 0.7   | fair         | consider                  |
+  | < 0.7 | poor         | pay_cash                  |
+
+  > Seit [AR-DEC-003](decision_log.md#ar-dec-003--decision-contract-v1) sind diese
+  > `recommendation`-Werte **ausschließlich interne Tier-Tokens**. Sie werden nie
+  > extern emittiert; jede externe Ausgabe läuft über `normalize_verdict()` in das
+  > geschlossene Vokabular aus
+  > [decision_contract_v1.md](decision_contract_v1.md). Die Schwellen selbst sind
+  > unverändert.
 
 ### Herkunft dokumentieren
 
