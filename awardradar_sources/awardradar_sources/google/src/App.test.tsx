@@ -257,10 +257,11 @@ describe('App', () => {
 
   it('uses the Landing typography stack without adding an external font request', () => {
     const css = readFileSync('src/index.css', 'utf8');
-    expect(css).toContain('--font-product: "Inter", system-ui, -apple-system, sans-serif;');
+    expect(css).toContain('--font-product: "Geist", "Inter", system-ui, -apple-system, sans-serif;');
+    expect(css).toContain('--font-technical: "Geist Mono", "SFMono-Regular", Consolas, monospace;');
     expect(css).toMatch(/\.app-shell\s*\{[^}]*font-family:\s*var\(--font-product\)/s);
     expect(css).toMatch(/\.decision-summary h3\s*\{[^}]*font-family:\s*var\(--font-product\)/s);
-    expect(css).toMatch(/\.why-section p\s*\{[^}]*font-family:\s*var\(--font-product\)/s);
+    expect(css).toMatch(/\.technical-references\s*\{[^}]*font-family:\s*var\(--font-technical\)/s);
     expect(css).not.toContain('fonts.googleapis.com');
     expect(css).not.toContain('fonts.gstatic.com');
   });
@@ -271,7 +272,7 @@ describe('App', () => {
     expect(css).toMatch(/\.print-omit\s*\{[^}]*display:\s*none\s*!important/s);
     expect(css).toMatch(/\.result-section\s*\{[^}]*break-inside:\s*auto/s);
     expect(css).toMatch(/\.option-card\s*\{[^}]*break-inside:\s*avoid-page/s);
-    expect(css).toMatch(/\.confidence-section\s*\{[^}]*break-inside:\s*avoid-page/s);
+    expect(css).toMatch(/\.evidence-quality\s*\{[^}]*break-inside:\s*avoid-page/s);
     expect(css).toMatch(/\.report-disclaimer\s*\{[^}]*break-inside:\s*auto[^}]*page-break-inside:\s*auto/s);
     expect(css).not.toMatch(/\.report-disclaimer\s*\{[^}]*(?:position:\s*fixed|break-(?:before|after):|page-break-(?:before|after):)/s);
   });
@@ -600,6 +601,107 @@ describe('App', () => {
     });
   });
 
+  it('renders the result as a backend-grounded assessment before metrics and details', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    const cheap: any = canonicalCashResponse([
+      {
+        price: 420, currency: 'EUR', airline: 'Selected Air',
+        dep_time: '09:00', arr_time: '11:00', stops: 0, durationMin: 120, time_data_status: 'complete',
+      },
+      {
+        price: 360, currency: 'EUR', airline: 'Connection Air',
+        dep_time: '07:00', arr_time: '14:00', stops: 1, durationMin: 420, time_data_status: 'complete',
+      },
+    ]);
+    cheap.cash_guidance = {
+      recommended_offer_id: cheap.selected_cash_offer_id,
+      why: 'It has the highest relative score among the returned options.',
+      watch_out: 'This assessment applies only to the current search.',
+      next_step: 'Review the fare details and compare nearby dates.',
+    };
+    strictCashFixtureMock({
+      cheap,
+      awards: awardTrustApiResponse('award_cached_recent', {
+        verified_identical_routing: true,
+        decision: {
+          signal: 'strong_miles_value',
+          verdict: 'book_miles',
+          confidence: 'high',
+          trip_basis_compatible: true,
+          explanation: 'The selected award compares favorably with the evaluated cash itinerary.',
+          confidence_reason: 'Live award data; recent cash context; official availability not yet confirmed.',
+        },
+        programs: [{
+          program: 'Miles & More', miles: 30000, surcharge: 85,
+          data_source: 'live', is_live_data: true, freshness_label: 'cached_recent',
+          fetched_at: awardTrustFixtures.award_cached_recent.checkedAt,
+          url: 'https://example.com/verify',
+        }],
+      }),
+    });
+
+    render(<App />);
+    fireEvent.click(getButton(document.body));
+
+    await waitFor(() => expect(screen.getByTestId('decision-summary')).toBeTruthy());
+    expect(screen.getByRole('heading', { name: 'Why this option' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Key trade-off' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Next best action' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Evidence quality' })).toBeTruthy();
+    expect(screen.getByTestId('decision-why').textContent)
+      .toBe('The selected award compares favorably with the evaluated cash itinerary.');
+    expect(screen.getByTestId('decision-trade-off').textContent)
+      .toBe('€420 is €60 more than the first returned alternative, but the selected itinerary is nonstop and it is 5h faster.');
+    expect(screen.getByTestId('decision-confidence').textContent).toBe('high');
+    expect(screen.getByTestId('cash-candidate-card').textContent).toContain('Selected cash itinerary');
+    expect(screen.getByTestId('cash-alternative-row').textContent).toContain('Connection Air');
+    expect(screen.getByTestId('technical-details').tagName).toBe('DETAILS');
+    expect(screen.getByTestId('decision-summary').compareDocumentPosition(screen.getByTestId('options-grid')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('keeps an insufficient-data slice intentional, identity-null and non-recommendatory', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      cheap: {
+        ok: true,
+        offers: [],
+        selected_cash_offer_id: null,
+        cash_provenance: { status: 'unavailable' },
+      },
+      awards: awardTrustApiResponse('award_estimated', {
+        decision: {
+          signal: 'insufficient_data',
+          verdict: 'insufficient_data',
+          confidence: 'low',
+          trip_basis_compatible: false,
+          explanation: 'The evaluated cash offer has no canonical identity.',
+          confidence_reason: 'Missing cash-offer identity; no fallback inference is permitted.',
+          evaluated_cash_offer_id: null,
+        },
+        programs: [{
+          program: 'United', miles: 10000, surcharge: 20,
+          data_source: 'estimated', is_estimate: true, freshness_label: 'estimate',
+          url: 'https://example.com/verify',
+        }],
+      }),
+    });
+
+    render(<App />);
+    fireEvent.click(getButton(document.body));
+
+    await waitFor(() => expect(screen.getByTestId('decision-summary')).toBeTruthy());
+    expect(screen.getByTestId('decision-summary').textContent).toContain('Decision signal');
+    expect(screen.getByTestId('decision-summary').textContent).not.toContain('Recommendation');
+    expect(screen.getByTestId('decision-verdict').textContent).toBe('More Evidence Required');
+    expect(screen.getByTestId('decision-why').textContent).toBe('The evaluated cash offer has no canonical identity.');
+    expect(screen.getByTestId('decision-trade-off').textContent)
+      .toBe('A current cash fare is missing, so a concrete cash-versus-miles trade-off cannot be established.');
+    expect(screen.getByTestId('evidence-quality').getAttribute('data-state')).toBe('estimated');
+    expect(screen.getByTestId('decision-confidence').textContent).toBe('low');
+    expect(screen.getByTestId('cash-unavailable-state')).toBeTruthy();
+    expect(screen.queryByTestId('cash-candidate-card')).toBeNull();
+  });
+
   it('keeps offers[0] primary and renders offers[1..3] in exact backend order', async () => {
     const offers = [
       { price: 410, currency: 'EUR', airline: 'Primary Air', time_data_status: 'complete', dep_time: '08:00', arr_time: '09:00', durationMin: 60, stops: 0, dealScore: 50 },
@@ -800,7 +902,7 @@ describe('App', () => {
     expect(screen.getByTestId('award-trust-freshness').textContent).toContain('Last checked 45 minutes ago');
     expect(screen.getByTestId('decision-summary').textContent).toContain('Recommendation');
     expect(screen.getByTestId('decision-summary').textContent).not.toContain('Decision signal');
-    expect(container.textContent).toContain('Best Award Option');
+    expect(container.textContent).toContain('Award evidence');
   });
 
   it('maps rate-limited award errors from explicit 429 status', async () => {
@@ -1641,7 +1743,7 @@ describe('App', () => {
     await waitFor(() => expect(container.querySelector('a[href="https://example.com/check"]')).toBeTruthy());
     expect(container.querySelector('a[href^="javascript:"]')).toBeNull();
     expect(container.querySelector('a[href^="data:"]')).toBeNull();
-    const external = container.querySelector('a.verification-link') as HTMLAnchorElement;
+    const external = container.querySelector('a.assessment-action') as HTMLAnchorElement;
     expect(external.target).toBe('_blank');
     expect(external.rel).toBe('noopener noreferrer');
   });

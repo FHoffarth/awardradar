@@ -79,7 +79,16 @@ type CashResponse = {
   ok: boolean;
   offers?: CashOffer[];
   selected_cash_offer_id?: string | null;
-  cash_guidance?: { recommended_offer_id?: string | null } | null;
+  cash_guidance?: {
+    recommended_offer_id?: string | null;
+    recommendation_state?: string;
+    headline?: string;
+    why?: string;
+    watch_out?: string;
+    next_step?: string;
+    evidence_level?: string;
+    comparison_evidence?: string;
+  } | null;
   cash_provenance?: { status?: string; reason?: string };
   error?: string;
 };
@@ -113,6 +122,8 @@ type DecisionResult = {
   signal?: string;
   verdict?: string;
   confidence?: string;
+  explanation?: string;
+  confidence_reason?: string;
   trip_basis_compatible?: boolean;
   cash_trip_type?: string;
   award_trip_type?: string;
@@ -269,12 +280,6 @@ function isRateLimitedAwardError(awardData: AwardResponse | null): boolean {
     .toLowerCase();
 
   return fallbackText.includes('too many requests') || fallbackText.includes('rate limit') || fallbackText.includes('rate-limit');
-}
-
-function getAwardOptionHeading(awardTrust: AwardTrustPresentation): string {
-  if (awardTrust.recommendationAllowed) return 'Best Award Option';
-  if (awardTrust.state === 'cached_stale' || awardTrust.state === 'estimated') return 'Award Option Worth Checking';
-  return 'Award Evidence';
 }
 
 function buildAwardTrustInput(
@@ -713,6 +718,69 @@ function isBackendRecommendationEligible(decision: DecisionResult | undefined): 
   );
 }
 
+function cashPriceLabel(offer: CashOffer): string {
+  const prefix = offer.currency === 'EUR' || !offer.currency ? '€' : '';
+  const suffix = offer.currency && offer.currency !== 'EUR' ? ` ${offer.currency}` : '';
+  return `${prefix}${offer.price}${suffix}`;
+}
+
+function durationDeltaLabel(minutes: number): string {
+  if (minutes < 60) return `${minutes} minutes`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return `${hours}h${remainder ? ` ${remainder}m` : ''}`;
+}
+
+function buildCashTradeOff(
+  selected: CashOffer | undefined,
+  alternatives: CashOffer[],
+  guidance: CashResponse['cash_guidance'],
+  isRoundTrip: boolean,
+): string {
+  if (!selected) {
+    return 'A current cash fare is missing, so a concrete cash-versus-miles trade-off cannot be established.';
+  }
+
+  const alternative = alternatives[0];
+  if (!alternative) {
+    return guidance?.watch_out || 'No second cash itinerary was returned, so the selected fare cannot be compared with another cash option.';
+  }
+
+  const selectedPrice = Number(selected.price);
+  const alternativePrice = Number(alternative.price);
+  if (!Number.isFinite(selectedPrice) || !Number.isFinite(alternativePrice)) {
+    return guidance?.watch_out || 'The returned fare data does not support a concrete comparison with the next cash option.';
+  }
+
+  const difference = Math.round(Math.abs(selectedPrice - alternativePrice) * 100) / 100;
+  const priceComparison = selectedPrice === alternativePrice
+    ? `The first returned alternative has the same ${cashPriceLabel(selected)} fare`
+    : selectedPrice > alternativePrice
+      ? `${cashPriceLabel(selected)} is €${difference} more than the first returned alternative`
+      : `${cashPriceLabel(selected)} is €${difference} less than the first returned alternative`;
+
+  if (isRoundTrip) {
+    return `${priceComparison}. ${guidance?.watch_out || 'Verify both journey legs before relying on the comparison.'}`;
+  }
+
+  const facts: string[] = [];
+  if (selected.stops === 0 && typeof alternative.stops === 'number' && alternative.stops > 0) {
+    facts.push('the selected itinerary is nonstop');
+  } else if (typeof selected.stops === 'number' && typeof alternative.stops === 'number' && selected.stops !== alternative.stops) {
+    facts.push(`the selected itinerary has ${Math.abs(selected.stops - alternative.stops)} fewer stop${Math.abs(selected.stops - alternative.stops) === 1 ? '' : 's'}`);
+  }
+  if (
+    Number.isFinite(selected.durationMin)
+    && Number.isFinite(alternative.durationMin)
+    && Number(selected.durationMin) < Number(alternative.durationMin)
+  ) {
+    facts.push(`it is ${durationDeltaLabel(Number(alternative.durationMin) - Number(selected.durationMin))} faster`);
+  }
+
+  if (facts.length) return `${priceComparison}, but ${facts.join(' and ')}.`;
+  return `${priceComparison}; the returned itinerary evidence does not establish a material advantage over it.`;
+}
+
 function getDecisionCopy(result: AwardResult | undefined, cashAvailable: boolean, cashUnavailable: boolean, tripType: TripType = 'one_way') {
   if (tripType === 'round_trip' && result?.decision?.trip_basis_compatible !== true) {
     return {
@@ -870,12 +938,18 @@ const DecisionSummary = ({
   cashUnavailable,
   tripType,
   awardTrust,
+  cashOffer,
+  cashAlternatives,
+  cashGuidance,
 }: {
   result: AwardResult;
   cashAvailable: boolean;
   cashUnavailable: boolean;
   tripType: TripType;
   awardTrust: AwardTrustPresentation;
+  cashOffer?: CashOffer;
+  cashAlternatives: CashOffer[];
+  cashGuidance: CashResponse['cash_guidance'];
 }) => {
   const copy = getDecisionCopy(result, cashAvailable, cashUnavailable, tripType);
   const tripBasisBlocked = tripType === 'round_trip' && result?.decision?.trip_basis_compatible !== true;
@@ -889,30 +963,77 @@ const DecisionSummary = ({
       : awardTrust.verdictAllowed
         ? copy.verdict
         : 'More Evidence Required';
-  const why = trustOverridesVerdict ? awardTrust.supportingCopy : copy.why;
+  const why = isNonEmptyString(result?.decision?.explanation)
+    ? result.decision.explanation
+    : trustOverridesVerdict
+      ? awardTrust.supportingCopy
+      : copy.why;
+  const tradeOff = buildCashTradeOff(cashOffer, cashAlternatives, cashGuidance, tripType === 'round_trip');
+  const bestProgram = result?.programs?.[0];
+  const awardVerificationUrl = safeExternalUrl(bestProgram?.url);
+  const fareVerificationUrl = cashOffer ? cashVerificationUrl(cashOffer) : null;
+  const nextAction = awardTrust.verificationNotice
+    || result?.decision?.verification_guidance
+    || cashGuidance?.next_step
+    || 'Verify the current result with the official program or provider.';
+  const confidenceReason = isNonEmptyString(result?.decision?.confidence_reason)
+    ? result.decision.confidence_reason
+    : awardTrust.supportingCopy;
   return (
-    <>
-      <motion.section className="result-section decision-summary" aria-labelledby="decision-title" data-testid="decision-summary"
-        data-evaluated-cash-offer-id={result?.decision?.evaluated_cash_offer_id || ''}
-        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="section-heading-row">
-          <span aria-hidden="true" />
-          <h2 id="decision-title">Decision Summary</h2>
-        </div>
-        <p className="recommendation-label">{recommendationAllowed ? 'Recommendation' : 'Decision signal'}</p>
-        <h3 data-testid="decision-verdict">{verdict}</h3>
-        {trustOverridesVerdict && (
-          <p className="card-caveat" data-testid="decision-trust-blocker">
-            {awardTrust.freshnessLabel}
-          </p>
-        )}
-      </motion.section>
+    <motion.section className="result-section decision-summary assessment-hero" aria-labelledby="decision-title" data-testid="decision-summary"
+      data-evaluated-cash-offer-id={result?.decision?.evaluated_cash_offer_id || ''}
+      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+      <div className="section-heading-row">
+        <span aria-hidden="true" />
+        <h2 id="decision-title">AwardRadar assessment</h2>
+      </div>
+      <p className="recommendation-label">{recommendationAllowed ? 'Recommendation' : 'Decision signal'}</p>
+      <h3 data-testid="decision-verdict">{verdict}</h3>
 
-      <section className="result-section why-section" aria-labelledby="why-title">
-        <h2 id="why-title">Why this signal</h2>
-        <p data-testid="decision-why">{why}</p>
+      <div className="assessment-essentials">
+        <section aria-labelledby="why-title">
+          <h2 id="why-title">Why this option</h2>
+          <p data-testid="decision-why">{why}</p>
+        </section>
+        <section aria-labelledby="trade-off-title">
+          <h2 id="trade-off-title">Key trade-off</h2>
+          <p data-testid="decision-trade-off">{tradeOff}</p>
+        </section>
+      </div>
+
+      <section className="next-best-action" aria-labelledby="next-action-title">
+        <div>
+          <h2 id="next-action-title">Next best action</h2>
+          <p>{nextAction}</p>
+        </div>
+        <div className="next-best-action__links">
+          {awardVerificationUrl && <a className="assessment-action assessment-action--primary" href={awardVerificationUrl} target="_blank" rel="noopener noreferrer">Verify with program <ArrowRight aria-hidden="true" /></a>}
+          {fareVerificationUrl && <a className="assessment-action" href={fareVerificationUrl} target="_blank" rel="noopener noreferrer">Check current fare</a>}
+        </div>
       </section>
-    </>
+
+      <section className="evidence-quality" aria-labelledby="evidence-quality-title"
+        data-testid="evidence-quality"
+        data-state={awardTrust.state}
+        data-recommendation-allowed={awardTrust.recommendationAllowed ? 'true' : 'false'}
+        data-verdict-allowed={awardTrust.verdictAllowed ? 'true' : 'false'}>
+        <div>
+          <h2 id="evidence-quality-title">Evidence quality</h2>
+          <p className="evidence-quality__state">{awardTrust.freshnessLabel}</p>
+        </div>
+        <div>
+          <span>Confidence</span>
+          <strong data-testid="decision-confidence">{result?.decision?.confidence || 'Not available'}</strong>
+        </div>
+        <p className="evidence-quality__limitation">{confidenceReason}</p>
+      </section>
+
+      {trustOverridesVerdict && (
+        <p className="sr-only" data-testid="decision-trust-blocker">
+          {awardTrust.freshnessLabel}
+        </p>
+      )}
+    </motion.section>
   );
 };
 
@@ -980,12 +1101,12 @@ const CashRoundTripDetails = ({ offer, continuationStatus }: { offer: CashOffer;
   );
 };
 
-const CashCandidate = ({ cashOffer, isLimited, isRoundTrip, continuationStatus }: { cashOffer: CashOffer; isLimited: boolean; isRoundTrip: boolean; continuationStatus: ContinuationStatus }) => (
+const CashCandidate = ({ cashOffer, isLimited, isRoundTrip, continuationStatus, showVerification }: { cashOffer: CashOffer; isLimited: boolean; isRoundTrip: boolean; continuationStatus: ContinuationStatus; showVerification: boolean }) => (
   <article className="option-card" data-testid="cash-candidate-card" data-offer-id={cashOffer.cash_offer_id || cashOffer.offer_id} aria-labelledby="cash-option-title">
     <div className="option-card__header">
       <div>
         <p className="option-type">Cash option</p>
-        <h3 id="cash-option-title">Best Cash Option</h3>
+        <h3 id="cash-option-title">Selected cash itinerary</h3>
       </div>
       {cashOffer.currency && <span className="data-source">{cashOffer.currency}</span>}
     </div>
@@ -1019,40 +1140,47 @@ const CashCandidate = ({ cashOffer, isLimited, isRoundTrip, continuationStatus }
         This cash itinerary may route differently than the award option.
       </p>
     )}
-    <CashVerification offer={cashOffer} />
+    {showVerification && <CashVerification offer={cashOffer} />}
   </article>
 );
 
 const CashAlternatives = ({ offers, isRoundTrip }: { offers: CashOffer[]; isRoundTrip: boolean }) => {
   if (!offers.length) return null;
+  const renderAlternative = (offer: CashOffer, index: number) => {
+    const hasCompleteTimes = !isRoundTrip && offer?.time_data_status === 'complete' && offer?.dep_time && offer?.arr_time;
+    return (
+      <article className="cash-alternative-row" key={`${offer?.offer_id || 'cash-alternative'}-${index}`} data-testid="cash-alternative-row">
+        <div className="cash-alternative-row__lead">
+          <strong>{offer?.currency === 'EUR' || !offer?.currency ? '€' : ''}{offer?.price}</strong>
+          {offer?.currency && offer.currency !== 'EUR' && <span>{offer.currency}</span>}
+          {!isRoundTrip && offer?.airline && <span>{offer.airline}</span>}
+        </div>
+        <div className="cash-alternative-row__facts">
+          {isRoundTrip && <span>{offer.itinerary_state === 'complete' ? 'Round-trip details available' : offer.itinerary_state === 'price_only' ? 'Round-trip price signal' : 'Outbound details only'}</span>}
+          {hasCompleteTimes && <span>{offer.dep_time}–{offer.arr_time}</span>}
+          {!isRoundTrip && Number.isFinite(offer?.durationMin) && (
+            <span>{Math.floor(offer.durationMin / 60)}h{offer.durationMin % 60 ? ` ${offer.durationMin % 60}m` : ''}</span>
+          )}
+          {!isRoundTrip && Number.isFinite(offer?.stops) && <span>{offer.stops === 0 ? 'Nonstop' : `${offer.stops} stop${offer.stops === 1 ? '' : 's'}`}</span>}
+        </div>
+        {!isRoundTrip && !hasCompleteTimes && (
+          <p className="cash-alternative-row__disclosure">Schedule details unavailable. Verify with the provider.</p>
+        )}
+        {isRoundTrip && offer.returnDate && <p className="cash-alternative-row__disclosure">Requested return: {formatTravelDate(offer.returnDate)}. Verify return details before purchase.</p>}
+      </article>
+    );
+  };
   return (
     <section className="cash-alternatives" aria-labelledby="cash-alternatives-title" data-testid="cash-alternatives">
-      <h3 id="cash-alternatives-title">Other viable cash options</h3>
+      <h3 id="cash-alternatives-title">Main cash alternative</h3>
       <div className="cash-alternatives__list">
-        {offers.map((offer, index) => {
-          const hasCompleteTimes = !isRoundTrip && offer?.time_data_status === 'complete' && offer?.dep_time && offer?.arr_time;
-          return (
-            <article className="cash-alternative-row" key={`${offer?.offer_id || 'cash-alternative'}-${index}`} data-testid="cash-alternative-row">
-              <div className="cash-alternative-row__lead">
-                <strong>{offer?.currency === 'EUR' || !offer?.currency ? '€' : ''}{offer?.price}</strong>
-                {offer?.currency && offer.currency !== 'EUR' && <span>{offer.currency}</span>}
-                {!isRoundTrip && offer?.airline && <span>{offer.airline}</span>}
-              </div>
-              <div className="cash-alternative-row__facts">
-                {isRoundTrip && <span>{offer.itinerary_state === 'complete' ? 'Round-trip details available' : offer.itinerary_state === 'price_only' ? 'Round-trip price signal' : 'Outbound details only'}</span>}
-                {hasCompleteTimes && <span>{offer.dep_time}–{offer.arr_time}</span>}
-                {!isRoundTrip && Number.isFinite(offer?.durationMin) && (
-                  <span>{Math.floor(offer.durationMin / 60)}h{offer.durationMin % 60 ? ` ${offer.durationMin % 60}m` : ''}</span>
-                )}
-                {!isRoundTrip && Number.isFinite(offer?.stops) && <span>{offer.stops === 0 ? 'Nonstop' : `${offer.stops} stop${offer.stops === 1 ? '' : 's'}`}</span>}
-              </div>
-              {!isRoundTrip && !hasCompleteTimes && (
-                <p className="cash-alternative-row__disclosure">Schedule details unavailable. Verify with the provider.</p>
-              )}
-              {isRoundTrip && offer.returnDate && <p className="cash-alternative-row__disclosure">Requested return: {formatTravelDate(offer.returnDate)}. Verify return details before purchase.</p>}
-            </article>
-          );
-        })}
+        {renderAlternative(offers[0], 0)}
+        {offers.length > 1 && (
+          <details className="more-alternatives">
+            <summary>More returned alternatives</summary>
+            {offers.slice(1).map((offer, index) => renderAlternative(offer, index + 1))}
+          </details>
+        )}
       </div>
     </section>
   );
@@ -1068,13 +1196,12 @@ const AwardCandidate = ({
   awardTrust: AwardTrustPresentation;
 }) => {
   const bestProgram = result?.programs?.[0];
-  const verificationUrl = safeExternalUrl(bestProgram?.url);
   return (
     <article className="option-card" data-testid="award-candidate-card" aria-labelledby="award-option-title">
       <div className="option-card__header">
         <div>
           <p className="option-type">Award option</p>
-          <h3 id="award-option-title">{getAwardOptionHeading(awardTrust)}</h3>
+          <h3 id="award-option-title">Award evidence</h3>
         </div>
         <span className="data-source">{awardTrust.freshnessLabel}</span>
       </div>
@@ -1095,9 +1222,6 @@ const AwardCandidate = ({
         </p>
       )}
       <AwardTrustNotice presentation={awardTrust} />
-      {verificationUrl
-        ? <a className="verification-link" href={verificationUrl} target="_blank" rel="noopener noreferrer">Verify with program</a>
-        : <p className="verification-guidance">Check award availability manually with the loyalty program.</p>}
     </article>
   );
 };
@@ -1135,56 +1259,48 @@ const CashUnavailable = () => (
   </article>
 );
 
-const ConfidenceAndVerification = ({
-  decision,
-  awardTrust,
-}: {
-  decision: any;
-  awardTrust: AwardTrustPresentation;
-}) => (
-  <section className="result-section confidence-section" aria-labelledby="confidence-title">
-    <div>
-      <h2 id="confidence-title">Confidence</h2>
-      <p className="confidence-value" data-testid="decision-confidence">{decision?.confidence || 'Not available'}</p>
-      <p className="confidence-note">Confidence is shown as provided by the current analysis, without a percentage.</p>
-    </div>
-    <div>
-      <h2>Next Action</h2>
-      <p className="next-action"><ArrowRight aria-hidden="true" />
-        {awardTrust.verificationNotice || 'Check availability manually on the official program site.'}
-      </p>
-    </div>
-  </section>
-);
-
 const EvidenceAndCaveats = ({
   result,
   awardStatus,
   cashStatus,
   awardTrust,
+  cashOffer,
 }: {
   result: any;
   awardStatus: PaneStatus;
   cashStatus: PaneStatus;
   awardTrust: AwardTrustPresentation;
+  cashOffer?: CashOffer;
 }) => {
   const limited = result?.verified_identical_routing !== true;
+  const bestProgram = result?.programs?.[0];
   return (
-    <section className="result-section evidence-section" aria-labelledby="evidence-title">
-      <div className="evidence-title-row">
+    <details className="result-section evidence-section" data-testid="technical-details">
+      <summary>
         <Info aria-hidden="true" />
-        <h2 id="evidence-title">Evidence &amp; Caveats</h2>
+        <span id="evidence-title">Technical evidence and caveats</span>
+      </summary>
+      <div className="evidence-section__content">
+        <ul>
+          {limited && <li data-testid="routing-disclosure">Cash and award options are not verified as identical itineraries. Routing or carrier may differ.</li>}
+          {limited && <li data-testid="limited-comparison-disclosure">The comparison is limited and should be treated as a directional decision signal.</li>}
+          {result && <li data-testid="award-trust-evidence">{awardTrust.supportingCopy}</li>}
+          {result && awardTrust.verificationNotice && <li>{awardTrust.verificationNotice}</li>}
+          {cashStatus !== 'success' && <li>No cash option is available in the current analysis.</li>}
+          {awardStatus !== 'success' && <li>No award option is available in the current analysis.</li>}
+          <li>Verify prices, schedules, availability and booking rules before purchase.</li>
+        </ul>
+        <dl className="technical-references" aria-label="Evidence references">
+          {result?.decision?.evaluated_cash_offer_id && <div><dt>cash_offer_id</dt><dd>{result.decision.evaluated_cash_offer_id}</dd></div>}
+          {result?.decision?.evaluated_award_option_id && <div><dt>award_option_id</dt><dd>{result.decision.evaluated_award_option_id}</dd></div>}
+          {result?.decision?.itinerary_ref && <div><dt>itinerary_ref</dt><dd>{result.decision.itinerary_ref}</dd></div>}
+          {cashOffer?.source && <div><dt>cash_source</dt><dd>{cashOffer.source}</dd></div>}
+          {cashOffer?.observed_at && <div><dt>cash_observed_at</dt><dd>{cashOffer.observed_at}</dd></div>}
+          {(bestProgram?.source || bestProgram?.data_source) && <div><dt>award_source</dt><dd>{bestProgram.source || bestProgram.data_source}</dd></div>}
+          {resolveAwardCheckedAt(bestProgram) && <div><dt>award_observed_at</dt><dd>{resolveAwardCheckedAt(bestProgram)}</dd></div>}
+        </dl>
       </div>
-      <ul>
-        {limited && <li data-testid="routing-disclosure">Cash and award options are not verified as identical itineraries. Routing or carrier may differ.</li>}
-        {limited && <li data-testid="limited-comparison-disclosure">The comparison is limited and should be treated as a directional decision signal.</li>}
-        {result && <li data-testid="award-trust-evidence">{awardTrust.supportingCopy}</li>}
-        {result && awardTrust.verificationNotice && <li>{awardTrust.verificationNotice}</li>}
-        {cashStatus !== 'success' && <li>No cash option is available in the current analysis.</li>}
-        {awardStatus !== 'success' && <li>No award option is available in the current analysis.</li>}
-        <li>Verify prices, schedules, availability and booking rules before purchase.</li>
-      </ul>
-    </section>
+    </details>
   );
 };
 
@@ -1551,21 +1667,34 @@ export default function App() {
 
         {hasSuccessfulPane && (
           <div className="result-flow" data-testid="result-flow">
-            {awardStatus === 'success' && result && <DecisionSummary result={result} cashAvailable={cashStatus === 'success'} cashUnavailable={cashUnavailable} tripType={tripType} awardTrust={awardTrust} />}
+            {awardStatus === 'success' && result && (
+              <DecisionSummary
+                result={result}
+                cashAvailable={cashStatus === 'success'}
+                cashUnavailable={cashUnavailable}
+                tripType={tripType}
+                awardTrust={awardTrust}
+                cashOffer={cashOffer}
+                cashAlternatives={cashAlternatives}
+                cashGuidance={cashData?.cash_guidance}
+              />
+            )}
 
             <section className="result-section options-section" aria-labelledby="options-title">
-              <h2 id="options-title">Best Options</h2>
+              <div className="section-heading-row">
+                <span aria-hidden="true" />
+                <h2 id="options-title">Selected evidence</h2>
+              </div>
               <div className="options-grid" data-testid="options-grid">
                 <div className="cash-option-stack" data-testid="cash-option-stack">
-                  {cashStatus === 'success' && cashOffer ? <CashCandidate cashOffer={cashOffer} isLimited={isLimited} isRoundTrip={isRoundTrip} continuationStatus={continuationState.offerId === cashOffer.offer_id ? continuationState.status : 'idle'} /> : cashUnavailable ? <CashUnavailable /> : <PaneUnavailable kind="Cash" status={cashStatus} />}
+                  {cashStatus === 'success' && cashOffer ? <CashCandidate cashOffer={cashOffer} isLimited={isLimited} isRoundTrip={isRoundTrip} continuationStatus={continuationState.offerId === cashOffer.offer_id ? continuationState.status : 'idle'} showVerification={!result} /> : cashUnavailable ? <CashUnavailable /> : <PaneUnavailable kind="Cash" status={cashStatus} />}
                   {cashStatus === 'success' && cashOffer && <CashAlternatives offers={cashAlternatives} isRoundTrip={isRoundTrip} />}
                 </div>
                 {awardStatus === 'success' && result ? <AwardCandidate result={result} tripType={tripType} awardTrust={awardTrust} /> : <PaneUnavailable kind="Award" status={awardStatus} awardTrust={awardTrust} />}
               </div>
             </section>
 
-            {awardStatus === 'success' && result && <ConfidenceAndVerification decision={result.decision} awardTrust={awardTrust} />}
-            <EvidenceAndCaveats result={result} awardStatus={awardStatus} cashStatus={cashStatus} awardTrust={awardTrust} />
+            <EvidenceAndCaveats result={result} awardStatus={awardStatus} cashStatus={cashStatus} awardTrust={awardTrust} cashOffer={cashOffer} />
 
             <ResultActions content={shareContent} onPrint={handlePrint} />
 
