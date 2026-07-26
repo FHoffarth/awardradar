@@ -81,3 +81,42 @@ This preserves explicit founder approval over every Production release and preve
 - Verified Railway Staging source branch: `staging`
 - Verified Railway Staging auto-deploy state: enabled
 - Verified live commit on both environments at time of confirmation: `536e0b23665c2a36ec504dad928a9f79a9715799`
+
+## AR-DEC-003 — Decision Contract V1
+
+- **Decision ID:** AR-DEC-003
+- **Date:** 2026-07-26
+- **Status:** DECIDED
+- **Decided by:** Flo (Florian Hoffarth)
+
+### Decision
+
+Decision Contract V1 is adopted as the binding contract for the `decision` block emitted by `build_decision()` and consumed by the `/app` Results UI. The full field reference, vocabularies and fail-closed matrix are specified in [decision_contract_v1.md](decision_contract_v1.md), which is the authoritative document; this entry records the decision and its policy.
+
+### Contract policy
+
+- Internal tier tokens (`book_miles`, `lean_miles`, `consider`, `pay_cash`) remain internal. They exist only in `_TIER_META` for tier calculation and must not appear in any emitted API value.
+- The external verdict vocabulary is a closed set: `miles_value_supported`, `miles_value_leaning`, `comparison_inconclusive`, `cash_value_supported`, `availability_only`, `insufficient_data`.
+- There are no compatibility aliases for `book_miles` or `pay_cash`. A consumer sending or expecting an old token receives the conservative fallback.
+- Unknown or legacy input fails closed to `insufficient_data`, never to a value-bearing verdict.
+- External verdicts describe evidence, not booking instructions. No emitted field may carry an imperative such as "book", "buy" or "pay now".
+- Every external emission point routes through `normalize_verdict()`. A new surface that emits a verdict must do the same.
+- Decision Contract V1 does not authorize live provider usage, Level 2, or any stronger recommendation framing.
+- seats.aero remains disabled pending written commercial approval. This contract does not change that state.
+
+### Consequences
+
+- Changes to the field set, either vocabulary, or the fail-closed behaviour require explicit review and a corresponding change to `tests/test_decision_contract_v1.py`.
+- The `Recommendation` vs `Decision signal` gate in `/app` keys exclusively on the external verdict vocabulary. Its semantics are unchanged by V1; only the token names changed.
+- User-facing export copy (summary, forum, email, native share) is driven by `SIGNAL_COPY`, not by raw contract enums. No contract enum may be interpolated into user-visible text.
+- This entry does not supersede AR-DEC-001: `/app` remains the only canonical product surface, and `/tool` remains frozen.
+
+### Evidence
+
+- Contract specification: [decision_contract_v1.md](decision_contract_v1.md)
+- Implementation: PR #19 on `feature/decision-contract-v1`
+- Implementation commit: `2104a02d7cea2aa88088c2032a68c7c930f34690`
+- Export-copy hardening commit: see `fix: humanize decision contract exports` on the same branch
+- Contract tests: `tests/test_decision_contract_v1.py`
+- Export enum-leakage tests: `awardradar_sources/awardradar_sources/google/src/App.test.tsx`
+- Not merged, not deployed at the time of this entry.

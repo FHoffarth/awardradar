@@ -666,7 +666,9 @@ const SIGNAL_COPY: Record<string, { verdict: string; why: string }> = {
     why: 'The available comparison indicates strong value for the requested date based on the estimated cash fare and miles cost.',
   },
   promising_miles_value: {
-    verdict: 'Promising Award Value Signal',
+    // No trailing "Signal" here: getDecisionCopy() appends " signal" for the
+    // limited-comparison case, so every entry must be the bare value phrase.
+    verdict: 'Promising Award Value',
     why: 'The estimated mileage requirement compares reasonably with the evaluated cash offer.',
   },
   mixed_value: {
@@ -703,10 +705,13 @@ const SIGNAL_COPY: Record<string, { verdict: string; why: string }> = {
   },
 };
 
+// Decision Contract V1: the backend emits only evidence-describing verdicts.
+// These three carry enough evidence for the "Recommendation" framing; every other
+// verdict (including unknown or legacy tokens) falls back to "Decision signal".
 const RECOMMENDATION_ELIGIBLE_VERDICTS = new Set([
-  'book_miles',
-  'lean_miles',
-  'pay_cash',
+  'miles_value_supported',
+  'miles_value_leaning',
+  'cash_value_supported',
 ]);
 
 function isBackendRecommendationEligible(decision: DecisionResult | undefined): boolean {

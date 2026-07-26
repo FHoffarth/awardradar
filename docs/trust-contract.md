@@ -41,7 +41,7 @@ Implementation (provider-free, deterministic):
 | live_provider_reported | "Checked just now · Provider-reported" | external value verdict, if routing+ownership complete | mandatory |
 | cached_recent | "Last checked X ago" | external value verdict, if complete | mandatory + "may have changed" |
 | cached_stale | "Last checked X hours ago" | backend evidence-bounded signal only | "This result may no longer be available." |
-| estimated | "Estimated, not confirmed availability" | backend evidence-bounded signal only; never `book_miles` | mandatory; no seat claim |
+| estimated | "Estimated, not confirmed availability" | backend evidence-bounded signal only; never `miles_value_supported` | mandatory; no seat claim |
 | partial | "Partial result" (+ what is known/missing) | none | verify missing details |
 | no_results | provider-reported | none | different dates/programs may differ |
 | rate_limited | "Search temporarily unavailable due to provider limits." | none | retry later |
@@ -58,7 +58,10 @@ A positive recommendation is blocked unless **all** hold:
 - `itineraryOwnershipVerified === true`
 - not a round trip with a missing return leg
 - backend verdict is one of the centralized recommendation-eligible values:
-  `book_miles`, `lean_miles`, or `pay_cash`
+  `miles_value_supported`, `miles_value_leaning`, or `cash_value_supported`
+  (Decision Contract V1 vocabulary; these replaced the pre-V1 internal tokens
+  `book_miles`, `lean_miles` and `pay_cash`, which are no longer emitted — see
+  [decision_contract_v1.md](decision_contract_v1.md))
 - the decision carries the canonical `evaluated_cash_offer_id`
 
 `cached_stale` and `estimated` never invent a generic verdict. They may show only

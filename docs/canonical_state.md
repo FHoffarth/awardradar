@@ -77,6 +77,40 @@ This governance model is documented in detail in
 the currently verified live commit as historical evidence, but Git alone never
 proves that a commit is live.
 
+## Decision contract
+
+Added 2026-07-26. Evidence scope: branch `feature/decision-contract-v1` at
+`2104a02d7cea2aa88088c2032a68c7c930f34690` (PR #19, Draft). This work is **not
+merged into `main` and not deployed**, so it does not yet describe the state of
+the canonical integration branch.
+
+Decision Contract V1 is adopted as the binding contract for the `decision` block
+emitted by `build_decision()` and consumed by the `/app` Results UI. It is
+recorded as [AR-DEC-003](decision_log.md#ar-dec-003--decision-contract-v1) and
+specified in [decision_contract_v1.md](decision_contract_v1.md), which is
+authoritative for the field reference, vocabularies and fail-closed matrix.
+
+Repository-backed properties of the contract:
+
+- The internal tier tokens `book_miles`, `lean_miles`, `consider` and `pay_cash`
+  exist only in `_TIER_META` in `app.py` and are never emitted. Both external
+  emission points (`build_decision()` and `/api/top-opportunities`) route through
+  `normalize_verdict()`.
+- The external verdict vocabulary is closed: `miles_value_supported`,
+  `miles_value_leaning`, `comparison_inconclusive`, `cash_value_supported`,
+  `availability_only`, `insufficient_data`.
+- There are no compatibility aliases for the pre-V1 tokens. Unknown or legacy
+  input fails closed to `insufficient_data`.
+- External verdicts describe evidence, not booking instructions.
+- User-facing export copy (summary, forum, email, native share) is rendered from
+  `SIGNAL_COPY` in `App.tsx`; no contract enum is interpolated into user-visible
+  text.
+
+The contract does not authorize live provider usage, Level 2, or a stronger
+recommendation framing. seats.aero remains disabled pending written commercial
+approval; the contract does not change that state and written approval is still
+not evidenced in the repository.
+
 ## Current repository-backed gaps
 
 - React `/app` does not expose the backend round-trip/continuation capability.
@@ -86,6 +120,8 @@ proves that a commit is live.
 - Written provider approval for external/commercial seats.aero use is not
   evidenced in the repository.
 - `intelligence/` is not integrated into the Flask application.
+- Decision Contract V1 (AR-DEC-003) is adopted but lives only on
+  `feature/decision-contract-v1`; it is not merged into `main` and not deployed.
 - Some historical work-package documents describe branch or planning states
   that no longer represent the current repository. Their status banners define
   how they should be read.
@@ -96,6 +132,8 @@ proves that a commit is live.
 - `deployment_governance.md`: release model, approval gates, evidence rules and
   rollback procedure for Staging and Production.
 - `decision_log.md`: attributable, durable product and architecture decisions.
+- `decision_contract_v1.md`: authoritative field reference, vocabularies and
+  fail-closed matrix for the emitted `decision` block (AR-DEC-003).
 - `awardradar_roadmap_memo.md`: current gates, open work and future sequencing.
 - `README.md`: concise repository orientation.
 - `CLAUDE.md`: working context derived from the canonical state; not an

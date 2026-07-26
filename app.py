@@ -3232,6 +3232,41 @@ _TIER_SIGNAL = {
 _VERIFY_GUIDANCE = ("Confirm final availability, mileage price, taxes and fees with "
                     "the official airline or loyalty program.")
 
+# --- Decision Contract V1: verdict safety -----------------------------------
+# `_TIER_META[...]["recommendation"]` stays an INTERNAL tier token. Two of its
+# values ("book_miles", "pay_cash") read as imperative product decisions, so they
+# must never leave the process. Every externally emitted verdict is normalized
+# through `_SAFE_VERDICT` into evidence-describing vocabulary. The mapping is a
+# 1:1 rename of the existing states - no state is added, removed or merged, so
+# the Recommendation-vs-Decision-signal gate keeps its exact semantics.
+_SAFE_VERDICT = {
+    "book_miles": "miles_value_supported",
+    "lean_miles": "miles_value_leaning",
+    "consider":   "comparison_inconclusive",
+    "pay_cash":   "cash_value_supported",
+}
+# Verdict states that build_decision emits without consulting the tier ladder.
+_SAFE_VERDICT_STATES = frozenset(_SAFE_VERDICT.values()) | {
+    "availability_only",
+    "insufficient_data",
+}
+
+
+def normalize_verdict(recommendation: str | None, *, is_live: bool) -> str:
+    """Map an internal tier recommendation onto the safe external verdict vocabulary.
+
+    Fail-closed: unknown, missing or legacy tokens degrade to "insufficient_data"
+    rather than to any value-bearing verdict. Static (estimated) award data can
+    never reach the strongest verdict - it is downgraded exactly as before, to
+    the inconclusive state.
+    """
+    safe = _SAFE_VERDICT.get(recommendation)
+    if safe is None:
+        return "insufficient_data"
+    if not is_live and safe == "miles_value_supported":
+        return "comparison_inconclusive"
+    return safe
+
 
 def _freshness_label(is_live_award: bool, cash_is_real: bool) -> str:
     award = "Award data signal" if is_live_award else "Award estimate"
@@ -3369,11 +3404,7 @@ def build_decision(best: dict | None, cash_eur, cash_is_real: bool,
     grade = best.get("grade") or sweet_spot_grade(best["cpm"])
     signal = _TIER_SIGNAL.get(grade["tier"], "mixed_value")
     decision["tier"] = grade["tier"]
-    decision["verdict"] = (
-        grade["recommendation"]
-        if is_live
-        else ("consider" if grade["recommendation"] == "book_miles" else grade["recommendation"])
-    )
+    decision["verdict"] = normalize_verdict(grade.get("recommendation"), is_live=is_live)
     decision["signal"] = signal
     decision["label"] = _SIGNAL_LABEL[signal]
     decision["estimated_value"] = round(best["cpm"], 1)
@@ -4357,7 +4388,10 @@ def top_opportunities():
                         "program": p["program"], "miles": p["miles"],
                         "surcharge": p["surcharge"], "cpm": p["cpm"],
                         "grade_tier": g["tier"], "grade_label": g.get("label", ""),
-                        "recommendation": g.get("recommendation", "book_miles"),
+                        # Discovery rows come from live provider availability, but the
+                        # internal tier token is still normalized before it leaves the
+                        # process (Decision Contract V1 verdict safety).
+                        "recommendation": normalize_verdict(g.get("recommendation"), is_live=True),
                         "reasoning": g.get("reasoning", ""),
                         "direct": p.get("direct", False), "seats": p.get("seats", 0),
                         "airlines": p.get("airlines", ""),
