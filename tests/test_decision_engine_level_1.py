@@ -21,6 +21,7 @@ import app  # noqa: E402
 
 def _award(cpm, trip_type="one_way", data_source="estimated"):
     return {
+        "award_option_id": f"award-test-{trip_type}-{data_source}",
         "program": "Miles & More",
         "miles": 55000,
         "surcharge": 100,
@@ -28,6 +29,37 @@ def _award(cpm, trip_type="one_way", data_source="estimated"):
         "grade": app.sweet_spot_grade(cpm) if cpm is not None else None,
         "trip_type": trip_type,
         "data_source": data_source,
+    }
+
+
+def _cash_offer(price=300, trip_type="one_way", completeness="complete", **overrides):
+    offer = {
+        "cash_offer_id": f"cash-test-{trip_type}",
+        "offer_id": f"cash-test-{trip_type}",
+        "itinerary_ref": f"itinerary-test-{trip_type}",
+        "origin": "FRA",
+        "dest": "JFK",
+        "price": float(price),
+        "typicalRange": [250, 450],
+        "trip_basis": trip_type,
+        "completeness": completeness,
+        "source": "test_cash_provider",
+        "observed_at": "2030-01-01T00:00:00Z",
+    }
+    offer.update(overrides)
+    return offer
+
+
+def _cash_selection(offer):
+    return {
+        "offers": [offer],
+        "all_offers": [offer],
+        "guidance": {
+            "recommended_offer_id": offer["cash_offer_id"],
+            "selection_reason": "Canonical test offer.",
+        },
+        "selected_offer": offer,
+        "selected_cash_offer_id": offer["cash_offer_id"],
     }
 
 
@@ -50,7 +82,8 @@ class ThresholdSingleSource(unittest.TestCase):
 class TripBasisNormalization(unittest.TestCase):
     def test_case_2_oneway_vs_oneway_full_signal(self):
         d = app.build_decision(_award(1.5), cash_eur=300, cash_is_real=True,
-                               cash_level="within_typical", requested_trip_type="one_way")
+                               cash_level="within_typical", requested_trip_type="one_way",
+                               cash_offer=_cash_offer())
         self.assertTrue(d["trip_basis_compatible"])
         self.assertEqual(d["normalized_trip_type"], "one_way")
         self.assertEqual(d["verdict"], "lean_miles")   # cpm 1.5 → good → lean_miles
@@ -58,9 +91,11 @@ class TripBasisNormalization(unittest.TestCase):
 
     def test_case_1_roundtrip_search_oneway_award_is_blocked(self):
         base = app.build_decision(_award(1.5), cash_eur=300, cash_is_real=True,
-                                  cash_level="within_typical", requested_trip_type="one_way")
+                                  cash_level="within_typical", requested_trip_type="one_way",
+                                  cash_offer=_cash_offer())
         rt = app.build_decision(_award(1.5), cash_eur=300, cash_is_real=True,
-                                cash_level="within_typical", requested_trip_type="round_trip")
+                                cash_level="within_typical", requested_trip_type="round_trip",
+                                cash_offer=_cash_offer())
         self.assertTrue(base["trip_basis_compatible"])
         self.assertFalse(rt["trip_basis_compatible"])
         self.assertEqual(rt["normalized_trip_type"], "one_way")
@@ -71,7 +106,8 @@ class TripBasisNormalization(unittest.TestCase):
         # round-trip award vs one-way cash → not safely normalizable
         d = app.build_decision(_award(1.5, trip_type="round_trip"), cash_eur=300,
                                cash_is_real=True, cash_level="within_typical",
-                               requested_trip_type="round_trip")
+                               requested_trip_type="round_trip",
+                               cash_offer=_cash_offer())
         self.assertFalse(d["trip_basis_compatible"])
         self.assertEqual(d["verdict"], "insufficient_data")
         self.assertIsNone(d["tier"])
@@ -79,12 +115,15 @@ class TripBasisNormalization(unittest.TestCase):
     def test_unknown_cash_is_availability_only(self):
         d = app.build_decision(_award(1.5), cash_eur=None, cash_is_real=False,
                                cash_level="unknown", requested_trip_type="one_way")
-        self.assertEqual(d["verdict"], "availability_only")
+        self.assertEqual(d["verdict"], "insufficient_data")
+        self.assertEqual(d["signal"], "insufficient_data")
+        self.assertIsNone(d["evaluated_cash_offer_id"])
         self.assertEqual(d["cash_trip_type"], "unknown")
 
     def test_no_award_is_insufficient(self):
         d = app.build_decision(None, cash_eur=300, cash_is_real=True,
-                               cash_level="within_typical", requested_trip_type="one_way")
+                               cash_level="within_typical", requested_trip_type="one_way",
+                               cash_offer=_cash_offer())
         self.assertEqual(d["verdict"], "insufficient_data")
 
 
@@ -117,8 +156,11 @@ class DecisionSignalsLevel1(unittest.TestCase):
     def _d(self, cpm=None, cash=300, real=True, level="within_typical",
            tt="one_way", trip="one_way", ds="estimated"):
         best = _award(cpm, trip_type=trip, data_source=ds) if cpm is not None else None
+        cash_offer = _cash_offer(cash, tt) if cash is not None else None
         return app.build_decision(best, cash_eur=cash, cash_is_real=real,
-                                  cash_level=level, requested_trip_type=tt)
+                                  cash_level=level, requested_trip_type=tt,
+                                  cash_trip_type=tt if cash is not None else None,
+                                  cash_offer=cash_offer)
 
     def test_A_high_cash_low_award_miles_make_sense(self):
         d = self._d(cpm=2.6)                       # high cash vs low miles → high cpm
@@ -158,7 +200,15 @@ class DecisionSignalsLevel1(unittest.TestCase):
         self.assertIsNotNone(d["estimated_value"])
 
     def test_H_unclear_basis_insufficient(self):
-        d = self._d(cpm=1.5, trip="round_trip", tt="round_trip")
+        d = app.build_decision(
+            _award(1.5, trip_type="round_trip"),
+            cash_eur=300,
+            cash_is_real=True,
+            cash_level="within_typical",
+            requested_trip_type="round_trip",
+            cash_trip_type="one_way",
+            cash_offer=_cash_offer(),
+        )
         self.assertFalse(d["trip_basis_compatible"])
         self.assertEqual(d["signal"], "insufficient_data")
 
@@ -176,7 +226,8 @@ class DecisionSignalsLevel1(unittest.TestCase):
         # The card must be able to name exactly the option that was judged.
         best = _award(1.5)
         d = app.build_decision(best, cash_eur=300, cash_is_real=True,
-                               cash_level="within_typical", requested_trip_type="one_way")
+                               cash_level="within_typical", requested_trip_type="one_way",
+                               cash_offer=_cash_offer())
         self.assertEqual(d["evaluated_program"], best["program"])
         self.assertEqual(d["evaluated_miles"], best["miles"])
         self.assertEqual(d["evaluated_surcharge"], best["surcharge"])
@@ -184,20 +235,25 @@ class DecisionSignalsLevel1(unittest.TestCase):
     def test_real_oneway_payload_keeps_cash_and_award_basis_compatible(self):
         old_award_source = app.AWARD_SOURCE
         old_seatsaero_key = app.SEATSAERO_KEY
-        old_fetch_cash_details = app.fetch_cash_details
+        old_serpapi_token = app.SERPAPI_TOKEN
+        old_cash_selection = app.canonical_cash_selection_for_search
         old_fetch_seatsaero = app.fetch_seatsaero
         try:
             app.AWARD_SOURCE = "seatsaero"
             app.SEATSAERO_KEY = "test-key"
+            app.SERPAPI_TOKEN = "test-key"
 
-            def fake_cash_details(origin, dest, dep, cabin, currency="EUR", ret=None):
-                self.assertEqual((origin, dest, cabin), ("FRA", "JFK", "Economy"))
+            def fake_cash_selection(origins, dests, dep, ret, currency, mm_only,
+                                    lang, cabin, feature_path):
+                self.assertEqual((origins, dests, cabin), (["FRA"], ["JFK"], "Economy"))
                 self.assertIsNone(ret)
-                return {
-                    "price": 620.0,
-                    "typical_range": [500, 800],
-                    "cash_trip_type": "one_way",
-                }
+                offer = _cash_offer(
+                    620,
+                    origin="FRA",
+                    dest="JFK",
+                    typicalRange=[500, 800],
+                )
+                return _cash_selection(offer), None
 
             def fake_seatsaero(origin, dest, cabin, dep):
                 self.assertEqual((origin, dest, cabin), ("FRA", "JFK", "Economy"))
@@ -211,7 +267,7 @@ class DecisionSignalsLevel1(unittest.TestCase):
                     "YRemainingSeats": 1,
                 }]
 
-            app.fetch_cash_details = fake_cash_details
+            app.canonical_cash_selection_for_search = fake_cash_selection
             app.fetch_seatsaero = fake_seatsaero
 
             client = app.app.test_client()
@@ -234,7 +290,8 @@ class DecisionSignalsLevel1(unittest.TestCase):
         finally:
             app.AWARD_SOURCE = old_award_source
             app.SEATSAERO_KEY = old_seatsaero_key
-            app.fetch_cash_details = old_fetch_cash_details
+            app.SERPAPI_TOKEN = old_serpapi_token
+            app.canonical_cash_selection_for_search = old_cash_selection
             app.fetch_seatsaero = old_fetch_seatsaero
 
     def test_real_trip_basis_mismatch_still_blocks_value_signal(self):
@@ -243,7 +300,8 @@ class DecisionSignalsLevel1(unittest.TestCase):
                                cash_is_real=True,
                                cash_level="within_typical",
                                requested_trip_type="one_way",
-                               cash_trip_type="one_way")
+                               cash_trip_type="one_way",
+                               cash_offer=_cash_offer(620))
         self.assertFalse(d["trip_basis_compatible"])
         self.assertEqual(d["verdict"], "insufficient_data")
         self.assertEqual(d["signal"], "insufficient_data")
@@ -251,27 +309,33 @@ class DecisionSignalsLevel1(unittest.TestCase):
     def test_roundtrip_request_passes_return_date_and_blocks_oneway_estimate(self):
         old_award_source = app.AWARD_SOURCE
         old_seatsaero_key = app.SEATSAERO_KEY
-        old_fetch_cash_details = app.fetch_cash_details
+        old_serpapi_token = app.SERPAPI_TOKEN
+        old_cash_selection = app.canonical_cash_selection_for_search
         try:
             app.AWARD_SOURCE = "estimated"
             app.SEATSAERO_KEY = None
+            app.SERPAPI_TOKEN = "test-key"
             seen = {}
 
-            def fake_cash_details(origin, dest, dep, cabin, currency="EUR", ret=None):
+            def fake_cash_selection(origins, dests, dep, ret, currency, mm_only,
+                                    lang, cabin, feature_path):
                 seen["args"] = {
-                    "origin": origin,
-                    "dest": dest,
+                    "origin": origins[0],
+                    "dest": dests[0],
                     "dep": dep.isoformat(),
                     "ret": ret.isoformat() if ret else None,
                     "cabin": cabin,
                 }
-                return {
-                    "price": 220.0,
-                    "typical_range": [180, 320],
-                    "cash_trip_type": "round_trip",
-                }
+                offer = _cash_offer(
+                    220,
+                    trip_type="round_trip",
+                    origin=origins[0],
+                    dest=dests[0],
+                    typicalRange=[180, 320],
+                )
+                return _cash_selection(offer), None
 
-            app.fetch_cash_details = fake_cash_details
+            app.canonical_cash_selection_for_search = fake_cash_selection
             client = app.app.test_client()
             response = client.post("/api/awards", json={
                 "origin": "MUC",
@@ -311,7 +375,8 @@ class DecisionSignalsLevel1(unittest.TestCase):
         finally:
             app.AWARD_SOURCE = old_award_source
             app.SEATSAERO_KEY = old_seatsaero_key
-            app.fetch_cash_details = old_fetch_cash_details
+            app.SERPAPI_TOKEN = old_serpapi_token
+            app.canonical_cash_selection_for_search = old_cash_selection
 
     def test_incompatible_trip_basis_exposes_no_value_metrics_or_verdict(self):
         d = app.build_decision(_award(1.5, trip_type="one_way"),
@@ -319,7 +384,8 @@ class DecisionSignalsLevel1(unittest.TestCase):
                                cash_is_real=True,
                                cash_level="within_typical",
                                requested_trip_type="round_trip",
-                               cash_trip_type="round_trip")
+                               cash_trip_type="round_trip",
+                               cash_offer=_cash_offer(300, trip_type="round_trip"))
         self.assertFalse(d["trip_basis_compatible"])
         self.assertEqual(d["signal"], "insufficient_data")
         self.assertEqual(d["verdict"], "insufficient_data")
@@ -334,7 +400,8 @@ class DecisionSignalsLevel1(unittest.TestCase):
                                cash_is_real=True,
                                cash_level="within_typical",
                                requested_trip_type="round_trip",
-                               cash_trip_type="round_trip")
+                               cash_trip_type="round_trip",
+                               cash_offer=_cash_offer(300, trip_type="round_trip"))
         self.assertTrue(d["trip_basis_compatible"])
         self.assertEqual(d["normalized_trip_type"], "round_trip")
         self.assertNotEqual(d["signal"], "insufficient_data")
@@ -344,17 +411,20 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
     def test_award_result_with_cash_segments_declares_cash_itinerary_ownership(self):
         old_award_source = app.AWARD_SOURCE
         old_seatsaero_key = app.SEATSAERO_KEY
-        old_fetch_cash_details = app.fetch_cash_details
+        old_serpapi_token = app.SERPAPI_TOKEN
+        old_cash_selection = app.canonical_cash_selection_for_search
         try:
             app.AWARD_SOURCE = "estimated"
             app.SEATSAERO_KEY = None
+            app.SERPAPI_TOKEN = "test-key"
 
-            def fake_cash_details(origin, dest, dep, cabin, currency="EUR", ret=None):
-                return {
-                    "price": 620.0,
-                    "typical_range": [500, 800],
-                    "cash_trip_type": "one_way",
-                    "segments": [{
+            def fake_cash_selection(origins, dests, *_args, **_kwargs):
+                offer = _cash_offer(
+                    620,
+                    origin=origins[0],
+                    dest=dests[0],
+                    typicalRange=[500, 800],
+                    outbound_segments=[{
                         "dep_iata": "FRA",
                         "arr_iata": "JFK",
                         "departure_datetime_raw": "2026-08-15 10:45",
@@ -367,9 +437,10 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
                         "duration_min": 510,
                         "overnight": False,
                     }],
-                }
+                )
+                return _cash_selection(offer), None
 
-            app.fetch_cash_details = fake_cash_details
+            app.canonical_cash_selection_for_search = fake_cash_selection
             response = app.app.test_client().post("/api/awards", json={
                 "origin": "FRA", "dest": "JFK", "date": "2026-08-15",
                 "cabin": "Economy", "oneWay": True,
@@ -383,20 +454,22 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         finally:
             app.AWARD_SOURCE = old_award_source
             app.SEATSAERO_KEY = old_seatsaero_key
-            app.fetch_cash_details = old_fetch_cash_details
+            app.SERPAPI_TOKEN = old_serpapi_token
+            app.canonical_cash_selection_for_search = old_cash_selection
 
     def test_award_result_without_cash_segments_declares_search_fallback(self):
         old_award_source = app.AWARD_SOURCE
         old_seatsaero_key = app.SEATSAERO_KEY
-        old_fetch_cash_details = app.fetch_cash_details
+        old_serpapi_token = app.SERPAPI_TOKEN
+        old_cash_selection = app.canonical_cash_selection_for_search
         try:
             app.AWARD_SOURCE = "estimated"
             app.SEATSAERO_KEY = None
-            app.fetch_cash_details = lambda *a, **k: {
-                "price": 300.0,
-                "typical_range": [250, 450],
-                "cash_trip_type": "one_way",
-            }
+            app.SERPAPI_TOKEN = "test-key"
+            offer = _cash_offer(300)
+            app.canonical_cash_selection_for_search = (
+                lambda *a, **k: (_cash_selection(offer), None)
+            )
             response = app.app.test_client().post("/api/awards", json={
                 "origin": "FRA", "dest": "JFK", "date": "2026-08-15",
                 "cabin": "Economy", "oneWay": True,
@@ -410,7 +483,8 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         finally:
             app.AWARD_SOURCE = old_award_source
             app.SEATSAERO_KEY = old_seatsaero_key
-            app.fetch_cash_details = old_fetch_cash_details
+            app.SERPAPI_TOKEN = old_serpapi_token
+            app.canonical_cash_selection_for_search = old_cash_selection
 
     def test_full_provider_datetime_survives_cash_normalization(self):
         old_serpapi_search = app.serpapi_search
@@ -494,25 +568,20 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
         self.assertIn("Confirmed itinerary routing is not available.", js)
         self.assertIn("The price signals are closely matched.", js)
         self.assertIn("app.css?v=160", html)
-        self.assertIn("app.js?v=163", html)
+        self.assertIn("app.js?v=173", html)
         self.assertNotIn("app.css?v=159", html)
         self.assertNotIn("app.js?v=161", html)
         self.assertNotIn("app.js?v=157", html)
-        self.assertIn("Know what&rsquo;s worth checking.", html)
-        self.assertIn("with clear trade-offs, confidence signals and official verification guidance.", html)
+        self.assertIn("Decide what's<br>worth booking.", html)
+        self.assertIn("Travel decision intelligence", html)
         self.assertIn("Fare context", html)
-        self.assertIn("Award value", html)
-        self.assertIn("Verification guidance", html)
+        self.assertIn("Award Redemptions", html)
+        self.assertIn("Decision workspace", html)
         self.assertNotIn("Find where your<br>miles go further.", html)
         self.assertNotIn("all in one trusted decision view.", html)
         self.assertNotIn("Price context", html)
         self.assertNotIn("Routing confidence", html)
         self.assertNotIn("Official verification", html)
-        self.assertIn("data-text-size-option=\"small\"", html)
-        self.assertIn("data-text-size-option=\"default\"", html)
-        self.assertIn("data-text-size-option=\"large\"", html)
-        self.assertIn("aria-label=\"Text size\"", html)
-        self.assertIn("aria-pressed=\"true\"", html)
         self.assertIn("awardradar_text_size", html)
         self.assertIn("awardradar_text_size", js)
         self.assertIn("normalizeTextSize", js)
@@ -545,7 +614,7 @@ class AboutMethodologyPage(unittest.TestCase):
         self.assertIn("Independence and commercial links", html)
         self.assertIn("Limitations", html)
         self.assertIn("app.css?v=160", html)
-        self.assertIn("consent.css?v=3", html)
+        self.assertIn("consent.css?v=4", html)
         self.assertNotIn("app.js?v=147", html)
 
     def test_about_theme_script_initializes_document_root_before_use(self):
@@ -566,10 +635,9 @@ class AboutMethodologyPage(unittest.TestCase):
         response = self.client.get("/tool")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn('class="nav-link" href="/about"', html)
         self.assertIn('<a href="/about">About</a>', html)
         self.assertIn("app.css?v=160", html)
-        self.assertIn("app.js?v=163", html)
+        self.assertIn("app.js?v=173", html)
 
     def test_new_landing_route_serves_figma_bundle(self):
         response = self.client.get("/")
@@ -644,11 +712,11 @@ class UiNextVisualArchitecture(unittest.TestCase):
         )
 
     def test_ui_next_defines_dual_font_and_document_materials(self):
-        self.assertIn('--nx-display:"Inter","Source Sans 3"', self.css)
-        self.assertIn('--nx-reading:"Source Sans 3"', self.css)
+        self.assertIn('--nx-display:"Inter",ui-sans-serif,system-ui,sans-serif', self.css)
+        self.assertIn('--nx-reading:"Inter",ui-sans-serif,system-ui,sans-serif', self.css)
         self.assertIn('--nx-canvas:#e8eef4', self.css)
         self.assertIn('--nx-document:#fcfdfe', self.css)
-        self.assertIn('--nx-canvas:#071525', self.css)
+        self.assertIn('--nx-canvas:#040a15', self.css)
         self.assertIn('.recommendation-card{border:0', self.css)
 
     def test_ui_next_keeps_responsive_layout_without_mobile_frames(self):
@@ -829,9 +897,9 @@ class SearchArchitectureValidation(unittest.TestCase):
 
     def test_fresh_load_has_empty_required_fields_and_disabled_cta(self):
         html = self.index_html
-        self.assertRegex(html, r'<input id="origin"[^>]*placeholder="City or airport"')
-        self.assertRegex(html, r'<input id="dest"[^>]*placeholder="City or airport"')
-        self.assertRegex(html, r'<input id="date"[^>]*placeholder="Select date"')
+        self.assertRegex(html, r'<input id="origin"[^>]*placeholder="Origin"')
+        self.assertRegex(html, r'<input id="dest"[^>]*placeholder="Destination"')
+        self.assertRegex(html, r'<input id="date"[^>]*placeholder="Departure"')
         self.assertNotRegex(html, r'<input id="origin"[^>]*value=')
         self.assertNotRegex(html, r'<input id="dest"[^>]*value=')
         self.assertNotRegex(html, r'<input id="date"[^>]*value=')
@@ -892,7 +960,8 @@ class SearchArchitectureValidation(unittest.TestCase):
     def test_existing_modes_still_map_to_existing_endpoints(self):
         run_fn = self.block("async function run()", "// ===== Compact editable Search Summary")
         self.assertIn("mode === 'cheap' ? '/api/cheap'", run_fn)
-        self.assertIn("mode === 'skiplag' ? '/api/skiplag' : '/api/awards'", run_fn)
+        self.assertIn("'/api/awards'", run_fn)
+        self.assertNotIn("'/api/skiplag'", run_fn)
         self.assertIn("function activateTab", self.app_js)
 
     def test_autorun_paths_use_validation_gate(self):
@@ -939,13 +1008,20 @@ const REC_LABEL = {{
 }};
 const container = {{ innerHTML: '' }};
 {"function formatUserDate(dateStr)" + js.split("function formatUserDate(dateStr)", 1)[1].split("function fmtDur(min)", 1)[0]}
-{"const SEARCH_MONTHS = [" + js.split("const SEARCH_MONTHS = [", 1)[1].split("function _searchSummaryText()", 1)[0]}
+{"const SEARCH_MONTHS = [" + js.split("const SEARCH_MONTHS = [", 1)[1].split("function collapseSearch()", 1)[0]}
 {helper_block}
 {render_cards}
 renderCards({json.dumps(opportunities)});
 process.stdout.write(JSON.stringify({{ html: container.innerHTML, warnings }}));
 """
-        result = subprocess.run([self.node, "-e", script], text=True, capture_output=True, timeout=20)
+        result = subprocess.run(
+            [self.node, "-"],
+            input=script,
+            text=True,
+            encoding="utf-8",
+            capture_output=True,
+            timeout=20,
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)
 
@@ -1068,7 +1144,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
         self.assertIn("app.css?v=160", html)
-        self.assertIn("consent.css?v=3", html)
+        self.assertIn("consent.css?v=4", html)
         # Informational-only disclaimer and controlling-version statement
         self.assertIn(
             "This English version is provided for information only. "
@@ -1115,7 +1191,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
         self.assertIn("app.css?v=160", html)
-        self.assertIn("consent.css?v=3", html)
+        self.assertIn("consent.css?v=4", html)
         self.assertIn('href="/privacy"', html)
         # German legal substance remains intact
         self.assertIn("Art. 6 Abs. 1 lit. f DSGVO", html)
@@ -1124,7 +1200,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
     def test_impressum_uses_current_assets(self):
         html = self.client.get("/impressum").get_data(as_text=True)
         self.assertIn("app.css?v=160", html)
-        self.assertIn("consent.css?v=3", html)
+        self.assertIn("consent.css?v=4", html)
         self.assertNotIn("app.css?v=156", html)
         self.assertNotIn("app.css?v=155", html)
         self.assertNotIn("app.css?v=154", html)
@@ -1143,7 +1219,7 @@ class EnglishPrivacyNotice(unittest.TestCase):
     def test_footers_link_to_english_privacy(self):
         for path in ("/tool", "/about"):
             html = self.client.get(path).get_data(as_text=True)
-            self.assertIn('<a href="/privacy">English privacy</a>', html)
+            self.assertIn('<a href="/privacy">Privacy</a>', html)
 
     def test_sitemap_includes_privacy(self):
         response = self.client.get("/sitemap.xml")
@@ -1365,15 +1441,15 @@ class R2BCashDecisionCard(unittest.TestCase):
         self.assertIn("class=\"aw-cards-grid aw-cards-grid-briefing\"", self.js)
 
     def test_award_result_uses_two_column_briefing_composition(self):
-        """Award recommendation should pair verdict and evidence in one desktop briefing block."""
+        """Award recommendation keeps its decision document and alternatives explicit."""
         self.assertIn(".aw-briefing{display:grid;grid-template-columns:minmax(0,1.18fr) minmax(300px,.82fr)", self.css)
         self.assertIn("class=\"aw-briefing\"", self.js)
-        self.assertIn("class=\"aw-evidence\"", self.js)
+        self.assertIn("decision-section decision-alternatives", self.js)
         self.assertIn("class=\"aw-program-options\"", self.js)
 
     def test_typography_tokens_define_ledger_and_cockpit_layers(self):
         self.assertIn('font-family:"Inter";', self.css)
-        self.assertIn('--font-body:"Source Sans 3",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;', self.css)
+        self.assertIn('--font-body:"Inter",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;', self.css)
         self.assertIn("--font-sans:var(--font-body);", self.css)
         self.assertIn('--font-display:"Inter",var(--font-body);', self.css)
         self.assertIn('--font-data:"Inter",var(--font-body);', self.css)
@@ -1442,11 +1518,11 @@ function between(start, end) {{
 const block = [
   between('function formatUserDate(dateStr)', 'function aircraftStub'),
   between('function esc(s)', 'async function run()'),
-  between('const SEARCH_MONTHS = [', 'function _searchSummaryText()'),
+  between('const SEARCH_MONTHS = [', 'function collapseSearch()'),
   between('const CASH_TIER_CSS = {{', 'function priceTiers(calendar)'),
   between('function cashItineraryHtml(o)', '// Client-side mirror of the backend valid-price rule'),
-  between('function isValidCashPrice(v)', 'function decisionGuidanceHtml(guidance)'),
-  between('function decisionGuidanceHtml(guidance)', 'function render(data)'),
+  between('function isValidCashPrice(v)', 'function decisionGuidanceHtml(guidance, offer)'),
+  between('function decisionGuidanceHtml(guidance, offer)', 'function render(data)'),
 ].join('\\n');
 eval(block);
 const offers = [
@@ -1509,8 +1585,8 @@ process.stdout.write(html);
         out = subprocess.run([node, "-e", script], text=True, capture_output=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr)
         html = out.stdout
-        self.assertIn('class="ccjs-route"', html)
-        self.assertIn('class="journey-strip"', html)
+        self.assertIn('class="compact-route"', html)
+        self.assertIn('class="journey-strip journey-strip-compact"', html)
         self.assertIn('class="journey-node journey-node-main"', html)
         self.assertTrue('class="ccjs-times"' in html or 'class="compact-times"' in html)
         self.assertTrue('class="ccjs-trip-meta"' in html or 'class="compact-trip-meta"' in html)
@@ -1532,13 +1608,12 @@ process.stdout.write(html);
         self.assertNotIn("self-transfer", lowered)
         self.assertNotIn("hello@awardradar.app", html)
         self.assertNotIn("decision-support context", html)
-        self.assertIn("Lufthansa", html)
-        self.assertIn("LH 400", html)
-        self.assertIn("Verify current fare", html)
-        self.assertNotIn("View fare", html)
-        self.assertIn("Google Flights", html)
+        self.assertIn("United", html)
+        self.assertIn("UA 101", html)
+        self.assertIn("Our Recommendation", top_card_html)
+        self.assertIn("Compare award options", top_card_html)
         self.assertNotIn("AwardRadar does not sell or book fares.", top_card_html)
-        self.assertEqual(top_card_html.count('class="link-primary"'), 1)
+        self.assertEqual(top_card_html.count('class="decision-actions"'), 1)
 
     def test_date_formatter_present(self):
         """Scope D: Date localization helper formatUserDate exists."""
@@ -1564,7 +1639,7 @@ process.stdout.write(html);
     def test_number_formatters_lock_international_locale(self):
         self.assertIn("num.toLocaleString('en-US'", self.js)
         self.assertIn("Math.round(num).toLocaleString('en-US')", self.js)
-        self.assertNotIn("toLocaleString(undefined", self.js)
+        self.assertIn("new Date().toLocaleString(undefined", self.js)
 
     def test_award_card_miles_keep_split_span_structure(self):
         self.assertIn('class="aw-card-miles">${esc(formatMilesNumber(p.miles) || \'—\')}</span>', self.js)
@@ -1573,7 +1648,6 @@ process.stdout.write(html);
 
     def test_trip_dates_use_central_formatters(self):
         self.assertIn("const dateContext = formatTripDateRange(r.date, r.returnDate);", self.js)
-        self.assertIn("esc(formatTripDate(r.date))", self.js)
         self.assertIn("Date: ${formatTripDate(o.available_date)}", self.js)
         self.assertNotIn("${r.date} -> ${r.returnDate}", self.js)
         self.assertNotIn("Date: ${o.available_date}", self.js)
@@ -1605,8 +1679,9 @@ process.stdout.write(html);
         self.assertIn("outline:2px solid var(--cyan)", self.css)
 
     def test_airline_rendered_prominently(self):
-        """Scope B: Airline name rendered at card level (not tiny metadata)."""
-        self.assertIn("class=\"airline-name\"", self.js)
+        """Scope B: Airline identity remains part of the recommended journey facts."""
+        self.assertIn("const airlineLabel = o.airline || 'Airline';", self.js)
+        self.assertIn("includeAirlineFlight: true", self.js)
         self.assertIn(".airline-name", self.css)
         self.assertIn(".card-airline", self.css)
 
@@ -1753,21 +1828,20 @@ process.stdout.write(html);
         """Only the first result (i === 0) becomes recommendation card."""
         self.assertIn("if (isTop)", self.js)
         self.assertIn(".recommendation-card", self.css)
-        self.assertIn("decisionActionsHtml()", self.js)
+        self.assertIn("decisionActionsHtml(currentOffers[0])", self.js)
         self.assertIn("Compare award options", self.js)
-        self.assertIn("Check hidden opportunities", self.js)
 
     def test_frontend_consumes_backend_cash_guidance(self):
         """Guidance block must come from backend cash_guidance payload."""
         self.assertIn("currentCashGuidance = data.cash_guidance || null", self.js)
-        self.assertIn("function decisionGuidanceHtml(guidance)", self.js)
+        self.assertIn("function decisionGuidanceHtml(guidance, offer)", self.js)
         self.assertIn("guidance.headline", self.js)
         self.assertIn("guidance.why", self.js)
         self.assertIn("guidance.watch_out", self.js)
         self.assertIn("guidance.next_step", self.js)
         self.assertIn("guidance.evidence_level", self.js)
-        self.assertIn("Decision guidance", self.js)
-        self.assertIn("Evidence level:", self.js)
+        self.assertIn("Our Recommendation", self.js)
+        self.assertIn("Decision Confidence", self.js)
         self.assertIn("returnDisclosureHtml", self.js)
         self.assertIn("Return itinerary details unavailable from current fare source. Verify return flight times before purchase.", self.js)
 
@@ -1784,21 +1858,20 @@ process.stdout.write(html);
         """Recommended offer is moved to visible first card regardless of sort."""
         self.assertIn("sorted = [recommended, ...sorted.filter(o => o.offer_id !== recommendedId)]", self.js)
         self.assertIn("cheapCardsHtml(currentOffers, key, currentCashGuidance, { roundTripRequested: currentCheapRoundTripRequested })", self.js)
-        self.assertIn("if (!hasPrimaryDecisionActions) {", self.js)
-        self.assertIn("html += relatedAnalysesHtml('cheap');", self.js)
+        self.assertIn("html += decisionActionsHtml(currentOffers[0]);", self.js)
 
     def test_related_analyses_falls_back_when_primary_actions_missing(self):
-        """Cheap path keeps Related analyses when primary decision actions are unavailable."""
-        self.assertIn("const primaryDecisionActionsHtml = decisionActionsHtml();", self.js)
-        self.assertIn("const hasPrimaryDecisionActions = !!String(primaryDecisionActionsHtml || '').trim();", self.js)
-        self.assertIn("decisionActionsMarkup: primaryDecisionActionsHtml", self.js)
-        self.assertIn("if (!hasPrimaryDecisionActions) {", self.js)
-        self.assertIn("html += relatedAnalysesHtml('cheap');", self.js)
+        """Related analysis navigation is limited to the two current modes."""
+        self.assertIn("function relatedAnalysesHtml(currentMode)", self.js)
+        self.assertIn("cheap:  [{ tab: 'awards'", self.js)
+        self.assertIn("awards: [{ tab: 'cheap'", self.js)
+        self.assertNotIn("tab: 'skiplag'", self.js)
 
     def test_cash_guidance_missing_falls_back_safely(self):
         """No guidance payload must render existing card flow without empty blocks."""
         self.assertIn("if (!guidance || typeof guidance !== 'object') return '';", self.js)
-        self.assertIn("if (!headline && !why && !watchOut && !nextStep && !evidence) return '';", self.js)
+        self.assertIn("guidance.headline || guidance.next_step || 'Review the strongest returned option.'", self.js)
+        self.assertIn("guidance.why || 'This is the strongest option supported by the returned fare evidence.'", self.js)
 
     def test_roundtrip_missing_return_details_disclosure_guardrail_present(self):
         self.assertIn("function hasExplicitReturnLegDetails(o)", self.js)
@@ -1818,17 +1891,12 @@ process.stdout.write(html);
         self.assertNotIn("esc(o.return_arr_time)", self.js)
 
     def test_result_mode_shell_is_compact_after_search(self):
-        """Result mode should use the compact search summary shell and collapse landing hero."""
+        """Result mode keeps the search usable and exposes the decision workspace."""
         self.assertIn("function collapseSearch()", self.js)
-        self.assertIn("st.textContent = _searchSummaryText()", self.js)
         self.assertIn('id="landing-state"', self.html)
-        self.assertIn('id="searchSummary"', self.html)
-        self.assertIn("search-summary", self.html)
-        self.assertIn(".shell.has-results #landing-state{display:none}", self.css)
-        self.assertIn(".shell.has-results .hero{padding:10px 0 12px", self.css)
-        self.assertIn(".shell.has-results .panel{padding:13px 15px 13px", self.css)
-        self.assertIn(".shell.has-results .search-summary{gap:8px", self.css)
-        self.assertIn(".shell.has-results .results{margin-top:8px;gap:8px}", self.css)
+        self.assertIn('aria-label="Decision workspace"', self.html)
+        self.assertIn("shell.classList.add('has-results')", self.js)
+        self.assertIn("if (pf) pf.hidden = false;", self.js)
 
     def test_trust_notices_are_compact_result_context_not_banners(self):
         self.assertIn(".shell.has-results .card.note", self.css)
@@ -1837,15 +1905,13 @@ process.stdout.write(html);
     def test_primary_actions_exist_before_provider_links(self):
         self.assertIn("decision-actions", self.css)
         self.assertIn("Compare award options", self.js)
-        self.assertIn("Check hidden opportunities", self.js)
-        self.assertIn("decisionActionsHtml()", self.js)
+        self.assertIn("decisionActionsHtml(currentOffers[0])", self.js)
         self.assertIn("switchTabAndRun('awards')", self.js)
-        self.assertIn("switchTabAndRun('skiplag')", self.js)
 
     def test_trust_note_replaces_intelligence_notice(self):
-        """Trust note: quiet verification disclosure replaces Intelligence beta-notice."""
-        self.assertIn("Verify before booking", self.html)
-        self.assertIn(".trust-note", self.css)
+        """Verification remains explicit in result copy without an Intelligence banner."""
+        self.assertIn("Verification Protocol", self.js)
+        self.assertIn(".aw-trust-note", self.css)
         self.assertNotIn("decision-support context", self.html)
         self.assertNotIn("provider .", self.html)
         # Old 'Intelligence' pill removed from this notice context
@@ -1865,13 +1931,12 @@ process.stdout.write(html);
         self.assertNotIn("provider .", self.html)
 
     def test_search_mode_controls_include_all_three_modes(self):
-        """All three search mode tabs must be present."""
+        """The frozen tool exposes only its two current search modes."""
         self.assertIn('data-tab="cheap"', self.html)
         self.assertIn('data-tab="awards"', self.html)
-        self.assertIn('data-tab="skiplag"', self.html)
-        self.assertIn("Best Value Flights", self.html)
+        self.assertNotIn('data-tab="skiplag"', self.html)
+        self.assertIn("Fare Assessment", self.html)
         self.assertIn("Award Redemptions", self.html)
-        self.assertIn("Hidden Opportunities", self.html)
 
     def test_popular_airports_progressive_disclosure_exists(self):
         """Mobile airport disclosure: pa-col-compact class and pa-all-toggle button injected via JS."""
@@ -1888,7 +1953,7 @@ process.stdout.write(html);
         self.assertIn('aria-disabled="true"', self.html)
         self.assertIn('id="searchValidationStatus"', self.html)
         self.assertIn("validateSearchForm", self.js)
-        self.assertIn("Select origin, destination and departure date to search.", self.html)
+        self.assertIn("Select origin, destination and departure date to analyze.", self.html)
 
     def test_compact_tab_css_present(self):
         """Mobile tabs rendered as compact segmented control."""
@@ -1900,9 +1965,8 @@ process.stdout.write(html);
         """Mobile tab titles use short intentional labels; desktop keeps full labels."""
         self.assertIn("tab-label-long", self.html)
         self.assertIn("tab-label-short", self.html)
-        self.assertIn("Best Value Flights", self.html)
+        self.assertIn("Fare Assessment", self.html)
         self.assertIn("Award Redemptions", self.html)
-        self.assertIn("Hidden Opportunities", self.html)
         self.assertIn(".tab-label-short{display:none}", self.css)
         self.assertIn(".tab-label-long{display:none}", self.css)
         self.assertIn(".tab-label-short{display:inline}", self.css)

@@ -1,4 +1,5 @@
 import datetime as dt
+from unittest import mock
 
 import pytest
 import requests
@@ -88,14 +89,11 @@ def test_cheap_normal_success_contract_is_unchanged(monkeypatch):
 
 def test_awards_survives_quota_without_changing_backend_signal(monkeypatch):
     monkeypatch.setattr(awardradar, "SERPAPI_TOKEN", "test-token")
-    calls = 0
-
-    def quota_cash(*_args, **_kwargs):
-        nonlocal calls
-        calls += 1
-        raise awardradar.QuotaError()
-
-    monkeypatch.setattr(awardradar, "fetch_cash_details", quota_cash)
+    canonical_cash = mock.Mock(return_value=(
+        awardradar.finalize_cash_offer_set([]),
+        "quota_exhausted",
+    ))
+    monkeypatch.setattr(awardradar, "canonical_cash_selection_for_search", canonical_cash)
     response = awardradar.app.test_client().post("/api/awards", json={
         "origin": "FRA", "dest": "JFK", "date": "2030-01-01",
         "oneWay": True, "cabin": "Economy",
@@ -108,5 +106,5 @@ def test_awards_survives_quota_without_changing_backend_signal(monkeypatch):
     assert result["cash_eur"] is None
     assert result["cash_provenance"]["fallback_reason"] == "quota_exhausted"
     assert result["decision"]["signal"] == "insufficient_data"
-    assert calls == 1
+    canonical_cash.assert_called_once()
     assert "run out" not in response.get_data(as_text=True).lower()

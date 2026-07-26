@@ -84,10 +84,11 @@ describe('cached_recent', () => {
 });
 
 describe('cached_stale', () => {
-  it('renders "Worth checking" and never "Best option" or a recommendation', () => {
+  it('does not invent a generic verdict or recommendation', () => {
     const p = renderFixture('award_cached_stale');
-    expect(screen.getByTestId('award-trust-verdict').textContent).toBe('Worth checking');
+    expect(screen.queryByTestId('award-trust-verdict')).toBeNull();
     expect(wholeText()).not.toContain('Best option');
+    expect(wholeText()).not.toContain('Worth checking');
     expect(p.recommendationAllowed).toBe(false);
     expect(screen.getByTestId('award-trust-freshness').textContent).toContain('Last checked 7 hours ago');
   });

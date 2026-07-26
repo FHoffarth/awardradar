@@ -44,7 +44,7 @@ function loadCashFixture(name: string): CashFixtureFile {
 }
 
 function withOfferIds(offers: CashFixtureOffer[], ids: string[]): CashFixtureOffer[] {
-  return offers.map((offer, index) => ({ ...offer, offer_id: ids[index] }));
+  return offers.map((offer, index) => ({ ...offer, offer_id: ids[index], cash_offer_id: ids[index] }));
 }
 
 function buildCashFixtureResponse(
@@ -57,6 +57,7 @@ function buildCashFixtureResponse(
   return {
     ok: true,
     offers,
+    selected_cash_offer_id: recommendedOfferId || null,
     cash_guidance: recommendedOfferId ? { recommended_offer_id: recommendedOfferId } : undefined,
     fixture_provenance: fixture.source_provenance,
   };
@@ -124,7 +125,19 @@ function strictCashFixtureMock(responses: {
   } = responses;
   mockFetch.mockImplementation(async (url) => {
     if (url === '/api/awards') {
-      return { ok: true, json: async () => awards };
+      const selectedId = (cheap.selected_cash_offer_id as string | undefined)
+        || ((cheap.cash_guidance as { recommended_offer_id?: string } | undefined)?.recommended_offer_id);
+      const alignedAwards = selectedId && Array.isArray(awards.results)
+        ? {
+            ...awards,
+            selected_cash_offer_id: selectedId,
+            results: awards.results.map((result: any) => result.decision ? ({
+              ...result,
+              decision: { ...result.decision, evaluated_cash_offer_id: selectedId },
+            }) : result),
+          }
+        : awards;
+      return { ok: true, json: async () => alignedAwards };
     }
     if (url === '/api/cheap') {
       return { ok: true, json: async () => cheap };
@@ -384,14 +397,32 @@ describe('App', () => {
       currency: 'eur', cabin: 'Economy', cabins: ['Economy'], flexDays: 0
     });
 
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
     expect(mockFetch).toHaveBeenCalledWith('/api/awards', expect.objectContaining({
-      method: 'POST', body: expectedPayload
+      method: 'POST', body: JSON.stringify({ ...JSON.parse(expectedPayload), cashOfferId: null })
     }));
     expect(mockFetch).toHaveBeenCalledWith('/api/cheap', expect.objectContaining({
       method: 'POST', body: expectedPayload
     }));
     expect(mockFetch.mock.calls.filter(([url]) => url === '/api/awards')).toHaveLength(1);
     expect(mockFetch.mock.calls.filter(([url]) => url === '/api/cheap')).toHaveLength(1);
+  });
+
+  it('renders the same cash offer identity in the candidate and decision', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      cheap: buildCashFixtureResponse('cash_one_way_complete.json', ['cash-selected', 'cash-alt'], 'cash-selected'),
+      awards: awardTrustApiResponse('award_estimated'),
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+
+    await waitFor(() => expect(screen.getByTestId('decision-summary')).toBeTruthy());
+    expect(screen.getByTestId('cash-candidate-card').getAttribute('data-offer-id')).toBe('cash-selected');
+    expect(screen.getByTestId('decision-summary').getAttribute('data-evaluated-cash-offer-id')).toBe('cash-selected');
+    expect(screen.getByTestId('decision-summary').textContent).toContain('Decision signal');
+    expect(screen.getByTestId('decision-summary').textContent).not.toContain('Recommendation');
   });
 
   it('shows API error state when BOTH endpoints fail', async () => {
@@ -668,7 +699,7 @@ describe('App', () => {
 
     await waitFor(() => expect(screen.getByTestId('award-trust')).toBeTruthy());
     expect(screen.getByTestId('award-trust').getAttribute('data-state')).toBe('cached_stale');
-    expect(screen.getByTestId('decision-verdict').textContent).toBe('Worth checking');
+    expect(screen.getByTestId('decision-verdict').textContent).not.toBe('Worth checking');
     expect(screen.getByTestId('award-trust-freshness').textContent).toContain('Last checked');
     expect(container.textContent).not.toContain('Live data');
   });
@@ -686,6 +717,8 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByTestId('award-trust')).toBeTruthy());
     expect(screen.getByTestId('award-trust').getAttribute('data-state')).toBe('cached_recent');
     expect(screen.getByTestId('award-trust-freshness').textContent).toContain('Last checked 45 minutes ago');
+    expect(screen.getByTestId('decision-summary').textContent).toContain('Recommendation');
+    expect(screen.getByTestId('decision-summary').textContent).not.toContain('Decision signal');
     expect(container.textContent).toContain('Best Award Option');
   });
 
@@ -881,8 +914,8 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText('Current cash comparison unavailable')).toBeTruthy();
       expect(screen.getByText('Award results can still be reviewed, but relative value cannot be fully assessed without a current cash fare.')).toBeTruthy();
-      expect(screen.getByTestId('decision-verdict').textContent).toBe('Worth checking');
-      expect(screen.getByTestId('decision-why').textContent).toBe('Estimated from historical or modeled data; it does not report current availability.');
+      expect(screen.getByTestId('decision-verdict').textContent).toBe('More Evidence Required');
+      expect(screen.getByTestId('decision-why').textContent).toBe('The available evidence does not support a cash-versus-miles recommendation.');
       expect(container.querySelector('[data-testid="award-candidate-card"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="cash-alternatives"]')).toBeNull();
       expect(container.querySelector('[data-testid="error-state"]')).toBeNull();
@@ -1276,8 +1309,10 @@ describe('App', () => {
     fireEvent.click(getButton(container));
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
     const payloads = mockFetch.mock.calls.map(([, options]) => JSON.parse(options.body));
-    expect(payloads[0]).toEqual(payloads[1]);
-    expect(payloads[0]).toEqual({
+    const cashPayload = payloads.find(payload => !Object.prototype.hasOwnProperty.call(payload, 'cashOfferId'));
+    const awardPayload = payloads.find(payload => Object.prototype.hasOwnProperty.call(payload, 'cashOfferId'));
+    expect({ ...awardPayload, cashOfferId: undefined }).toEqual({ ...cashPayload, cashOfferId: undefined });
+    expect(cashPayload).toEqual({
       lang: 'en', origin: 'FRA', dest: 'JFK', date: '2030-10-10', oneWay: false,
       returnDate: '2030-10-20', direct: false, mmOnly: false, currency: 'eur',
       cabin: 'Economy', cabins: ['Economy'], flexDays: 0,
