@@ -86,7 +86,8 @@ class TripBasisNormalization(unittest.TestCase):
                                cash_offer=_cash_offer())
         self.assertTrue(d["trip_basis_compatible"])
         self.assertEqual(d["normalized_trip_type"], "one_way")
-        self.assertEqual(d["verdict"], "lean_miles")   # cpm 1.5 → good → lean_miles
+        # cpm 1.5 → good tier → internal "lean_miles" → safe "miles_value_leaning"
+        self.assertEqual(d["verdict"], "miles_value_leaning")
         self.assertEqual(d["confidence"], "medium")
 
     def test_case_1_roundtrip_search_oneway_award_is_blocked(self):
@@ -1019,10 +1020,10 @@ function esc(s) {{
 }}
 const SIGNAL_LABEL = {{ exceptional: 'Strong award signal', great: 'Award signal' }};
 const REC_LABEL = {{
-  book_miles: 'Verify miles option',
-  lean_miles: 'Lean towards Miles',
-  consider: 'Compare options',
-  pay_cash: 'Pay Cash',
+  miles_value_supported: 'Verify miles option',
+  miles_value_leaning: 'Lean towards Miles',
+  comparison_inconclusive: 'Compare options',
+  cash_value_supported: 'Compare cash option',
 }};
 const container = {{ innerHTML: '' }};
 {"function formatUserDate(dateStr)" + js.split("function formatUserDate(dateStr)", 1)[1].split("function fmtDur(min)", 1)[0]}
@@ -1057,7 +1058,7 @@ process.stdout.write(JSON.stringify({{ html: container.innerHTML, warnings }}));
             "miles": 85000,
             "program": "Miles & More",
             "reasoning": "Estimated value looks promising.",
-            "recommendation": "book_miles",
+            "recommendation": "miles_value_supported",
             "seats": 2,
             "surcharge": 310,
             "airlines": "2L",

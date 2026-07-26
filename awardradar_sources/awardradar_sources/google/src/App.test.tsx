@@ -124,7 +124,7 @@ function awardTrustApiResponse(name: keyof typeof awardTrustFixtures, overrides:
     date: '2030-10-10',
     verified_identical_routing: fixture.itineraryOwnershipVerified ?? false,
     has_live_data: liveLike,
-    decision: { signal: 'strong_miles_value', verdict: 'book_miles', confidence: 'low', trip_basis_compatible: fixture.routingConfidence === 'complete' },
+    decision: { signal: 'strong_miles_value', verdict: 'miles_value_supported', confidence: 'low', trip_basis_compatible: fixture.routingConfidence === 'complete' },
     programs: [{
       program: 'Miles & More',
       miles: 33000,
@@ -813,7 +813,7 @@ describe('App', () => {
         verified_identical_routing: true,
         decision: {
           signal: 'strong_miles_value',
-          verdict: 'book_miles',
+          verdict: 'miles_value_supported',
           confidence: 'high',
           trip_basis_compatible: true,
           explanation: 'The selected award compares favorably with the evaluated cash itinerary.',
@@ -857,7 +857,7 @@ describe('App', () => {
         verified_identical_routing: true,
         decision: {
           signal: 'strong_miles_value',
-          verdict: 'book_miles',
+          verdict: 'miles_value_supported',
           confidence: 'high',
           trip_basis_compatible: true,
         },

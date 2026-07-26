@@ -3079,9 +3079,11 @@ function discoveryReason(o) {
   if (!container) return;
 
   const SIGNAL_LABEL = { exceptional: 'Strong award signal', great: 'Award signal' };
+  // Decision Contract V1 verdict vocabulary; unknown values fall back to the
+  // verification-oriented label.
   const REC_LABEL  = {
-    book_miles: 'Verify miles option', lean_miles: 'Lean towards Miles',
-    consider:   'Compare options', pay_cash:   'Pay Cash',
+    miles_value_supported: 'Verify miles option', miles_value_leaning: 'Lean towards Miles',
+    comparison_inconclusive: 'Compare options', cash_value_supported: 'Compare cash option',
   };
 
   function renderCards(opps) {

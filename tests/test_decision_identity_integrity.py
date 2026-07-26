@@ -131,12 +131,12 @@ def test_business_discarded_1900_connection_cannot_drive_verdict():
     ], [1800, 3000])
     cash, award, result = replay(payload, cabin="Business")
     assert result["cash_eur"] == 2200
-    assert result["decision"]["verdict"] != "book_miles"
+    assert result["decision"]["verdict"] not in ("book_miles", "miles_value_supported")
     assert result["decision"]["evaluated_data_source"] == "estimated"
     assert_identity(cash, award, result)
 
 
-def test_static_award_estimates_never_emit_book_miles():
+def test_static_award_estimates_never_emit_a_supported_miles_verdict():
     payload = search_payload([
         provider_item(2400, [
             segment("FRA", "JFK", "10:00", "13:00", 540, "Lufthansa", "LH 400"),
@@ -149,7 +149,10 @@ def test_static_award_estimates_never_emit_book_miles():
         if row["decision"]["evaluated_data_source"] == "estimated"
     ]
     assert estimated_decisions
-    assert all(decision["verdict"] != "book_miles" for decision in estimated_decisions)
+    assert all(
+        decision["verdict"] not in ("book_miles", "miles_value_supported")
+        for decision in estimated_decisions
+    )
 
 
 def test_shorthaul_110_nonstop_identity_replaces_90_connection():
