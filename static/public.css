@@ -407,21 +407,38 @@ body.about-page {
 .footer-nav a:hover,
 .footer-nav .footer-consent:hover { color: var(--public-text); }
 
-/* Official X profile — a quiet social link (quieter than the nav links and
-   lockup). Inline SVG uses currentColor, so it is theme-aware. No box/pill/glow. */
+/* Official X profile — icon-only signet, matching the landing surface. The
+   glyph is the sole carrier of the link, so it uses the muted tone rather than
+   the quiet one to keep enough contrast in both themes. Inline SVG uses
+   currentColor, so it stays theme-aware. No box/pill/glow. */
 .footer-social {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  justify-content: center;
   width: fit-content;
-  color: var(--public-quiet);
+  color: var(--public-muted);
   text-decoration: none;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: .01em;
 }
 .footer-social:hover { color: var(--public-text); }
 .footer-social .footer-social-icon { flex: none; }
+
+/* 44x44 touch target centred on the glyph. Out of flow, so the footer
+   composition and spacing are unchanged. */
+.footer-social::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+.footer-social:focus-visible {
+  outline: 1.5px solid var(--public-accent);
+  outline-offset: 3px;
+}
 
 .footer-copyright { margin: 0; color: var(--public-quiet); font-size: 12px; }
 
