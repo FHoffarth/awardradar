@@ -190,6 +190,14 @@ function hasValidPositivePrice(value: unknown): boolean {
   return Number.isFinite(price) && price > 0;
 }
 
+function resolveSelectedCashOfferId(response: CashResponse | null | undefined): string | null {
+  const selectedId = response?.selected_cash_offer_id?.trim();
+  if (!selectedId || !Array.isArray(response?.offers)) return null;
+  return response.offers.some(offer => (
+    offer?.cash_offer_id === selectedId && hasValidPositivePrice(offer.price)
+  )) ? selectedId : null;
+}
+
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
@@ -690,6 +698,21 @@ const SIGNAL_COPY: Record<string, { verdict: string; why: string }> = {
   },
 };
 
+const RECOMMENDATION_ELIGIBLE_VERDICTS = new Set([
+  'book_miles',
+  'lean_miles',
+  'pay_cash',
+]);
+
+function isBackendRecommendationEligible(decision: DecisionResult | undefined): boolean {
+  return Boolean(
+    decision?.evaluated_cash_offer_id
+    && decision.trip_basis_compatible === true
+    && decision.verdict
+    && RECOMMENDATION_ELIGIBLE_VERDICTS.has(decision.verdict),
+  );
+}
+
 function getDecisionCopy(result: AwardResult | undefined, cashAvailable: boolean, cashUnavailable: boolean, tripType: TripType = 'one_way') {
   if (tripType === 'round_trip' && result?.decision?.trip_basis_compatible !== true) {
     return {
@@ -856,6 +879,8 @@ const DecisionSummary = ({
 }) => {
   const copy = getDecisionCopy(result, cashAvailable, cashUnavailable, tripType);
   const tripBasisBlocked = tripType === 'round_trip' && result?.decision?.trip_basis_compatible !== true;
+  const recommendationAllowed = awardTrust.recommendationAllowed
+    && isBackendRecommendationEligible(result?.decision);
   const trustOverridesVerdict = !tripBasisBlocked && (Boolean(awardTrust.allowedVerdict) || !awardTrust.verdictAllowed);
   const verdict = tripBasisBlocked
     ? copy.verdict
@@ -874,7 +899,7 @@ const DecisionSummary = ({
           <span aria-hidden="true" />
           <h2 id="decision-title">Decision Summary</h2>
         </div>
-        <p className="recommendation-label">{awardTrust.recommendationAllowed ? 'Recommendation' : 'Decision signal'}</p>
+        <p className="recommendation-label">{recommendationAllowed ? 'Recommendation' : 'Decision signal'}</p>
         <h3 data-testid="decision-verdict">{verdict}</h3>
         {trustOverridesVerdict && (
           <p className="card-caveat" data-testid="decision-trust-blocker">
@@ -1290,9 +1315,9 @@ export default function App() {
 
   const verifyRecommendedReturnLeg = async (cashResponse: CashResponse, request: SearchRequest, epoch: number) => {
     if (request.oneWay || !request.returnDate) return;
-    const recommendedId = cashResponse.cash_guidance?.recommended_offer_id?.trim();
-    if (!recommendedId) return;
-    const offer = (cashResponse.offers || []).find(candidate => candidate.offer_id === recommendedId);
+    const selectedId = resolveSelectedCashOfferId(cashResponse);
+    if (!selectedId) return;
+    const offer = (cashResponse.offers || []).find(candidate => candidate.cash_offer_id === selectedId);
     if (!offer || offer.itinerary_state !== 'partial' || !offer.offer_id) return;
 
     const guardKey = `${epoch}|${offer.offer_id}|${request.date}|${request.returnDate}`;
@@ -1326,7 +1351,7 @@ export default function App() {
       });
       const json = await response.json() as ReturnLegResponse;
       if (searchEpochRef.current !== epoch) return;
-      if (!json.ok || json.offer_id !== offer.offer_id || json.itinerary_state !== 'complete' || !Array.isArray(json.return_segments) || !json.return_segments.length) {
+      if (!json.ok || json.offer_id !== offer.offer_id || json.cash_offer_id !== selectedId || json.itinerary_state !== 'complete' || !Array.isArray(json.return_segments) || !json.return_segments.length) {
         setContinuationState({ offerId: offer.offer_id, status: 'failed' });
         return;
       }
@@ -1335,7 +1360,7 @@ export default function App() {
         offers: (previous.offers || []).map(candidate => candidate.offer_id === offer.offer_id ? {
           ...candidate,
           itinerary_state: 'complete',
-          cash_offer_id: json.cash_offer_id || candidate.cash_offer_id || candidate.offer_id,
+          cash_offer_id: json.cash_offer_id,
           itinerary_ref: json.itinerary_ref || candidate.itinerary_ref,
           completeness: json.completeness || 'complete',
           outbound_segments: json.outbound_segments?.length ? json.outbound_segments : candidate.outbound_segments,
@@ -1409,17 +1434,14 @@ export default function App() {
     }
 
     if (searchEpochRef.current !== epoch) return;
-    const selectedCashOfferId = cashJson?.selected_cash_offer_id
-      || cashJson?.cash_guidance?.recommended_offer_id
-      || null;
+    const selectedCashOfferId = resolveSelectedCashOfferId(cashJson);
     try {
       const awardResponse = await fetch('/api/awards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...requestPayload,
-          cashOfferId: selectedCashOfferId,
-        }),
+        body: JSON.stringify(selectedCashOfferId
+          ? { ...requestPayload, cashOfferId: selectedCashOfferId }
+          : requestPayload),
       });
       const json = await awardResponse.json() as AwardResponse;
       if (searchEpochRef.current !== epoch) return;
@@ -1443,15 +1465,23 @@ export default function App() {
     (awardStatus === 'error' && cashStatus === 'error') ? 'error' : 'empty';
 
   const returnedCashOffers = Array.isArray(cashData?.offers) ? cashData.offers.filter(offer => hasValidPositivePrice(offer?.price)) : [];
-  const recommendedCashId = cashData?.selected_cash_offer_id || cashData?.cash_guidance?.recommended_offer_id;
-  const result = recommendedCashId
-    ? awardData?.results?.find(candidate => candidate?.decision?.evaluated_cash_offer_id === recommendedCashId)
-      || (awardData?.results?.[0]?.decision ? undefined : awardData?.results?.[0])
-    : awardData?.results?.[0];
-  const cashOffers = recommendedCashId && returnedCashOffers.some(offer => offer.offer_id === recommendedCashId)
-    ? [returnedCashOffers.find(offer => offer.offer_id === recommendedCashId)!, ...returnedCashOffers.filter(offer => offer.offer_id !== recommendedCashId)]
-    : returnedCashOffers;
-  const cashOffer = cashOffers[0];
+  const selectedCashOfferId = resolveSelectedCashOfferId(cashData);
+  const awardIdentityMatches = selectedCashOfferId
+    ? awardData?.selected_cash_offer_id === selectedCashOfferId
+    : awardData?.selected_cash_offer_id == null;
+  const result = awardIdentityMatches
+    ? awardData?.results?.find(candidate => (
+      selectedCashOfferId
+        ? candidate?.decision?.evaluated_cash_offer_id === selectedCashOfferId
+        : candidate?.decision?.evaluated_cash_offer_id == null
+    ))
+    : undefined;
+  const cashOffer = selectedCashOfferId
+    ? returnedCashOffers.find(offer => offer.cash_offer_id === selectedCashOfferId)
+    : undefined;
+  const cashOffers = cashOffer
+    ? [cashOffer, ...returnedCashOffers.filter(offer => offer.cash_offer_id !== selectedCashOfferId)]
+    : [];
   const cashAlternatives = cashStatus === 'success' ? cashOffers.slice(1, 4) : [];
   const cashUnavailable = cashData?.cash_provenance?.status === 'unavailable';
   const hydratedTripType = parseTripType(getTripParam('trip')) || 'one_way';

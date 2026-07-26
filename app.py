@@ -3253,7 +3253,7 @@ def build_decision(best: dict | None, cash_eur, cash_is_real: bool,
     award_trip = (best or {}).get("trip_type", "unknown")
     basis = normalize_trip_basis(cash_trip, award_trip, requested_trip_type)
     is_live = bool(best) and best.get("data_source") == "live"
-    cash_offer_id = (cash_offer or {}).get("cash_offer_id") or (cash_offer or {}).get("offer_id")
+    cash_offer_id = (cash_offer or {}).get("cash_offer_id")
     itinerary_ref = (cash_offer or {}).get("itinerary_ref")
     cash_completeness = (cash_offer or {}).get("completeness")
     award_option_id = (best or {}).get("award_option_id")
@@ -4093,7 +4093,10 @@ def _awards_inner():
     requested_cash_offer_id = str(
         data.get("cashOfferId") or data.get("selected_cash_offer_id") or ""
     ).strip() or None
-    if SERPAPI_TOKEN:
+    # The paired /api/cheap -> /api/awards flow must supply the canonical
+    # identity selected by /api/cheap.  An absent identity is not permission to
+    # run a second cash search and infer a potentially different offer.
+    if requested_cash_offer_id and SERPAPI_TOKEN:
         cash_selection, cash_provider_failure_reason = canonical_cash_selection_for_search(
             origins,
             dests,
@@ -4109,8 +4112,9 @@ def _awards_inner():
         cash_selection = finalize_cash_offer_set([])
         cash_provider_failure_reason = None
     selected_cash_offer = cash_selection["selected_offer"]
-    if requested_cash_offer_id and (
-        not selected_cash_offer
+    if (
+        not requested_cash_offer_id
+        or not selected_cash_offer
         or selected_cash_offer.get("cash_offer_id") != requested_cash_offer_id
     ):
         selected_cash_offer = None

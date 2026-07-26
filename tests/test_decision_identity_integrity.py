@@ -217,3 +217,65 @@ def test_mismatched_requested_identity_is_insufficient_not_fallback():
     assert body["selected_cash_offer_id"] is None
     assert decision["evaluated_cash_offer_id"] is None
     assert decision["verdict"] == "insufficient_data"
+
+
+def test_absent_cash_offer_id_does_not_rederive_cash_identity():
+    payload = search_payload([
+        provider_item(420, [
+            segment("FRA", "JFK", "10:00", "13:00", 540, "Lufthansa", "LH 400"),
+        ], 540),
+    ], [400, 700])
+    request = {
+        "origin": "FRA", "dest": "JFK", "date": DATE, "oneWay": True,
+        "cabin": "Economy", "cabins": ["economy"], "currency": "eur",
+    }
+    with mock.patch.object(
+        awardradar,
+        "canonical_cash_selection_for_search",
+    ) as cash_selection:
+        body = awardradar.app.test_client().post("/api/awards", json=request).get_json()
+
+    cash_selection.assert_not_called()
+    decision = body["results"][0]["decision"]
+    assert body["selected_cash_offer_id"] is None
+    assert decision["evaluated_cash_offer_id"] is None
+    assert decision["verdict"] == "insufficient_data"
+    assert decision["signal"] == "insufficient_data"
+
+
+def test_no_cash_then_fresh_second_observation_still_fails_closed():
+    request = {
+        "origin": "FRA", "dest": "JFK", "date": DATE, "oneWay": True,
+        "cabin": "Economy", "cabins": ["economy"], "currency": "eur",
+    }
+    client = awardradar.app.test_client()
+    with mock.patch.object(
+        awardradar,
+        "serpapi_search",
+        return_value=search_payload([]),
+    ):
+        cash = client.post("/api/cheap", json=request).get_json()
+
+    fresh_offer = awardradar._serp_item_to_offer(
+        provider_item(420, [
+            segment("FRA", "JFK", "10:00", "13:00", 540, "Lufthansa", "LH 400"),
+        ], 540),
+        "eur",
+        [400, 700],
+        False,
+    )
+    fresh_selection = awardradar.finalize_cash_offer_set([fresh_offer])
+    with mock.patch.object(
+        awardradar,
+        "canonical_cash_selection_for_search",
+        return_value=(fresh_selection, None),
+    ) as second_observation:
+        award = client.post("/api/awards", json=request).get_json()
+
+    assert cash["selected_cash_offer_id"] is None
+    second_observation.assert_not_called()
+    decision = award["results"][0]["decision"]
+    assert award["selected_cash_offer_id"] is None
+    assert decision["evaluated_cash_offer_id"] is None
+    assert decision["verdict"] == "insufficient_data"
+    assert decision["signal"] == "insufficient_data"

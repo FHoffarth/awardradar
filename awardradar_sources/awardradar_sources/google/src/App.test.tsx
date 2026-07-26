@@ -27,6 +27,7 @@ global.fetch = mockFetch;
 
 type CashFixtureOffer = Record<string, unknown> & {
   offer_id?: string;
+  cash_offer_id?: string;
 };
 
 type CashFixtureFile = {
@@ -63,6 +64,36 @@ function buildCashFixtureResponse(
   };
 }
 
+function canonicalCashResponse(offers: CashFixtureOffer[], selectedIndex = 0) {
+  const canonicalOffers = offers.map((offer, index) => {
+    const id = offer.cash_offer_id || offer.offer_id || `cash-test-${index}`;
+    return { ...offer, offer_id: offer.offer_id || id, cash_offer_id: id };
+  });
+  const selectedId = canonicalOffers[selectedIndex]?.cash_offer_id || null;
+  return {
+    ok: true,
+    offers: canonicalOffers,
+    selected_cash_offer_id: selectedId,
+    cash_guidance: selectedId ? { recommended_offer_id: selectedId } : null,
+  };
+}
+
+function alignAwardIdentity(response: Record<string, any>, selectedId: string | null) {
+  return {
+    ...response,
+    selected_cash_offer_id: selectedId,
+    results: Array.isArray(response.results)
+      ? response.results.map((result: any) => result.decision ? ({
+          ...result,
+          decision: {
+            ...result.decision,
+            evaluated_cash_offer_id: selectedId,
+          },
+        }) : result)
+      : response.results,
+  };
+}
+
 function awardEmptyResponse() {
   return { ok: true, results: [] };
 }
@@ -72,7 +103,19 @@ function awardTrustApiResponse(name: keyof typeof awardTrustFixtures, overrides:
   if (fixture.state === 'no_results') return { ok: true, results: [] };
   if (fixture.state === 'provider_error') return { ok: false, error: 'provider_unavailable', status: 503 };
   if (fixture.state === 'rate_limited') return { ok: false, error: 'rate_limited', status: 429 };
-  if (fixture.state === 'malformed_payload') return { ok: true, results: [{}] };
+  if (fixture.state === 'malformed_payload') {
+    return {
+      ok: true,
+      results: [{
+        programs: {},
+        decision: {
+          signal: 'insufficient_data',
+          verdict: 'insufficient_data',
+          confidence: 'low',
+        },
+      }],
+    };
+  }
 
   const liveLike = fixture.state === 'cached_recent' || fixture.state === 'cached_stale';
   const result = {
@@ -81,7 +124,7 @@ function awardTrustApiResponse(name: keyof typeof awardTrustFixtures, overrides:
     date: '2030-10-10',
     verified_identical_routing: fixture.itineraryOwnershipVerified ?? false,
     has_live_data: liveLike,
-    decision: { signal: 'strong_miles_value', confidence: 'low', trip_basis_compatible: fixture.routingConfidence === 'complete' },
+    decision: { signal: 'strong_miles_value', verdict: 'book_miles', confidence: 'low', trip_basis_compatible: fixture.routingConfidence === 'complete' },
     programs: [{
       program: 'Miles & More',
       miles: 33000,
@@ -125,18 +168,8 @@ function strictCashFixtureMock(responses: {
   } = responses;
   mockFetch.mockImplementation(async (url) => {
     if (url === '/api/awards') {
-      const selectedId = (cheap.selected_cash_offer_id as string | undefined)
-        || ((cheap.cash_guidance as { recommended_offer_id?: string } | undefined)?.recommended_offer_id);
-      const alignedAwards = selectedId && Array.isArray(awards.results)
-        ? {
-            ...awards,
-            selected_cash_offer_id: selectedId,
-            results: awards.results.map((result: any) => result.decision ? ({
-              ...result,
-              decision: { ...result.decision, evaluated_cash_offer_id: selectedId },
-            }) : result),
-          }
-        : awards;
+      const selectedId = (cheap.selected_cash_offer_id as string | null | undefined) || null;
+      const alignedAwards = alignAwardIdentity(awards, selectedId);
       return { ok: true, json: async () => alignedAwards };
     }
     if (url === '/api/cheap') {
@@ -184,10 +217,10 @@ describe('App', () => {
   const renderAwardOnly = async (resultOverrides: Record<string, unknown> = {}, cashResponse: Record<string, unknown> = { ok: true, offers: [] }) => {
     setupUrlParams('FRA', 'MUC', '2030-10-10');
     mockFetch.mockImplementation(async (url) => url === '/api/awards'
-      ? { ok: true, json: async () => ({ ok: true, results: [{
+      ? { ok: true, json: async () => ({ ok: true, selected_cash_offer_id: null, results: [{
         origin: 'FRA', dest: 'MUC', date: '2030-10-10',
         programs: [{ program: 'Miles & More', miles: 1662, surcharge: 35 }],
-        decision: { signal: 'strong_miles_value', confidence: 'low' },
+        decision: { signal: 'strong_miles_value', confidence: 'low', evaluated_cash_offer_id: null },
         verified_identical_routing: false, has_live_data: false,
         ...resultOverrides,
       }] }) }
@@ -200,14 +233,16 @@ describe('App', () => {
 
   const renderWithCashOffers = async (offers: Record<string, unknown>[]) => {
     setupUrlParams('FRA', 'MUC', '2030-10-10');
+    const cashResponse = canonicalCashResponse(offers);
+    const selectedId = cashResponse.selected_cash_offer_id;
     mockFetch.mockImplementation(async (url) => url === '/api/awards'
-      ? { ok: true, json: async () => ({ ok: true, results: [{
+      ? { ok: true, json: async () => ({ ok: true, selected_cash_offer_id: selectedId, results: [{
         origin: 'FRA', dest: 'MUC', date: '2030-10-10',
         programs: [{ program: 'Miles & More', miles: 1662, surcharge: 35 }],
-        decision: { signal: 'strong_miles_value', confidence: 'medium' },
+        decision: { signal: 'strong_miles_value', confidence: 'medium', evaluated_cash_offer_id: selectedId },
         verified_identical_routing: false, has_live_data: false,
       }] }) }
-      : { ok: true, json: async () => ({ ok: true, offers }) });
+      : { ok: true, json: async () => cashResponse });
     const view = render(<App />);
     fireEvent.click(getButton(view.container));
     await waitFor(() => expect(screen.getByTestId('cash-candidate-card')).toBeTruthy());
@@ -399,7 +434,7 @@ describe('App', () => {
 
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
     expect(mockFetch).toHaveBeenCalledWith('/api/awards', expect.objectContaining({
-      method: 'POST', body: JSON.stringify({ ...JSON.parse(expectedPayload), cashOfferId: null })
+      method: 'POST', body: expectedPayload
     }));
     expect(mockFetch).toHaveBeenCalledWith('/api/cheap', expect.objectContaining({
       method: 'POST', body: expectedPayload
@@ -423,6 +458,57 @@ describe('App', () => {
     expect(screen.getByTestId('decision-summary').getAttribute('data-evaluated-cash-offer-id')).toBe('cash-selected');
     expect(screen.getByTestId('decision-summary').textContent).toContain('Decision signal');
     expect(screen.getByTestId('decision-summary').textContent).not.toContain('Recommendation');
+  });
+
+  it('does not use the first cash or award row when the selected ID resolves to no offer', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      cheap: {
+        ok: true,
+        selected_cash_offer_id: 'cash-missing',
+        cash_guidance: { recommended_offer_id: 'cash-first' },
+        offers: [{
+          offer_id: 'cash-first',
+          cash_offer_id: 'cash-first',
+          price: 420,
+          airline: 'Array Position Air',
+        }],
+      },
+      awards: awardTrustApiResponse('award_cached_recent'),
+    });
+
+    render(<App />);
+    fireEvent.click(getButton(document.body));
+
+    await waitFor(() => expect(screen.getByTestId('cash-pane-success')).toBeTruthy());
+    expect(screen.queryByTestId('cash-candidate-card')).toBeNull();
+    expect(screen.queryByTestId('decision-summary')).toBeNull();
+    const awardCall = mockFetch.mock.calls.find(([url]) => url === '/api/awards');
+    expect(JSON.parse(awardCall?.[1].body)).not.toHaveProperty('cashOfferId');
+  });
+
+  it('never labels insufficient_data as a Recommendation even when award trust is otherwise eligible', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    strictCashFixtureMock({
+      cheap: buildCashFixtureResponse('cash_one_way_complete.json', ['cash-control'], 'cash-control'),
+      awards: awardTrustApiResponse('award_cached_recent', {
+        verified_identical_routing: true,
+        decision: {
+          signal: 'insufficient_data',
+          verdict: 'insufficient_data',
+          confidence: 'high',
+          trip_basis_compatible: true,
+        },
+      }),
+    });
+
+    render(<App />);
+    fireEvent.click(getButton(document.body));
+
+    await waitFor(() => expect(screen.getByTestId('decision-summary')).toBeTruthy());
+    expect(screen.getByTestId('decision-summary').textContent).toContain('Decision signal');
+    expect(screen.getByTestId('decision-summary').textContent).not.toContain('Recommendation');
+    expect(screen.getByTestId('decision-verdict').textContent).toBe('More Evidence Required');
   });
 
   it('shows API error state when BOTH endpoints fail', async () => {
@@ -481,10 +567,14 @@ describe('App', () => {
 
   it('renders both cash and awards when both succeed', async () => {
     setupUrlParams('FRA', 'JFK', '2030-10-10');
+    const cashPayload = canonicalCashResponse([{
+      price: 499, currency: 'EUR', airline: 'Lufthansa',
+      dep_time: '10:00', arr_time: '14:00', stops: 0, durationMin: 240, time_data_status: 'complete',
+    }]);
     mockFetch.mockImplementation(async (url) => {
       if (url === '/api/awards') return {
         ok: true,
-        json: async () => ({
+        json: async () => alignAwardIdentity({
           ok: true,
           results: [{
             origin: 'FRA', dest: 'JFK', date: '2030-10-10',
@@ -492,17 +582,11 @@ describe('App', () => {
             programs: [{ program: 'Miles & More', miles: 30000, surcharge: 100 }],
             decision: { signal: 'strong_miles_value', confidence: 'high', trip_basis_compatible: true }
           }]
-        })
+        }, cashPayload.selected_cash_offer_id)
       };
       if (url === '/api/cheap') return {
         ok: true,
-        json: async () => ({
-          ok: true,
-          offers: [{
-            price: 499, currency: 'EUR', airline: 'Lufthansa',
-            dep_time: '10:00', arr_time: '14:00', stops: 0, durationMin: 240, time_data_status: 'complete'
-          }]
-        })
+        json: async () => cashPayload
       };
     });
 
@@ -571,24 +655,22 @@ describe('App', () => {
 
   it('shows missing routing disclosure and limited comparison when verified_identical_routing is false', async () => {
     setupUrlParams('FRA', 'JFK', '2030-10-10');
+    const cashPayload = canonicalCashResponse([{ price: 500, airline: 'Lufthansa', time_data_status: 'complete' }]);
     mockFetch.mockImplementation(async (url) => {
       if (url === '/api/awards') return {
         ok: true,
-        json: async () => ({
+        json: async () => alignAwardIdentity({
           ok: true,
           results: [{
             origin: 'FRA', dest: 'JFK', date: '2030-10-10',
             cash_eur: 500, verified_identical_routing: false,
             programs: [], decision: { signal: 'unknown', confidence: 'low' }
           }]
-        })
+        }, cashPayload.selected_cash_offer_id)
       };
       if (url === '/api/cheap') return {
         ok: true,
-        json: async () => ({
-          ok: true,
-          offers: [{ price: 500, airline: 'Lufthansa', time_data_status: 'complete' }]
-        })
+        json: async () => cashPayload
       };
     });
 
@@ -603,14 +685,12 @@ describe('App', () => {
 
   it('shows missing cash times disclosure when time_data_status is unavailable', async () => {
     setupUrlParams('FRA', 'JFK', '2030-10-10');
+    const cashPayload = canonicalCashResponse([{ price: 500, airline: 'Lufthansa', time_data_status: 'unavailable' }]);
     mockFetch.mockImplementation(async (url) => {
-      if (url === '/api/awards') return { ok: true, json: async () => ({ ok: true, results: [{ decision: { signal: 'unknown' } }] }) };
+      if (url === '/api/awards') return { ok: true, json: async () => alignAwardIdentity({ ok: true, results: [{ decision: { signal: 'unknown' } }] }, cashPayload.selected_cash_offer_id) };
       if (url === '/api/cheap') return {
         ok: true,
-        json: async () => ({
-          ok: true,
-          offers: [{ price: 500, airline: 'Lufthansa', time_data_status: 'unavailable' }]
-        })
+        json: async () => cashPayload
       };
     });
 
@@ -624,9 +704,10 @@ describe('App', () => {
 
   it('only cash succeeds', async () => {
     setupUrlParams('FRA', 'JFK', '2030-10-10');
+    const cashPayload = canonicalCashResponse([{ price: 500, airline: 'Lufthansa' }]);
     mockFetch.mockImplementation(async (url) => {
-      if (url === '/api/awards') return { ok: true, json: async () => ({ ok: true, results: [] }) };
-      if (url === '/api/cheap') return { ok: true, json: async () => ({ ok: true, offers: [{ price: 500, airline: 'Lufthansa' }] }) };
+      if (url === '/api/awards') return { ok: true, json: async () => alignAwardIdentity({ ok: true, results: [] }, cashPayload.selected_cash_offer_id) };
+      if (url === '/api/cheap') return { ok: true, json: async () => cashPayload };
     });
 
     const { container } = render(<App />);
@@ -927,14 +1008,15 @@ describe('App', () => {
 
   it('keeps normal strong wording and the populated Cash card when Cash succeeds', async () => {
     setupUrlParams('FRA', 'JFK', '2030-10-10');
+    const cashPayload = canonicalCashResponse([{ price: 500, currency: 'EUR', airline: 'Lufthansa' }]);
     mockFetch.mockImplementation(async (url) => url === '/api/awards'
-      ? { ok: true, json: async () => ({ ok: true, results: [{
+      ? { ok: true, json: async () => alignAwardIdentity({ ok: true, results: [{
         origin: 'FRA', dest: 'JFK', date: '2030-10-10', cash_eur: 500,
         programs: [{ program: 'Miles & More', miles: 30000, surcharge: 100 }],
         decision: { signal: 'strong_miles_value', confidence: 'high' },
         verified_identical_routing: true, has_live_data: true,
-      }] }) }
-      : { ok: true, json: async () => ({ ok: true, offers: [{ price: 500, currency: 'EUR', airline: 'Lufthansa' }] }) });
+      }] }, cashPayload.selected_cash_offer_id) }
+      : { ok: true, json: async () => cashPayload });
 
     const { container } = render(<App />);
     fireEvent.click(getButton(container));
@@ -950,9 +1032,10 @@ describe('App', () => {
 
   it('keeps partial success visible when the other pane errors', async () => {
     setupUrlParams('FRA', 'JFK', '2030-10-10');
+    const cashPayload = canonicalCashResponse([{ price: 477, airline: 'Cash Only Air' }]);
     mockFetch.mockImplementation(async (url) => {
       if (url === '/api/awards') throw new Error('Award provider unavailable');
-      return { ok: true, json: async () => ({ ok: true, offers: [{ price: 477, airline: 'Cash Only Air' }] }) };
+      return { ok: true, json: async () => cashPayload };
     });
 
     const { container } = render(<App />);
@@ -966,12 +1049,15 @@ describe('App', () => {
 
   it('keeps Cash and Award response fields isolated', async () => {
     setupUrlParams('FRA', 'JFK', '2030-10-10');
+    const cashPayload = canonicalCashResponse([{ price: 612, airline: 'Cash Carrier Y' }]);
     mockFetch.mockImplementation(async (url) => {
       if (url === '/api/awards') return { ok: true, json: async () => ({
-        ok: true,
-        results: [{ origin: 'FRA', dest: 'JFK', date: '2030-10-10', programs: [{ program: 'Award Program X', miles: 42424, surcharge: 81 }], decision: { signal: 'unknown', confidence: 'low' } }]
+        ...alignAwardIdentity({
+          ok: true,
+          results: [{ origin: 'FRA', dest: 'JFK', date: '2030-10-10', programs: [{ program: 'Award Program X', miles: 42424, surcharge: 81 }], decision: { signal: 'unknown', confidence: 'low' } }],
+        }, cashPayload.selected_cash_offer_id),
       }) };
-      return { ok: true, json: async () => ({ ok: true, offers: [{ price: 612, airline: 'Cash Carrier Y' }] }) };
+      return { ok: true, json: async () => cashPayload };
     });
 
     const { container } = render(<App />);
@@ -1308,10 +1394,10 @@ describe('App', () => {
     const { container } = render(<App />);
     fireEvent.click(getButton(container));
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
-    const payloads = mockFetch.mock.calls.map(([, options]) => JSON.parse(options.body));
-    const cashPayload = payloads.find(payload => !Object.prototype.hasOwnProperty.call(payload, 'cashOfferId'));
-    const awardPayload = payloads.find(payload => Object.prototype.hasOwnProperty.call(payload, 'cashOfferId'));
-    expect({ ...awardPayload, cashOfferId: undefined }).toEqual({ ...cashPayload, cashOfferId: undefined });
+    const cashPayload = JSON.parse(mockFetch.mock.calls.find(([url]) => url === '/api/cheap')?.[1].body);
+    const awardPayload = JSON.parse(mockFetch.mock.calls.find(([url]) => url === '/api/awards')?.[1].body);
+    expect(awardPayload).toEqual(cashPayload);
+    expect(awardPayload).not.toHaveProperty('cashOfferId');
     expect(cashPayload).toEqual({
       lang: 'en', origin: 'FRA', dest: 'JFK', date: '2030-10-10', oneWay: false,
       returnDate: '2030-10-20', direct: false, mmOnly: false, currency: 'eur',
@@ -1344,20 +1430,21 @@ describe('App', () => {
     window.history.pushState({}, 'Test Title', '/app?from=FRA&to=JFK&date=2030-10-10&trip=round_trip&returnDate=2030-10-20');
   }
 
-  function awardRoundTripResponse(overrides: Record<string, unknown> = {}) {
-    return { ok: true, results: [{
+  function awardRoundTripResponse(overrides: Record<string, unknown> = {}, selectedId: string | null = null) {
+    return alignAwardIdentity({ ok: true, results: [{
       origin: 'FRA', dest: 'JFK', date: '2030-10-10', returnDate: '2030-10-20',
       programs: [{ program: 'Miles & More', miles: 50000, surcharge: 120, trip_type: 'one_way', requested_trip_type: 'round_trip' }],
       decision: { signal: 'strong_miles_value', confidence: 'low', trip_basis_compatible: false },
       verified_identical_routing: false, has_live_data: false, ...overrides,
-    }] };
+    }] }, selectedId);
   }
 
   it('renders_complete_round_trip_legs', async () => {
     setupRoundTrip();
+    const cashPayload = canonicalCashResponse([{ offer_id: 'complete', price: 700, currency: 'EUR', returnDate: '2030-10-20', itinerary_state: 'complete', outbound_segments: roundTripSegments.outbound, return_segments: roundTripSegments.inbound }]);
     mockFetch.mockImplementation(async (url) => url === '/api/awards'
-      ? { ok: true, json: async () => awardRoundTripResponse() }
-      : { ok: true, json: async () => ({ ok: true, offers: [{ offer_id: 'complete', price: 700, currency: 'EUR', returnDate: '2030-10-20', itinerary_state: 'complete', outbound_segments: roundTripSegments.outbound, return_segments: roundTripSegments.inbound }] }) });
+      ? { ok: true, json: async () => awardRoundTripResponse({}, cashPayload.selected_cash_offer_id) }
+      : { ok: true, json: async () => cashPayload });
     const { container } = render(<App />);
     fireEvent.click(getButton(container));
     await waitFor(() => expect(screen.getByTestId('cash-round-trip-complete')).toBeTruthy());
@@ -1368,9 +1455,10 @@ describe('App', () => {
 
   it('renders_partial_round_trip_without_inventing_return', async () => {
     setupRoundTrip();
+    const cashPayload = canonicalCashResponse([{ offer_id: 'partial', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }]);
     mockFetch.mockImplementation(async (url) => url === '/api/awards'
-      ? { ok: true, json: async () => awardRoundTripResponse() }
-      : { ok: true, json: async () => ({ ok: true, offers: [{ offer_id: 'partial', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }] }) });
+      ? { ok: true, json: async () => awardRoundTripResponse({}, cashPayload.selected_cash_offer_id) }
+      : { ok: true, json: async () => cashPayload });
     const { container } = render(<App />);
     fireEvent.click(getButton(container));
     await waitFor(() => expect(screen.getByTestId('cash-round-trip-partial')).toBeTruthy());
@@ -1380,12 +1468,13 @@ describe('App', () => {
 
   it('renders_price_only_round_trip_without_route_claims', async () => {
     setupRoundTrip();
+    const cashPayload = canonicalCashResponse([
+      { offer_id: 'price', price: 600, currency: 'EUR', origin: 'FRA', dest: 'JFK', date: '2030-10-10', returnDate: '2030-10-20', itinerary_state: 'price_only', airline: 'Should Not Render', dep_time: '10:00', stops: 0 },
+      { offer_id: 'alternative', price: 650, currency: 'EUR', returnDate: '2030-10-20', itinerary_state: 'price_only', airline: 'Alternative Must Not Render', dep_time: '11:00', durationMin: 500, stops: 1 },
+    ]);
     mockFetch.mockImplementation(async (url) => url === '/api/awards'
-      ? { ok: true, json: async () => awardRoundTripResponse() }
-      : { ok: true, json: async () => ({ ok: true, offers: [
-        { offer_id: 'price', price: 600, currency: 'EUR', origin: 'FRA', dest: 'JFK', date: '2030-10-10', returnDate: '2030-10-20', itinerary_state: 'price_only', airline: 'Should Not Render', dep_time: '10:00', stops: 0 },
-        { offer_id: 'alternative', price: 650, currency: 'EUR', returnDate: '2030-10-20', itinerary_state: 'price_only', airline: 'Alternative Must Not Render', dep_time: '11:00', durationMin: 500, stops: 1 },
-      ] }) });
+      ? { ok: true, json: async () => awardRoundTripResponse({}, cashPayload.selected_cash_offer_id) }
+      : { ok: true, json: async () => cashPayload });
     const { container } = render(<App />);
     fireEvent.click(getButton(container));
     await waitFor(() => expect(screen.getByTestId('cash-round-trip-price-only')).toBeTruthy());
@@ -1399,10 +1488,11 @@ describe('App', () => {
 
   it('calls_return_leg_once_for_recommended_partial_offer', async () => {
     setupRoundTrip();
+    const cashPayload = canonicalCashResponse([{ offer_id: 'rec', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }]);
     mockFetch.mockImplementation(async (url) => {
-      if (url === '/api/awards') return { ok: true, json: async () => awardRoundTripResponse() };
-      if (url === '/api/cheap') return { ok: true, json: async () => ({ ok: true, cash_guidance: { recommended_offer_id: 'rec' }, offers: [{ offer_id: 'rec', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }] }) };
-      return { ok: true, json: async () => ({ ok: true, offer_id: 'rec', itinerary_state: 'complete', return_segments: roundTripSegments.inbound }) };
+      if (url === '/api/awards') return { ok: true, json: async () => awardRoundTripResponse({}, cashPayload.selected_cash_offer_id) };
+      if (url === '/api/cheap') return { ok: true, json: async () => cashPayload };
+      return { ok: true, json: async () => ({ ok: true, offer_id: 'rec', cash_offer_id: 'rec', itinerary_state: 'complete', return_segments: roundTripSegments.inbound }) };
     });
     const { container } = render(<App />);
     fireEvent.click(getButton(container));
@@ -1412,9 +1502,13 @@ describe('App', () => {
 
   it('does_not_continue_non_recommended_partial_offer', async () => {
     setupRoundTrip();
+    const cashPayload = canonicalCashResponse([
+      { offer_id: 'partial', price: 600, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound },
+      { offer_id: 'complete', price: 700, returnDate: '2030-10-20', itinerary_state: 'complete', outbound_segments: roundTripSegments.outbound, return_segments: roundTripSegments.inbound },
+    ], 1);
     mockFetch.mockImplementation(async (url) => url === '/api/awards'
-      ? { ok: true, json: async () => awardRoundTripResponse() }
-      : { ok: true, json: async () => ({ ok: true, cash_guidance: { recommended_offer_id: 'complete' }, offers: [{ offer_id: 'partial', price: 600, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }, { offer_id: 'complete', price: 700, returnDate: '2030-10-20', itinerary_state: 'complete', outbound_segments: roundTripSegments.outbound, return_segments: roundTripSegments.inbound }] }) });
+      ? { ok: true, json: async () => awardRoundTripResponse({}, cashPayload.selected_cash_offer_id) }
+      : { ok: true, json: async () => cashPayload });
     const { container } = render(<App />);
     fireEvent.click(getButton(container));
     await waitFor(() => expect(screen.getByTestId('cash-round-trip-complete')).toBeTruthy());
@@ -1423,10 +1517,14 @@ describe('App', () => {
 
   it('upgrades_only_matching_offer', async () => {
     setupRoundTrip();
+    const cashPayload = canonicalCashResponse([
+      { offer_id: 'other', price: 620, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound },
+      { offer_id: 'target', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound },
+    ], 1);
     mockFetch.mockImplementation(async (url) => {
-      if (url === '/api/awards') return { ok: true, json: async () => awardRoundTripResponse() };
-      if (url === '/api/cheap') return { ok: true, json: async () => ({ ok: true, cash_guidance: { recommended_offer_id: 'target' }, offers: [{ offer_id: 'other', price: 620, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }, { offer_id: 'target', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }] }) };
-      return { ok: true, json: async () => ({ ok: true, offer_id: 'target', itinerary_state: 'complete', return_segments: roundTripSegments.inbound }) };
+      if (url === '/api/awards') return { ok: true, json: async () => awardRoundTripResponse({}, cashPayload.selected_cash_offer_id) };
+      if (url === '/api/cheap') return { ok: true, json: async () => cashPayload };
+      return { ok: true, json: async () => ({ ok: true, offer_id: 'target', cash_offer_id: 'target', itinerary_state: 'complete', return_segments: roundTripSegments.inbound }) };
     });
     const { container } = render(<App />);
     fireEvent.click(getButton(container));
@@ -1437,9 +1535,10 @@ describe('App', () => {
 
   it('continuation_failure_preserves_partial_state', async () => {
     setupRoundTrip();
+    const cashPayload = canonicalCashResponse([{ offer_id: 'rec', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }]);
     mockFetch.mockImplementation(async (url) => {
-      if (url === '/api/awards') return { ok: true, json: async () => awardRoundTripResponse() };
-      if (url === '/api/cheap') return { ok: true, json: async () => ({ ok: true, cash_guidance: { recommended_offer_id: 'rec' }, offers: [{ offer_id: 'rec', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }] }) };
+      if (url === '/api/awards') return { ok: true, json: async () => awardRoundTripResponse({}, cashPayload.selected_cash_offer_id) };
+      if (url === '/api/cheap') return { ok: true, json: async () => cashPayload };
       return { ok: true, json: async () => ({ ok: false, itinerary_state: 'partial' }) };
     });
     const { container } = render(<App />);
@@ -1453,13 +1552,16 @@ describe('App', () => {
     let resolveContinuation!: (value: unknown) => void;
     const continuation = new Promise(resolve => { resolveContinuation = resolve; });
     let cheapCalls = 0;
+    let selectedId: string | null = null;
     mockFetch.mockImplementation(async (url) => {
-      if (url === '/api/awards') return { ok: true, json: async () => awardRoundTripResponse() };
+      if (url === '/api/awards') return { ok: true, json: async () => awardRoundTripResponse({}, selectedId) };
       if (url === '/api/cheap') {
         cheapCalls += 1;
-        return cheapCalls === 1
-          ? { ok: true, json: async () => ({ ok: true, cash_guidance: { recommended_offer_id: 'old' }, offers: [{ offer_id: 'old', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }] }) }
-          : { ok: true, json: async () => ({ ok: true, offers: [{ offer_id: 'new', price: 999, returnDate: '2030-10-20', itinerary_state: 'complete', outbound_segments: roundTripSegments.outbound, return_segments: [{ dep_iata: 'JFK', arr_iata: 'FRA', airline: 'New Return' }] }] }) };
+        const payload = cheapCalls === 1
+          ? canonicalCashResponse([{ offer_id: 'old', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }])
+          : canonicalCashResponse([{ offer_id: 'new', price: 999, returnDate: '2030-10-20', itinerary_state: 'complete', outbound_segments: roundTripSegments.outbound, return_segments: [{ dep_iata: 'JFK', arr_iata: 'FRA', airline: 'New Return' }] }]);
+        selectedId = payload.selected_cash_offer_id;
+        return { ok: true, json: async () => payload };
       }
       return continuation;
     });
@@ -1468,16 +1570,17 @@ describe('App', () => {
     await waitFor(() => expect(mockFetch.mock.calls.some(([url]) => url === '/api/return-leg')).toBe(true));
     fireEvent.click(getButton(container));
     await waitFor(() => expect(container.textContent).toContain('New Return'));
-    resolveContinuation({ ok: true, json: async () => ({ ok: true, offer_id: 'old', itinerary_state: 'complete', return_segments: [{ dep_iata: 'JFK', arr_iata: 'FRA', airline: 'Old Return' }] }) });
+    resolveContinuation({ ok: true, json: async () => ({ ok: true, offer_id: 'old', cash_offer_id: 'old', itinerary_state: 'complete', return_segments: [{ dep_iata: 'JFK', arr_iata: 'FRA', airline: 'Old Return' }] }) });
     await Promise.resolve();
     expect(container.textContent).not.toContain('Old Return');
   });
 
   it('does_not_expose_continuation_token', async () => {
     setupRoundTrip();
+    const cashPayload = canonicalCashResponse([{ offer_id: 'rec', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }]);
     mockFetch.mockImplementation(async (url) => {
-      if (url === '/api/awards') return { ok: true, json: async () => awardRoundTripResponse() };
-      if (url === '/api/cheap') return { ok: true, json: async () => ({ ok: true, cash_guidance: { recommended_offer_id: 'rec' }, offers: [{ offer_id: 'rec', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }] }) };
+      if (url === '/api/awards') return { ok: true, json: async () => awardRoundTripResponse({}, cashPayload.selected_cash_offer_id) };
+      if (url === '/api/cheap') return { ok: true, json: async () => cashPayload };
       return { ok: true, json: async () => ({ ok: false, itinerary_state: 'partial' }) };
     });
     const { container } = render(<App />);
@@ -1529,9 +1632,10 @@ describe('App', () => {
 
   it('renders_only_sanitized_provider_links', async () => {
     setupRoundTrip();
+    const cashPayload = canonicalCashResponse([{ offer_id: 'price', price: 600, returnDate: '2030-10-20', itinerary_state: 'price_only', links: { Unsafe: 'data:text/html,bad', Safe: 'https://example.com/check' } }]);
     mockFetch.mockImplementation(async (url) => url === '/api/awards'
-      ? { ok: true, json: async () => awardRoundTripResponse({ programs: [{ program: 'Unsafe', miles: 50000, url: 'javascript:alert(1)' }] }) }
-      : { ok: true, json: async () => ({ ok: true, offers: [{ offer_id: 'price', price: 600, returnDate: '2030-10-20', itinerary_state: 'price_only', links: { Unsafe: 'data:text/html,bad', Safe: 'https://example.com/check' } }] }) });
+      ? { ok: true, json: async () => awardRoundTripResponse({ programs: [{ program: 'Unsafe', miles: 50000, url: 'javascript:alert(1)' }] }, cashPayload.selected_cash_offer_id) }
+      : { ok: true, json: async () => cashPayload });
     const { container } = render(<App />);
     fireEvent.click(getButton(container));
     await waitFor(() => expect(container.querySelector('a[href="https://example.com/check"]')).toBeTruthy());
@@ -1544,9 +1648,10 @@ describe('App', () => {
 
   it('keeps_round_trip_controls_and_results_accessible', async () => {
     setupRoundTrip();
+    const cashPayload = canonicalCashResponse([{ offer_id: 'partial', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }]);
     mockFetch.mockImplementation(async (url) => url === '/api/awards'
-      ? { ok: true, json: async () => awardRoundTripResponse() }
-      : { ok: true, json: async () => ({ ok: true, offers: [{ offer_id: 'partial', price: 650, returnDate: '2030-10-20', itinerary_state: 'partial', outbound_segments: roundTripSegments.outbound }] }) });
+      ? { ok: true, json: async () => awardRoundTripResponse({}, cashPayload.selected_cash_offer_id) }
+      : { ok: true, json: async () => cashPayload });
     const { container } = render(<App />);
     expect(container.textContent).toContain('Trip type');
     expect(container.querySelector('time[datetime="2030-10-20"]')).toBeTruthy();
@@ -1710,7 +1815,7 @@ describe('App', () => {
     expect(alternativeCards).toHaveLength(0);
   });
 
-  it('drops_invalid_recommended_offer_before_recommendation_mapping', async () => {
+  it('does not use guidance or array position when top-level cash identity is missing', async () => {
     setupUrlParams('FRA', 'JFK', '2030-10-10');
     strictCashFixtureMock({
       cheap: {
@@ -1726,29 +1831,23 @@ describe('App', () => {
     const { container } = render(<App />);
     fireEvent.click(getButton(container));
 
-    await waitFor(() => expect(screen.getByTestId('cash-candidate-card')).toBeTruthy());
-    const card = screen.getByTestId('cash-candidate-card').textContent || '';
-    expect(screen.getByTestId('cash-candidate-card').getAttribute('data-offer-id')).toBe('valid-fallback');
-    expect(card).toContain('Valid Fallback');
-    expect(card).toContain('€220');
-    expect(card).not.toContain('Invalid Recommended');
+    await waitFor(() => expect(screen.getByTestId('cash-pane-success')).toBeTruthy());
+    expect(screen.queryByTestId('cash-candidate-card')).toBeNull();
     expect(screen.queryAllByTestId('cash-alternative-row')).toHaveLength(0);
-    expect(container.textContent).not.toContain('Invalid Recommended');
+    const awardCall = mockFetch.mock.calls.find(([url]) => url === '/api/awards');
+    expect(JSON.parse(awardCall?.[1].body)).not.toHaveProperty('cashOfferId');
+    expect(container.textContent).not.toContain('Valid Fallback');
   });
 
   it('accepts_positive_numeric_string_prices_but_rejects_whitespace_and_nonfinite_strings', async () => {
     setupUrlParams('FRA', 'JFK', '2030-10-10');
     strictCashFixtureMock({
-      cheap: {
-        ok: true,
-        offers: [
+      cheap: canonicalCashResponse([
           { offer_id: 'whitespace', price: '   ', currency: 'EUR', airline: 'Whitespace', time_data_status: 'complete' },
           { offer_id: 'nan-string', price: 'NaN', currency: 'EUR', airline: 'NaN Airline', time_data_status: 'complete' },
           { offer_id: 'infinity-string', price: 'Infinity', currency: 'EUR', airline: 'Infinity Airline', time_data_status: 'complete' },
           { offer_id: 'string-valid', price: '199.99', currency: 'EUR', airline: 'String Valid', dep_time: '07:00', arr_time: '10:00', durationMin: 180, stops: 0, time_data_status: 'complete' },
-        ],
-        cash_guidance: { recommended_offer_id: 'string-valid' },
-      },
+        ], 3),
     });
 
     const { container } = render(<App />);
@@ -1770,14 +1869,10 @@ describe('App', () => {
   it('rejects_boolean_prices_before_numeric_coercion', async () => {
     setupUrlParams('FRA', 'JFK', '2030-10-10');
     strictCashFixtureMock({
-      cheap: {
-        ok: true,
-        offers: [
+      cheap: canonicalCashResponse([
           { offer_id: 'bool-true', price: true, currency: 'EUR', airline: 'Boolean True', time_data_status: 'complete' },
           { offer_id: 'valid-control', price: 180, currency: 'EUR', airline: 'Boolean Control', dep_time: '06:00', arr_time: '09:00', durationMin: 180, stops: 0, time_data_status: 'complete' },
-        ],
-        cash_guidance: { recommended_offer_id: 'valid-control' },
-      },
+        ], 1),
     });
 
     const { container } = render(<App />);

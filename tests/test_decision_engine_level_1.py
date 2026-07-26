@@ -120,6 +120,21 @@ class TripBasisNormalization(unittest.TestCase):
         self.assertIsNone(d["evaluated_cash_offer_id"])
         self.assertEqual(d["cash_trip_type"], "unknown")
 
+    def test_offer_id_cannot_substitute_for_missing_canonical_cash_offer_id(self):
+        cash_offer = _cash_offer()
+        del cash_offer["cash_offer_id"]
+        d = app.build_decision(
+            _award(1.5),
+            cash_eur=300,
+            cash_is_real=True,
+            cash_level="within_typical",
+            requested_trip_type="one_way",
+            cash_offer=cash_offer,
+        )
+        self.assertIsNone(d["evaluated_cash_offer_id"])
+        self.assertEqual(d["verdict"], "insufficient_data")
+        self.assertEqual(d["signal"], "insufficient_data")
+
     def test_no_award_is_insufficient(self):
         d = app.build_decision(None, cash_eur=300, cash_is_real=True,
                                cash_level="within_typical", requested_trip_type="one_way",
@@ -277,6 +292,7 @@ class DecisionSignalsLevel1(unittest.TestCase):
                 "date": "2026-08-15",
                 "cabin": "Economy",
                 "oneWay": True,
+                "cashOfferId": "cash-test-one_way",
             })
             self.assertEqual(response.status_code, 200)
             payload = response.get_json()
@@ -344,6 +360,7 @@ class DecisionSignalsLevel1(unittest.TestCase):
                 "returnDate": "2026-07-09",
                 "oneWay": False,
                 "cabin": "Economy",
+                "cashOfferId": "cash-test-round_trip",
             })
 
             self.assertEqual(response.status_code, 200)
@@ -444,6 +461,7 @@ class ItineraryOwnershipIntegrity(unittest.TestCase):
             response = app.app.test_client().post("/api/awards", json={
                 "origin": "FRA", "dest": "JFK", "date": "2026-08-15",
                 "cabin": "Economy", "oneWay": True,
+                "cashOfferId": "cash-test-one_way",
             })
             self.assertEqual(response.status_code, 200)
             result = response.get_json()["results"][0]

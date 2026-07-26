@@ -97,6 +97,7 @@ def test_awards_survives_quota_without_changing_backend_signal(monkeypatch):
     response = awardradar.app.test_client().post("/api/awards", json={
         "origin": "FRA", "dest": "JFK", "date": "2030-01-01",
         "oneWay": True, "cabin": "Economy",
+        "cashOfferId": "cash-selected-before-quota",
     })
 
     assert response.status_code == 200
@@ -105,6 +106,7 @@ def test_awards_survives_quota_without_changing_backend_signal(monkeypatch):
     result = body["results"][0]
     assert result["cash_eur"] is None
     assert result["cash_provenance"]["fallback_reason"] == "quota_exhausted"
+    canonical_cash.assert_called_once()
     assert result["decision"]["signal"] == "insufficient_data"
     canonical_cash.assert_called_once()
     assert "run out" not in response.get_data(as_text=True).lower()

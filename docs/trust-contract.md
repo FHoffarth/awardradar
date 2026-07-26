@@ -57,10 +57,26 @@ A positive recommendation is blocked unless **all** hold:
 - `routingConfidence === 'complete'`
 - `itineraryOwnershipVerified === true`
 - not a round trip with a missing return leg
+- backend verdict is one of the centralized recommendation-eligible values:
+  `book_miles`, `lean_miles`, or `pay_cash`
+- the decision carries the canonical `evaluated_cash_offer_id`
 
 `cached_stale` and `estimated` never invent a generic verdict. They may show only
 the backend's evidence-bounded decision signal and cannot produce a positive
 booking recommendation.
+
+## Paired cash identity
+
+The canonical UI uses the paired `/api/cheap` → `/api/awards` flow.
+`/api/awards` evaluates cash only when the request supplies the canonical
+`cashOfferId` selected by `/api/cheap` and that ID resolves through the shared
+cash-selection logic. Missing or mismatched identity does not trigger a second
+cash selection: `selected_cash_offer_id` and `evaluated_cash_offer_id` remain
+null, and the decision remains `insufficient_data`.
+
+An `/api/awards` request without `cashOfferId` may still return award evidence,
+but it has no standalone cash-comparison mode and cannot produce a cash-versus-
+miles recommendation.
 
 ## Never list (forbidden language)
 
