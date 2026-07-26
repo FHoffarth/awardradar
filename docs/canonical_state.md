@@ -1,7 +1,7 @@
 # AwardRadar Canonical Repository State
 
-Last updated: 2026-07-18
-Verified against: `origin/main` at `536e0b23665c2a36ec504dad928a9f79a9715799`
+Last updated: 2026-07-26
+Verified against: `origin/main` at `322898066382f51d45ff385d4a8d5300a79551bf`
 
 ## Scope and authority
 
@@ -79,10 +79,10 @@ proves that a commit is live.
 
 ## Decision contract
 
-Added 2026-07-26. Evidence scope: branch `feature/decision-contract-v1` at
-`2104a02d7cea2aa88088c2032a68c7c930f34690` (PR #19, Draft). This work is **not
-merged into `main` and not deployed**, so it does not yet describe the state of
-the canonical integration branch.
+Added 2026-07-26; closed 2026-07-26. PR #19 is **merged into `main`** as merge
+commit `322898066382f51d45ff385d4a8d5300a79551bf` (parents `140a3a6` and
+`ede7897`, non-fast-forward). `origin/main` and `origin/staging` both point at
+that merge commit. This section now describes the canonical integration branch.
 
 Decision Contract V1 is adopted as the binding contract for the `decision` block
 emitted by `build_decision()` and consumed by the `/app` Results UI. It is
@@ -120,8 +120,13 @@ not evidenced in the repository.
 - Written provider approval for external/commercial seats.aero use is not
   evidenced in the repository.
 - `intelligence/` is not integrated into the Flask application.
-- Decision Contract V1 (AR-DEC-003) is adopted but lives only on
-  `feature/decision-contract-v1`; it is not merged into `main` and not deployed.
+- The recorded Railway Production auto-deploy state (`disabled`, see
+  [AR-DEC-002](decision_log.md#ar-dec-002--manual-production-release-governance)
+  and [deployment_governance.md](deployment_governance.md)) was last verified
+  2026-07-18 and has not been re-verified against Railway deploy metadata since.
+  On 2026-07-26 production began serving the `main` merge commit's bundle without
+  a manual deployment step, which the repository cannot reconcile with that
+  recorded state. Railway dashboard evidence is required to resolve it.
 - Some historical work-package documents describe branch or planning states
   that no longer represent the current repository. Their status banners define
   how they should be read.

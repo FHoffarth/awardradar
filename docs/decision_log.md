@@ -114,9 +114,19 @@ Decision Contract V1 is adopted as the binding contract for the `decision` block
 ### Evidence
 
 - Contract specification: [decision_contract_v1.md](decision_contract_v1.md)
-- Implementation: PR #19 on `feature/decision-contract-v1`
-- Implementation commit: `2104a02d7cea2aa88088c2032a68c7c930f34690`
-- Export-copy hardening commit: see `fix: humanize decision contract exports` on the same branch
+- Implementation: PR #19 on `feature/decision-contract-v1` (merged 2026-07-26)
+- Branch commits:
+  - `2104a02d7cea2aa88088c2032a68c7c930f34690` — contract and verdict safety
+  - `347b784c50dd67f27718a93dfa4b1a95ca457106` — governance record and export-copy tests
+  - `ede7897d33c5c7341e69efefa33d9abe69db3da5` — duplicated signal label fix
+- Merge commit into `main`: `322898066382f51d45ff385d4a8d5300a79551bf`
+  (non-fast-forward; parents `140a3a6` and `ede7897`; merged tree identical to `ede7897`)
 - Contract tests: `tests/test_decision_contract_v1.py`
 - Export enum-leakage tests: `awardradar_sources/awardradar_sources/google/src/App.test.tsx`
-- Not merged, not deployed at the time of this entry.
+- Staging smoke on `ede7897` (2026-07-26): bundle byte-identical, all six external
+  verdicts correct, recommendation gate exact, no legacy tokens, no raw enums in
+  exports, fail-closed behaviour intact, no provider calls. Verdict:
+  READY WITH NON-BLOCKING NOTES.
+- Production served the merged bundle `index-D7aC-1jM.js` on 2026-07-26,
+  byte-identical to `main`. Deploy identity is asset-hash evidence; Railway
+  deploy metadata was not available at the time of this entry.
