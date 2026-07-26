@@ -474,6 +474,33 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--focus); outline
 .report-disclaimer p { max-width: 940px; margin: 0; font-size: 12px; line-height: 1.65; }
 .print-report-header { display: none; }
 
+/* Intermediate tablet widths. The search instrument's track minimums plus its
+   fixed action column need more room than the container has here — 4 x 130px +
+   190px = 710px one-way, 5 x 118px + 190px = 780px round-trip, against roughly
+   625px of container at 768px. Grid tracks will not shrink below those
+   minimums, so the row overflowed its own box and the action was cut off.
+   Below 761px the layout already stacks and from 900px the container is wide
+   enough, so only this band needs help: give the fields flexible columns and
+   let the action wrap onto its own full-width row. Nothing is hidden or
+   clipped away, and no text is scaled down. */
+@media (min-width: 761px) and (max-width: 899px) {
+  .search-instrument,
+  .search-instrument--round-trip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .search-instrument .primary-action {
+    grid-column: 1 / -1;
+    min-height: 58px;
+  }
+
+  /* The editor's own tracks can shrink (minmax(0, 1fr)), but five columns in
+     this band leaves the date inputs too tight to read comfortably. */
+  .search-editor__fields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 760px) {
   :root { --page-pad: clamp(20px, 6vw, 32px); }
   .workspace-header, .workspace-main { width: min(1180px, calc(100% - (var(--page-pad) * 2))); }
