@@ -341,8 +341,8 @@ describe('Landing round-trip search', () => {
   it('keeps_round_trip_desktop_width_constraints_scoped_to_its_layout_marker', () => {
     expect(landingCss).toContain('.ar-instrument--round-trip .ar-field--from')
     expect(landingCss).toContain('.ar-instrument--round-trip .ar-field--return')
-    expect(landingCss).toContain('min-width: 156px')
-    expect(landingCss).toContain('flex: 0 0 140px')
+    expect(landingCss).toContain('min-width: 170px')
+    expect(landingCss).toContain('flex: 0 0 156px')
   })
 
   it('does_not_show_round_trip_validation_before_interaction', () => {
@@ -478,13 +478,13 @@ describe('Landing round-trip search', () => {
     expect(landingCss).toContain('--ar-page-pad: clamp(20px, 6vw, 32px)')
     expect(landingCss).toContain('scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 16px)')
     expect(landingCss).toContain('.ar-date-input')
-    expect(landingCss).toContain('font-size: max(16px, 1rem) !important')
+    expect(landingCss).toContain('font-size: max(16px, 1.25rem) !important')
   })
 
   it('keeps_the_mobile_search_surface_compact_and_light_mode_coherent', () => {
-    expect(landingCss).toContain('min-height: clamp(420px, 58svh, 520px) !important')
+    expect(landingCss).toContain('min-height: clamp(296px, 39svh, 384px) !important')
     expect(landingCss).toContain('bottom: max(36px, env(safe-area-inset-bottom, 0px)) !important')
-    expect(landingCss).toContain('min-height: 75svh !important')
+    expect(landingCss).toContain('min-height: 0 !important')
     expect(landingCss).toContain("[data-theme='light'] .ar-analyze-button:disabled")
     expect(landingCss).toContain('background: #e9eff2 !important')
 

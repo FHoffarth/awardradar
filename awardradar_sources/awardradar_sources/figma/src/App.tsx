@@ -86,6 +86,7 @@ function Globe({ theme }: { theme: Theme }) {
   return (
     <div
       aria-hidden="true"
+      className="ar-globe"
       style={{
         position: 'absolute',
         right: '-353px',
@@ -207,8 +208,8 @@ function Field({
               padding: 0,
               margin: 0,
               fontFamily: 'inherit',
-              fontSize: '21px',
-              fontWeight: 400,
+              fontSize: '24px',
+              fontWeight: 460,
               letterSpacing: '-0.015em',
               lineHeight: 1,
               color: t.fieldValue,
@@ -239,8 +240,8 @@ function Field({
               padding: 0,
               margin: 0,
               fontFamily: 'inherit',
-              fontSize: '15px',
-              fontWeight: 520,
+              fontSize: '24px',
+              fontWeight: 460,
               letterSpacing: '0.002em',
               lineHeight: 1,
               color: t.fieldValue,
@@ -551,7 +552,7 @@ function AutocompleteField({
         }}
         placeholder={placeholder}
         aria-label={label}
-        style={{ background: 'transparent', border: 'none', outline: 'none', padding: 0, margin: 0, fontFamily: 'inherit', fontSize: '21px', fontWeight: 450, letterSpacing: '-0.015em', lineHeight: 1, color: t.fieldValue, width: '100%' }}
+        style={{ background: 'transparent', border: 'none', outline: 'none', padding: 0, margin: 0, fontFamily: 'inherit', fontSize: '24px', fontWeight: 460, letterSpacing: '-0.015em', lineHeight: 1, color: t.fieldValue, width: '100%' }}
       />
 
       {showList && (
@@ -1044,27 +1045,27 @@ export default function App() {
           {/* ── Manifesto ── */}
           <div style={{ marginBottom: '0' }}>
             {/* Primary claim — immediately visible */}
-            <p className="ar-hero-first" style={{
-              margin: '0 0 0.3em 0',
-              fontSize: 'clamp(28px, 3vw, 42px)',
-              fontWeight: 500,
-              lineHeight: 1.2,
-              letterSpacing: '-0.018em',
+            <h1 className="ar-hero-first" style={{
+              margin: '0 0 0.28em 0',
+              fontSize: 'clamp(34px, 4.6vw, 58px)',
+              fontWeight: 550,
+              lineHeight: 1.05,
+              letterSpacing: '-0.028em',
               color: t.line1,
               transition: 'color 0.4s ease',
             }}>
-              Decide what&apos;s worth booking.
-            </p>
+              Decide what&apos;s<br />worth booking.
+            </h1>
 
             {/* Descriptor — delayed reveal */}
             <p
               className="ar-reveal-block"
               style={{
-                margin: '0.15em 0 0 0',
-                fontSize: 'clamp(17px, 1.7vw, 21px)',
+                margin: '0',
+                fontSize: 'clamp(18px, 1.95vw, 24px)',
                 fontWeight: 450,
-                lineHeight: 1.3,
-                letterSpacing: '-0.008em',
+                lineHeight: 1.4,
+                letterSpacing: '-0.011em',
                 color: t.line2,
                 transition: 'color 0.4s ease',
               }}
@@ -1132,10 +1133,10 @@ export default function App() {
           willChange: 'opacity, transform',
         }}>
           <p className="ar-search-intro" style={{
-            margin: '0 0 40px 0',
-            fontSize: '18px',
+            margin: '0 0 64px 0',
+            fontSize: '19px',
             fontWeight: 450,
-            lineHeight: 1.4,
+            lineHeight: 1.5,
             color: t.line2,
             transition: 'color 0.4s ease',
           }}>
@@ -1143,10 +1144,10 @@ export default function App() {
           </p>
 
           <p id="route-search-label" className="ar-route-label" style={{
-            margin: '0 0 14px 0',
-            fontSize: '8px',
+            margin: '0 0 20px 0',
+            fontSize: '10px',
             fontWeight: 500,
-            letterSpacing: '0.24em',
+            letterSpacing: '0.16em',
             color: t.instrLabel,
             textTransform: 'uppercase',
             transition: 'color 0.4s ease',
@@ -1228,8 +1229,8 @@ export default function App() {
                   aria-label="Departure date"
                   style={{
                     background: 'transparent', border: 'none', outline: 'none', padding: 0, margin: 0,
-                    fontFamily: 'inherit', fontSize: '15px', fontWeight: 520, letterSpacing: '0.002em',
-                    lineHeight: 1.15, color: t.fieldValue, width: '158px', maxWidth: '100%',
+                    fontFamily: 'inherit', fontSize: '24px', fontWeight: 460, letterSpacing: '-0.008em',
+                    lineHeight: 1.15, color: t.fieldValue, width: '172px', maxWidth: '100%',
                     colorScheme: theme === 'dark' ? 'dark' : 'light',
                   }}
                 />
@@ -1256,8 +1257,8 @@ export default function App() {
                       aria-describedby={shouldShowReturnError ? 'ar-return-error' : undefined}
                       style={{
                         background: 'transparent', border: 'none', outline: 'none', padding: 0, margin: 0,
-                        fontFamily: 'inherit', fontSize: '15px', fontWeight: 520, letterSpacing: '0.002em',
-                        lineHeight: 1.15, color: t.fieldValue, width: '158px', maxWidth: '100%',
+                        fontFamily: 'inherit', fontSize: '24px', fontWeight: 460, letterSpacing: '-0.008em',
+                        lineHeight: 1.15, color: t.fieldValue, width: '172px', maxWidth: '100%',
                         colorScheme: theme === 'dark' ? 'dark' : 'light',
                       }}
                     />
@@ -1277,11 +1278,11 @@ export default function App() {
               disabled={!isValid}
               title={isValid ? 'Analyze this route' : returnError || 'Enter origin, destination and departure date to analyze'}
               style={{
-                marginTop: '24px',
+                marginTop: '36px',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '10px',
-                padding: '13px 24px',
+                gap: '12px',
+                padding: '17px 34px',
                 background: 'transparent',
                 border: `0.5px solid ${isValid ? 'rgba(116,213,255,0.5)' : t.instrBorder}`,
                 borderRadius: '1px',
@@ -1289,9 +1290,9 @@ export default function App() {
                 color: isValid ? t.btnColor : t.instrLabel,
                 opacity: isValid ? 1 : 0.6,
                 fontFamily: 'inherit',
-                fontSize: '11px',
+                fontSize: '12px',
                 fontWeight: 600,
-                letterSpacing: '0.18em',
+                letterSpacing: '0.15em',
                 textTransform: 'uppercase',
                 lineHeight: 1,
               }}
