@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { motion } from 'motion/react';
 import { Activity, AlertTriangle, ArrowRight, Copy, Info, Mail, MoreHorizontal, Printer, Share2, ShieldCheck } from 'lucide-react';
@@ -842,20 +842,97 @@ const SearchInstrument = ({
           : null;
   const dateLabel = dateIsValid ? formatTravelDate(dateParam) : 'Date not selected';
   const canAnalyze = Boolean(originCode && destinationCode && originCode !== destinationCode && dateIsValid && tripType && !tripValidationError);
+  const [editing, setEditing] = useState(false);
+  const [draftOrigin, setDraftOrigin] = useState(originCode || '');
+  const [draftDestination, setDraftDestination] = useState(destinationCode || '');
+  const [draftDate, setDraftDate] = useState(dateParam);
+  const [draftTripType, setDraftTripType] = useState<TripType>(tripType || 'one_way');
+  const [draftReturnDate, setDraftReturnDate] = useState(tripType === 'round_trip' ? returnDateParam : '');
+  const [editValidationError, setEditValidationError] = useState<string | null>(null);
+  const updateInFlightRef = useRef(false);
+  const editButtonRef = useRef<HTMLButtonElement>(null);
+  const originInputRef = useRef<HTMLInputElement>(null);
+  const restoreEditFocusRef = useRef(false);
 
-  // This row is a READ-ONLY summary of the search composed on the Landing form
-  // (`/`). Editing happens there, so the Edit link carries the current route
-  // back to `/` as query params. The Landing form does not yet hydrate from
-  // these params (separate slice); today it opens a blank form.
-  const editParams = new URLSearchParams();
-  if (origin) editParams.set('from', originCode || origin);
-  if (destination) editParams.set('to', destinationCode || destination);
-  if (dateParam) editParams.set('date', dateParam);
-  if (tripType === 'round_trip') {
-    editParams.set('trip', 'round_trip');
-    if (returnDateParam) editParams.set('returnDate', returnDateParam);
-  }
-  const editSearchUrl = editParams.toString() ? `/?${editParams.toString()}` : '/';
+  useEffect(() => {
+    if (status !== 'loading') updateInFlightRef.current = false;
+  }, [status]);
+
+  useEffect(() => {
+    if (editing) {
+      originInputRef.current?.focus();
+    } else if (restoreEditFocusRef.current) {
+      restoreEditFocusRef.current = false;
+      editButtonRef.current?.focus();
+    }
+  }, [editing]);
+
+  const beginEditing = () => {
+    setDraftOrigin(originCode || '');
+    setDraftDestination(destinationCode || '');
+    setDraftDate(dateParam);
+    setDraftTripType(tripType || 'one_way');
+    setDraftReturnDate(tripType === 'round_trip' ? returnDateParam : '');
+    setEditValidationError(null);
+    setEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setEditValidationError(null);
+    restoreEditFocusRef.current = true;
+    setEditing(false);
+  };
+
+  const updateAnalysis = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (updateInFlightRef.current || status === 'loading') return;
+
+    const rawOrigin = draftOrigin.trim().toUpperCase();
+    const rawDestination = draftDestination.trim().toUpperCase();
+    const nextOrigin = resolveAirportCode(rawOrigin);
+    const nextDestination = resolveAirportCode(rawDestination);
+    let error: string | null = null;
+
+    if (!IATA_CODE_PATTERN.test(rawOrigin) || !nextOrigin) {
+      error = 'Enter a valid three-letter origin airport code, such as FRA.';
+    } else if (!IATA_CODE_PATTERN.test(rawDestination) || !nextDestination) {
+      error = 'Enter a valid three-letter destination airport code, such as JFK.';
+    } else if (nextOrigin === nextDestination) {
+      error = 'Origin and destination must be different.';
+    } else if (!isValidDateString(draftDate)) {
+      error = 'A valid future departure date is required.';
+    } else if (draftTripType === 'round_trip' && !isValidDateString(draftReturnDate)) {
+      error = 'A valid future return date is required for a round trip.';
+    } else if (draftTripType === 'round_trip' && draftReturnDate < draftDate) {
+      error = 'Return date must not be before the departure date.';
+    }
+
+    if (error || !nextOrigin || !nextDestination) {
+      setEditValidationError(error || 'Review the search details and try again.');
+      return;
+    }
+
+    const nextParams = new URLSearchParams();
+    nextParams.set('from', nextOrigin);
+    nextParams.set('to', nextDestination);
+    nextParams.set('date', draftDate);
+    if (draftTripType === 'round_trip') {
+      nextParams.set('trip', 'round_trip');
+      nextParams.set('returnDate', draftReturnDate);
+    }
+    window.history.replaceState(window.history.state, '', `/app?${nextParams.toString()}`);
+
+    updateInFlightRef.current = true;
+    setEditValidationError(null);
+    setEditing(false);
+    onAnalyze(
+      nextOrigin,
+      nextDestination,
+      draftDate,
+      draftTripType,
+      draftTripType === 'round_trip' ? draftReturnDate : '',
+    );
+  };
 
   useEffect(() => {
     if (!originCode || !destinationCode) return;
@@ -880,54 +957,139 @@ const SearchInstrument = ({
     >
       <div className="search-context__head">
         <div className="section-kicker" id="search-context-title">Search context</div>
-        <span className="readonly-tag" data-testid="search-readonly-tag">Read-only</span>
+        <span className="search-context__mode" data-testid="search-mode">{editing ? 'Editing' : 'Current search'}</span>
       </div>
 
-      {(validationError || tripValidationError) && (
+      {(editValidationError || validationError || tripValidationError) && (
         <div className="validation-error" role="alert" data-testid="validation-error">
-          <AlertTriangle aria-hidden="true" /> {validationError || tripValidationError}
+          <AlertTriangle aria-hidden="true" /> {editValidationError || validationError || tripValidationError}
         </div>
       )}
 
-      <div className={`search-instrument ${tripType === 'round_trip' ? 'search-instrument--round-trip' : ''}`} role="group" aria-label="Current search summary">
-        <div className="search-field search-field--accent">
-          <span className="field-label">From</span>
-          <strong>{originDisplay}</strong>
-        </div>
-        <div className="search-field">
-          <span className="field-label">To</span>
-          <strong>{destinationDisplay}</strong>
-        </div>
-        <div className="search-field">
-          <span className="field-label">Date</span>
-          <time dateTime={dateParam || undefined}>{dateLabel}</time>
-        </div>
-        <div className="search-field">
-          <span className="field-label">Trip type</span>
-          <strong>{tripType === 'round_trip' ? 'Round-trip' : tripType === 'one_way' ? 'One-way' : 'Invalid'}</strong>
-        </div>
-        {tripType === 'round_trip' && (
-          <div className="search-field">
-            <span className="field-label">Return</span>
-            <time dateTime={returnDateParam || undefined}>{returnDateIsValid ? formatTravelDate(returnDateParam) : 'Return date not selected'}</time>
+      {editing ? (
+        <form className="search-editor" onSubmit={updateAnalysis} noValidate data-testid="search-editor">
+          <div className="search-editor__fields">
+            <label className="search-editor__field">
+              <span>Origin airport code</span>
+              <input
+                type="text"
+                value={draftOrigin}
+                onChange={event => setDraftOrigin(event.target.value.toUpperCase())}
+                placeholder="FRA"
+                maxLength={3}
+                autoComplete="off"
+                spellCheck={false}
+                inputMode="text"
+                aria-describedby="search-iata-help"
+                data-testid="edit-origin"
+                ref={originInputRef}
+              />
+            </label>
+            <label className="search-editor__field">
+              <span>Destination airport code</span>
+              <input
+                type="text"
+                value={draftDestination}
+                onChange={event => setDraftDestination(event.target.value.toUpperCase())}
+                placeholder="JFK"
+                maxLength={3}
+                autoComplete="off"
+                spellCheck={false}
+                inputMode="text"
+                aria-describedby="search-iata-help"
+                data-testid="edit-destination"
+              />
+            </label>
+            <label className="search-editor__field">
+              <span>Departure date</span>
+              <input
+                type="date"
+                value={draftDate}
+                min={new Date().toISOString().slice(0, 10)}
+                onChange={event => setDraftDate(event.target.value)}
+                data-testid="edit-departure-date"
+              />
+            </label>
+            <label className="search-editor__field">
+              <span>Trip type</span>
+              <select
+                value={draftTripType}
+                onChange={event => {
+                  const nextTripType = event.target.value as TripType;
+                  setDraftTripType(nextTripType);
+                  if (nextTripType === 'one_way') setDraftReturnDate('');
+                }}
+                data-testid="edit-trip-type"
+              >
+                <option value="one_way">One-way</option>
+                <option value="round_trip">Round-trip</option>
+              </select>
+            </label>
+            {draftTripType === 'round_trip' && (
+              <label className="search-editor__field">
+                <span>Return date</span>
+                <input
+                  type="date"
+                  value={draftReturnDate}
+                  min={draftDate || new Date().toISOString().slice(0, 10)}
+                  onChange={event => setDraftReturnDate(event.target.value)}
+                  data-testid="edit-return-date"
+                />
+              </label>
+            )}
           </div>
-        )}
-        <button
-          onClick={() => originCode && destinationCode && tripType && onAnalyze(originCode, destinationCode, dateParam, tripType, tripType === 'round_trip' ? returnDateParam : '')}
-          disabled={status === 'loading' || !canAnalyze}
-          data-testid="analyze-button"
-          className="primary-action interactive-only"
-          type="button"
-          aria-label={status === 'loading' ? 'Analyzing route' : 'Analyze this route'}
-        >
-          <span>{status === 'loading' ? 'Analyzing…' : 'Analyze this route'}</span>
-          <Activity aria-hidden="true" className={status === 'loading' ? 'is-pulsing' : ''} />
-        </button>
-      </div>
-
-      <div className="search-context__footer interactive-only">
-        <a className="edit-search" href={editSearchUrl} data-testid="edit-search-link">Edit search</a>
-      </div>
+          <p className="search-editor__help" id="search-iata-help">Use three-letter IATA airport codes, such as FRA or JFK.</p>
+          <div className="search-editor__actions">
+            <button className="edit-action edit-action--primary" type="submit" disabled={status === 'loading'} data-testid="update-analysis-button">
+              {status === 'loading' ? 'Updating…' : 'Update analysis'}
+            </button>
+            <button className="edit-action" type="button" onClick={cancelEditing} disabled={status === 'loading'} data-testid="cancel-edit-button">
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <>
+          <div className={`search-instrument ${tripType === 'round_trip' ? 'search-instrument--round-trip' : ''}`} role="group" aria-label="Current search summary">
+            <div className="search-field search-field--accent">
+              <span className="field-label">From</span>
+              <strong>{originDisplay}</strong>
+            </div>
+            <div className="search-field">
+              <span className="field-label">To</span>
+              <strong>{destinationDisplay}</strong>
+            </div>
+            <div className="search-field">
+              <span className="field-label">Date</span>
+              <time dateTime={dateParam || undefined}>{dateLabel}</time>
+            </div>
+            <div className="search-field">
+              <span className="field-label">Trip type</span>
+              <strong>{tripType === 'round_trip' ? 'Round-trip' : tripType === 'one_way' ? 'One-way' : 'Invalid'}</strong>
+            </div>
+            {tripType === 'round_trip' && (
+              <div className="search-field">
+                <span className="field-label">Return</span>
+                <time dateTime={returnDateParam || undefined}>{returnDateIsValid ? formatTravelDate(returnDateParam) : 'Return date not selected'}</time>
+              </div>
+            )}
+            <button
+              onClick={() => originCode && destinationCode && tripType && onAnalyze(originCode, destinationCode, dateParam, tripType, tripType === 'round_trip' ? returnDateParam : '')}
+              disabled={status === 'loading' || !canAnalyze}
+              data-testid="analyze-button"
+              className="primary-action interactive-only"
+              type="button"
+              aria-label={status === 'loading' ? 'Analyzing route' : 'Analyze this route'}
+            >
+              <span>{status === 'loading' ? 'Analyzing…' : 'Analyze this route'}</span>
+              <Activity aria-hidden="true" className={status === 'loading' ? 'is-pulsing' : ''} />
+            </button>
+          </div>
+          <div className="search-context__footer interactive-only">
+            <button className="edit-search" type="button" onClick={beginEditing} data-testid="edit-search-button" ref={editButtonRef}>Edit search</button>
+          </div>
+        </>
+      )}
     </motion.section>
   );
 };
@@ -972,6 +1134,8 @@ const DecisionSummary = ({
   const bestProgram = result?.programs?.[0];
   const awardVerificationUrl = safeExternalUrl(bestProgram?.url);
   const fareVerificationUrl = cashOffer ? cashVerificationUrl(cashOffer) : null;
+  const programName = isNonEmptyString(bestProgram?.program) ? bestProgram.program.trim() : null;
+  const awardActionLabel = programName ? `Verify with ${programName}` : 'Verify with program';
   const nextAction = awardTrust.verificationNotice
     || result?.decision?.verification_guidance
     || cashGuidance?.next_step
@@ -1003,12 +1167,12 @@ const DecisionSummary = ({
 
       <section className="next-best-action" aria-labelledby="next-action-title">
         <div>
-          <h2 id="next-action-title">Next best action</h2>
+          <h2 id="next-action-title">What to do next</h2>
           <p>{nextAction}</p>
         </div>
         <div className="next-best-action__links">
-          {awardVerificationUrl && <a className="assessment-action assessment-action--primary" href={awardVerificationUrl} target="_blank" rel="noopener noreferrer">Verify with program <ArrowRight aria-hidden="true" /></a>}
-          {fareVerificationUrl && <a className="assessment-action" href={fareVerificationUrl} target="_blank" rel="noopener noreferrer">Check current fare</a>}
+          {awardVerificationUrl && <a className="assessment-action assessment-action--primary" href={awardVerificationUrl} target="_blank" rel="noopener noreferrer">{awardActionLabel} <ArrowRight aria-hidden="true" /></a>}
+          {fareVerificationUrl && <a className={`assessment-action ${awardVerificationUrl ? '' : 'assessment-action--primary'}`} href={fareVerificationUrl} target="_blank" rel="noopener noreferrer">Check current cash fare</a>}
         </div>
       </section>
 
@@ -1055,7 +1219,7 @@ const SegmentList = ({ label, segments }: { label: string; segments: FlightSegme
 const CashVerification = ({ offer }: { offer: CashOffer }) => {
   const url = cashVerificationUrl(offer);
   return url ? (
-    <a className="verification-link" href={url} target="_blank" rel="noopener noreferrer">Check current fare</a>
+    <a className="verification-link" href={url} target="_blank" rel="noopener noreferrer">Check current cash fare</a>
   ) : (
     <p className="verification-guidance">Verify the current fare with a flight provider.</p>
   );
@@ -1635,7 +1799,10 @@ export default function App() {
     <div className="app-shell typography-landing-parity" data-typography="landing-parity">
       <div className="workspace-background" aria-hidden="true" />
       <header className="workspace-header interactive-only">
-        <a className="wordmark" href="/" aria-label="AwardRadar home"><span>Award</span><span>Radar</span></a>
+        <a className="wordmark" href="/" aria-label="AwardRadar home">
+          <img src="/static/logo-mark.svg" alt="" width="24" height="24" aria-hidden="true" />
+          <span className="wordmark__name"><span>Award</span><span>Radar</span></span>
+        </a>
         <span className="workspace-label">Decision Workspace</span>
       </header>
 

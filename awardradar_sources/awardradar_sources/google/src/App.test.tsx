@@ -213,6 +213,13 @@ describe('App', () => {
   };
 
   const getButton = (container: HTMLElement) => container.querySelector('[data-testid="analyze-button"]') as HTMLElement;
+  const openEditor = () => {
+    fireEvent.click(screen.getByTestId('edit-search-button'));
+    return screen.getByTestId('search-editor');
+  };
+  const changeEditorField = (testId: string, value: string) => {
+    fireEvent.change(screen.getByTestId(testId), { target: { value } });
+  };
 
   const renderAwardOnly = async (resultOverrides: Record<string, unknown> = {}, cashResponse: Record<string, unknown> = { ok: true, offers: [] }) => {
     setupUrlParams('FRA', 'MUC', '2030-10-10');
@@ -257,13 +264,31 @@ describe('App', () => {
 
   it('uses the Landing typography stack without adding an external font request', () => {
     const css = readFileSync('src/index.css', 'utf8');
-    expect(css).toContain('--font-product: "Geist", "Inter", system-ui, -apple-system, sans-serif;');
-    expect(css).toContain('--font-technical: "Geist Mono", "SFMono-Regular", Consolas, monospace;');
+    expect(css).toContain('--font-product: "Geist", "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;');
+    expect(css).toContain('--font-technical: "Geist Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;');
     expect(css).toMatch(/\.app-shell\s*\{[^}]*font-family:\s*var\(--font-product\)/s);
     expect(css).toMatch(/\.decision-summary h3\s*\{[^}]*font-family:\s*var\(--font-product\)/s);
     expect(css).toMatch(/\.technical-references\s*\{[^}]*font-family:\s*var\(--font-technical\)/s);
     expect(css).not.toContain('fonts.googleapis.com');
     expect(css).not.toContain('fonts.gstatic.com');
+  });
+
+  it('uses the audited Landing navy, cyan and official logo without structural amber', () => {
+    const css = readFileSync('src/index.css', 'utf8');
+    const source = readFileSync('src/App.tsx', 'utf8');
+    expect(css).toContain('--canvas: #060a14;');
+    expect(css).toContain('--surface: #0e1526;');
+    expect(css).toContain('--accent: #74d5ff;');
+    expect(css).toContain('--accent-hover: #a6e4ff;');
+    expect(css).not.toContain('--gold:');
+    expect(css).toMatch(/\.wordmark__name span:last-child[^}]*var\(--accent\)/);
+    expect(css).toMatch(/\.primary-action\s*\{[^}]*color:\s*var\(--accent\)/s);
+    expect(css).toMatch(/\.section-heading-row > span\s*\{[^}]*background:\s*var\(--accent\)/s);
+    expect(css).toMatch(/\.option-type\s*\{[^}]*color:\s*var\(--accent\)/s);
+    expect(css).toMatch(/\.card-caveat\s*\{[^}]*rgba\(199,\s*122,\s*50/s);
+    expect(css).toMatch(/\.round-trip-integrity\.partial \.integrity-label[^}]*var\(--caution-text\)/s);
+    expect(css).toMatch(/\.round-trip-integrity\.price-only \.integrity-label[^}]*var\(--caution-text\)/s);
+    expect(source).toContain('src="/static/logo-mark.svg"');
   });
 
   it('defines a compact editorial A4 print contract', () => {
@@ -326,7 +351,7 @@ describe('App', () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('exposes a read-only search summary with no form inputs and a labelled Analyze control', () => {
+  it('exposes the current search summary with no form inputs until editing starts', () => {
     setupUrlParams('FRA', 'MUC', '2026-08-06');
     render(<App />);
 
@@ -334,42 +359,39 @@ describe('App', () => {
     expect(summary.querySelectorAll('input, select, textarea')).toHaveLength(0);
     const group = summary.querySelector('[role="group"]');
     expect(group?.getAttribute('aria-label')).toBe('Current search summary');
-    expect(screen.getByTestId('search-readonly-tag').textContent).toBe('Read-only');
+    expect(screen.getByTestId('search-mode').textContent).toBe('Current search');
     const analyze = screen.getByTestId('analyze-button');
     expect(analyze.tagName).toBe('BUTTON');
     expect(analyze.getAttribute('aria-label')).toBe('Analyze this route');
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('provides an Edit search link that returns to the landing search with the current one-way route', () => {
+  it('opens Edit search locally on /app with the current one-way route prefilled', () => {
     setupUrlParams('FRA', 'MUC', '2026-08-06');
     render(<App />);
 
-    const editLink = screen.getByTestId('edit-search-link');
-    expect(editLink.tagName).toBe('A');
-    expect(editLink.textContent).toBe('Edit search');
-    const href = editLink.getAttribute('href') || '';
-    expect(href.startsWith('/?')).toBe(true);
-    const params = new URLSearchParams(href.split('?')[1] || '');
-    expect(params.get('from')).toBe('FRA');
-    expect(params.get('to')).toBe('MUC');
-    expect(params.get('date')).toBe('2026-08-06');
-    expect(params.get('trip')).toBeNull();
-    expect(params.get('returnDate')).toBeNull();
+    const originalUrl = window.location.href;
+    fireEvent.click(screen.getByTestId('edit-search-button'));
+    expect(window.location.href).toBe(originalUrl);
+    expect(screen.getByTestId('search-mode').textContent).toBe('Editing');
+    expect((screen.getByTestId('edit-origin') as HTMLInputElement).value).toBe('FRA');
+    expect((screen.getByTestId('edit-destination') as HTMLInputElement).value).toBe('MUC');
+    expect((screen.getByTestId('edit-departure-date') as HTMLInputElement).value).toBe('2026-08-06');
+    expect((screen.getByTestId('edit-trip-type') as HTMLSelectElement).value).toBe('one_way');
+    expect(screen.queryByTestId('edit-return-date')).toBeNull();
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('carries round-trip context on the Edit search link', () => {
+  it('prefills round-trip context in the local editor', () => {
     window.history.pushState({}, 'Test Title', '/app?from=FRA&to=JFK&date=2030-10-10&trip=round_trip&returnDate=2030-10-20');
     render(<App />);
 
-    const href = screen.getByTestId('edit-search-link').getAttribute('href') || '';
-    const params = new URLSearchParams(href.split('?')[1] || '');
-    expect(params.get('from')).toBe('FRA');
-    expect(params.get('to')).toBe('JFK');
-    expect(params.get('date')).toBe('2030-10-10');
-    expect(params.get('trip')).toBe('round_trip');
-    expect(params.get('returnDate')).toBe('2030-10-20');
+    fireEvent.click(screen.getByTestId('edit-search-button'));
+    expect((screen.getByTestId('edit-origin') as HTMLInputElement).value).toBe('FRA');
+    expect((screen.getByTestId('edit-destination') as HTMLInputElement).value).toBe('JFK');
+    expect((screen.getByTestId('edit-departure-date') as HTMLInputElement).value).toBe('2030-10-10');
+    expect((screen.getByTestId('edit-trip-type') as HTMLSelectElement).value).toBe('round_trip');
+    expect((screen.getByTestId('edit-return-date') as HTMLInputElement).value).toBe('2030-10-20');
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
@@ -377,10 +399,176 @@ describe('App', () => {
     setupUrlParams('FRA', 'München (MUC)', '2030-10-10');
     render(<App />);
 
-    const href = screen.getByTestId('edit-search-link').getAttribute('href') || '';
-    const params = new URLSearchParams(href.split('?')[1] || '');
-    expect(params.get('to')).toBe('MUC');
-    expect(href).not.toContain('M%C3%BCnchen');
+    fireEvent.click(screen.getByTestId('edit-search-button'));
+    expect((screen.getByTestId('edit-destination') as HTMLInputElement).value).toBe('MUC');
+  });
+
+  it('cancels local editing without changing the URL, current search or rendered results', async () => {
+    const { container } = await renderWithCashOffers([
+      { offer_id: 'kept', price: 420, currency: 'EUR', airline: 'Kept Airline' },
+    ]);
+    const originalUrl = window.location.href;
+    const originalCalls = mockFetch.mock.calls.length;
+
+    openEditor();
+    expect(document.activeElement).toBe(screen.getByTestId('edit-origin'));
+    changeEditorField('edit-destination', 'JFK');
+    fireEvent.click(screen.getByTestId('cancel-edit-button'));
+
+    expect(window.location.href).toBe(originalUrl);
+    expect(screen.queryByTestId('search-editor')).toBeNull();
+    expect(screen.getByTestId('cash-candidate-card').textContent).toContain('Kept Airline');
+    expect(container.textContent).toContain('MUC');
+    expect(document.activeElement).toBe(screen.getByTestId('edit-search-button'));
+    expect(mockFetch).toHaveBeenCalledTimes(originalCalls);
+  });
+
+  it('updates a valid one-way search on /app through the existing canonical identity flow', async () => {
+    setupUrlParams('FRA', 'MUC', '2030-10-10');
+    const cashResponse = canonicalCashResponse([
+      { offer_id: 'new-canonical', price: 510, currency: 'EUR', airline: 'New Canonical' },
+    ]);
+    let awardsPayload: Record<string, unknown> | null = null;
+    mockFetch.mockImplementation(async (url, options) => {
+      if (url === '/api/cheap') return { ok: true, json: async () => cashResponse };
+      awardsPayload = JSON.parse(options.body);
+      return {
+        ok: true,
+        json: async () => alignAwardIdentity({
+          ok: true,
+          results: [{
+            origin: 'FRA', dest: 'JFK', date: '2030-11-11',
+            programs: [{ program: 'Miles & More', miles: 33000 }],
+            decision: { signal: 'mixed_value', confidence: 'medium' },
+            verified_identical_routing: false, has_live_data: false,
+          }],
+        }, cashResponse.selected_cash_offer_id),
+      };
+    });
+    render(<App />);
+
+    openEditor();
+    changeEditorField('edit-destination', 'JFK');
+    changeEditorField('edit-departure-date', '2030-11-11');
+    fireEvent.click(screen.getByTestId('update-analysis-button'));
+
+    expect(window.location.pathname).toBe('/app');
+    expect(new URLSearchParams(window.location.search).get('to')).toBe('JFK');
+    expect(new URLSearchParams(window.location.search).get('trip')).toBeNull();
+    await waitFor(() => expect(screen.getByTestId('cash-candidate-card')).toBeTruthy());
+    expect(awardsPayload).toMatchObject({
+      origin: 'FRA',
+      dest: 'JFK',
+      date: '2030-11-11',
+      oneWay: true,
+      cashOfferId: cashResponse.selected_cash_offer_id,
+    });
+    expect(screen.getByTestId('cash-candidate-card').getAttribute('data-offer-id')).toBe(cashResponse.selected_cash_offer_id);
+    expect(screen.getByTestId('decision-summary').getAttribute('data-evaluated-cash-offer-id')).toBe(cashResponse.selected_cash_offer_id);
+  });
+
+  it('updates a valid round-trip search and preserves the return date in URL and payload', async () => {
+    setupUrlParams('FRA', 'MUC', '2030-10-10');
+    const cashResponse = canonicalCashResponse([
+      { offer_id: 'round-trip-id', price: 760, currency: 'EUR', returnDate: '2030-11-20', itinerary_state: 'price_only' },
+    ]);
+    const requestBodies: Record<string, unknown>[] = [];
+    mockFetch.mockImplementation(async (url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      if (url === '/api/cheap') return { ok: true, json: async () => cashResponse };
+      return {
+        ok: true,
+        json: async () => alignAwardIdentity({
+          ok: true,
+          results: [{
+            origin: 'FRA', dest: 'JFK', date: '2030-11-11', returnDate: '2030-11-20',
+            programs: [{ program: 'Miles & More', miles: 50000, requested_trip_type: 'round_trip', trip_type: 'one_way' }],
+            decision: { signal: 'insufficient_data', confidence: 'low', trip_basis_compatible: false },
+            verified_identical_routing: false, has_live_data: false,
+          }],
+        }, cashResponse.selected_cash_offer_id),
+      };
+    });
+    render(<App />);
+
+    openEditor();
+    changeEditorField('edit-destination', 'JFK');
+    changeEditorField('edit-departure-date', '2030-11-11');
+    changeEditorField('edit-trip-type', 'round_trip');
+    changeEditorField('edit-return-date', '2030-11-20');
+    fireEvent.click(screen.getByTestId('update-analysis-button'));
+
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get('trip')).toBe('round_trip');
+    expect(params.get('returnDate')).toBe('2030-11-20');
+    expect(requestBodies[0]).toMatchObject({ oneWay: false, returnDate: '2030-11-20' });
+    expect(requestBodies[1]).toMatchObject({ oneWay: false, returnDate: '2030-11-20', cashOfferId: cashResponse.selected_cash_offer_id });
+  });
+
+  it.each([
+    ['invalid origin IATA', 'FR', 'JFK', '2030-11-11', 'one_way', '', 'valid three-letter origin'],
+    ['unresolved destination text', 'FRA', 'New York', '2030-11-11', 'one_way', '', 'valid three-letter destination'],
+    ['same airports', 'FRA', 'FRA', '2030-11-11', 'one_way', '', 'must be different'],
+    ['invalid departure date', 'FRA', 'JFK', 'invalid', 'one_way', '', 'valid future departure'],
+    ['missing return date', 'FRA', 'JFK', '2030-11-11', 'round_trip', '', 'future return date'],
+    ['return before departure', 'FRA', 'JFK', '2030-11-11', 'round_trip', '2030-11-10', 'must not be before'],
+  ])('fails local edit validation for %s', (_label, from, to, date, nextTripType, returnDate, expected) => {
+    setupUrlParams('FRA', 'MUC', '2030-10-10');
+    render(<App />);
+    openEditor();
+    changeEditorField('edit-origin', from);
+    changeEditorField('edit-destination', to);
+    changeEditorField('edit-departure-date', date);
+    changeEditorField('edit-trip-type', nextTripType);
+    if (nextTripType === 'round_trip') changeEditorField('edit-return-date', returnDate);
+    fireEvent.click(screen.getByTestId('update-analysis-button'));
+
+    if (expected) expect(screen.getByTestId('validation-error').textContent).toContain(expected);
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(window.location.search).toContain('to=MUC');
+  });
+
+  it('hides the previous rendered result immediately when an edited analysis starts', async () => {
+    await renderWithCashOffers([
+      { offer_id: 'old-result', price: 420, currency: 'EUR', airline: 'Old Result' },
+    ]);
+    let resolveCash!: (value: unknown) => void;
+    const pendingCash = new Promise(resolve => { resolveCash = resolve; });
+    mockFetch.mockImplementation(async (url) => {
+      if (url === '/api/cheap') return pendingCash;
+      throw new Error(`Awards must wait for the edited cash response: ${String(url)}`);
+    });
+
+    openEditor();
+    changeEditorField('edit-destination', 'JFK');
+    fireEvent.click(screen.getByTestId('update-analysis-button'));
+
+    expect(screen.queryByTestId('result-flow')).toBeNull();
+    expect(screen.getByTestId('loading-state')).toBeTruthy();
+    resolveCash({ ok: true, json: async () => ({ ok: true, offers: [], selected_cash_offer_id: null }) });
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith('/api/awards', expect.anything()));
+  });
+
+  it('prevents duplicate Update analysis submission while the new search is pending', async () => {
+    setupUrlParams('FRA', 'MUC', '2030-10-10');
+    let resolveCash!: (value: unknown) => void;
+    const pendingCash = new Promise(resolve => { resolveCash = resolve; });
+    mockFetch.mockImplementation(async (url) => {
+      if (url === '/api/cheap') return pendingCash;
+      return { ok: true, json: async () => ({ ok: true, selected_cash_offer_id: null, results: [] }) };
+    });
+    render(<App />);
+
+    openEditor();
+    changeEditorField('edit-destination', 'JFK');
+    const update = screen.getByTestId('update-analysis-button');
+    fireEvent.click(update);
+    fireEvent.click(update);
+
+    expect(mockFetch.mock.calls.filter(([url]) => url === '/api/cheap')).toHaveLength(1);
+    resolveCash({ ok: true, json: async () => ({ ok: true, offers: [], selected_cash_offer_id: null }) });
+    await waitFor(() => expect(mockFetch.mock.calls.filter(([url]) => url === '/api/awards')).toHaveLength(1));
   });
 
   it('separates a human-readable airport label from canonical URL and payload values', async () => {
@@ -646,7 +834,7 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByTestId('decision-summary')).toBeTruthy());
     expect(screen.getByRole('heading', { name: 'Why this option' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Key trade-off' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Next best action' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'What to do next' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Evidence quality' })).toBeTruthy();
     expect(screen.getByTestId('decision-why').textContent)
       .toBe('The selected award compares favorably with the evaluated cash itinerary.');
@@ -657,6 +845,38 @@ describe('App', () => {
     expect(screen.getByTestId('cash-alternative-row').textContent).toContain('Connection Air');
     expect(screen.getByTestId('technical-details').tagName).toBe('DETAILS');
     expect(screen.getByTestId('decision-summary').compareDocumentPosition(screen.getByTestId('options-grid')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Verify with Miles & More' })).toBeTruthy();
+  });
+
+  it('keeps a safe generic verification CTA when the program name is unavailable', async () => {
+    setupUrlParams('FRA', 'JFK', '2030-10-10');
+    const cheap = canonicalCashResponse([{ price: 420, currency: 'EUR', airline: 'Selected Air' }]);
+    strictCashFixtureMock({
+      cheap,
+      awards: awardTrustApiResponse('award_cached_recent', {
+        verified_identical_routing: true,
+        decision: {
+          signal: 'strong_miles_value',
+          verdict: 'book_miles',
+          confidence: 'high',
+          trip_basis_compatible: true,
+        },
+        programs: [{
+          miles: 30000,
+          data_source: 'live',
+          is_live_data: true,
+          freshness_label: 'cached_recent',
+          fetched_at: awardTrustFixtures.award_cached_recent.checkedAt,
+          url: 'https://example.com/verify',
+        }],
+      }),
+    });
+
+    const { container } = render(<App />);
+    fireEvent.click(getButton(container));
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Verify with program' })).toBeTruthy());
+    const actionLabels = Array.from(document.querySelectorAll('.next-best-action__links a')).map(link => link.textContent || '');
+    expect(actionLabels.join(' ')).not.toMatch(/\b(Book|Buy|Deal|Cheapest)\b/i);
   });
 
   it('keeps an insufficient-data slice intentional, identity-null and non-recommendatory', async () => {
