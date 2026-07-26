@@ -341,8 +341,8 @@ describe('Landing round-trip search', () => {
   it('keeps_round_trip_desktop_width_constraints_scoped_to_its_layout_marker', () => {
     expect(landingCss).toContain('.ar-instrument--round-trip .ar-field--from')
     expect(landingCss).toContain('.ar-instrument--round-trip .ar-field--return')
-    expect(landingCss).toContain('min-width: 170px')
-    expect(landingCss).toContain('flex: 0 0 156px')
+    expect(landingCss).toContain('min-width: 174px')
+    expect(landingCss).toContain('flex: 0 0 160px')
   })
 
   it('does_not_show_round_trip_validation_before_interaction', () => {

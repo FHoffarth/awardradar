@@ -628,9 +628,9 @@ html, body, #root { max-width: 100%; }
   .ar-instrument--round-trip .ar-field--from,
   .ar-instrument--round-trip .ar-field--to {
     flex: 1 1 auto !important;
-    min-width: 170px !important;
-    padding-left: 22px !important;
-    padding-right: 22px !important;
+    min-width: 174px !important;
+    padding-left: 18px !important;
+    padding-right: 18px !important;
   }
   /* Round-trip packs four columns into the same instrument. One deliberate
      density step keeps every value fully readable instead of ellipsising the
@@ -641,10 +641,10 @@ html, body, #root { max-width: 100%; }
   }
   .ar-instrument--round-trip .ar-field--date,
   .ar-instrument--round-trip .ar-field--return {
-    flex: 0 0 156px !important;
+    flex: 0 0 160px !important;
     min-width: 0 !important;
-    padding-left: 18px !important;
-    padding-right: 18px !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
   }
   .ar-instrument--round-trip .ar-date-input {
     width: 100% !important;
@@ -672,6 +672,11 @@ html, body, #root { max-width: 100%; }
    one notch and the date columns give their surplus back to the airports.
    Every value stays fully readable in both trip modes. */
 @media (min-width: 768px) and (max-width: 1023px) {
+  /* Reclaim the unused page width at this range so four round-trip columns get
+     real headroom rather than competing for the same 656px. */
+  .ar-instrument {
+    width: calc(100% + 120px) !important;
+  }
   .ar-place-input,
   .ar-date-input {
     font-size: 21px !important;
@@ -681,13 +686,13 @@ html, body, #root { max-width: 100%; }
   }
   .ar-instrument--round-trip .ar-field--from,
   .ar-instrument--round-trip .ar-field--to {
-    min-width: 0 !important;
+    min-width: 170px !important;
     padding-left: 16px !important;
     padding-right: 16px !important;
   }
   .ar-instrument--round-trip .ar-field--date,
   .ar-instrument--round-trip .ar-field--return {
-    flex: 0 0 145px !important;
+    flex: 0 0 158px !important;
     padding-left: 14px !important;
     padding-right: 14px !important;
   }
