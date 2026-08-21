@@ -1401,7 +1401,8 @@ def _valid_price(value) -> float | None:
     return price
 
 
-def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, mm_only: bool) -> dict | None:
+def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, mm_only: bool,
+                        ret: dt.date | None = None) -> dict | None:
     segs = item.get("flights") or []
     if not segs:
         return None
@@ -1456,7 +1457,7 @@ def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, m
         "origin": origin,
         "dest": dest,
         "date": dep_date,
-        "returnDate": None,
+        "returnDate": ret.isoformat() if ret else None,
         "dep_time": dep_time,
         "arr_time": arr_time,
         "departure_date": dep_parts["date"],
@@ -1469,10 +1470,10 @@ def _serp_item_to_offer(item: dict, currency: str, typical_range: list | None, m
         "via": [v for v in via_airports if v],
         "durationMin": item.get("total_duration"),
         "typicalRange": typical_range,
-        "bookUrl": links_for(origin, dest, dep_date).get("Google Flights"),
+        "bookUrl": links_for(origin, dest, dep_date, ret.isoformat() if ret else None).get("Google Flights"),
         "dealScore": deal_score(price, stops, airline_code, typical_range),
         "scoreReason": score_reason(price, stops, airline_code, typical_range),
-        "links": links_for(origin, dest, dep_date),
+        "links": links_for(origin, dest, dep_date, ret.isoformat() if ret else None),
     }
 
 
@@ -1492,7 +1493,7 @@ def serpapi_offers(origin: str, dest: str, dep: dt.date, ret: dt.date | None, cu
     for item in items:
         # Per-item guard: a single malformed provider item must not suppress the rest.
         try:
-            offer = _serp_item_to_offer(item, currency, typical_range, mm_only)
+            offer = _serp_item_to_offer(item, currency, typical_range, mm_only, ret=ret)
         except Exception as exc:
             app.logger.warning("skip malformed cheap item %sâ†’%s: %s", origin, dest, exc)
             continue

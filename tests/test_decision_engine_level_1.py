@@ -2086,6 +2086,59 @@ class CashCardInvalidPriceFrontendDefense(unittest.TestCase):
         self.assertEqual(self._eval_helper('["480", 480, 1]'), [True, True, True])
 
 
+class RoundTripCashVerificationLinkTests(unittest.TestCase):
+    """P0-D: the passenger cash-verification CTA must not drop returnDate.
+
+    _serp_item_to_offer -> links_for -> offer['bookUrl'] / offer['links']
+    ('Check current cash fare' opens the Google Flights URL). Round-trip
+    searches must carry the return date into that URL; one-way must not.
+    """
+
+    def _nonstop(self):
+        return [{
+            "departure_airport": {"id": "FRA", "time": "2026-08-15 10:45"},
+            "arrival_airport": {"id": "JFK", "time": "2026-08-15 13:15"},
+            "flight_number": "LH 400",
+            "airline": "Lufthansa",
+        }]
+
+    def _offer(self, ret=None):
+        return app._serp_item_to_offer(
+            {"price": 300, "total_duration": 480, "flights": self._nonstop()},
+            "EUR", None, False, ret=ret,
+        )
+
+    def test_one_way_link_unchanged(self):
+        # One-way (ret=None) must produce exactly the one-way links_for URL and
+        # carry no return context.
+        o = self._offer(ret=None)
+        expected = app.links_for("FRA", "JFK", "2026-08-15")
+        self.assertEqual(o["links"], expected)
+        self.assertEqual(o["bookUrl"], expected["Google Flights"])
+        self.assertNotIn("return", o["links"]["Google Flights"])
+        self.assertIsNone(o["returnDate"])
+
+    def test_round_trip_link_preserves_return_date(self):
+        # Round-trip must inject the return date into the verification URLs.
+        o = self._offer(ret=app.dt.date(2026, 8, 22))
+        expected = app.links_for("FRA", "JFK", "2026-08-15", "2026-08-22")
+        self.assertEqual(o["links"], expected)
+        self.assertIn("return", o["links"]["Google Flights"])
+        self.assertIn("2026-08-22", o["links"]["Google Flights"])
+        self.assertEqual(o["returnDate"], "2026-08-22")
+
+    def test_passenger_cta_uses_corrected_round_trip_url(self):
+        # The CTA opens offer['bookUrl'] (Google Flights). It must equal the
+        # round-trip links_for URL and include the return date — not the
+        # one-way URL.
+        o = self._offer(ret=app.dt.date(2026, 8, 22))
+        roundtrip_url = app.links_for("FRA", "JFK", "2026-08-15", "2026-08-22")["Google Flights"]
+        one_way_url = app.links_for("FRA", "JFK", "2026-08-15")["Google Flights"]
+        self.assertEqual(o["bookUrl"], roundtrip_url)
+        self.assertIn("2026-08-22", o["bookUrl"])
+        self.assertNotEqual(o["bookUrl"], one_way_url)
+
+
 def math_isfinite(x):
     try:
         import math as _m
