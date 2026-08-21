@@ -1,6 +1,15 @@
 # AwardRadar
 
-Find miles. Fly better.
+> **Know what’s worth checking.**
+
+Travel decision intelligence for cash fares, award availability and booking verification.
+
+**Compare the signal. Understand the trade-offs. Verify before booking.**
+
+`Cash fares → Award value → Decision guidance → Verification`
+
+AwardRadar is an experimental travel intelligence product designed to help
+answer a simple question: *what is actually worth booking?*
 
 ## Product architecture
 
